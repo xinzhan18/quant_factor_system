@@ -5,7 +5,7 @@ Common Factor Definitions
 
 import pandas as pd
 import numpy as np
-from .base import Factor
+from ...core.base import Factor
 
 
 class MomentumFactor(Factor):

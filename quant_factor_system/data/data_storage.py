@@ -18,7 +18,7 @@ import json
 import hashlib
 import logging
 from contextlib import contextmanager
-from quant_factor_system.data_source import MultiSourceDataManager
+from .source.data_source import MultiSourceDataManager
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
