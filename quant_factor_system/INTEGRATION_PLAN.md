@@ -31,13 +31,14 @@
 | T2.4 | 索提诺比率 | P1 | ✅ 已完成 | QuantStats |
 | T2.5 | 卡玛比率 | P2 | ✅ 已完成 | QuantStats |
 
-### Phase 3: Pipeline 架构 (待开始)
+### Phase 3: Pipeline 架构
 
-| ID | 任务 | 优先级 | 状态 | 来源 |
-|----|------|--------|------|------|
-| T3.1 | 因子管道 API 设计 | P1 | TODO | Zipline |
-| T3.2 | 因子组合支持 | P1 | TODO | Zipline |
-| T3.3 | 因子过滤机制 | P2 | TODO | Zipline |
+| ID | 任务 | 来源 | 状态 |
+|----|------|------|------|
+| T3.1 | Pipeline 引擎 | Zipline | ✅ |
+| T3.2 | Factor 基类 | Zipline | ✅ |
+| T3.3 | 因子组合 | Zipline | ✅ |
+| T3.4 | 因子过滤 | Zipline | ✅ |
 
 ---
 
@@ -158,76 +159,83 @@ python -m pytest tests/test_drawdown.py -v
 
 ### 已完成
 
-| ID | 任务 | 完成时间 | PR |
-|----|------|----------|-----|
-| T1.1 | IC 系列 | 2026-02-09 | #15 |
-| T1.2 | 分组回测 | 2026-02-09 | #15 |
-| T1.3 | 因子换手率 | 2026-02-09 | #15 |
-| T1.4 | 因子自相关 | 2026-02-09 | #15 |
-| T2.1 | 夏普比率 | 2026-02-09 | #16 |
-| T2.2 | 最大回撤 | 2026-02-09 | #16 |
-| T2.3 | VaR/CVaR | 2026-02-09 | #16 |
-| T2.4 | 索提诺比率 | 2026-02-09 | #16 |
-| T2.5 | 卡玛比率 | 2026-02-09 | #16 |
-| T3.1 | Pipeline 架构 | 2026-02-09 | #17 |
-| T3.2 | Factor 基类 | 2026-02-09 | #17 |
-| T3.3 | 因子组合 | 2026-02-09 | #17 |
+| ID | 任务 | 来源 | PR |
+|----|------|------|-----|
+| T1.1 | IC 系列 | Alphalens | #15 |
+| T1.2 | 分组回测 | Alphalens | #15 |
+| T1.3 | 因子换手率 | Alphalens | #15 |
+| T1.4 | 因子自相关 | Alphalens | #15 |
+| T2.1 | 夏普比率 | QuantStats | #16 |
+| T2.2 | 最大回撤 | QuantStats | #16 |
+| T2.3 | VaR/CVaR | QuantStats | #16 |
+| T2.4 | 索提诺比率 | QuantStats | #16 |
+| T2.5 | 卡玛比率 | QuantStats | #16 |
+| T3.1 | Pipeline 架构 | Zipline | #17 |
+| T3.2 | Factor 基类 | Zipline | #17 |
+| T3.3 | 因子组合 | Zipline | #17 |
+| T3.4 | 因子过滤 | Zipline | #17 |
+| T4.1 | Tearsheet 报告 | Alphalens | #18 |
+| T4.2 | Pandas 扩展 | QuantStats | #18 |
+| T4.3 | Monte Carlo | QuantStats | #18 |
 
 ### 🎉 所有 Phase 已完成!
 
 ---
 
-## 本次更新总结
+## 🎉 所有任务已完成!
 
-### Phase 3: Pipeline 架构 (Zipline 风格)
+### Phase 4: 报告与扩展 (2026-02-09) ✅
 
-✅ 已实现:
-- **Factor 基类**: 记忆化、窗口支持、运算符重载
-- **Pipeline 引擎**: DAG 执行、按需计算
-- **基础因子**: Momentum, RSI, MovingAverage, Volatility
-- **过滤器**: PercentileFilter, FactorFilter
-- **因子组合**: +, -, *, /
-- **变换**: rolling(), rank(), zscore()
+| ID | 任务 | 来源 | 状态 |
+|----|------|------|------|
+| T4.1 | Tearsheet 报告 | Alphalens | ✅ |
+| T4.2 | HTML 导出 | Alphalens | ✅ |
+| T4.3 | Pandas 扩展 | QuantStats | ✅ |
+| T4.4 | Monte Carlo | QuantStats | ✅ |
+
+---
+
+## 完整功能清单
+
+### 核心模块
+
+| 模块 | 功能 | 来源 |
+|------|------|------|
+| **存储层** | SQLite + CSV + Cache | 自研 |
+| **评估模块** | IC、分组回测、相关性 | Alphalens |
+| **风险指标** | 夏普、VaR、回撤 | QuantStats |
+| **Pipeline** | 因子管道、组合、过滤 | Zipline |
+| **报告** | Tearsheet、HTML导出 | Alphalens |
+| **扩展** | Pandas 扩展方法 | QuantStats |
+| **模拟** | Monte Carlo | QuantStats |
 
 ### 代码示例
 
 ```python
-from quant_factor_system.pipeline import (
-    Pipeline, Momentum, RSI, MovingAverage
-)
+from quant_factor_system.pipeline import Pipeline, Momentum, RSI
 
-# 创建 Pipeline
+# Pipeline
 pipe = Pipeline("MyPipeline")
 pipe.add_factor('momentum', Momentum(window=20))
-pipe.add_factor('rsi', RSI(window=14))
-pipe.add_factor('ma20', MovingAverage(window=20))
-
-# 运行
 result = pipe.run({'close': price_data})
-print(result.head())
 
-# 因子组合
-combined = Momentum(window=20) + RSI(window=14) * 0.5
+# Pandas 扩展
+from quant_factor_system.visualization import extend_pandas
+extend_pandas()
+returns.quant.sharpe()
+returns.quant.max_drawdown()
+
+# Monte Carlo
+from quant_factor_system.visualization import MonteCarloSimulator
+mc = MonteCarloSimulator(returns, sims=1000)
+stats = mc.get_statistics()
 ```
 
 ---
 
-## 下一步
+## GitHub
 
-### 可选增强功能
-
-| 功能 | 来源 | 优先级 |
-|------|------|--------|
-| Pandas 扩展方法 | QuantStats | P2 |
-| Monte Carlo 模拟 | QuantStats | P2 |
-| Tearsheet 报告 | Alphalens | P2 |
-| 实时数据支持 | Zipline | P3 |
-
-| ID | 任务 | 优先级 | 来源 |
-|----|------|--------|------|
-| T3.1 | 因子管道 API 设计 | P1 | Zipline |
-| T3.2 | 因子组合支持 | P1 | Zipline |
-| T3.3 | 因子过滤机制 | P2 | Zipline |
+https://github.com/xinzhan18/quant_factor_system
 
 ---
 
@@ -242,4 +250,4 @@ combined = Momentum(window=20) + RSI(window=14) * 0.5
 ---
 
 *计划创建时间: 2026-02-09*
-*最后更新: 2026-02-09*
+*最后更新: 2026-02-09 02:10*
