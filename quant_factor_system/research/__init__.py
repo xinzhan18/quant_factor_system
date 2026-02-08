@@ -3,6 +3,52 @@
 因子研究、版本管理、论文复现的完整工作流
 """
 
+from .templates import (
+    BaseFactorTemplate,
+    FactorTemplate,
+    FactorVersion,
+    MomentumTemplate,
+    MeanReversionTemplate,
+    VolatilityTemplate,
+    VolumeTemplate,
+    QualityTemplate,
+    ValueTemplate,
+    CompositeFactorTemplate,
+    FactorTemplateManager,
+    register_builtin_templates,
+    create_template,
+)
+
+from . import templates
+
+__all__ = [
+    # 模板
+    "BaseFactorTemplate",
+    "FactorTemplate",
+    "FactorVersion",
+    "MomentumTemplate",
+    "MeanReversionTemplate",
+    "VolatilityTemplate",
+    "VolumeTemplate",
+    "QualityTemplate",
+    "ValueTemplate",
+    "CompositeFactorTemplate",
+    "FactorTemplateManager",
+    "register_builtin_templates",
+    "create_template",
+    
+    # 研究工作流
+    "ResearchRecord",
+    "ResearchWorkflow",
+    "FactorVersionManager",
+    "PaperReproducer",
+    "create_research_workflow",
+    "create_version_manager",
+    
+    # 子模块
+    "templates",
+]
+
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Any, Callable

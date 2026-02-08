@@ -1,5 +1,25 @@
 # Trading - 交易模块
-# TransactionCostCalculator 已在 evaluation 中实现
-# 此模块为占位符，后续可扩展
+# 选股与组合模块
+from .selector import (
+    StockPosition,
+    Portfolio,
+    SingleFactorPicker,
+    MultiFactorCombiner,
+    PortfolioConstructor,
+    WeightOptimizer,
+    StockSelector,
+    single_factor_pick,
+    multi_factor_combine
+)
 
-__all__ = []
+__all__ = [
+    "StockPosition",
+    "Portfolio",
+    "SingleFactorPicker",
+    "MultiFactorCombiner",
+    "PortfolioConstructor",
+    "WeightOptimizer",
+    "StockSelector",
+    "single_factor_pick",
+    "multi_factor_combine",
+]

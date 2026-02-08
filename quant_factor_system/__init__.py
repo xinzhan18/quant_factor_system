@@ -27,6 +27,7 @@ from .trading import *
 from .automation import *
 from .visualization import *
 from .storage import *
+from .research import *
 
 __version__ = "3.0.0"
 __author__ = "OpenClaw"
