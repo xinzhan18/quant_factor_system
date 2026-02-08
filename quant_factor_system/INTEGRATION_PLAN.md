@@ -169,8 +169,59 @@ python -m pytest tests/test_drawdown.py -v
 | T2.3 | VaR/CVaR | 2026-02-09 | #16 |
 | T2.4 | 索提诺比率 | 2026-02-09 | #16 |
 | T2.5 | 卡玛比率 | 2026-02-09 | #16 |
+| T3.1 | Pipeline 架构 | 2026-02-09 | #17 |
+| T3.2 | Factor 基类 | 2026-02-09 | #17 |
+| T3.3 | 因子组合 | 2026-02-09 | #17 |
 
-### Phase 3: Pipeline 架构 (待开始)
+### 🎉 所有 Phase 已完成!
+
+---
+
+## 本次更新总结
+
+### Phase 3: Pipeline 架构 (Zipline 风格)
+
+✅ 已实现:
+- **Factor 基类**: 记忆化、窗口支持、运算符重载
+- **Pipeline 引擎**: DAG 执行、按需计算
+- **基础因子**: Momentum, RSI, MovingAverage, Volatility
+- **过滤器**: PercentileFilter, FactorFilter
+- **因子组合**: +, -, *, /
+- **变换**: rolling(), rank(), zscore()
+
+### 代码示例
+
+```python
+from quant_factor_system.pipeline import (
+    Pipeline, Momentum, RSI, MovingAverage
+)
+
+# 创建 Pipeline
+pipe = Pipeline("MyPipeline")
+pipe.add_factor('momentum', Momentum(window=20))
+pipe.add_factor('rsi', RSI(window=14))
+pipe.add_factor('ma20', MovingAverage(window=20))
+
+# 运行
+result = pipe.run({'close': price_data})
+print(result.head())
+
+# 因子组合
+combined = Momentum(window=20) + RSI(window=14) * 0.5
+```
+
+---
+
+## 下一步
+
+### 可选增强功能
+
+| 功能 | 来源 | 优先级 |
+|------|------|--------|
+| Pandas 扩展方法 | QuantStats | P2 |
+| Monte Carlo 模拟 | QuantStats | P2 |
+| Tearsheet 报告 | Alphalens | P2 |
+| 实时数据支持 | Zipline | P3 |
 
 | ID | 任务 | 优先级 | 来源 |
 |----|------|--------|------|
