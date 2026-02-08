@@ -13,7 +13,8 @@ Quantitative Multi-Factor Evaluation System
 ├── evaluation/     # 评估模块
 ├── trading/        # 交易模块
 ├── automation/     # 自动化模块
-└── visualization/  # 可视化模块
+├── visualization/  # 可视化模块
+└── storage/        # 存储模块
 
 版本: 3.0.0
 """
@@ -25,6 +26,7 @@ from .evaluation import *
 from .trading import *
 from .automation import *
 from .visualization import *
+from .storage import *
 
 __version__ = "3.0.0"
 __author__ = "OpenClaw"
@@ -80,4 +82,12 @@ __all__ = [
     # Visualization
     "FactorDashboard",
     "ReportGenerator",
+    
+    # Storage
+    "FactorDatabase",
+    "CSVStorage",
+    "Cache",
+    "get_database",
+    "get_csv_storage",
+    "get_cache",
 ]
