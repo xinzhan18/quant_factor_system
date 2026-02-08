@@ -98,4 +98,15 @@ __all__ = [
     "get_database",
     "get_csv_storage",
     "get_cache",
+    
+    # Trading / Selection
+    "StockPosition",
+    "Portfolio",
+    "SingleFactorPicker",
+    "MultiFactorCombiner",
+    "PortfolioConstructor",
+    "WeightOptimizer",
+    "StockSelector",
+    "single_factor_pick",
+    "multi_factor_combine",
 ]
