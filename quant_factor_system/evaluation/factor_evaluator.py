@@ -281,7 +281,7 @@ class ICAnalyzer:
         ic_ir = abs(ic) / (factor_aligned.std() + 1e-8)
         
         # IC 胜率
-        ic_sign_ratio = (np.sign(factor_aligned) == np.sign(returns_aligned)).mean()
+        ic_sign_ratio = np.corrcoef(factor_aligned.values, returns_aligned.values)[0,1]
         
         return {
             'ic': ic,
@@ -547,6 +547,11 @@ class FactorEvaluator:
         factor_aligned, returns_aligned = align_factor_returns(
             factor_processed, returns, shift=1
         )
+        
+        # 确保长度一致
+        min_len = min(len(factor_aligned), len(returns_aligned))
+        factor_aligned = factor_aligned.iloc[:min_len]
+        returns_aligned = returns_aligned.iloc[:min_len]
         
         if len(factor_aligned) < 30:
             print(f"⚠️ {factor_name}: 数据不足")
