@@ -10,6 +10,10 @@ Quantitative Multi-Factor Evaluation System
 - 支持多种数据源
 - 完整的因子评估体系
 - 简单的回测框架
+- 自动数据更新
+- 可视化报告
+
+版本: 2.0.0
 """
 
 from .base import Factor, FactorSystem
@@ -46,8 +50,24 @@ from .data_source import (
     DataCache,
     get_a_stock_data
 )
+from .data_storage import (
+    SQLiteDB,
+    DataRepository,
+    AutoDataUpdater
+)
+from .automation import (
+    TaskScheduler,
+    TaskStatus,
+    TaskResult,
+    FactorAnalysisPipeline,
+    create_default_pipeline
+)
+from .visualization import (
+    FactorDashboard,
+    ReportGenerator
+)
 
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 __author__ = "OpenClaw"
 
 __all__ = [
@@ -90,4 +110,20 @@ __all__ = [
     "MultiSourceDataManager",
     "DataCache",
     "get_a_stock_data",
+    
+    # 数据持久化
+    "SQLiteDB",
+    "DataRepository",
+    "AutoDataUpdater",
+    
+    # 自动化
+    "TaskScheduler",
+    "TaskStatus",
+    "TaskResult",
+    "FactorAnalysisPipeline",
+    "create_default_pipeline",
+    
+    # 可视化
+    "FactorDashboard",
+    "ReportGenerator",
 ]
