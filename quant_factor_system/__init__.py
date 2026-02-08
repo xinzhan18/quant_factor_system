@@ -73,6 +73,14 @@ __all__ = [
     "align_factor_returns",
     "create_return_series",
     
+    # Enhanced Evaluation
+    "EnhancedFactorResult",
+    "EnhancedICAnalyzer",
+    "GroupReturnsAnalyzer",
+    "FactorCorrelator",
+    "EnhancedEvaluator",
+    "evaluate_factor",
+    
     # Automation
     "TaskScheduler",
     "TaskStatus",
