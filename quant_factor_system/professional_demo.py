@@ -119,9 +119,16 @@ def demo_data_processing():
     
     df_final, final_stats = preprocessor.preprocess(data.copy(), config)
     
+    # 获取最终记录数
+    final_records = final_stats.get('final_records', 
+                    final_stats.get('after_filtering', 
+                    len(df_final)))
+    retention = final_stats.get('retention_ratio',
+                    final_records / final_stats['original_records'] * 100 if 'original_records' in final_stats else 0)
+    
     print(f"  原始记录: {final_stats['original_records']}")
-    print(f"  最终记录: {final_stats['final_records']}")
-    print(f"  保留比例: {final_stats['retention_ratio']:.1f}%")
+    print(f"  最终记录: {final_records}")
+    print(f"  保留比例: {retention:.1f}%")
     
     return df_final
 

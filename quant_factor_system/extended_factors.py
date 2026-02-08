@@ -351,7 +351,7 @@ class LiquidityFactor(BarraStyleFactor):
     低流动性股票往往有更高的交易成本和价格冲击
     """
     
-    def __init__(self, period: int = 252, method: " turnover",
+    def __init__(self, period: int = 252, method: str = "turnover",
                  description: str = "流动性因子 ( Barra Style )"):
         """
         Args:
