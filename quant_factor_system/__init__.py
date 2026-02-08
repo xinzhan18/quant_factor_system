@@ -50,6 +50,13 @@ from .data_source import (
     DataCache,
     get_a_stock_data
 )
+from .data_processor import (
+    DataProcessor,
+    FactorNeutralizer,
+    FactorPreprocessor,
+    get_real_stock_data,
+    get_market_index_data
+)
 from .data_storage import (
     SQLiteDB,
     DataRepository,
@@ -67,7 +74,7 @@ from .visualization import (
     ReportGenerator
 )
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __author__ = "OpenClaw"
 
 __all__ = [
@@ -126,4 +133,11 @@ __all__ = [
     # 可视化
     "FactorDashboard",
     "ReportGenerator",
+    
+    # 数据处理（专业版）
+    "DataProcessor",
+    "FactorNeutralizer",
+    "FactorPreprocessor",
+    "get_real_stock_data",
+    "get_market_index_data",
 ]
