@@ -23,6 +23,8 @@ PAGES = {
     "首页": "pages.home",
     "因子评估": "pages.factor_evaluation",
     "因子筛选": "pages.factor_screening",
+    "因子交互": "pages.factor_interaction",
+    "Pipeline编辑器": "pages.pipeline_editor",
     "选股": "pages.stock_selection",
     "历史回测": "pages.backtest_history",
 }
