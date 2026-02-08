@@ -109,4 +109,27 @@ __all__ = [
     "StockSelector",
     "single_factor_pick",
     "multi_factor_combine",
+    
+    # Research / Templates
+    "BaseFactorTemplate",
+    "FactorTemplate",
+    "FactorVersion",
+    "MomentumTemplate",
+    "MeanReversionTemplate",
+    "VolatilityTemplate",
+    "VolumeTemplate",
+    "QualityTemplate",
+    "ValueTemplate",
+    "CompositeFactorTemplate",
+    "FactorTemplateManager",
+    "register_builtin_templates",
+    "create_template",
+    
+    # Research Workflow
+    "ResearchRecord",
+    "ResearchWorkflow",
+    "FactorVersionManager",
+    "PaperReproducer",
+    "create_research_workflow",
+    "create_version_manager",
 ]
