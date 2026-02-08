@@ -339,10 +339,30 @@ class GroupBacktester:
         """
         创建分组标签
         
+        支持 MultiIndex 和重复值
+        使用 rank + qcut 处理重复值
+        
         Returns:
             分组标签序列
         """
-        return pd.qcut(factor, q=n_groups, labels=[f'Q{i+1}' for i in range(n_groups)])
+        factor_clean = factor.dropna()
+        
+        if len(factor_clean) < n_groups:
+            return pd.Series(index=factor.index)
+        
+        try:
+            # 先尝试 qcut
+            groups = pd.qcut(factor_clean, q=n_groups, labels=[f'Q{i+1}' for i in range(n_groups)])
+        except ValueError:
+            # 如果 qcut 失败（重复值），使用 rank 方法
+            # 将因子值排名分为 n_groups 组
+            ranks = factor_clean.rank(method='first')
+            bin_edges = np.linspace(ranks.min(), ranks.max() + 1, n_groups + 1)
+            group_labels = pd.cut(ranks, bins=bin_edges, labels=[f'Q{i+1}' for i in range(n_groups)])
+            groups = group_labels
+        
+        # 确保返回完整索引
+        return groups.reindex(factor.index)
     
     def calculate_group_returns(self, 
                                factor: pd.Series,
@@ -376,12 +396,17 @@ class GroupBacktester:
         # 创建分组
         groups = self.create_groups(factor_aligned, n_groups)
         
-        # 计算每组收益 - 使用 .loc 确保索引一致
+        # 确保 groups 和 returns_aligned 索引一致
+        common_groups_idx = groups.index.intersection(returns_aligned.index)
+        groups = groups.loc[common_groups_idx]
+        returns_local = returns_aligned.loc[common_groups_idx]
+        
+        # 计算每组收益 - 使用布尔索引选择
         group_rets = {}
         for g in [f'Q{i+1}' for i in range(n_groups)]:
             mask = groups == g
             if mask.sum() > 0:
-                group_rets[g] = returns_aligned.loc[mask].mean()
+                group_rets[g] = returns_local[mask.values].mean()
         
         # 计算多空收益
         if 'Q1' in group_rets and 'Q5' in group_rets:
