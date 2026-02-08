@@ -267,6 +267,14 @@ class ICAnalyzer:
         if len(factor_aligned) < 30:
             return {'ic': 0, 'ic_ir': 0, 'ic_sign_ratio': 0}
         
+        # 确保索引一致
+        common_idx = factor_aligned.index.intersection(returns_aligned.index)
+        if len(common_idx) == 0:
+            return {'ic': 0, 'ic_ir': 0, 'ic_sign_ratio': 0}
+        
+        factor_aligned = factor_aligned.loc[common_idx]
+        returns_aligned = returns_aligned.loc[common_idx]
+        
         # 计算 IC
         ic = factor_aligned.corr(returns_aligned)
         
@@ -280,8 +288,8 @@ class ICAnalyzer:
         # 简化计算
         ic_ir = abs(ic) / (factor_aligned.std() + 1e-8)
         
-        # IC 胜率
-        ic_sign_ratio = np.corrcoef(factor_aligned.values, returns_aligned.values)[0,1]
+        # IC 胜率 - 使用 pandas corr 确保索引一致
+        ic_sign_ratio = (np.sign(factor_aligned.values) == np.sign(returns_aligned.values)).mean()
         
         return {
             'ic': ic,
@@ -357,15 +365,23 @@ class GroupBacktester:
         if len(factor_aligned) < 100:
             return pd.DataFrame(), {}
         
+        # 确保索引一致
+        common_idx = factor_aligned.index.intersection(returns_aligned.index)
+        if len(common_idx) == 0:
+            return pd.DataFrame(), {}
+        
+        factor_aligned = factor_aligned.loc[common_idx]
+        returns_aligned = returns_aligned.loc[common_idx]
+        
         # 创建分组
         groups = self.create_groups(factor_aligned, n_groups)
         
-        # 计算每组收益
+        # 计算每组收益 - 使用 .loc 确保索引一致
         group_rets = {}
         for g in [f'Q{i+1}' for i in range(n_groups)]:
             mask = groups == g
             if mask.sum() > 0:
-                group_rets[g] = returns_aligned[mask].mean()
+                group_rets[g] = returns_aligned.loc[mask].mean()
         
         # 计算多空收益
         if 'Q1' in group_rets and 'Q5' in group_rets:
@@ -548,14 +564,14 @@ class FactorEvaluator:
             factor_processed, returns, shift=1
         )
         
-        # 确保长度一致
-        min_len = min(len(factor_aligned), len(returns_aligned))
-        factor_aligned = factor_aligned.iloc[:min_len]
-        returns_aligned = returns_aligned.iloc[:min_len]
-        
-        if len(factor_aligned) < 30:
+        # 确保索引一致
+        common_idx = factor_aligned.index.intersection(returns_aligned.index)
+        if len(common_idx) < 30:
             print(f"⚠️ {factor_name}: 数据不足")
             return result
+        
+        factor_aligned = factor_aligned.loc[common_idx]
+        returns_aligned = returns_aligned.loc[common_idx]
         
         # 3. IC 分析
         ic_stats = self.ic_analyzer.calculate_ic(factor_aligned, returns_aligned)
