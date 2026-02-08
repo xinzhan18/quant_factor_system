@@ -16,5 +16,4 @@ FactorDataGenerator = formatter.FactorDataGenerator
 __all__ = source.__all__ + processor.__all__ + [
     "DataRepository", "SQLiteDB", "AutoDataUpdater",
     "QuantDataFormatter", "FactorDataGenerator",
-    "format_daily_data", "format_factor_data", "create_factor_matrix",
 ]

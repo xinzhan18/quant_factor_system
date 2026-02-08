@@ -21,6 +21,18 @@ from .enhanced import (
     evaluate_factor
 )
 
+# Risk Metrics (基于 QuantStats)
+from .risk_metrics import (
+    RiskMetrics,
+    RiskAnalyzer,
+    sharpe_ratio,
+    sortino_ratio,
+    max_drawdown,
+    calmar_ratio,
+    value_at_risk,
+    conditional_var
+)
+
 # Alphalens 集成
 try:
     from .alphalens_wrapper import (
@@ -57,4 +69,14 @@ __all__ = [
     "FactorCorrelator",
     "EnhancedEvaluator",
     "evaluate_factor",
+    
+    # Risk Metrics
+    "RiskMetrics",
+    "RiskAnalyzer",
+    "sharpe_ratio",
+    "sortino_ratio",
+    "max_drawdown",
+    "calmar_ratio",
+    "value_at_risk",
+    "conditional_var",
 ]
