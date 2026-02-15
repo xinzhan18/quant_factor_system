@@ -6,10 +6,29 @@ from .factors import (
     VolatilityFactor,
     GrowthFactor,
     SizeFactor,
-    LiquidityFactor
+    LiquidityFactor,
+)
+
+from .return_factors import (
+    # 收益率因子
+    Return1dFactor,
+    Return5dFactor,
+    Return20dFactor,
+    Return60dFactor,
+    
+    # 均值回归因子
+    DistMA10Factor,
+    DistMA20Factor,
+    DistMA60Factor,
+    ZScore60Factor,
+    
+    # 便捷函数
+    create_return_factor,
+    create_dist_ma_factor,
 )
 
 __all__ = [
+    # 原有因子
     "MomentumFactor",
     "ValueFactor", 
     "QualityFactor",
@@ -17,4 +36,20 @@ __all__ = [
     "GrowthFactor",
     "SizeFactor",
     "LiquidityFactor",
+    
+    # 收益率因子
+    "Return1dFactor",
+    "Return5dFactor",
+    "Return20dFactor",
+    "Return60dFactor",
+    
+    # 均值回归因子
+    "DistMA10Factor",
+    "DistMA20Factor",
+    "DistMA60Factor",
+    "ZScore60Factor",
+    
+    # 便捷函数
+    "create_return_factor",
+    "create_dist_ma_factor",
 ]

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>飞书 API 经典调用案例</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #1a1a2e;
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+        .divider {
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 2px;
+            margin-bottom: 40px;
+        }
+        .scene {
+            margin-bottom: 35px;
+            padding: 25px;
+            border-radius: 15px;
+        }
+        .scene-1 { background: #f8f9ff; border-left: 5px solid #667eea; }
+        .scene-2 { background: #fff8f0; border-left: 5px solid #ff7e5f; }
+        .scene-3 { background: #f0fff4; border-left: 5px solid #38a169; }
+        .scene-4 { background: #fff5f5; border-left: 5px solid #e53e3e; }
+        .scene-5 { background: #ebf8ff; border-left: 5px solid #3182ce; }
+        
+        h2 {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+        .scene-1 h2 { color: #667eea; }
+        .scene-2 h2 { color: #ff7e5f; }
+        .scene-3 h2 { color: #38a169; }
+        .scene-4 h2 { color: #e53e3e; }
+        .scene-5 h2 { color: #3182ce; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        h4 {
+            color: #444;
+            margin-bottom: 10px;
+        }
+        code {
+            background: #1a1a2e;
+            color: #00ff88;
+            padding: 15px;
+            border-radius: 8px;
+            display: block;
+            font-size: 13px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 25px;
+            color: white;
+        }
+        .summary h3 {
+            margin-top: 0;
+            font-size: 18px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        .summary-icon {
+            font-size: 28px;
+        }
+        .summary-text {
+            font-size: 12px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 飞书 API 经典调用案例</h1>
+        <p class="subtitle">Feishu API Calling Examples with Dummy Data</p>
+        
+        <div class="divider"></div>
+        
+        <!-- 场景1: 飞书文档 -->
+        <div class="scene scene-1">
+            <h2>📄 场景1: 飞书文档操作</h2>
+            <div class="grid">
+                <div>
+                    <h4>✏️ 创建文档</h4>
+                    <code>feishu_doc({
+  action: "create",
+  title: "2026年Q1项目计划",
+  folder_token: "fol_xxx123"
+})</code>
+                </div>
+                <div>
+                    <h4>📖 读取文档</h4>
+                    <code>feishu_doc({
+  action: "read",
+  doc_token: "docx_xxx456"
+})</code>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 场景2: 飞书表格Bitable -->
+        <div class="scene scene-2">
+            <h2>📊 场景2: 飞书多维表格 Bitable</h2>
+            <div class="grid">
+                <div>
+                    <h4>➕ 创建记录</h4>
+                    <code>feishu_bitable_create_record({
+  app_token: "app_xxx789",
+  table_id: "tbl_abc123",
+  fields: {
+    "姓名": "张三",
+    "部门": "技术部",
+    "入职日期": "2026-01-15",
+    "状态": "在职"
+  }
+})</code>
+                </div>
+                <div>
+                    <h4>🔍 查询记录</h4>
+                    <code>feishu_bitable_list_records({
+  app_token: "app_xxx789",
+  table_id: "tbl_abc123",
+  page_size: 50
+})</code>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 场景3: 飞书云盘 -->
+        <div class="scene scene-3">
+            <h2>☁️ 场景3: 飞书云盘操作</h2>
+            <div class="grid">
+                <div>
+                    <h4>📁 创建文件夹</h4>
+                    <code>feishu_drive({
+  action: "create_folder",
+  name: "2026年项目资料",
+  folder_token: "fol_root"
+})</code>
+                </div>
+                <div>
+                    <h4>📋 列出文件</h4>
+                    <code>feishu_drive({
+  action: "list",
+  folder_token: "fol_root"
+})</code>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 场景4: 飞书Wiki -->
+        <div class="scene scene-4">
+            <h2>📚 场景4: 飞书 Wiki 知识库</h2>
+            <div class="grid">
+                <div>
+                    <h4>🔎 搜索节点</h4>
+                    <code>feishu_wiki({
+  action: "search",
+  query: "API 开发文档"
+})</code>
+                </div>
+                <div>
+                    <h4>📄 获取节点</h4>
+                    <code>feishu_wiki({
+  action: "get",
+  token: "wiki_xxx777"
+})</code>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 场景5: 消息发送 -->
+        <div class="scene scene-5">
+            <h2>💬 场景5: 发送消息</h2>
+            <div class="grid">
+                <div>
+                    <h4>📨 发送文本消息</h4>
+                    <code>message({
+  action: "send",
+  target: "ou_xxx999",
+  message: "项目已更新，请查看文档！"
+})</code>
+                </div>
+                <div>
+                    <h4>📊 发送富文本</h4>
+                    <code>message({
+  action: "send",
+  target: "chat_xxx888",
+  message: "📈 **Q1数据报告**\\n\\n已完成统计，请查阅附件。"
+})</code>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 总结 -->
+        <div class="summary">
+            <h3>📋 经典场景概括</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-icon">📄</div>
+                    <div class="summary-text">文档管理</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-text">数据表格</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-icon">☁️</div>
+                    <div class="summary-text">云盘存储</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-icon">📚</div>
+                    <div class="summary-text">知识库</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-icon">💬</div>
+                    <div class="summary-text">消息通知</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
