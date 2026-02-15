@@ -490,13 +490,13 @@ class FactorProcessor:
             group = group.copy()
             
             if len(group) < 5:
-                group['factor_industry_neutral'] = group[factor_col]
+                group['factor_industry_neutral'] = group[factor_col].values
                 results.append(group)
                 continue
             
             # 行业内去均值
             industry_mean = group.groupby('industry')[factor_col].transform('mean')
-            group['factor_industry_neutral'] = group[factor_col] - industry_mean
+            group['factor_industry_neutral'] = (group[factor_col] - industry_mean).values
             
             results.append(group)
         
@@ -632,6 +632,13 @@ class FactorProcessor:
         """
         result = factor_df.copy()
         
+        # 确保因子值列存在
+        if factor_col not in result.columns:
+            # 找到因子值列
+            value_cols = [c for c in result.columns if c not in [date_col, symbol_col]]
+            if value_cols:
+                result[factor_col] = result[value_cols[0]]
+        
         # Step 1: 涨跌停过滤
         if daily_data is not None:
             result = self.filter_stocks(
@@ -640,28 +647,151 @@ class FactorProcessor:
         
         # Step 2: 市值中心化
         if market_cap is not None:
-            result = self.neutralize_market_cap(
+            neutralized = self._neutralize_regression_simple(
                 result, market_cap, date_col, symbol_col, factor_col
             )
-            result = result.rename(columns={'factor_neutralized': factor_col})
+            result[factor_col] = neutralized[factor_col].values
         
         # Step 3: 行业中性化
         if industry is not None and self.config.industry_neutral:
-            result = self.neutralize_industry(
+            neutralized = self._neutralize_industry_simple(
                 result, industry, date_col, symbol_col, factor_col
             )
-            result = result.rename(columns={'factor_industry_neutral': factor_col})
+            result[factor_col] = neutralized[factor_col].values
         
         # Step 4: 异常值处理
-        result = self.clip_outliers(result, date_col, factor_col)
-        result = result.rename(columns={'factor_clipped': factor_col})
+        result = self._clip_outliers_simple(result, date_col, factor_col)
         
         # Step 5: 标准化
         if self.config.standardize:
-            result = self.standardize(result, date_col, factor_col)
-            result = result.rename(columns={'factor_standardized': factor_col})
+            result = self._standardize_simple(result, date_col, factor_col)
         
         return result
+    
+    def _neutralize_regression_simple(
+        self,
+        df: pd.DataFrame,
+        market_cap: pd.Series,
+        date_col: str,
+        symbol_col: str,
+        factor_col: str
+    ) -> pd.DataFrame:
+        """简化版市值回归中性化"""
+        df = df.copy()
+        df['mcap'] = df[symbol_col].map(market_cap)
+        df = df.dropna(subset=['mcap', factor_col])
+        
+        results = []
+        for date, group in df.groupby(date_col):
+            group = group.copy()
+            group['ln_mcap'] = np.log(group['mcap'].clip(lower=1))
+            
+            if len(group) < 10:
+                continue
+            
+            x = group['ln_mcap'].values
+            y = group[factor_col].values
+            
+            # 简单线性回归
+            x_mean = np.mean(x)
+            y_mean = np.mean(y)
+            
+            numerator = np.sum((x - x_mean) * (y - y_mean))
+            denominator = np.sum((x - x_mean) ** 2)
+            
+            if denominator != 0:
+                slope = numerator / denominator
+                intercept = y_mean - slope * x_mean
+                predicted = intercept + slope * x
+                group[factor_col] = y - predicted
+            else:
+                group[factor_col] = y - y_mean
+            
+            results.append(group)
+        
+        return pd.concat(results, ignore_index=True) if results else df
+    
+    def _neutralize_industry_simple(
+        self,
+        df: pd.DataFrame,
+        industry: pd.Series,
+        date_col: str,
+        symbol_col: str,
+        factor_col: str
+    ) -> pd.DataFrame:
+        """简化版行业中性化"""
+        df = df.copy()
+        df['industry'] = df[symbol_col].map(industry)
+        df = df.dropna(subset=['industry', factor_col])
+        
+        results = []
+        for date, group in df.groupby(date_col):
+            group = group.copy()
+            
+            if len(group) < 5:
+                continue
+            
+            # 行业内去均值
+            industry_mean = group.groupby('industry')[factor_col].transform('mean')
+            group[factor_col] = (group[factor_col] - industry_mean).values
+            
+            results.append(group)
+        
+        return pd.concat(results, ignore_index=True) if results else df
+    
+    def _clip_outliers_simple(
+        self,
+        df: pd.DataFrame,
+        date_col: str,
+        factor_col: str
+    ) -> pd.DataFrame:
+        """简化版异常值处理"""
+        if not self.config.outlier_clip:
+            return df
+        
+        df = df.copy()
+        n_std = self.config.outlier_std
+        
+        results = []
+        for date, group in df.groupby(date_col):
+            group = group.copy()
+            
+            mean = group[factor_col].mean()
+            std = group[factor_col].std()
+            
+            if std > 0:
+                lower = mean - n_std * std
+                upper = mean + n_std * std
+                group[factor_col] = group[factor_col].clip(lower, upper)
+            
+            results.append(group)
+        
+        return pd.concat(results, ignore_index=True) if results else df
+    
+    def _standardize_simple(
+        self,
+        df: pd.DataFrame,
+        date_col: str,
+        factor_col: str
+    ) -> pd.DataFrame:
+        """简化版标准化"""
+        df = df.copy()
+        
+        results = []
+        for date, group in df.groupby(date_col):
+            group = group.copy()
+            
+            mean = group[factor_col].mean()
+            std = group[factor_col].std()
+            
+            if std > 0:
+                group[factor_col] = (group[factor_col] - mean) / std
+            else:
+                group[factor_col] = 0
+            
+            results.append(group)
+        
+        return pd.concat(results, ignore_index=True) if results else df
     
     def build_daily_factor(
         self,
