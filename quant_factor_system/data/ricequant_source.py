@@ -256,6 +256,13 @@ class RiceQuantSource:
     
     # ==================== 日线数据 ====================
     
+    # 日线数据默认包含的涨跌停字段
+    DAILY_FIELDS_WITH_LIMITS = [
+        'open', 'high', 'low', 'close', 'volume',
+        'limit_up', 'limit_down',  # ⭐ 涨跌停价
+        'prev_close', 'num_trades', 'total_turnover'
+    ]
+    
     def get_daily_data(
         self,
         symbols: List[str] = None,
@@ -272,7 +279,7 @@ class RiceQuantSource:
             start_date: 开始日期 (YYYYMMDD)
             end_date: 结束日期 (YYYYMMDD)
             adjust_type: 复权类型 ('pre'前复权, 'none'不复权)
-            fields: 返回字段
+            fields: 返回字段，默认为涨跌停相关字段
             
         Returns:
             日线数据DataFrame
@@ -299,6 +306,10 @@ class RiceQuantSource:
                 order_book_ids = [self._symbol_to_order_book_id(s) for s in symbols]
             else:
                 order_book_ids = None
+            
+            # 确定返回字段 (默认包含涨跌停字段)
+            if fields is None:
+                fields = self.DAILY_FIELDS_WITH_LIMITS
             
             # 获取数据
             data = rq.get_price(

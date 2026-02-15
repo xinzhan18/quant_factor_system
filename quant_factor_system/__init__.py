@@ -15,7 +15,7 @@ Quant Factor System - 量化因子研究平台
     from quant_factor_system.factors import FactorProcessor, FactorAggregator
     
     # 选股
-    from quant_factor_system.selector import SingleFactorSelector, MultiFactorSelector
+    from quant_factor_system.selector import SingleFactorSelector, MultiFactorCombiner
     
     # 回测
     from quant_factor_system.backtest import BacktestEngine, PerformanceAnalyzer
@@ -43,8 +43,9 @@ from .factors import (
 # 选股层
 from .selector import (
     SingleFactorSelector,
-    MultiFactorSelector,
-    FactorFilter,
+    MultiFactorCombiner,
+    IntersectionFilter,
+    UnionFilter,
 )
 
 # 回测层
@@ -72,8 +73,9 @@ __all__ = [
     
     # 选股层
     'SingleFactorSelector',
-    'MultiFactorSelector',
-    'FactorFilter',
+    'MultiFactorCombiner',
+    'IntersectionFilter',
+    'UnionFilter',
     
     # 回测层
     'BacktestEngine',
