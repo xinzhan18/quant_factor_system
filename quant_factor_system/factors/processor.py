@@ -292,10 +292,14 @@ class FactorProcessor:
         """
         涨跌停剔除
         
-        判断逻辑:
-        - 涨停: 当日收盘价 == 最高价 且涨幅 > 9.9%
-        - 跌停: 当日收盘价 == 最低价 且跌幅 < -9.9%
-        - 连续涨跌停: 连续N天
+        使用米筐原生字段判断:
+        - 涨停: close >= limit_up
+        - 跌停: close <= limit_down
+        
+        如果数据中没有 limit_up/limit_down 字段,
+        则使用涨跌幅判断:
+        - 涨停: close == high 且 pct_chg > 9.5%
+        - 跌停: close == low 且 pct_chg < -9.5%
         
         Args:
             daily_data: 日线数据
@@ -314,62 +318,35 @@ class FactorProcessor:
         
         df = daily_data.copy()
         
-        # 计算涨跌幅
-        if 'pct_chg' not in df.columns:
-            df = df.sort_values([symbol_col, date_col])
-            df['pct_chg'] = df.groupby(symbol_col)[price_col].pct_change() * 100
+        # 检查是否有米筐原生涨跌停字段
+        has_limit_fields = 'limit_up' in df.columns and 'limit_down' in df.columns
         
-        # 标记涨跌停
-        df['is_limit_up'] = (
-            (df[price_col] == df[high_col]) &  # 收于最高价
-            (df['pct_chg'] > 9.5)  # 涨幅>9.5%
-        )
-        
-        df['is_limit_down'] = (
-            (df[price_col] == df[low_col]) &  # 收于最低价
-            (df['pct_chg'] < -9.5)  # 跌幅<-9.5%
-        )
-        
-        # 连续涨跌停
-        df = df.sort_values([symbol_col, date_col])
-        
-        for i in range(2, lookback + 1):
-            df[f'limit_up_{i}d'] = df.groupby(symbol_col)['is_limit_up'].shift(1).fillna(False)
-            df[f'limit_down_{i}d'] = df.groupby(symbol_col)['is_limit_down'].shift(1).fillna(False)
-        
-        # 连续涨停天数
-        df['consecutive_limit_up'] = 0
-        df['consecutive_limit_down'] = 0
-        
-        for symbol, group in df.groupby(symbol_col):
-            mask = df[symbol_col] == symbol
-            limit_up_streak = 0
-            limit_down_streak = 0
+        if has_limit_fields:
+            # 使用米筐原生字段判断
+            df['is_limit_up'] = df[price_col] >= df['limit_up']
+            df['is_limit_down'] = df[price_col] <= df['limit_down']
+        else:
+            # 计算涨跌幅
+            if 'pct_chg' not in df.columns:
+                df = df.sort_values([symbol_col, date_col])
+                df['pct_chg'] = df.groupby(symbol_col)[price_col].pct_change() * 100
             
-            for idx in df[mask].index:
-                if df.loc[idx, 'is_limit_up']:
-                    limit_up_streak += 1
-                else:
-                    limit_up_streak = 0
-                
-                if df.loc[idx, 'is_limit_down']:
-                    limit_down_streak += 1
-                else:
-                    limit_down_streak = 0
-                
-                df.loc[idx, 'consecutive_limit_up'] = limit_up_streak
-                df.loc[idx, 'consecutive_limit_down'] = limit_down_streak
+            # 使用涨跌幅判断
+            df['is_limit_up'] = (
+                (df[price_col] == df[high_col]) &  # 收于最高价
+                (df['pct_chg'] > 9.5)             # 涨幅>9.5%
+            )
+            
+            df['is_limit_down'] = (
+                (df[price_col] == df[low_col]) &   # 收于最低价
+                (df['pct_chg'] < -9.5)             # 跌幅<-9.5%
+            )
         
-        # 综合涨跌停状态
-        df['is_excluded'] = False
-        
-        if self.config.filter_limit_up:
-            exclude_up = df['consecutive_limit_up'] >= self.config.limit_up_days
-            df.loc[exclude_up, 'is_excluded'] = True
-        
-        if self.config.filter_limit_down:
-            exclude_down = df['consecutive_limit_down'] >= self.config.limit_down_days
-            df.loc[exclude_down, 'is_excluded'] = True
+        # 综合涨跌停状态 (当天判断)
+        df['is_excluded'] = (
+            (df['is_limit_up'] & self.config.filter_limit_up) |
+            (df['is_limit_down'] & self.config.filter_limit_down)
+        )
         
         return df
     
