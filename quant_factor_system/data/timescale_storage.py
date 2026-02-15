@@ -193,6 +193,8 @@ class TimescaleDB:
                     volume DOUBLE PRECISION,
                     amount DOUBLE PRECISION,
                     vwap DOUBLE PRECISION,
+                    limit_up DOUBLE PRECISION,      -- 涨停价 ⭐
+                    limit_down DOUBLE PRECISION,    -- 跌停价 ⭐
                     UNIQUE(time, symbol)
                 );
             """)
@@ -278,7 +280,7 @@ class TimescaleDB:
             df['symbol'] = 'UNKNOWN'
         
         # 确保数值类型
-        for col in ['open', 'high', 'low', 'close', 'volume', 'amount', 'vwap']:
+        for col in ['open', 'high', 'low', 'close', 'volume', 'amount', 'vwap', 'limit_up', 'limit_down']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
@@ -294,13 +296,14 @@ class TimescaleDB:
                 batch = df.iloc[i:i+batch_size]
                 
                 args_str = ','.join(cursor.mogrify(
-                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (
                         row['time'], row['symbol'],
                         row.get('open', 0), row.get('high', 0),
                         row.get('low', 0), row.get('close', 0),
                         row.get('volume', 0), row.get('amount', 0),
-                        row.get('vwap', 0)
+                        row.get('vwap', 0), row.get('limit_up', 0),
+                        row.get('limit_down', 0)
                     )
                 ).decode() for _, row in batch.iterrows())
                 
@@ -310,7 +313,7 @@ class TimescaleDB:
                 
                 cursor.execute(f"""
                     INSERT INTO {table} 
-                    (time, symbol, open, high, low, close, volume, amount, vwap)
+                    (time, symbol, open, high, low, close, volume, amount, vwap, limit_up, limit_down)
                     VALUES {args_str}
                     ON CONFLICT (time, symbol) DO NOTHING
                 """)
