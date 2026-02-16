@@ -15,7 +15,7 @@ sys.path.insert(0, '.')
 
 from quant_factor_system.data import (
     IndustrySource,
-    IndustryStorage,
+    QuantDataManager,
     TimescaleDB
 )
 
@@ -89,11 +89,11 @@ def example_save_industry_factors():
     print("示例4: 保存行业因子到数据库")
     print("="*60)
     
-    # 初始化存储
-    storage = IndustryStorage()
+    # 初始化管理器
+    manager = QuantDataManager()
     
-    # 创建表
-    storage.create_tables()
+    # 创建行业表
+    manager.db.create_industry_tables()
     
     # 获取因子
     source = IndustrySource()
@@ -106,11 +106,11 @@ def example_save_industry_factors():
         return
     
     # 保存
-    count = storage.save_industry_factors(df)
+    count = manager.db.save_industry_factors(df)
     print(f"✅ 保存行业因子: {count} 条")
     
     # 查询验证
-    df_saved = storage.get_industry_factors(
+    df_saved = manager.db.query_industry_factors(
         date=datetime.now().strftime('%Y-%m-%d')
     )
     print(f"验证查询: {len(df_saved)} 条")
@@ -124,14 +124,13 @@ def example_get_factor_series():
     print("示例5: 获取行业因子时间序列")
     print("="*60)
     
-    storage = IndustryStorage()
+    manager = QuantDataManager()
     
     # 获取银行板块动量因子
-    df = storage.get_industry_factor_series(
-        factor_name='industry_momentum',
+    df = manager.db.query_industry_factors(
+        date=None,
         industry='中信一级-银行',
-        start_date=(datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
-        end_date=datetime.now().strftime('%Y-%m-%d')
+        factor_names=['industry_momentum']
     )
     
     if df.empty:

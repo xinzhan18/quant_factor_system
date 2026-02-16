@@ -49,11 +49,6 @@ from .industry_source import (
     get_industry_factors,
 )
 
-from .industry_storage import (
-    IndustryStorage,
-    get_industry_storage,
-)
-
 __all__ = [
     # TimescaleDB 存储 (生产环境) ⭐
     'TimescaleDB',
@@ -75,6 +70,4 @@ __all__ = [
     'IndustrySource',
     'get_industry_classification',
     'get_industry_factors',
-    'IndustryStorage',
-    'get_industry_storage',
 ]

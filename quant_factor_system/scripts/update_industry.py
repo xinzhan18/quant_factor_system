@@ -8,10 +8,10 @@ Industry Factor Update Script
 
 使用:
     # 更新行业归属 (季度执行)
-    python -m quant_factor_system.scripts.update_industry_classification
+    python -m quant_factor_system.scripts.update_industry --type classification
     
     # 更新行业因子 (每日执行)
-    python -m quant_factor_system.scripts.update_industry_factors --date 2024-01-01
+    python -m quant_factor_system.scripts.update_industry --type factors --date 2024-01-01
 """
 
 import sys
@@ -29,31 +29,21 @@ def update_industry_classification():
     
     建议: 季度执行一次
     """
-    from quant_factor_system.data import IndustrySource, IndustryStorage
+    from quant_factor_system.data import QuantDataManager
     
     logger.info("🔄 开始更新行业归属信息...")
     
-    # 获取最新行业分类
-    source = IndustrySource()
+    manager = QuantDataManager()
+    manager.db.create_industry_tables()
     
-    today = datetime.now().strftime('%Y%m%d')
-    df = source.get_industry_classification(date=today)
+    result = manager.update_industry_classification()
     
-    if df.empty:
-        logger.warning("⚠️ 获取行业分类失败")
+    if result.get('status') == 'success':
+        logger.info(f"✅ 行业归属更新完成: {result['records']} 条记录")
+        return True
+    else:
+        logger.warning(f"⚠️ 行业归属更新失败: {result}")
         return False
-    
-    # 添加日期列
-    df['update_date'] = today
-    
-    # 保存
-    storage = IndustryStorage()
-    storage.create_tables()
-    
-    count = storage.save_industry_classification(df)
-    
-    logger.info(f"✅ 行业归属更新完成: {count} 条记录")
-    return True
 
 
 def update_industry_factors(date: str = None, force: bool = False):
@@ -66,43 +56,24 @@ def update_industry_factors(date: str = None, force: bool = False):
         date: 更新日期
         force: 强制更新
     """
-    from quant_factor_system.data import IndustrySource, IndustryStorage
+    from quant_factor_system.data import QuantDataManager
     
     logger.info(f"🔄 开始更新行业因子... (日期: {date})")
     
-    date = date or datetime.now().strftime('%Y%m%d')
+    manager = QuantDataManager()
+    manager.db.create_industry_tables()
     
-    # 检查是否需要更新
-    storage = IndustryStorage()
+    result = manager.update_industry_factors(date=date, force=force)
     
-    if not force and not storage.need_daily_update(date):
-        logger.info(f"ℹ️ {date} 行业因子已存在，跳过更新")
+    if result.get('status') == 'success':
+        logger.info(f"✅ 行业因子更新完成: {result['records']} 条记录")
         return True
-    
-    # 获取行业因子
-    source = IndustrySource()
-    
-    factors = [
-        'industry_return',
-        'industry_momentum',
-        'industry_volatility',
-        'industry_size',
-        'industry_turnover'
-    ]
-    
-    df = source.get_industry_factors(date=date, factors=factors)
-    
-    if df.empty:
-        logger.warning("⚠️ 获取行业因子失败")
+    elif result.get('status') == 'skipped':
+        logger.info(f"ℹ️ 行业因子已存在，跳过更新")
+        return True
+    else:
+        logger.warning(f"⚠️ 行业因子更新失败: {result}")
         return False
-    
-    # 保存
-    storage.create_tables()
-    
-    count = storage.save_industry_factors(df, date=date)
-    
-    logger.info(f"✅ 行业因子更新完成: {count} 条记录")
-    return True
 
 
 def main():
@@ -125,7 +96,7 @@ def main():
     
     parser.add_argument(
         '--force',
-        action='true',
+        action='store_true',
         default=False,
         help='强制更新'
     )

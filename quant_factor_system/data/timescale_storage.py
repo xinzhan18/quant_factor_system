@@ -506,6 +506,217 @@ class TimescaleDB:
         
         return df
     
+    # ==================== 行业因子操作 ====================
+    
+    def create_industry_tables(self):
+        """创建行业相关表"""
+        if self._conn is None:
+            logger.warning("⚠️ 模拟模式: 跳过创建行业表")
+            return
+        
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            
+            # 行业归属表 (低频更新)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS industry_classification (
+                    stock_code TEXT NOT NULL,
+                    industry TEXT NOT NULL,
+                    sub_industry TEXT,
+                    update_date DATE NOT NULL,
+                    PRIMARY KEY (stock_code, update_date)
+                );
+            """)
+            
+            # 行业因子表 (每日更新)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS factor_industry_daily (
+                    time TIMESTAMP NOT NULL,
+                    industry TEXT NOT NULL,
+                    factor_name TEXT NOT NULL,
+                    factor_value DOUBLE PRECISION,
+                    PRIMARY KEY (time, industry, factor_name)
+                );
+            """)
+            
+            # 创建索引
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_industry_class_date 
+                ON industry_classification(update_date);
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_factor_industry_time 
+                ON factor_industry_daily(time);
+            """)
+            
+            conn.commit()
+            logger.info("✅ 行业相关表创建成功")
+    
+    def save_industry_classification(
+        self,
+        df: pd.DataFrame,
+        if_exists: str = 'append'
+    ) -> int:
+        """保存行业归属信息"""
+        if df.empty:
+            return 0
+        
+        if self._conn is None:
+            return len(df)
+        
+        df = df.copy()
+        
+        if 'update_date' in df.columns:
+            df['update_date'] = pd.to_datetime(df['update_date']).dt.strftime('%Y-%m-%d')
+        
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            records = 0
+            
+            for _, row in df.iterrows():
+                try:
+                    cursor.execute("""
+                        INSERT INTO industry_classification 
+                        (stock_code, industry, sub_industry, update_date)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (stock_code, update_date) 
+                        DO UPDATE SET industry = EXCLUDED.industry
+                    """, (
+                        row['stock_code'],
+                        row['industry'],
+                        row.get('sub_industry'),
+                        row['update_date']
+                    ))
+                    records += 1
+                except Exception:
+                    continue
+            
+            conn.commit()
+        
+        return records
+    
+    def save_industry_factors(
+        self,
+        df: pd.DataFrame,
+        date: str = None
+    ) -> int:
+        """保存行业因子 (宽格式: time, industry, 各因子列)"""
+        if df.empty:
+            return 0
+        
+        if self._conn is None:
+            return len(df)
+        
+        df = df.copy()
+        
+        if 'time' in df.columns:
+            df['time'] = pd.to_datetime(df['time'])
+        else:
+            df['time'] = pd.to_datetime(date)
+        
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            records = 0
+            
+            for _, row in df.iterrows():
+                time = row['time']
+                industry = row['industry']
+                
+                for col in df.columns:
+                    if col not in ['time', 'industry']:
+                        try:
+                            cursor.execute("""
+                                INSERT INTO factor_industry_daily 
+                                (time, industry, factor_name, factor_value)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (time, industry, factor_name) 
+                                DO UPDATE SET factor_value = EXCLUDED.factor_value
+                            """, (time, industry, col, row[col]))
+                            records += 1
+                        except Exception:
+                            continue
+            
+            conn.commit()
+        
+        return records
+    
+    def query_industry_factors(
+        self,
+        date: str = None,
+        industry: str = None,
+        factor_names: List[str] = None
+    ) -> pd.DataFrame:
+        """查询行业因子"""
+        if self._conn is None:
+            return pd.DataFrame()
+        
+        query = """
+            SELECT time, industry, factor_name, factor_value
+            FROM factor_industry_daily
+            WHERE 1=1
+        """
+        params = []
+        
+        if date:
+            query += " AND time::date = %s"
+            params.append(pd.to_datetime(date).strftime('%Y-%m-%d'))
+        
+        if industry:
+            query += " AND industry = %s"
+            params.append(industry)
+        
+        if factor_names:
+            placeholders = ','.join(['%s'] * len(factor_names))
+            query += f" AND factor_name IN ({placeholders})"
+            params.extend(factor_names)
+        
+        with self.connection() as conn:
+            df = pd.read_sql(query, conn, params=params)
+        
+        if not df.empty:
+            df = df.pivot_table(
+                index=['time', 'industry'],
+                columns='factor_name',
+                values='factor_value'
+            ).reset_index()
+        
+        return df
+    
+    def query_industry_classification(
+        self,
+        date: str = None,
+        stock_code: str = None
+    ) -> pd.DataFrame:
+        """查询行业归属"""
+        if self._conn is None:
+            return pd.DataFrame()
+        
+        query = """
+            SELECT stock_code, industry, sub_industry, update_date
+            FROM industry_classification
+            WHERE 1=1
+        """
+        params = []
+        
+        if date:
+            query += " AND update_date <= %s"
+            params.append(pd.to_datetime(date).strftime('%Y-%m-%d'))
+        
+        if stock_code:
+            query += " AND stock_code = %s"
+            params.append(stock_code)
+        
+        query += " ORDER BY update_date DESC"
+        
+        with self.connection() as conn:
+            df = pd.read_sql(query, conn, params=params)
+        
+        if not df.empty and stock_code is None:
+            df = df.drop_duplicates(subset=['stock_code'], keep='first')
+        
+        return df
+    
     # ==================== 统计信息 ====================
     
     def get_stats(self) -> Dict:
@@ -718,13 +929,101 @@ class QuantDataManager:
         results = {
             'daily': self.update_daily(),
             'minute_1min': self.update_minute(frequency='1min'),
-            'minute_5min': self.update_minute(frequency='5min')
+            'minute_5min': self.update_minute(frequency='5min'),
+            'industry': self.update_industry_factors()
         }
         
         stats = self.db.get_stats()
         logger.info(f"📊 数据库统计: {stats}")
         
         return results
+    
+    def update_industry_factors(
+        self,
+        date: str = None,
+        force: bool = False
+    ) -> Dict:
+        """
+        更新行业因子
+        
+        Args:
+            date: 更新日期
+            force: 强制更新
+            
+        Returns:
+            更新统计
+        """
+        from quant_factor_system.data.industry_source import IndustrySource
+        
+        source = IndustrySource()
+        
+        date = date or datetime.now().strftime('%Y%m%d')
+        
+        # 检查是否需要更新
+        if not force:
+            existing = self.db.query_industry_factors(date=date)
+            if not existing.empty:
+                logger.info(f"ℹ️ {date} 行业因子已存在，跳过")
+                return {'status': 'skipped', 'date': date}
+        
+        # 获取行业因子
+        factors = [
+            'industry_return',
+            'industry_momentum',
+            'industry_volatility',
+            'industry_size',
+            'industry_turnover'
+        ]
+        
+        df = source.get_industry_factors(date=date, factors=factors)
+        
+        if df.empty:
+            return {'status': 'no_data'}
+        
+        # 保存
+        count = self.db.save_industry_factors(df, date=date)
+        
+        return {
+            'status': 'success',
+            'records': count,
+            'date': date
+        }
+    
+    def update_industry_classification(
+        self,
+        date: str = None
+    ) -> Dict:
+        """
+        更新行业归属信息
+        
+        Args:
+            date: 更新日期
+            
+        Returns:
+            更新统计
+        """
+        from quant_factor_system.data.industry_source import IndustrySource
+        
+        source = IndustrySource()
+        
+        date = date or datetime.now().strftime('%Y%m%d')
+        
+        # 获取行业分类
+        df = source.get_industry_classification(date=date)
+        
+        if df.empty:
+            return {'status': 'no_data'}
+        
+        df['update_date'] = date
+        
+        # 保存
+        count = self.db.save_industry_classification(df)
+        
+        return {
+            'status': 'success',
+            'records': count,
+            'date': date
+        }
 
 
 # ==================== 便捷函数 ====================
