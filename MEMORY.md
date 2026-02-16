@@ -53,7 +53,48 @@ git push origin main
 
 **未推送的更改不算完成!**
 
-### File Structure
+### Data Source
+- **Primary**: RiceQuant (米筐) - 唯一数据源
+- 所有数据通过 `ricequant_source.py` 获取
+
+### Industry Factor Management
+
+#### 行业数据特点
+- **行业归属信息**: 不是每天更新，通常**季度或年度**调整（如财报公布后）
+  - 中信行业分类: 季度更新
+  - 申万行业分类: 年度/季度更新
+- **行业因子值**: 每天可计算
+  - 行业收益率 (industry_return)
+  - 行业动量 (industry_momentum)
+  - 行业波动率 (industry_volatility)
+
+#### 存储策略
+```sql
+-- 行业归属表 (低频更新)
+CREATE TABLE industry_classification (
+    stock_code TEXT,
+    industry TEXT,
+    sub_industry TEXT,
+    update_date DATE,  -- 生效日期
+    PRIMARY KEY (stock_code, update_date)
+);
+
+-- 行业因子表 (每日更新)
+CREATE TABLE factor_industry_daily (
+    time TIMESTAMP,
+    industry TEXT,
+    factor_name TEXT,
+    factor_value DOUBLE PRECISION,
+    PRIMARY KEY (time, industry, factor_name)
+);
+```
+
+#### 因子更新频率
+| 因子类型 | 更新频率 | 示例 |
+|---------|---------|------|
+| 行业归属 | 季度 | 中信一级行业 |
+| 行业收益率 | 每日 | 行业日收益率 |
+| 行业动量 | 每日 | 20日行业累计收益 |
 ```
 quant_factor_system/
 ├── __init__.py              # 统一API入口

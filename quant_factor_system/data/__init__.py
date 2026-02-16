@@ -43,6 +43,17 @@ from .data_manager import (
     create_data_manager,
 )
 
+from .industry_source import (
+    IndustrySource,
+    get_industry_classification,
+    get_industry_factors,
+)
+
+from .industry_storage import (
+    IndustryStorage,
+    get_industry_storage,
+)
+
 __all__ = [
     # TimescaleDB 存储 (生产环境) ⭐
     'TimescaleDB',
@@ -59,4 +70,11 @@ __all__ = [
     
     # 数据源
     'RiceQuantSource',
+    
+    # 行业数据
+    'IndustrySource',
+    'get_industry_classification',
+    'get_industry_factors',
+    'IndustryStorage',
+    'get_industry_storage',
 ]
