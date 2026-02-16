@@ -66,8 +66,29 @@ class FullMarketFetcher:
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f)
     
-    def _get_all_symbols(self) -> List[str]:
-        """获取全市场股票列表"""
+    def _get_all_symbols(self, year: int = None) -> List[str]:
+        """
+        获取全市场股票列表
+        
+        优先使用:
+        1. 历史股票列表管理器（包含退市股票）
+        2. 实时米筐API（仅当前股票）
+        
+        Args:
+            year: 指定年份（使用该年末的股票列表）
+        """
+        if year:
+            # 使用历史股票列表管理器
+            from .stock_list_manager import StockListManager
+            
+            manager = StockListManager()
+            symbols = manager.get_year_stocks(year)
+            
+            if symbols:
+                logger.info(f"📋 使用 {year} 年历史股票列表: {len(symbols)} 只")
+                return symbols
+        
+        # 默认：实时获取
         stocks = self.source.get_all_stocks()
         
         if stocks.empty:
@@ -121,8 +142,8 @@ class FullMarketFetcher:
             logger.info(f"ℹ️ {year} 年已拉取过，跳过")
             return {'status': 'skipped', 'year': year}
         
-        # 获取全市场股票
-        all_symbols = self._get_all_symbols()
+        # 获取全市场股票（使用该年末的股票列表，包含退市股票）
+        all_symbols = self._get_all_symbols(year=year)
         batches = self._split_batches(all_symbols)
         
         logger.info(f"📊 总股票数: {len(all_symbols)}, 分为 {len(batches)} 批")
