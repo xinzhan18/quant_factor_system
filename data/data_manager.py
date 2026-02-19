@@ -4,8 +4,6 @@ Unified Data Manager
 
 整合所有数据源:
 1. TimescaleDB (主数据源)
-2. 数据模拟器
-3. CSV导入
 
 使用方式:
     from quant_factor_system.data import DataManager
@@ -13,7 +11,7 @@ Unified Data Manager
     # 初始化
     dm = DataManager()
     
-    # 获取数据 (自动从数据库或模拟)
+    # 获取数据
     data = dm.get_price_data(
         symbols=['SH600000'],
         frequency='1min',
@@ -30,7 +28,6 @@ from contextlib import contextmanager
 import logging
 
 from .timescale_db import TimescaleDB, Frequency, get_db
-from .simulator import create_multi_stock_data
 
 logger = logging.getLogger(__name__)
 
@@ -128,31 +125,8 @@ class DataManager:
                     return df
                     
             except Exception as e:
-                logger.warning(f"数据库查询失败: {e}")
-        
-        # 2. 使用模拟数据
-        logger.info(f"🎭 使用模拟数据: {frequency}")
-        
-        # 确定模拟参数
-        if start is None:
-            start = '2024-01-01'
-        if n_periods is None:
-            n_periods = self._get_periods(frequency)
-        
-        # 生成模拟数据
-        df = create_multi_stock_data(
-            symbols=symbols or ['STOCK_%03d' % i for i in range(1, 11)],
-            start_date=start,
-            periods=n_periods,
-            freq=self._get_pandas_freq(frequency)
-        )
-        
-        # 缓存
-        if use_cache:
-            cache_key = f"{frequency}_{start}_{n_periods}"
-            self._cache[cache_key] = df
-        
-        return df
+                logger.error(f"数据库查询失败: {e}")
+                raise e
     
     def save_price_data(
         self,
