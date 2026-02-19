@@ -149,11 +149,15 @@ class Pipeline:
                 window = config['window']
                 params = config['params']
                 
-                # 创建因子
-                factor = factor_class(window=window, **params)
+                # 创建因子或使用已有实例
+                if isinstance(config['class'], type):
+                    factor = config['class'](window=window, **params)
+                else:
+                    # 已经实例化的因子
+                    factor = config['class']
                 
                 # 计算
-                result = factor.compute(df, frequency=frequency)
+                result = factor.calculate(df)
                 
                 # 确保是Series
                 if isinstance(result, pd.DataFrame):
