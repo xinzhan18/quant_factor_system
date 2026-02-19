@@ -1,4 +1,4 @@
-# QuantFactorSystem v3.0
+# QuantFactorSystem v4.0
 
 完整的量化因子研究与交易平台。
 
@@ -54,62 +54,77 @@ streamlit run Home.py
 
 ```
 quant_factor_system/
-├── data/                   # 数据模块
-│   ├── postgres_db.py      # PostgreSQL 通用管理
-│   ├── timescale_db.py     # TimescaleDB (生产环境)
-│   ├── data_manager.py     # 数据管理
-│   ├── factor_storage.py   # 因子存储引擎
-│   └── clean/              # 数据清洗/验证
+├── core/                    # 核心基类
 │
-├── factors/                # 因子模块
-│   ├── registry.py         # 因子注册表
-│   ├── factory.py          # 因子工厂
+├── data/                   # 数据层 ⭐ 重构完成
+│   ├── ricequant_source.py  # 米筐数据源
+│   ├── data_manager.py      # 统一数据管理
+│   ├── loaders.py          # 数据加载（从数据库加载因子/价格数据）
+│   ├── clean/              # 数据清洗
+│   │   └── validator.py    # 数据验证
+│   ├── storage/            # 存储层
+│   │   ├── timescale_storage.py  # TimescaleDB 主存储
+│   │   ├── timescale_db.py      # TimescaleDB 操作
+│   │   ├── factor_storage.py    # 因子存储
+│   │   ├── factor_version.py   # 因子版本管理
+│   │   ├── frequency.py        # 频率常量
+│   │   └── db_utils.py         # 数据库工具
+│   └── utils/              # 工具类
+│       ├── postgres_db.py       # PostgreSQL 基础操作
+│       ├── formatter.py         # 数据格式化
+│       └── industry_source.py   # 行业数据
+│
+├── factors/                # 因子层
+│   ├── registry.py           # 因子注册表
+│   ├── factory.py           # 因子工厂
 │   ├── basic/              # 基础因子
 │   │   ├── factors.py      # 动量、均线、RSI等
 │   │   └── return_factors.py
 │   ├── aggregator.py       # 因子聚合
 │   ├── processor.py        # 因子处理
 │   └── visualization/      # IC分析、分组收益可视化
+│       ├── ic_analyzer.py  # IC分析
+│       └── group_returns.py # 分组收益
 │
-├── backtest/               # 回测模块
+├── backtest/               # 回测层 ⭐ 重构完成
 │   ├── engine.py           # 回测引擎
 │   ├── analyzer.py         # 绩效分析
-│   ├── selection/          # 因子选择
+│   ├── selection/          # 选股模块
 │   │   ├── single.py       # 单因子选股
 │   │   ├── multi.py        # 多因子选股
-│   │   └── filter.py       # 因子过滤与排名
-│   └── signal/             # 信号生成
+│   │   ├── filter.py       # 因子过滤与排名
+│   │   ├── factor_selector.py
+│   │   ├── stock_filter.py
+│   │   └── ranker.py
+│   ├── position/           # 仓位模块
+│   │   ├── equal.py        # 等权配置
+│   │   ├── factor.py       # 因子里重
+│   │   └── kelly.py        # 凯利公式
+│   ├── stoploss/          # 止损模块
+│   │   ├── fixed.py        # 固定止损
+│   │   └── atr.py          # ATR动态止损
+│   └── signal/            # 信号生成
+│       └── generator.py
 │
-├── selector/                # 选股模块 (冗余，指向 backtest/selection)
+├── dashboard/             # Dashboard ⭐ 重构完成
+│   ├── components/        # 可复用组件
+│   │   ├── charts.py      # 图表组件
+│   │   ├── forms/        # 表单组件
+│   │   └── tables/        # 表格组件
+│   └── pages/            # 页面
+│       ├── Home.py        # 首页
+│       ├── Factors.py     # 因子评估
+│       ├── Pipeline.py    # Pipeline
+│       ├── BacktestResult.py # 回测结果
+│       └── Data.py       # 数据浏览
 │
-├── position/               # 仓位模块
-│   ├── equal.py            # 等权配置
-│   ├── factor.py           # 因子里重
-│   └── kelly.py            # 凯利公式
-│
-├── stoploss/               # 止损模块
-│   ├── fixed.py            # 固定止损
-│   ├── atr.py              # ATR止损
-│   └── trailing.py         # 追踪止损
-│
-├── pipeline/               # Pipeline
-│   └── pipeline.py         # Pipeline引擎
-│
-├── dashboard/              # Web界面
-│   ├── Home.py             # 首页
-│   ├── pages/
-│   │   ├── Factors.py      # 因子评估
-│   │   ├── Pipeline.py     # Pipeline组合
-│   │   └── Backtest.py     # 回测结果
-│   └── components/         # 通用组件
-│
-├── core/                   # 核心模块
-│   └── base.py             # Factor基类
-│
-├── examples/               # 示例代码
-├── scripts/                # 工具脚本
-├── docs/                   # 文档
-└── tests/                  # 测试
+├── pipeline/              # Pipeline
+├── examples/              # 示例
+├── docs/                 # 文档
+│   ├── PROJECT_OVERVIEW.md
+│   ├── ARCHITECTURE.md   # 架构文档
+│   └── plan/            # Plan 文档
+└── scripts/              # 脚本
 ```
 
 ## 🗄️ 数据库
@@ -164,32 +179,31 @@ quant_factor_system/
 | zscore | ZScoreFactor | Z分数标准化 |
 | ic | ICFactor | 信息系数 |
 
-### 行业因子 (industry)
-
-| 因子类型 | 更新频率 | 示例 |
-|---------|---------|------|
-| 行业归属 | 季度 | 中信一级行业 |
-| 行业收益率 | 每日 | 行业日收益率 |
-| 行业动量 | 每日 | 20日行业累计收益 |
-
 ## 🔧 使用示例
 
-### 1. 初始化因子存储
+### 1. 数据加载
 
 ```python
-from quant_factor_system.data import init_factor_storage
+from quant_factor_system.data.loaders import (
+    get_factor_data,
+    get_price_data,
+)
 
-storage = init_factor_storage()
-print(storage.get_stats())
+# 获取因子数据
+factor_df, error = get_factor_data('momentum_20', connection)
+
+# 获取价格数据
+price_df = get_price_data(['SH600000'], '20240101', '20240131', connection)
 ```
 
-### 2. 注册和计算因子
+### 2. IC 分析
 
 ```python
-from quant_factor_system.factors import MomentumFactor
+from quant_factor_system.factors.visualization import ICAnalyzer
 
-factor = MomentumFactor(lookback=20)
-result = factor.compute(data)
+analyzer = ICAnalyzer()
+result = analyzer.compute_ic(factor_df, price_df, split_date)
+print(f"IC: {result['ic_all']:.3f}")
 ```
 
 ### 3. 运行回测
@@ -219,7 +233,7 @@ result = engine.run(strategy_config)
    - 参数配置
    - 累计收益曲线
 
-4. **回测 (Backtest)**
+4. **回测 (BacktestResult)**
    - 策略配置
    - 绩效分析
    - 结果展示
@@ -227,10 +241,10 @@ result = engine.run(strategy_config)
 ## 🛠️ 维护命令
 
 ```bash
-# 数据库管理
+# 数据库
 ./scripts/db.sh start      # 启动
 ./scripts/db.sh stop       # 停止
-./scripts/db.sh shell       # 进入命令行
+./scripts/db.sh shell      # 进入命令行
 
 # 数据操作
 ./scripts/data.sh sample   # 生成示例数据
@@ -242,59 +256,30 @@ result = engine.run(strategy_config)
 ./run.sh clean      # 清理
 ```
 
-## 📋 开发规范
+## 📋 重构历史 (2026-02-19)
 
-### Git 工作流程
-
-1. **可以 commit**: 每次完成需求或阶段性任务
-2. **不能 push**: 所有 push 必须经过用户同意
-3. **询问后 push**: 完成用户要求的所有任务后，询问是否 push
-
-```bash
-# 1. 添加更改
-git add -A
-
-# 2. 提交
-git commit -m "feat: 描述你的更改"
-
-# 3. ⚠️ 不要直接push！先询问用户
-# ...
-# 用户同意后:
-git push origin main
-```
-
-### 代码规范
-
-- 保持代码清晰、可扩展
-- 优先重构旧代码，不随意创建新文件
-- 一次性脚本放 `scripts/` 目录
-- 更新依赖时同步更新 `requirements.txt` 和文档
+| 重构项 | 改动 |
+|--------|------|
+| selector/position/stoploss | 从顶层移入 backtest/ |
+| Dashboard IC计算 | 调用 factors/visualization/ICAnalyzer |
+| Dashboard 数据加载 | 抽取为 data/loaders.py |
+| 删除模拟数据 | 删除 simulator.py, sample_price.csv |
+| data/ 目录重构 | 拆分为 storage/ + utils/ |
 
 ## 📚 文档
 
 - **项目概览**: `docs/PROJECT_OVERVIEW.md`
 - **架构文档**: `docs/ARCHITECTURE.md`
-- **任务计划**: `docs/plan/OVERVIEW.md`
+- **Plan 列表**: `docs/plan/OVERVIEW.md`
 
 ## 🧰 技术栈
 
 - **Python**: 3.8+
 - **Web**: Streamlit
 - **数据处理**: Pandas, NumPy, SciPy
-- **数据库**: TimescaleDB (生产), SQLite (已移除)
+- **数据库**: TimescaleDB (PostgreSQL 超集)
 - **可视化**: Matplotlib, Plotly
 - **数据源**: RiceQuant (米筐)
-
-## 📝 更新日志
-
-### v3.0 (2026-02-10) - 因子存储架构重构
-
-- ✅ **FactorStorage** - 全新因子存储引擎
-- ✅ **分区表** - 分钟因子按月分区
-- ✅ **宽表设计** - 日级因子列式存储
-- ✅ **因子配置表** - 统一管理因子元信息
-- ✅ **自动分区创建** - 智能分区管理
-- ✅ **持久化存储** - 所有数据永久保存
 
 ---
 

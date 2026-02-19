@@ -9,50 +9,49 @@
 │                                                                         │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
 │   │                        Dashboard Layer                          │   │
-│   │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐   │   │
-│   │   │  Home   │  │ Factors │  │ Pipeline│  │    Backtest     │   │   │
-│   │   └─────────┘  └─────────┘  └─────────┘  └─────────────────┘   │   │
-│   │                        (Streamlit)                               │   │
+│   │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────┐   │   │
+│   │   │  Home   │  │ Factors │  │ Pipeline│  │   Data      │   │   │
+│   │   └─────────┘  └─────────┘  └─────────┘  └─────────────┘   │   │
+│   │                        (Streamlit)                              │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
+│                                    │                                   │
+│                                    ▼                                   │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                      Backtest Engine Layer                      │   │
-│   │   ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌─────────────┐  │   │
-│   │   │ Selection │  │  Signal   │  │  Position │  │  Stop-Loss  │  │   │
-│   │   │   Layer   │  │  Generation│  │  Layer    │  │   Layer     │  │   │
-│   │   └───────────┘  └───────────┘  └───────────┘  └─────────────┘  │   │
+│   │                      Backtest Engine Layer                       │   │
+│   │   ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐ │   │
+│   │   │ Selection │  │  Signal   │  │  Position │  │ Stop-Loss │ │   │
+│   │   │   (选股)  │  │  (信号)   │  │  (仓位)   │  │  (止损)   │ │   │
+│   │   └───────────┘  └───────────┘  └───────────┘  └───────────┘ │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
+│                                    │                                   │
+│                                    ▼                                   │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                        Factor Layer                             │   │
-│   │   ┌───────────┐  ┌───────────┐  ┌─────────────────────────────┐  │   │
-│   │   │  Registry │  │  Factory  │  │     Visualization           │  │   │
-│   │   │           │  │           │  │  - IC Analysis              │  │   │
-│   │   │           │  │           │  │  - Group Returns            │  │   │
-│   │   └───────────┘  └───────────┘  └─────────────────────────────┘  │   │
+│   │                        Factor Layer                              │   │
+│   │   ┌───────────┐  ┌───────────┐  ┌───────────────────────────┐ │   │
+│   │   │  Registry │  │  Factory  │  │      Visualization        │ │   │
+│   │   │ (因子注册) │  │ (因子工厂) │  │  - IC Analysis          │ │   │
+│   │   │           │  │           │  │  - Group Returns         │ │   │
+│   │   └───────────┘  └───────────┘  └───────────────────────────┘ │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
+│                                    │                                   │
+│                                    ▼                                   │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
 │   │                         Data Layer                               │   │
-│   │   ┌─────────────────────────────────────────────────────────────┐  │   │
-│   │   │                   TimescaleDB                               │  │   │
-│   │   │  ┌─────────────────┐  ┌─────────────────┐                 │  │   │
-│   │   │  │  Minute Factors │  │  Daily Factors  │                 │  │   │
-│   │   │  │  (Narrow/Partition)│ │  (Wide Table)   │                 │  │   │
-│   │   │  └─────────────────┘  └─────────────────┘                 │  │   │
-│   │   │  ┌─────────────────┐  ┌─────────────────┐                 │  │   │
-│   │   │  │  Weekly Factors │  │  Factor Config  │                 │  │   │
-│   │   │  │  (Wide Table)   │  │  (Metadata)     │                 │  │   │
-│   │   │  └─────────────────┘  └─────────────────┘                 │  │   │
-│   │   └─────────────────────────────────────────────────────────────┘  │   │
+│   │   ┌─────────────────────────────────────────────────────────┐  │   │
+│   │   │                     TimescaleDB                          │  │   │
+│   │   └─────────────────────────────────────────────────────────┘  │   │
+│   │                                    │                           │   │
+│   │         ┌─────────────────────────┼─────────────────────────┐  │   │
+│   │         ▼                         ▼                         ▼  │   │
+│   │   ┌───────────┐           ┌───────────┐           ┌───────────┐│   │
+│   │   │  Sources   │           │  Storage  │           │   Utils   ││   │
+│   │   │ (数据源)   │           │  (存储)    │           │  (工具类)  ││   │
+│   │   └───────────┘           └───────────┘           └───────────┘│   │
 │   └─────────────────────────────────────────────────────────────────┘   │
 │                                                                         │
 │   ┌─────────────────────────────────────────────────────────────────┐   │
 │   │                      Data Source Layer                           │   │
-│   │                    RiceQuant (米筐)                              │   │
+│   │                    RiceQuant (米筐)                               │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -71,18 +70,28 @@
 
 ```
 data/
-├── postgres_db.py         # PostgreSQL 通用数据库操作
-├── timescale_db.py        # TimescaleDB 时序数据库扩展
-├── data_manager.py        # 数据管理（获取、清洗、验证）
-├── factor_storage.py      # ⭐ 因子存储引擎
-│   ├── register_factor() # 注册因子元信息
-│   ├── save_minute_factor() # 保存分钟级因子（窄表）
-│   ├── save_daily_factor()  # 保存日级因子（宽表）
-│   ├── query_minute_factor() # 查询分钟因子
-│   └── query_daily_factor()  # 查询日级因子
-└── clean/
-    ├── validation.py     # 数据验证
-    └── normalization.py  # 数据标准化
+├── ricequant_source.py      # 米筐数据源
+├── data_manager.py          # 统一数据管理
+├── loaders.py              # ⭐ 数据加载（从数据库加载因子/价格数据）
+│
+├── clean/                  # 数据清洗
+│   ├── validation.py       # 数据验证
+│   └── __init__.py
+│
+├── storage/               # ⭐ 存储层（重构后）
+│   ├── timescale_storage.py    # TimescaleDB 主存储
+│   ├── timescale_db.py        # TimescaleDB 操作
+│   ├── factor_storage.py      # 因子存储
+│   ├── factor_version.py     # 因子版本管理
+│   ├── frequency.py          # 频率常量
+│   ├── db_utils.py         # 数据库工具函数
+│   └── __init__.py
+│
+└── utils/                # ⭐ 工具类（重构后）
+    ├── postgres_db.py         # PostgreSQL 基础操作
+    ├── formatter.py           # 数据格式化
+    ├── industry_source.py    # 行业数据
+    └── __init__.py
 ```
 
 #### 数据库架构
@@ -122,17 +131,17 @@ factors/
 ├── __init__.py           # 导出注册表和工厂
 ├── registry.py           # 因子注册表（单例模式）
 │   ├── register()        # 注册因子
-│   ├── get()             # 获取因子实例
-│   └── list_factors()    # 列出所有因子
+│   ├── get()           # 获取因子实例
+│   └── list_factors()   # 列出所有因子
 │
-├── factory.py            # 因子工厂
-│   └── create_factor()   # 创建因子实例
+├── factory.py           # 因子工厂
+│   └── create_factor()  # 创建因子实例
 │
 ├── basic/
 │   ├── factors.py        # 基础技术因子
 │   │   ├── MomentumFactor      # 动量因子
 │   │   ├── MovingAverage       # 移动平均线
-│   │   ├── RSI                  # 相对强弱
+│   │   ├── RSI                 # 相对强弱
 │   │   ├── DistMAFactor        # 均线偏离度
 │   │   └── VolatilityFactor    # 波动率
 │   │
@@ -141,11 +150,11 @@ factors/
 │       ├── Return5dFactor
 │       └── Return20dFactor
 │
-├── aggregator.py         # 因子聚合（多因子合并）
-├── processor.py          # 因子处理（标准化、去极值）
-└── visualization/       # 可视化分析
-    ├── ic_analyzer.py    # IC (Information Coefficient) 分析
-    ├── group_returns.py  # 分组收益分析
+├── aggregator.py        # 因子聚合（多因子合并）
+├── processor.py         # 因子处理（标准化、去极值）
+└── visualization/      # 可视化分析
+    ├── ic_analyzer.py   # IC (Information Coefficient) 分析
+    ├── group_returns.py # 分组收益分析
     └── report.py        # 报告生成
 ```
 
@@ -187,25 +196,28 @@ backtest/
 ├── analyzer.py          # 绩效分析器
 │   ├── calculate_returns()    # 计算收益
 │   ├── calculate_metrics()    # 计算指标
-│   └── generate_report()       # 生成报告
+│   └── generate_report()      # 生成报告
 │
-├── selection/           # ⭐ 选股模块
-│   ├── single.py        # 单因子选股
-│   │   ├── select()    # 按因子值选股
-│   │   └── rank()      # 因子排名
-│   │
-│   ├── multi.py         # 多因子选股
-│   │   ├── combine()   # 因子合成
-│   │   └── optimize()  # 因子权重优化
-│   │
-│   └── filter.py        # 因子过滤
-│       ├── ic_filter()  # IC过滤
-│       ├── quantile_filter() # 分位数过滤
-│       └── corr_filter()  # 相关性过滤
+├── selection/          # ⭐ 选股模块（重构后移入）
+│   ├── single.py         # 单因子选股
+│   ├── multi.py          # 多因子选股
+│   ├── filter.py         # 因子过滤
+│   ├── factor_selector.py # 因子选择器
+│   ├── stock_filter.py   # 股票过滤器
+│   └── ranker.py         # 股票排名器
+│
+├── position/            # ⭐ 仓位模块（重构后移入）
+│   ├── equal.py          # 等权配置
+│   ├── factor.py         # 因子里重
+│   └── kelly.py          # 凯利公式
+│
+├── stoploss/           # ⭐ 止损模块（重构后移入）
+│   ├── fixed.py          # 固定止损
+│   └── atr.py            # ATR动态止损
 │
 └── signal/             # 信号生成
-    ├── generator.py    # 信号生成器
-    └── combiner.py     # 信号合并
+    ├── generator.py       # 信号生成器
+    └── __init__.py
 ```
 
 #### 回测流程
@@ -237,76 +249,57 @@ backtest/
    └── 归因分析: 因子贡献、行业贡献
 ```
 
-### 4. Position Layer (仓位层)
+### 4. Dashboard Layer (Web界面)
 
-#### 策略实现
-
-```
-position/
-├── equal.py            # 等权配置
-│   └── EqualWeightPosition
-│       └── allocate(symbols, weights=None)
-│
-├── factor.py           # 因子里重
-│   └── FactorWeightedPosition
-│       └── allocate(symbols, factor_values)
-│
-└── kelly.py            # 凯利公式
-    └── KellyPosition
-        └── allocate(symbols, win_rate, avg_win, avg_loss)
-```
-
-### 5. Stop-Loss Layer (止损层)
-
-#### 策略实现
-
-```
-stoploss/
-├── fixed.py            # 固定止损
-│   └── FixedStopLoss
-│       └── check(entry_price, current_price)
-│
-├── atr.py              # ATR动态止损
-│   └── ATRStopLoss
-│       └── check(entry_price, current_price, atr)
-│
-└── trailing.py         # 追踪止损
-    └── TrailingStopLoss
-        └── check(entry_price, current_price, highest_price)
-```
-
-### 6. Dashboard Layer (Web界面)
+#### 职责
+- 纯 "Load + 展示" 模式
+- 调用后端模块获取数据
+- 渲染图表和表格
 
 #### 页面结构
 
 ```
 dashboard/
-├── Home.py             # 首页
+├── Home.py               # 首页
 │   ├── 系统状态概览
 │   ├── 数据库统计
 │   └── 快速操作入口
 │
 ├── pages/
-│   ├── Factors.py      # 因子评估页面
+│   ├── Factors.py        # 因子评估页面
 │   │   ├── 因子选择器
 │   │   ├── 参数配置
 │   │   ├── IC分析图表
 │   │   └── 分组收益图表
 │   │
-│   ├── Pipeline.py    # Pipeline组合页面
+│   ├── Pipeline.py       # Pipeline组合页面
 │   │   ├── 多因子配置
 │   │   ├── 参数调优
 │   │   └── 累计收益曲线
 │   │
-│   └── Backtest.py    # 回测结果页面
-│       ├── 策略配置
-│       ├── 绩效指标
-│       └── 收益曲线
+│   ├── BacktestResult.py # 回测结果页面
+│   │   ├── 策略配置
+│   │   ├── 绩效指标
+│   │   └── 收益曲线
+│   │
+│   └── Data.py          # 数据浏览页面
+│       └── 数据查询
 │
-└── components/
-    ├── charts.py       # 图表组件
-    ├── forms.py        # 表单组件
-    └── tables.py       # 表格组件
+└── components/          # 可复用组件
+    ├── charts.py         # 图表组件
+    │   ├── create_line_chart()
+    │   ├── create_equity_curve()
+    │   └── create_ic_chart()
+    │
+    ├── forms/           # 表单组件
+    │   ├── factor_selector_form()
+    │   ├── backtest_config_form()
+    │   └── filter_form()
+    │
+    └── tables/          # 表格组件
+        ├── render_dataframe()
+        ├── render_metrics_row()
+        └── render_performance_table()
 ```
 
 ## 🔄 数据流
@@ -315,13 +308,13 @@ dashboard/
 
 ```
 1. 数据获取 (RiceQuant)
-   └── get_price_data(symbols, start_date, end_date)
+   └── ricequant_source.get_price(symbols, start_date, end_date)
    
 2. 因子计算
    └── factor.compute(price_data)
    
 3. IC计算
-   └── factor.compute_ic(factor_values, returns)
+   └── ic_analyzer.compute_ic(factor_values, returns)
    
 4. 数据验证
    └── validator.check(factor_data)
@@ -341,9 +334,9 @@ dashboard/
    └── 时间范围: start_date, end_date
 
 2. 加载数据
-   ├── 因子数据: storage.query_daily_factor(...)
-   └── 价格数据: ricequant.get_price(...)
-   
+   ├── 因子数据: loaders.get_factor_data(factor_name)
+   └── 价格数据: loaders.get_price_data(symbols, date_range)
+
 3. 按时间循环
    for each trading_day:
        ├── 选股: selection.select(day)
@@ -356,11 +349,11 @@ dashboard/
    ├── 计算收益序列
    ├── 计算指标: 年化收益、夏普、最大回撤
    └── 生成报告
-
-5. 可视化
-   ├── 累计收益曲线
-   ├── 回撤曲线
-   └── 分组收益对比
+   
+5. Dashboard 展示
+   ├── loaders 获取数据
+   ├── factors/visualization 计算 IC
+   └── components/charts 渲染图表
 ```
 
 ## 🗄️ 数据库设计
@@ -371,19 +364,18 @@ dashboard/
 
 ```sql
 CREATE TABLE factor_config (
-    name VARCHAR(100) PRIMARY KEY,      -- 因子唯一标识
-    display_name VARCHAR(200),           -- 显示名称
-    category VARCHAR(50),               -- 类别 (tech, return, stats, industry)
-    frequency VARCHAR(20) NOT NULL,     -- 频率 (minute, daily, weekly)
-    storage_type VARCHAR(20) NOT NULL,  -- 存储类型 (wide, narrow)
-    description TEXT,                   -- 因子描述
-    unit VARCHAR(50),                   -- 单位 (percent, ratio, etc.)
-    params JSONB,                      -- 参数配置
+    name VARCHAR(100) PRIMARY KEY,
+    display_name VARCHAR(200),
+    category VARCHAR(50),
+    frequency VARCHAR(20) NOT NULL,
+    storage_type VARCHAR(20) NOT NULL,
+    description TEXT,
+    unit VARCHAR(50),
+    params JSONB,
     created_at TIMESTAMP,
     updated_at TIMESTAMP
 );
 
--- 索引
 CREATE INDEX idx_factor_config_category ON factor_config(category);
 CREATE INDEX idx_factor_config_frequency ON factor_config(frequency);
 ```
@@ -391,7 +383,6 @@ CREATE INDEX idx_factor_config_frequency ON factor_config(frequency);
 #### 2. minute_factor_values (分钟因子 - 窄表)
 
 ```sql
--- Hypertable (TimescaleDB)
 CREATE TABLE minute_factor_values (
     time TIMESTAMP NOT NULL,
     factor_name VARCHAR(100),
@@ -403,12 +394,10 @@ CREATE TABLE minute_factor_values (
 
 SELECT create_hypertable('minute_factor_values', 'time');
 
--- 分区按月
 CREATE TABLE minute_factor_values_2026_01
     PARTITION OF minute_factor_values
     FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
 
--- 索引
 CREATE INDEX idx_minute_factor_lookup 
 ON minute_factor_values (factor_name, symbol, time DESC);
 ```
@@ -450,42 +439,13 @@ CREATE TABLE daily_factors_wide (
     -- 统计因子
     zscore_60 DOUBLE PRECISION,
     
-    -- 元数据
     updated_at TIMESTAMP DEFAULT NOW(),
     
     PRIMARY KEY (symbol, date)
 );
 
--- 索引
 CREATE INDEX idx_daily_factors_date ON daily_factors_wide(date DESC);
 CREATE INDEX idx_daily_factors_symbol ON daily_factors_wide(symbol);
-```
-
-## 🔧 配置说明
-
-### config.py 核心配置
-
-```python
-# 数据库配置
-DATABASE_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'quant',
-    'user': 'postgres',
-    'password': 'postgres'
-}
-
-# 数据源配置
-DATA_SOURCE = 'ricequant'  # 唯一数据源
-
-# 回测配置
-BACKTEST_CONFIG = {
-    'initial_capital': 1000000,      # 初始资金
-    'transaction_cost': 0.001,       # 交易成本
-    'slippage': 0.0005,              # 滑点
-    'min_position': 0.01,            # 最小仓位
-    'max_position': 0.95             # 最大仓位
-}
 ```
 
 ## 📈 性能考量
@@ -508,11 +468,21 @@ BACKTEST_CONFIG = {
 4. **批量写入**: 使用COPY进行批量数据导入
 5. **缓存策略**: 热点数据缓存到内存
 
+## 🔧 重构历史
+
+### 2026-02-19 重构
+
+| 重构项 | 改动 |
+|--------|------|
+| selector/position/stoploss | 从顶层移入 backtest/ |
+| Dashboard IC计算 | 调用 factors/visualization/ICAnalyzer |
+| Dashboard 数据加载 | 抽取为 data/loaders.py |
+| 删除模拟数据 | 删除 simulator.py, sample_price.csv |
+| data/ 目录重构 | 拆分为 storage/ + utils/ |
+
 ## 🚀 扩展指南
 
 ### 添加新因子
-
-1. **创建因子类** (factors/basic/my_factor.py):
 
 ```python
 from quant_factor_system.core.base import Factor
@@ -522,52 +492,31 @@ class MyFactor(Factor):
     category = 'tech'
     frequency = 'daily'
     
-    def __init__(self, param1=10, param2=20):
+    def __init__(self, param1=10):
         self.param1 = param1
-        self.param2 = param2
     
     def compute(self, data):
         # 因子计算逻辑
         return result
     
     def validate(self, data):
-        # 数据验证
         return True
 ```
 
-2. **注册因子** (factors/__init__.py):
+### Dashboard 职责划分
 
-```python
-from quant_factor_system.factors.registry import register
-
-register(MyFactor)
 ```
+Dashboard = Load + 展示
 
-3. **使用因子**:
+Load (数据加载)
+├── data/loaders.py          # 从数据库加载
+└── factors/visualization/   # 计算 IC、分组收益
 
-```python
-from quant_factor_system.factors import get_factor
-
-factor = get_factor('my_factor', param1=15)
-result = factor.compute(data)
+展示 (UI 渲染)
+├── dashboard/components/charts/  # 图表
+├── dashboard/components/forms/    # 表单
+└── dashboard/components/tables/  # 表格
 ```
-
-### 添加新止损策略
-
-1. **创建止损类** (stoploss/my_stoploss.py):
-
-```python
-from quant_factor_system.core.base import StopLossStrategy
-
-class MyStopLoss(StopLossStrategy):
-    name = 'my_stoploss'
-    
-    def check(self, entry_price, current_price, **kwargs):
-        # 止损逻辑
-        return should_stop
-```
-
-2. **注册并使用** (同因子注册方式)
 
 ---
 
