@@ -68,6 +68,16 @@ from .selection import (
     StockRanker,
     RankResult,
     create_ranker,
+    SingleFactorSelector,
+    SelectionResult,
+    SortOrder,
+    MultiFactorCombiner,
+    CombinedFactor,
+    CombinationMethod,
+    IntersectionFilter,
+    UnionFilter,
+    DifferenceFilter,
+    FilterResult,
 )
 
 from .signal import (
@@ -77,6 +87,24 @@ from .signal import (
     TradeSignal,
     SignalBatch,
     create_signal_generator,
+)
+
+from .position import (
+    EqualWeightManager,
+    FixedWeightManager,
+    Position,
+    PositionResult,
+    FactorWeightedManager,
+    FactorPositionResult,
+    WeightingMethod,
+    KellyManager,
+    KellyResult,
+    KellyVariant,
+)
+
+from .stoploss import (
+    FixedStopLoss,
+    ATRStopLoss,
 )
 
 __all__ = [
@@ -110,6 +138,16 @@ __all__ = [
     'StockRanker',
     'RankResult',
     'create_ranker',
+    'SingleFactorSelector',
+    'SelectionResult',
+    'SortOrder',
+    'MultiFactorCombiner',
+    'CombinedFactor',
+    'CombinationMethod',
+    'IntersectionFilter',
+    'UnionFilter',
+    'DifferenceFilter',
+    'FilterResult',
     
     # 信号
     'SignalGenerator',
@@ -118,4 +156,13 @@ __all__ = [
     'TradeSignal',
     'SignalBatch',
     'create_signal_generator',
+    
+    # 仓位
+    'EqualWeightPosition',
+    'FactorWeightedPosition',
+    'KellyPosition',
+    
+    # 止损
+    'FixedStopLoss',
+    'ATRStopLoss',
 ]

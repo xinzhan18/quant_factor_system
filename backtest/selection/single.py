@@ -9,7 +9,7 @@ Single Factor Selector
 - ST/次新股过滤
 
 使用示例:
-    from quant_factor_system.selector.single import SingleFactorSelector, SelectionResult
+    from .single import SingleFactorSelector, SelectionResult
     
     selector = SingleFactorSelector(
         top_n=20,

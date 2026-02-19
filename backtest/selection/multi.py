@@ -9,7 +9,7 @@ Multi Factor Combiner
 - Z-score标准化
 
 使用示例:
-    from quant_factor_system.selector.multi import MultiFactorCombiner
+    from .multi import MultiFactorCombiner
     
     combiner = MultiFactorCombiner(weights={
         'momentum': 0.4,

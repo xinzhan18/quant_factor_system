@@ -4,8 +4,7 @@ Quant Factor System - 量化因子研究平台
 功能:
 - 数据层: TimescaleDB存储, RiceQuant数据源
 - 因子层: 因子计算, 聚合, 处理
-- 选股层: 单因子/多因子选股
-- 回测层: 回测引擎, 绩效分析
+- 回测层: 回测引擎, 绩效分析, 选股, 仓位, 止损
 
 使用:
     # 数据
@@ -14,10 +13,7 @@ Quant Factor System - 量化因子研究平台
     # 因子
     from quant_factor_system.factors import FactorProcessor, FactorAggregator
     
-    # 选股
-    from quant_factor_system.selector import SingleFactorSelector, MultiFactorCombiner
-    
-    # 回测
+    # 回测（包含选股、仓位、止损）
     from quant_factor_system.backtest import BacktestEngine, PerformanceAnalyzer
 """
 
@@ -40,18 +36,22 @@ from .factors import (
     FactorRegistry,
 )
 
-# 选股层
-from .selector import (
-    SingleFactorSelector,
-    MultiFactorCombiner,
-    IntersectionFilter,
-    UnionFilter,
-)
-
 # 回测层
 from .backtest import (
     BacktestEngine,
     PerformanceAnalyzer,
+    # 选股
+    SingleFactorSelector,
+    MultiFactorCombiner,
+    IntersectionFilter,
+    # 仓位
+    EqualWeightManager,
+    FixedWeightManager,
+    FactorWeightedManager,
+    KellyManager,
+    # 止损
+    FixedStopLoss,
+    ATRStopLoss,
 )
 
 __all__ = [
@@ -71,13 +71,22 @@ __all__ = [
     'FactorFactory',
     'FactorRegistry',
     
-    # 选股层
-    'SingleFactorSelector',
-    'MultiFactorCombiner',
-    'IntersectionFilter',
-    'UnionFilter',
-    
     # 回测层
     'BacktestEngine',
     'PerformanceAnalyzer',
+    
+    # 选股
+    'SingleFactorSelector',
+    'MultiFactorCombiner',
+    'IntersectionFilter',
+    
+    # 仓位
+    'EqualWeightManager',
+    'FixedWeightManager',
+    'FactorWeightedManager',
+    'KellyManager',
+    
+    # 止损
+    'FixedStopLoss',
+    'ATRStopLoss',
 ]

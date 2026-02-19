@@ -8,27 +8,25 @@ Stock Selection Module
 - FactorSelector: 因子选择器
 - StockFilter: 股票过滤器
 - StockRanker: 股票排名器
+- SingleFactorSelector: 单因子选股
+- MultiFactorCombiner: 多因子组合
+- IntersectionFilter/UnionFilter/DifferenceFilter: 集合过滤器
 
 使用方式:
+    # 底层工具
     from quant_factor_system.backtest.selection import (
         FactorSelector,
         StockFilter,
         StockRanker,
         create_composite_filter
     )
-
-    # 创建过滤器
-    filter = create_composite_filter(
-        min_market_cap=100,
-        exclude_limit_up=True
+    
+    # 策略级别
+    from quant_factor_system.backtest.selection import (
+        SingleFactorSelector,
+        MultiFactorCombiner,
+        IntersectionFilter,
     )
-    
-    # 过滤股票
-    symbols = filter.filter_df(df)
-    
-    # 排名
-    ranker = StockRanker()
-    ranked_df, top_symbols = ranker.rank_multi_factor(df, ['factor1', 'factor2'])
 """
 
 from .factor_selector import (
@@ -55,6 +53,25 @@ from .ranker import (
     create_ranker,
 )
 
+from .single import (
+    SingleFactorSelector,
+    SelectionResult,
+    SortOrder,
+)
+
+from .multi import (
+    MultiFactorCombiner,
+    CombinedFactor,
+    CombinationMethod,
+)
+
+from .filter import (
+    IntersectionFilter,
+    UnionFilter,
+    DifferenceFilter,
+    FilterResult,
+)
+
 __all__ = [
     # 因子选择
     'FactorSelector',
@@ -76,4 +93,20 @@ __all__ = [
     'StockRanker',
     'RankResult',
     'create_ranker',
+    
+    # 单因子选股
+    'SingleFactorSelector',
+    'SelectionResult',
+    'SortOrder',
+    
+    # 多因子组合
+    'MultiFactorCombiner',
+    'CombinedFactor',
+    'CombinationMethod',
+    
+    # 集合过滤
+    'IntersectionFilter',
+    'UnionFilter',
+    'DifferenceFilter',
+    'FilterResult',
 ]

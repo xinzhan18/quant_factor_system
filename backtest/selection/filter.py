@@ -8,7 +8,7 @@ Intersection Filter
 - 条件组合
 
 使用示例:
-    from quant_factor_system.selector.filter import IntersectionFilter, UnionFilter
+    from .filter import IntersectionFilter, UnionFilter
     
     # 取交集
     filter = IntersectionFilter()
