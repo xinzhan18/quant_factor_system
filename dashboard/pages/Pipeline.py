@@ -40,9 +40,7 @@ def main():
         # 确保因子已注册
         register_all_builtins()
         factors = list_factors()
-        factor_names = [f['name'] for f in factors]
-        if not factor_names:
-            factor_names = ['momentum', 'ma', 'rsi', 'return_1d', 'return_5d', 'return_20d', 'dist_ma10', 'zscore_60']
+        factor_names = [f['name'] for f in factors] if factors else []
         
         symbols = st.text_input(
             "股票代码",
