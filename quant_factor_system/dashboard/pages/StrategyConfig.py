@@ -7,6 +7,11 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 from quant_factor_system.factors import register_all_builtins, list_factors
+from quant_factor_system.dashboard.components import (
+    factor_selector_form,
+    backtest_config_form,
+    filter_form
+)
 
 
 def get_available_factors():
@@ -26,25 +31,17 @@ def main():
     
     st.title("⚙️ 策略配置")
     
-    # 获取可用因子
+    # 使用通用组件
     available_factors = get_available_factors()
     if not available_factors:
         available_factors = ['momentum', 'ma', 'rsi', 'return_1d', 'return_5d', 'return_20d', 'dist_ma10', 'zscore_60']
     
-    # 1. 因子选择
+    # 1. 因子选择 - 使用通用组件
     st.subheader("1. 选择因子")
     
-    col1, col2 = st.columns([3, 1])
+    selected_factors = factor_selector_form(available_factors, key_prefix='strategy')
     
-    with col1:
-        selected_factors = st.multiselect(
-            "选择因子",
-            available_factors,
-            default=['momentum', 'return_1d'][:2]
-        )
-    
-    with col2:
-        st.metric("已选因子数", len(selected_factors))
+    st.metric("已选因子数", len(selected_factors))
     
     # 2. 选股参数
     st.subheader("2. 选股参数")

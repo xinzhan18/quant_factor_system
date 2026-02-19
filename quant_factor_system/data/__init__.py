@@ -49,6 +49,12 @@ from .industry_source import (
     get_industry_factors,
 )
 
+from .clean import (
+    DataValidator,
+    ValidationResult,
+    validate_and_report,
+)
+
 __all__ = [
     # TimescaleDB 存储 (生产环境) ⭐
     'TimescaleDB',
@@ -70,4 +76,9 @@ __all__ = [
     'IndustrySource',
     'get_industry_classification',
     'get_industry_factors',
+    
+    # 数据验证
+    'DataValidator',
+    'ValidationResult',
+    'validate_and_report',
 ]

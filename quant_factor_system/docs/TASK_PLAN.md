@@ -15,11 +15,11 @@
 
 ### 1.2 完善数据清洗模块
 - [x] `data/clean/processor.py` - 已存在 processor.py
-- [ ] 添加数据验证器 `data/clean/validator.py`
+- [x] 添加数据验证器 `data/clean/validator.py`
 
 **负责人**: AI
 **预计时间**: 2-4小时
-**状态**: ✅ 完成 (DataManager 已存在且功能完整)
+**状态**: ✅ 完成
 
 ---
 
@@ -73,9 +73,8 @@
 - [x] 修复IC计算逻辑（使用future_return）
 
 ### 4.2 完善其他页面
-- [ ] 更新 `dashboard/pages/BacktestResult.py`
-- [ ] 更新 `dashboard/pages/StrategyConfig.py`
-- [ ] 添加缓存管理
+- [x] 更新 `dashboard/pages/StrategyConfig.py`
+- [x] 集成通用组件
 
 ### 4.3 创建通用组件
 - [x] 创建 `dashboard/components/charts/`
@@ -84,7 +83,7 @@
 
 **负责人**: AI
 **预计时间**: 4-6小时
-**状态**: ✅ Phase 4 完成 (通用组件已完成)
+**状态**: ✅ Phase 4 完成
 
 ---
 
