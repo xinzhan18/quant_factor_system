@@ -34,7 +34,7 @@ from enum import Enum
 import hashlib
 import logging
 
-from .factors import *
+from ..basic import *
 
 logger = logging.getLogger(__name__)
 

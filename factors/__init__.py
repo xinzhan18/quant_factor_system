@@ -42,6 +42,13 @@ from .visualization import (
     create_report_generator,
 )
 
+from .pipeline import (
+    Pipeline,
+    PipelineResult,
+    Frequency,
+    create_pipeline,
+)
+
 __all__ = basic.__all__ + [
     'FactorRegistry',
     'get_registry',
@@ -70,4 +77,9 @@ __all__ = basic.__all__ + [
     'create_group_analyzer',
     'FactorReportGenerator',
     'create_report_generator',
+    # Pipeline
+    'Pipeline',
+    'PipelineResult',
+    'Frequency',
+    'create_pipeline',
 ]

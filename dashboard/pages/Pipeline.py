@@ -13,8 +13,7 @@ from quant_factor_system.data import (
     DataManager,
     TimescaleDB,
 )
-from quant_factor_system.pipeline import Pipeline
-from quant_factor_system.factors import list_factors, register_all_builtins
+from quant_factor_system.factors import Pipeline, list_factors, register_all_builtins
 
 
 def main():

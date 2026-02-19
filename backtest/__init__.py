@@ -107,6 +107,11 @@ from .stoploss import (
     ATRStopLoss,
 )
 
+from .risk_metrics import (
+    RiskAnalyzer,
+    RiskMetrics,
+)
+
 __all__ = [
     # 引擎
     'BacktestEngine',
@@ -165,4 +170,8 @@ __all__ = [
     # 止损
     'FixedStopLoss',
     'ATRStopLoss',
+    
+    # 风险指标
+    'RiskAnalyzer',
+    'RiskMetrics',
 ]
