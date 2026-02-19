@@ -4,8 +4,8 @@
 """
 
 import importlib
-from typing import Dict, List, Optional, Type, Any
-from ..core import get_registry, FactorRegistry
+from typing import Dict, List, Type, Any
+from ..core import get_registry
 
 
 class FactorFactory:

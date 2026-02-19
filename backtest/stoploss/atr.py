@@ -23,12 +23,9 @@ ATR Stop Loss / Take Profit
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Tuple
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from datetime import datetime
-from enum import Enum
 import logging
 
 logger = logging.getLogger(__name__)
@@ -145,7 +142,6 @@ class BaseATRStop(ABC):
         Returns:
             止损价格
         """
-        pass
 
 
 class ATRStopLoss(BaseATRStop):

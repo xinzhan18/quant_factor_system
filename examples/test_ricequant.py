@@ -12,11 +12,8 @@ import sys
 sys.path.insert(0, '/Users/xinzhan/.openclaw/workspace/quant_factor_system')
 
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 
 # 导入模块
-from quant_factor_system.data import QuantDataManager
 
 
 def test_ricequant_connection():

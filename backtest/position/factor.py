@@ -24,7 +24,7 @@ Factor Weighted Position Manager
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -208,7 +208,7 @@ class FactorWeightedManager:
         if not weights:
             return {}
         
-        total = sum(weights.values())
+        sum(weights.values())
         
         clipped = {}
         for symbol, weight in weights.items():
@@ -279,7 +279,7 @@ class FactorWeightedManager:
             }
         
         # 3. 计算剩余现金
-        cash_remaining = cash - total_value
+        cash - total_value
         
         logger.info(f"✅ 因子加权仓位计算: {len(positions)}只股票, 方法: {self.method.value}")
         

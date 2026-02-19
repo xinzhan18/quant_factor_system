@@ -22,7 +22,7 @@ RiceQuant Industry Data Adapter
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List
 from pathlib import Path
 import logging
 

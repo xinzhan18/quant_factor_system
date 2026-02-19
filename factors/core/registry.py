@@ -5,7 +5,7 @@
 
 import pandas as pd
 import json
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Optional
 from datetime import datetime
 
 

@@ -248,7 +248,7 @@ def generate_requirements() -> str:
     for name, info in REQUIRED_PACKAGES.items():
         if info['required']:
             min_ver = info.get('min_version', '')
-            recommended = info.get('recommended', '')
+            info.get('recommended', '')
             lines.append(f"{name}>={min_ver}")
     
     lines.extend([

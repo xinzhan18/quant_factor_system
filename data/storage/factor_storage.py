@@ -4,22 +4,20 @@ PostgreSQL 因子存储管理器
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Any, Union
-from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+from datetime import datetime
 from contextlib import contextmanager
 import logging
 import os
 
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, DateTime, Date,
-    Text, UniqueConstraint, BigInteger, Index, PrimaryKeyConstraint
+    create_engine, Column, String, Float, DateTime, Date, Text,
+    BigInteger, PrimaryKeyConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.pool import QueuePool
-from sqlalchemy import text, inspect, event
-from sqlalchemy.engine import Engine
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 Base = declarative_base()

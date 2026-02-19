@@ -24,9 +24,8 @@ TimescaleDB 量化因子数据存储
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Any, Union, Callable
-from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any, Union
+from datetime import datetime
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, DateTime, 
     Index, CheckConstraint, UniqueConstraint, text

@@ -12,7 +12,7 @@ Stock Filter
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Callable
+from typing import List, Callable
 from dataclasses import dataclass
 from enum import Enum
 

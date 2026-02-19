@@ -242,7 +242,7 @@ def main():
     
     st.title("📈 因子评估")
     
-    db = TimescaleDB()
+    TimescaleDB()
     
     # ==================== 侧边栏 ====================
     with st.sidebar:

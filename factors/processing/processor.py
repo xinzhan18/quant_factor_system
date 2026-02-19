@@ -29,7 +29,7 @@ Factor Processing Module
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Union, Tuple
+from typing import List
 from dataclasses import dataclass
 import logging
 

@@ -24,11 +24,9 @@ Equal Weight Position Manager
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from datetime import date
 import logging
 
 logger = logging.getLogger(__name__)
@@ -109,7 +107,6 @@ class PositionManager(ABC):
         Returns:
             PositionResult
         """
-        pass
 
 
 class EqualWeightManager(PositionManager):

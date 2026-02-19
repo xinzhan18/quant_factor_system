@@ -23,7 +23,6 @@ Data Loaders Module
 
 import pandas as pd
 from typing import List, Tuple, Optional
-from datetime import datetime
 
 
 # 数据库中实际存在的因子表映射
@@ -132,7 +131,7 @@ def get_price_data(
         
         return pd.DataFrame(rows, columns=cols)
         
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -192,7 +191,7 @@ def get_factor_overview(connection) -> pd.DataFrame:
         
         return pd.DataFrame(data)
         
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
 
 

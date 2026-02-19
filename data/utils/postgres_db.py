@@ -3,9 +3,8 @@ PostgreSQL 数据库管理
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Any, Union
-from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+from datetime import datetime
 from contextlib import contextmanager
 import logging
 import os

@@ -135,7 +135,6 @@ class FactorVersionManager:
         """保存版本到数据库"""
         # 如果有数据库存储，调用相应的save方法
         # 目前使用内存存储
-        pass
     
     def get_versions(
         self,

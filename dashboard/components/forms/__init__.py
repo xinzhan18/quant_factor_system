@@ -6,8 +6,8 @@ Common Form Components
 """
 
 import streamlit as st
-from typing import Dict, List, Any, Optional, Callable
-from datetime import datetime, date
+from typing import Dict, List, Any
+from datetime import datetime
 
 
 def factor_selector_form(

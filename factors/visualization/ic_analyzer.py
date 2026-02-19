@@ -10,11 +10,10 @@ Information Coefficient Analyzer
 """
 
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from datetime import datetime
 
 
@@ -78,8 +77,8 @@ class ICAnalyzer:
         result = {}
         
         # 获取日期范围
-        min_date = merged['time'].min()
-        max_date = merged['time'].max()
+        merged['time'].min()
+        merged['time'].max()
         
         # 计算各周期IC
         periods = ['train', 'test'] if split_date else ['all']
@@ -101,7 +100,6 @@ class ICAnalyzer:
         result['samples_all'] = len(merged)
         
         # 计算滚动IC
-        window = 60
         daily_ic = merged.groupby('time').apply(
             lambda x: x['value'].corr(x['future_return'], method=method)
             if x['future_return'].std() > 0 else 0

@@ -24,14 +24,10 @@ Quant Data Storage with TimescaleDB
 """
 
 import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List
 from contextlib import contextmanager
 import logging
-import json
-import hashlib
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +93,6 @@ class TimescaleDB:
     def _check_connection(self):
         """检查连接是否可用"""
         try:
-            import psycopg2
             from psycopg2 import pool
             
             # 只传递有效的连接参数

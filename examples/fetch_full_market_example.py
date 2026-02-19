@@ -9,7 +9,6 @@ Full Market Fetch Example
 import sys
 sys.path.insert(0, '.')
 
-from datetime import datetime
 from quant_factor_system.scripts.fetch_full_market import FullMarketFetcher
 
 

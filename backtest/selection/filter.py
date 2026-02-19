@@ -20,7 +20,7 @@ Intersection Filter
 """
 
 import pandas as pd
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set
 from dataclasses import dataclass
 from enum import Enum
 import logging

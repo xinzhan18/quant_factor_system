@@ -11,11 +11,11 @@ Factor Evaluation Report Generator
 import os
 import json
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, Any
 import pandas as pd
 
-from .ic_analyzer import ICAnalyzer, create_ic_analyzer
-from .group_returns import GroupReturnsAnalyzer, create_group_analyzer
+from .ic_analyzer import create_ic_analyzer
+from .group_returns import create_group_analyzer
 
 
 class FactorReportGenerator:

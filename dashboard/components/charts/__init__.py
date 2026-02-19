@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
-from typing import Optional, List, Dict, Any
+from typing import Dict
 
 
 def create_line_chart(

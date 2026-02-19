@@ -26,7 +26,7 @@ Multi Factor Combiner
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Callable
+from typing import Dict
 from dataclasses import dataclass
 from enum import Enum
 from scipy import stats
@@ -230,10 +230,10 @@ class MultiFactorCombiner:
             return self._get_weights(factor_data)
         
         # 计算协方差矩阵
-        cov_matrix = factor_returns.cov()
+        factor_returns.cov()
         
         # 计算预期收益
-        expected_returns = factor_returns.mean()
+        factor_returns.mean()
         
         # 简单的均值方差优化 (最大化夏普比率)
         try:

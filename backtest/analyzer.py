@@ -23,9 +23,8 @@ Performance Analyzer
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -295,7 +294,7 @@ class PerformanceAnalyzer:
         # 夏普比率
         if metrics.volatility > 0:
             # 日夏普
-            daily_rf = self.risk_free_rate / self.trading_days_per_year
+            self.risk_free_rate / self.trading_days_per_year
             excess_return = metrics.annual_return - self.risk_free_rate
             
             metrics.sharpe_ratio = excess_return / metrics.annual_volatility if metrics.annual_volatility > 0 else 0

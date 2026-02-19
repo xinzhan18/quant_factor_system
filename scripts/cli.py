@@ -12,13 +12,11 @@ Command Line Interface
 
 import sys
 import argparse
-from typing import Optional
-from datetime import datetime
 
 
 def cmd_info(args):
     """系统信息"""
-    from quant_factor_system import __version__, info
+    from quant_factor_system import info
     info()
 
 
@@ -186,8 +184,6 @@ def cmd_test(args):
 def cmd_benchmark(args):
     """基准测试"""
     import time
-    import pandas as pd
-    import numpy as np
     
     from quant_factor_system import create_data_manager, create_pipeline
     from quant_factor_system.factors.core.pipeline import BuiltInFactors

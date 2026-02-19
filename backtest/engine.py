@@ -26,12 +26,11 @@ Backtest Engine Core
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, date
 from enum import Enum
 import logging
-from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 

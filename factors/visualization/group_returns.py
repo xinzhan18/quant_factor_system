@@ -13,8 +13,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from datetime import datetime
 
 
@@ -138,7 +137,7 @@ class GroupReturnsAnalyzer:
             title = f"{self.factor_name} 分组年化收益" if self.factor_name else "分组年化收益"
         
         # 颜色映射
-        colors = px.colors.diverging.RdBu_r
+        px.colors.diverging.RdBu_r
         color_values = mean_returns.values * 100
         
         fig = px.bar(

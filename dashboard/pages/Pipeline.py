@@ -4,8 +4,6 @@ Pipeline 页面
 
 import streamlit as st
 import pandas as pd
-import sys
-import os
 
 # 包已通过 pip 安装到 conda 环境中
 

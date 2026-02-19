@@ -3,14 +3,11 @@
 """
 
 import streamlit as st
-import pandas as pd
 from datetime import datetime, timedelta
 
 from quant_factor_system.factors import register_all_builtins, list_factors
 from quant_factor_system.dashboard.components import (
-    factor_selector_form,
-    backtest_config_form,
-    filter_form
+    factor_selector_form
 )
 
 
@@ -74,9 +71,9 @@ def main():
     if position_method == '等权分配':
         col1, col2 = st.columns(2)
         with col1:
-            max_weight = st.slider("单只最大权重", 0.05, 0.30, 0.15)
+            st.slider("单只最大权重", 0.05, 0.30, 0.15)
         with col2:
-            min_weight = st.slider("单只最小权重", 0.01, 0.10, 0.02)
+            st.slider("单只最小权重", 0.01, 0.10, 0.02)
     
     # 4. 止盈止损
     st.subheader("4. 止盈止损")

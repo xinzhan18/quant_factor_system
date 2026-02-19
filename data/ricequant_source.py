@@ -33,11 +33,9 @@ RiceQuant Data Source Adapter
     - 如果未安装 rqdatac，将使用模拟数据
 """
 
-import os
-import hashlib
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from pathlib import Path
 
 import pandas as pd

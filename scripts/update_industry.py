@@ -16,7 +16,6 @@ Industry Factor Update Script
 
 import sys
 import argparse
-from datetime import datetime, timedelta
 import logging
 
 logging.basicConfig(level=logging.INFO)

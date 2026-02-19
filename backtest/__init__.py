@@ -90,6 +90,15 @@ from .signal import (
 )
 
 from .position import (
+    Position,
+)
+
+from .stoploss import (
+    FixedStopLoss,
+    ATRStopLoss,
+)
+
+from .position import (
     EqualWeightManager,
     FixedWeightManager,
     Position,
@@ -100,11 +109,6 @@ from .position import (
     KellyManager,
     KellyResult,
     KellyVariant,
-)
-
-from .stoploss import (
-    FixedStopLoss,
-    ATRStopLoss,
 )
 
 __all__ = [
@@ -158,9 +162,16 @@ __all__ = [
     'create_signal_generator',
     
     # 仓位
-    'EqualWeightPosition',
-    'FactorWeightedPosition',
-    'KellyPosition',
+    'EqualWeightManager',
+    'FixedWeightManager',
+    'Position',
+    'PositionResult',
+    'FactorWeightedManager',
+    'FactorPositionResult',
+    'WeightingMethod',
+    'KellyManager',
+    'KellyResult',
+    'KellyVariant',
     
     # 止损
     'FixedStopLoss',

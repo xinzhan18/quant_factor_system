@@ -11,10 +11,9 @@ Historical Stock List Manager
     python -m quant_factor_system.scripts.manage_stock_list --year 2015 --generate
 """
 
-import pandas as pd
 import json
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import List
 import logging
 import os
 

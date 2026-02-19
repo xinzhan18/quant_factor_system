@@ -19,10 +19,8 @@ Full Market Daily Data Fetcher
     python -m quant_factor_system.scripts.fetch_full_market --year 2020
 """
 
-import sys
 import argparse
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 import json
 

@@ -6,8 +6,7 @@ Industry Factor Usage Examples
     python examples/industry_example.py
 """
 
-import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import sys
 
 # 添加路径
@@ -15,8 +14,7 @@ sys.path.insert(0, '.')
 
 from quant_factor_system.data import (
     IndustrySource,
-    QuantDataManager,
-    TimescaleDB
+    QuantDataManager
 )
 
 

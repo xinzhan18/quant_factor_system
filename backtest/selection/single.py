@@ -19,11 +19,10 @@ Single Factor Selector
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 from enum import Enum
-from datetime import date, datetime
+from datetime import date
 import logging
 
 logger = logging.getLogger(__name__)

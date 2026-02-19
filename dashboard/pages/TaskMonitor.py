@@ -11,8 +11,8 @@ Task Monitoring Page
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List
 import time
 
 

@@ -15,8 +15,7 @@ Minute Data Aggregator
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Callable, Union
+from typing import Dict, Callable, Union
 from dataclasses import dataclass
 from enum import Enum
 from datetime import date

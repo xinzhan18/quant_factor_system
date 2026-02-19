@@ -15,9 +15,7 @@ RiceQuant to TimescaleDB Pipeline Example
 
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
 import sys
-import os
 import logging
 import importlib.util
 

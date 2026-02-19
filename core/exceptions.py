@@ -8,10 +8,9 @@ QuantFactor System Exceptions
 - 错误码定义
 """
 
-from typing import Optional, Callable, Any
+from typing import Callable, Any
 from functools import wraps
 import traceback
-import sys
 
 
 # ==================== 异常基类 ====================

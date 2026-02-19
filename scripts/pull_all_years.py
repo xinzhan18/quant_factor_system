@@ -4,7 +4,6 @@
 """
 
 import os
-import sys
 
 # 设置米筐配置
 os.environ['RQDATAC_CONF'] = 'tcp://license:HZ9KQ7fUrGDbo_F2vppomXjs3-VpXzGY5anDDKDL5Te49kbTtDLmsTneaTvNNkDMMnQ9uUVeTHWkfwSMPaTt8CVZGZkaywfraeEUVOMXz1W6bGnuXoOTJ1qHVm5sfOGzMG-3drD1uYKCGNWfAAyIJbF0lnfJlzl9l0YElhWdUUk=DG_OVcg3wFeBRyuAjywrddEqJomlNjGY3EmKFLp-2KYeKg6hY7qwf4jxFxy_36gZSsvaAhhClwjLCZEJCW3RRGGFLoID28nZq4xkVjBF7p0-u-GyOqcnuxnio7eWJ5HklkwpInBUIY2x7sgIVvf-jgw3OlUZMKcv5KBilmi0DKE=@rqdatad-pro.ricequant.com:16011'

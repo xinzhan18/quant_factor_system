@@ -20,11 +20,10 @@ Fixed Stop Loss / Take Profit
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, field
+from typing import List
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from datetime import datetime, date, timedelta
+from datetime import date
 from enum import Enum
 import logging
 
@@ -90,7 +89,6 @@ class BaseStopLoss(ABC):
         Returns:
             StopCheckResult
         """
-        pass
     
     def check_series(
         self,

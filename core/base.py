@@ -4,9 +4,8 @@ Base Factor Classes
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 import pandas as pd
-import numpy as np
 
 
 class Factor(ABC):
@@ -39,7 +38,6 @@ class Factor(ABC):
         Returns:
             因子值序列
         """
-        pass
     
     def normalize(self, method: str = "zscore") -> pd.Series:
         """

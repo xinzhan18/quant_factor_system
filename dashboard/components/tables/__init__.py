@@ -7,7 +7,7 @@ Common Table Components
 
 import streamlit as st
 import pandas as pd
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 
 def render_dataframe(
