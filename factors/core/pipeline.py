@@ -30,28 +30,13 @@ from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from datetime import datetime
-from enum import Enum
 import hashlib
 import logging
 
 from ..basic import *
+from quant_factor_system.data.storage.frequency import Frequency
 
 logger = logging.getLogger(__name__)
-
-
-# ==================== 频率定义 ====================
-
-class Frequency(Enum):
-    """数据频率"""
-    TICK = 'tick'
-    MINUTE_1 = '1min'
-    MINUTE_5 = '5min'
-    MINUTE_15 = '15min'
-    MINUTE_30 = '30min'
-    HOUR_1 = '1hour'
-    DAILY = 'daily'
-    WEEKLY = 'weekly'
-    MONTHLY = 'monthly'
 
 
 # ==================== 结果类 ====================

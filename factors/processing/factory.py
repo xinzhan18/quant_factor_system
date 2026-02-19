@@ -5,7 +5,7 @@
 
 import importlib
 from typing import Dict, List, Optional, Type, Any
-from .registry import get_registry, FactorRegistry
+from ..core import get_registry, FactorRegistry
 
 
 class FactorFactory:

@@ -1,31 +1,29 @@
 # Factors - 因子模块
 from .basic import *
 
-from .registry import (
+from .core import (
     FactorRegistry,
     get_registry,
     register_factor,
     list_factors,
     get_factor_info,
+    Pipeline,
+    PipelineResult,
+    Frequency,
+    create_pipeline,
 )
 
-from .factory import (
+from .processing import (
     FactorFactory,
     create_factor,
     list_available_factors,
     register_all_builtins,
-)
-
-from .aggregator import (
     MinuteAggregator,
     AggregationMethod,
     AggregationResult,
     MultiColumnAggregator,
     FactorAggregator,
     aggregate_minute_to_daily,
-)
-
-from .processor import (
     FactorProcessor,
     FactorProcessorConfig,
     neutralize_market_cap,
@@ -42,19 +40,18 @@ from .visualization import (
     create_report_generator,
 )
 
-from .pipeline import (
-    Pipeline,
-    PipelineResult,
-    Frequency,
-    create_pipeline,
-)
-
 __all__ = basic.__all__ + [
+    # Core
     'FactorRegistry',
     'get_registry',
     'register_factor',
     'list_factors',
     'get_factor_info',
+    'Pipeline',
+    'PipelineResult',
+    'Frequency',
+    'create_pipeline',
+    # Processing
     'FactorFactory',
     'create_factor',
     'list_available_factors',
@@ -70,16 +67,11 @@ __all__ = basic.__all__ + [
     'neutralize_market_cap',
     'filter_limit_up_down',
     'process_factor',
-    # 可视化
+    # Visualization
     'ICAnalyzer',
     'create_ic_analyzer',
     'GroupReturnsAnalyzer',
     'create_group_analyzer',
     'FactorReportGenerator',
     'create_report_generator',
-    # Pipeline
-    'Pipeline',
-    'PipelineResult',
-    'Frequency',
-    'create_pipeline',
 ]
