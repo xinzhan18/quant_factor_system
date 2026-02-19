@@ -327,6 +327,11 @@ class RiceQuantSource:
             # 重置索引
             data = data.reset_index()
             
+            # 重命名 date -> time (TimescaleDB 期望的列名)
+            if 'date' in data.columns:
+                data['time'] = pd.to_datetime(data['date'])
+                data = data.drop(columns=['date'])
+            
             # 统一股票代码格式
             if 'order_book_id' in data.columns:
                 data['symbol'] = data['order_book_id'].apply(

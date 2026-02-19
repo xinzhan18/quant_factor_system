@@ -730,7 +730,7 @@ class TimescaleDB:
             # 表大小
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT table_name, pg_size_pretty(pg_total_relation_size(table_name)) as size
+                SELECT table_name, pg_size_pretty(pg_total_relation_size(table_name::text)) as size
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
             """)
@@ -742,7 +742,7 @@ class TimescaleDB:
             
             # 记录数
             cursor.execute("""
-                SELECT table_name, pg_total_relation_size(table_name)
+                SELECT table_name, pg_total_relation_size(table_name::text)
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
             """)

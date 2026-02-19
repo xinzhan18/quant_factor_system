@@ -11,8 +11,7 @@ import os
 
 from quant_factor_system.data import (
     DataManager,
-    PostgresDB,
-    get_postgres_db,
+    TimescaleDB,
 )
 from quant_factor_system.pipeline import Pipeline
 from quant_factor_system.factors import list_factors, register_all_builtins
@@ -44,7 +43,7 @@ def main():
         factors = list_factors()
         factor_names = [f['name'] for f in factors]
         if not factor_names:
-            factor_names = ['momentum', 'ma', 'rsi', 'return_1d', 'return_20d']
+            factor_names = ['momentum', 'ma', 'rsi', 'return_1d', 'return_5d', 'return_20d', 'dist_ma10', 'zscore_60']
         
         symbols = st.text_input(
             "股票代码",
@@ -143,42 +142,43 @@ def main():
                     # 添加因子
                     factors_added = []
                     
-                    pipe.add_factor(factor1_type, factor1_type, window=factor1_period)
+                    pipe.add_factor(factor1_type, factor1_type, period=factor1_period)
                     factors_added.append(factor1_type)
                     
                     if factor2_type != "none":
-                        pipe.add_factor(factor2_type, factor2_type, window=factor2_period)
+                        pipe.add_factor(factor2_type, factor2_type, period=factor2_period)
                         factors_added.append(factor2_type)
                     
                     if factor3_type != "none":
-                        pipe.add_factor(factor3_type, factor3_type, window=factor3_period)
+                        pipe.add_factor(factor3_type, factor3_type, period=factor3_period)
                         factors_added.append(factor3_type)
                     
                     # 运行
                     result = pipe.run(data)
                     
-                    if result is None or result.empty:
+                    if result is None or result.data.empty:
                         st.error("Pipeline 运行无结果")
                         return
                     
-                    st.success(f"✅ Pipeline 完成 | {len(result)} 行 | 因子: {', '.join(factors_added)}")
+                    st.success(f"✅ Pipeline 完成 | {len(result.data)} 行 | 因子: {', '.join(factors_added)}")
                     
                     # 保存到数据库
                     if save_to_db:
                         try:
-                            db = get_postgres_db()
+                            db = TimescaleDB()
+                            result_df = result.data
                             
                             # 计算组合 IC
-                            close = result['close']
+                            close = result_df['close']
                             returns = close.pct_change().dropna()
                             
                             for fc in factors_added:
-                                if fc in result.columns:
-                                    fv = result[fc].dropna()
+                                if fc in result_df.columns:
+                                    fv = result_df[fc].dropna()
                                     common_idx = returns.index.intersection(fv.index)
                                     if len(common_idx) > 10:
                                         ic = returns.loc[common_idx].corr(fv.loc[common_idx])
-                                        db.save_factor_results(result, fc, ic=ic)
+                                        db.save_factor_results(result_df, fc, ic=ic)
                             
                             st.success("✅ 结果已保存到数据库")
                         except Exception as e:
@@ -187,21 +187,23 @@ def main():
                     # 结果展示
                     st.subheader("📊 计算结果")
                     
+                    result_df = result.data
+                    
                     # 因子值表格
-                    factor_cols = [c for c in result.columns if c not in ['symbol', 'timestamp', 'close', 'volume']]
+                    factor_cols = [c for c in result_df.columns if c not in ['symbol', 'timestamp', 'close', 'volume']]
                     
                     if factor_cols:
                         st.write("#### 因子值")
                         st.dataframe(
-                            result[['symbol', 'timestamp'] + factor_cols].head(15),
+                            result_df[['symbol', 'timestamp'] + factor_cols].head(15),
                             use_container_width=True
                         )
                     
                     # 收益分析
-                    if 'close' in result.columns:
+                    if 'close' in result_df.columns:
                         st.write("#### 收益分析")
                         
-                        close = result['close']
+                        close = result_df['close']
                         returns = close.pct_change().dropna()
                         
                         # 指标
@@ -236,7 +238,7 @@ def main():
                     # 下载结果
                     st.write("#### 导出数据")
                     
-                    csv = result.to_csv(index=False).encode('utf-8')
+                    csv = result_df.to_csv(index=False).encode('utf-8')
                     
                     st.download_button(
                         "📥 下载结果 CSV",

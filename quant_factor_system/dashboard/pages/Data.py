@@ -1,47 +1,13 @@
 """
 数据浏览页面
+从TimescaleDB查询真实数据
 """
 
 import streamlit as st
 import pandas as pd
-import sys
-import os
+from datetime import datetime, timedelta
 
-# 包已通过 pip 安装到 conda 环境中
-
-from quant_factor_system.data import DataManager
-
-
-def format_number(value: float, decimals: int = 2) -> str:
-    """格式化数字"""
-    if pd.isna(value):
-        return "N/A"
-    return f"{value:.{decimals}f}"
-
-
-def format_percent(value: float, decimals: int = 2) -> str:
-    """格式化百分比"""
-    if pd.isna(value):
-        return "N/A"
-    return f"{value * 100:.{decimals}f}%"
-
-
-def create_summary_stats(data: pd.DataFrame) -> dict:
-    """创建汇总统计"""
-    stats = {}
-    
-    if 'close' in data.columns:
-        returns = data['close'].pct_change().dropna()
-        
-        stats.update({
-            "total_return": (data['close'].iloc[-1] / data['close'].iloc[0] - 1) if len(data) > 1 else 0,
-            "volatility": returns.std(),
-            "sharpe_ratio": returns.mean() / returns.std() if returns.std() > 0 else 0,
-            "win_rate": (returns > 0).sum() / len(returns[returns != 0]) if len(returns[returns != 0]) > 0 else 0,
-            "num_samples": len(data),
-        })
-    
-    return stats
+from quant_factor_system.data import TimescaleDB
 
 
 def main():
@@ -54,66 +20,103 @@ def main():
     
     st.title("📊 数据浏览")
     
-    # 侧边栏 - 数据设置
+    # 侧边栏 - 查询设置
     with st.sidebar:
-        st.header("📁 数据设置")
+        st.header("📁 数据查询")
         
-        symbols = st.text_input(
-            "股票代码",
-            value="TEST_001,TEST_002,TEST_003"
-        ).split(",")
-        symbols = [s.strip() for s in symbols if s.strip()]
-        
-        frequency = st.selectbox(
-            "数据频率",
-            options=["daily", "1min", "5min", "15min", "1hour"],
-            index=0
+        # 股票代码
+        symbols_input = st.text_area(
+            "股票代码 (逗号分隔)",
+            value="SH600000,SH600519"
         )
+        symbols = [s.strip() for s in symbols_input.split(',') if s.strip()]
         
-        n_periods = st.slider("数据周期", 10, 500, 100)
+        # 日期范围
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input(
+                "开始日期",
+                value=datetime.now() - timedelta(days=30)
+            )
+        with col2:
+            end_date = st.date_input(
+                "结束日期",
+                value=datetime.now()
+            )
+        
+        # 限制
+        limit = st.slider("最大行数", 100, 50000, 5000)
         
         st.divider()
         
-        if st.button("🔄 加载数据", use_container_width=True):
+        if st.button("🔄 查询数据", use_container_width=True):
             st.rerun()
     
     # 主内容
     try:
-        # 获取数据
-        dm = DataManager(use_db=False)
-        data = dm.get_price_data(
+        db = TimescaleDB()
+        
+        # 查询数据
+        data = db.query_daily(
             symbols=symbols,
-            frequency=frequency,
-            n_periods=n_periods
+            start_date=str(start_date),
+            end_date=str(end_date)
         )
         
         if data.empty:
-            st.warning("无数据，请调整参数")
+            st.warning("无数据，请调整查询条件")
+            
+            # 显示数据库中的示例数据
+            st.info("数据库中的表:")
+            with db.connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT table_name, 
+                           pg_size_pretty(pg_total_relation_size(table_name::text)) as size,
+                           (SELECT COUNT(*) FROM information_schema.tables t2 
+                            WHERE t2.table_name = t1.table_name 
+                            AND EXISTS (SELECT 1 FROM information_schema.columns 
+                                       WHERE table_name = t1.table_name 
+                                       AND column_name = 'symbol'))
+                    FROM information_schema.tables t1
+                    WHERE table_schema = 'public'
+                    AND table_name LIKE 'price_%'
+                """)
+                tables = cursor.fetchall()
+                for t in tables:
+                    st.write(f"- {t[0]}: {t[1]}")
             return
         
-        st.success(f"✅ 加载 {len(symbols)} 只股票, 共 {len(data)} 行数据")
+        # 限制行数
+        if len(data) > limit:
+            data = data.head(limit)
+            st.warning(f"数据已限制为 {limit} 行")
+        
+        st.success(f"✅ 查询 {len(symbols)} 只股票, 共 {len(data)} 行数据")
         
         # 统计信息
-        stats = create_summary_stats(data)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("总收益率", format_percent(stats.get('total_return', 0)))
-        with col2:
-            st.metric("波动率", format_percent(stats.get('volatility', 0)))
-        with col3:
-            st.metric("夏普比率", format_number(stats.get('sharpe_ratio', 0)))
-        with col4:
-            st.metric("样本数", stats.get('num_samples', 0))
+        if 'close' in data.columns and not data.empty:
+            returns = data['close'].pct_change().dropna()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                total_return = (data['close'].iloc[-1] / data['close'].iloc[0] - 1) if len(data) > 1 else 0
+                st.metric("总收益率", f"{total_return * 100:.2f}%")
+            
+            with col2:
+                st.metric("波动率", f"{returns.std() * 100:.2f}%")
+            
+            with col3:
+                sharpe = returns.mean() / returns.std() if returns.std() > 0 else 0
+                st.metric("夏普比率", f"{sharpe:.2f}")
+            
+            with col4:
+                st.metric("样本数", len(data))
         
         # 数据表格
         st.subheader("📋 数据预览")
-        
-        st.dataframe(
-            data.head(50),
-            use_container_width=True
-        )
+        st.dataframe(data, use_container_width=True)
         
         # 下载数据
         st.subheader("💾 导出数据")
@@ -123,7 +126,7 @@ def main():
         st.download_button(
             "📥 下载 CSV",
             data=csv,
-            file_name="data_export.csv",
+            file_name=f"data_{start_date}_{end_date}.csv",
             mime="text/csv"
         )
         

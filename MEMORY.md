@@ -57,6 +57,42 @@ git push origin main
 - **Primary**: RiceQuant (米筐) - 唯一数据源
 - 所有数据通过 `ricequant_source.py` 获取
 
+### 正确的执行模式 ⭐⭐⭐
+
+**永远不要创建 adhoc 脚本！** 所有任务必须使用项目模块执行：
+
+```python
+# 正确方式：直接在命令行使用项目模块
+cd /Users/xinzhan/.openclaw/workspace
+/Users/xinzhan/miniconda3/envs/quantfactor/bin/python -c "
+import os
+os.environ['RQDATAC_CONF'] = '米筐配置字符串'
+
+from quant_factor_system.data import RiceQuantSource, TimescaleDB
+
+# 使用项目API执行任务
+source = RiceQuantSource()
+db = TimescaleDB()
+
+# 获取数据
+data = source.get_daily_data(symbols=['600000.SH'], start_date='20150101', end_date='20151231')
+
+# 保存
+db.insert_price(data, table='price_daily')
+"
+
+# 关键点：
+# 1. 使用 conda 环境的完整路径: /Users/xinzhan/miniconda3/envs/quantfactor/bin/python
+# 2. 设置 RQDATAC_CONF 环境变量
+# 3. 从 quant_factor_system 导入模块
+# 4. 使用项目的 API (get_daily_data, insert_price 等)
+```
+
+**环境配置**：
+- Conda 环境: `quantfactor`
+- Python 路径: `/Users/xinzhan/miniconda3/envs/quantfactor/bin/python`
+- RQDATAC_CONF: 从 `~/.zshrc` 读取或硬编码在脚本中
+
 ### Industry Factor Management
 
 #### 行业数据特点

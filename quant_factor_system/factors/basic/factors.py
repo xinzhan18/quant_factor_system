@@ -188,10 +188,6 @@ class VolatilityFactor(Factor):
         # 检测是否为 MultiIndex
         if isinstance(returns.index, pd.MultiIndex):
             # 按股票分组计算滚动波动率
-            volatility = returns.groupby(level='symbol').rolling(
-                window=self.period, min_periods=5
-            ).std().droplevel('symbol') if hasattr(returns, 'droplevel') else returns
-            # 对于 MultiIndex，使用 groupby+transform
             volatility = returns.groupby(level='symbol').transform(
                 lambda x: x.rolling(window=self.period, min_periods=5).std()
             )

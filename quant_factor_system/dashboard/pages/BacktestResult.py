@@ -1,18 +1,10 @@
 """
 回测结果展示页面
-Backtest Result Display Page
-
-功能:
-- 收益曲线展示
-- 绩效指标展示
-- 交易记录展示
 """
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime
 
 
 def render_backtest_result(result):
@@ -37,68 +29,34 @@ def render_backtest_result(result):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric(
-            "总收益率",
-            summary.get('总收益率', 'N/A'),
-            delta=None
-        )
-    
+        st.metric("总收益率", summary.get('总收益率', 'N/A'))
     with col2:
-        st.metric(
-            "年化收益率",
-            summary.get('年化收益率', 'N/A')
-        )
-    
+        st.metric("年化收益率", summary.get('年化收益率', 'N/A'))
     with col3:
-        st.metric(
-            "夏普比率",
-            summary.get('夏普比率', 'N/A')
-        )
-    
+        st.metric("夏普比率", summary.get('夏普比率', 'N/A'))
     with col4:
-        st.metric(
-            "最大回撤",
-            summary.get('最大回撤', 'N/A')
-        )
+        st.metric("最大回撤", summary.get('最大回撤', 'N/A'))
     
-    # 第二行指标
+    # 第二行
     col1, col2, col3, col4 = st.columns(4)
-    
     with col1:
-        st.metric(
-            "总交易次数",
-            summary.get('总交易次数', 0)
-        )
-    
+        st.metric("总交易次数", summary.get('总交易次数', 0))
     with col2:
-        st.metric(
-            "胜率",
-            summary.get('胜率', 'N/A')
-        )
-    
+        st.metric("胜率", summary.get('胜率', 'N/A'))
     with col3:
-        st.metric(
-            "最终资金",
-            summary.get('最终资金', 'N/A')
-        )
-    
+        st.metric("最终资金", summary.get('最终资金', 'N/A'))
     with col4:
-        st.metric(
-            "卡玛比率",
-            summary.get('卡玛比率', 'N/A')
-        )
+        st.metric("卡玛比率", summary.get('卡玛比率', 'N/A'))
     
     # 2. 收益曲线
-    st.subheader("📈 收益曲线")
-    
     if result.equity_curve:
         df = pd.DataFrame(result.equity_curve)
         
         if not df.empty and 'date' in df.columns and 'equity' in df.columns:
-            # 绘制收益曲线
+            st.subheader("📈 收益曲线")
+            
             fig = go.Figure()
             
-            # 权益曲线
             fig.add_trace(go.Scatter(
                 x=df['date'],
                 y=df['equity'],
@@ -107,7 +65,6 @@ def render_backtest_result(result):
                 line=dict(color='#1f77b4', width=2)
             ))
             
-            # 添加初始资金线
             fig.add_hline(
                 y=result.initial_capital,
                 line_dash="dash",
@@ -158,10 +115,8 @@ def render_backtest_result(result):
             df['month'] = df['date'].dt.to_period('M')
             
             monthly_returns = df.groupby('month')['equity'].agg(['first', 'last'])
-            monthly_returns['return'] = (monthly_returns['last'] - monthly_returns['first']) / monthly_returns['first']
-            monthly_returns['return_pct'] = monthly_returns['return'] * 100
+            monthly_returns['return_pct'] = (monthly_returns['last'] - monthly_returns['first']) / monthly_returns['first'] * 100
             
-            # 绘制月度收益柱状图
             fig_monthly = go.Figure()
             
             colors = ['green' if r > 0 else 'red' for r in monthly_returns['return_pct']]
@@ -183,24 +138,19 @@ def render_backtest_result(result):
             st.plotly_chart(fig_monthly, use_container_width=True)
     
     # 5. 交易记录
-    st.subheader("📝 交易记录")
-    
     if result.trades:
+        st.subheader("📝 交易记录")
+        
         trades_df = pd.DataFrame(result.trades)
         
         if not trades_df.empty:
-            # 筛选关键列
-            display_cols = ['symbol', 'side', 'quantity', 'price', 'commission', 'pnl']
+            display_cols = ['symbol', 'side', 'quantity', 'price', 'pnl']
             available_cols = [c for c in display_cols if c in trades_df.columns]
             
             st.dataframe(
                 trades_df[available_cols].sort_values('timestamp', ascending=False),
                 use_container_width=True
             )
-    
-    # 6. 详细统计
-    with st.expander("📋 详细统计"):
-        st.write(result.__dict__)
 
 
 def render_comparison_results(results_list):
@@ -211,7 +161,6 @@ def render_comparison_results(results_list):
         st.warning("暂无回测结果")
         return
     
-    # 创建对比表格
     comparison_data = []
     
     for i, result in enumerate(results_list):
@@ -231,36 +180,10 @@ def render_comparison_results(results_list):
 
 def main():
     """主函数"""
-    # 模拟数据测试
-    class MockResult:
-        def __init__(self):
-            self.initial_capital = 1000000
-            self.equity_curve = [
-                {'date': '2024-01-01', 'equity': 1000000},
-                {'date': '2024-01-02', 'equity': 1010000},
-                {'date': '2024-01-03', 'equity': 995000},
-                {'date': '2024-01-04', 'equity': 1005000},
-                {'date': '2024-01-05', 'equity': 1020000},
-            ]
-            self.trades = [
-                {'symbol': 'SH600000', 'side': 'buy', 'quantity': 1000, 'price': 10.0, 'commission': 10.0, 'pnl': 0},
-                {'symbol': 'SH600000', 'side': 'sell', 'quantity': 1000, 'price': 10.5, 'commission': 10.5, 'pnl': 500},
-            ]
-        
-        def summary(self):
-            return {
-                '总收益率': '5.2%',
-                '年化收益率': '15.6%',
-                '夏普比率': '1.2',
-                '最大回撤': '-3.2%',
-                '总交易次数': '10',
-                '胜率': '60%',
-                '最终资金': '1052000',
-                '卡玛比率': '4.8',
-            }
+    st.warning("请从 Pipeline 页面运行回测后查看结果")
     
-    result = MockResult()
-    render_backtest_result(result)
+    # 可以添加从数据库加载历史回测结果的功能
+    st.info("💡 提示: 回测结果会自动保存到数据库")
 
 
 if __name__ == "__main__":

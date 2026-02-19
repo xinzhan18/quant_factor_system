@@ -1,22 +1,354 @@
 """
-因子评估页面
+因子评估页面 - 后端计算模式
+从数据库加载因子数据并计算IC，只传图表和统计结果给前端
 """
 
 import streamlit as st
 import pandas as pd
-import numpy as np
-import sys
-import os
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime as dt
+import time
 
-# 包已通过 pip 安装到 conda 环境中
+from quant_factor_system.data import TimescaleDB
 
-from quant_factor_system.data import (
-    DataManager,
-    PostgresDB,
-    get_postgres_db,
-)
-from quant_factor_system.pipeline import Pipeline
-from quant_factor_system.factors import list_factors, register_all_builtins
+
+# 数据库中实际存在的因子表
+DATABASE_FACTORS = {
+    'return_1d': 'factor_return_1d',
+    'return_5d': 'factor_return_5d',
+    'return_20d': 'factor_return_20d',
+    'return_60d': 'factor_return_60d',
+    'momentum_20': 'factor_momentum_20',
+    'momentum_60': 'factor_momentum_60',
+    'dist_ma10': 'factor_dist_ma10',
+    'dist_ma20': 'factor_dist_ma20',
+    'dist_ma60': 'factor_dist_ma60',
+    'volatility_20': 'factor_volatility_20',
+}
+
+
+@st.cache_data(ttl=3600)
+def get_factor_data_backend(factor_name: str, _db_connection):
+    """后端：获取因子全部数据"""
+    table_name = DATABASE_FACTORS.get(factor_name)
+    
+    try:
+        cursor = _db_connection.cursor()
+        
+        # 获取数据
+        cursor.execute(f"""
+            SELECT time, symbol, value 
+            FROM {table_name}
+            ORDER BY time
+        """)
+        
+        cols = ['time', 'symbol', 'value']
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return None, "无数据"
+        
+        df = pd.DataFrame(rows, columns=cols)
+        return df, None
+        
+    except Exception as e:
+        return None, str(e)
+
+
+@st.cache_data(ttl=3600)
+def get_price_data_backend(symbols: list, start_date, end_date, _db_connection):
+    """后端：获取价格数据"""
+    try:
+        cursor = _db_connection.cursor()
+        
+        placeholders = ','.join(['%s'] * len(symbols))
+        cursor.execute(f"""
+            SELECT time, symbol, close
+            FROM price_daily
+            WHERE symbol IN ({placeholders})
+            AND time >= %s AND time <= %s
+            ORDER BY symbol, time
+        """, symbols + [start_date, end_date])
+        
+        cols = ['time', 'symbol', 'close']
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return None
+        
+        return pd.DataFrame(rows, columns=cols)
+        
+    except Exception as e:
+        return None
+
+
+def compute_ic_analysis(factor_df: pd.DataFrame, price_df: pd.DataFrame, 
+                       split_date: dt, progress_bar=None) -> dict:
+    """后端：计算IC分析"""
+    if progress_bar:
+        progress_bar.progress(10)
+    
+    # 合并数据
+    merged = pd.merge(factor_df, price_df, on=['time', 'symbol'], how='inner')
+    
+    if len(merged) < 100:
+        return {'error': '数据量不足'}
+    
+    if progress_bar:
+        progress_bar.progress(30)
+    
+    # 计算未来收益率（关键：因子预测的是未来收益，不是当期收益）
+    # 用 shift(-1) 获取下一天收益率
+    merged = merged.sort_values(['symbol', 'time'])
+    merged['future_return'] = merged.groupby('symbol')['close'].pct_change().shift(-1)
+    
+    # 去除空值和异常值
+    merged = merged.dropna(subset=['value', 'future_return'])
+    merged = merged[merged['future_return'].abs() < 0.11]  # 去除涨跌停
+    
+    if len(merged) < 100:
+        return {'error': '合并后数据不足'}
+    
+    # 划分训练/测试集
+    merged['period'] = merged['time'].apply(
+        lambda x: '训练集' if x <= split_date else '测试集'
+    )
+    
+    if progress_bar:
+        progress_bar.progress(50)
+    
+    result = {}
+    
+    # 计算各周期IC（用future_return替代return）
+    for period in ['训练集', '测试集']:
+        period_data = merged[merged['period'] == period]
+        if len(period_data) > 100:
+            ic = period_data['value'].corr(period_data['future_return'], method='spearman')
+            result[period] = {
+                'ic': ic,
+                'samples': len(period_data),
+                'start': period_data['time'].min().strftime('%Y-%m-%d'),
+                'end': period_data['time'].max().strftime('%Y-%m-%d'),
+            }
+    
+    # 整体IC
+    result['all'] = {
+        'ic': merged['value'].corr(merged['future_return'], method='spearman'),
+        'samples': len(merged)
+    }
+    
+    if progress_bar:
+        progress_bar.progress(70)
+    
+    # 计算滚动IC（优化：按日期分组向量化计算）
+    # 先计算每天的IC，再计算滚动平均
+    daily_ic = merged.groupby('time').apply(
+        lambda x: x['value'].corr(x['future_return'], method='spearman') 
+        if x['future_return'].std() > 0 else 0
+    ).reset_index()
+    daily_ic.columns = ['date', 'IC']
+    
+    # 添加日期到merged用于划分
+    daily_ic['period'] = daily_ic['date'].apply(
+        lambda x: '训练集' if x <= split_date else '测试集'
+    )
+    
+    # 计算60日滚动IC
+    daily_ic['rolling_ic'] = daily_ic['IC'].rolling(window=60, min_periods=30).mean()
+    
+    result['rolling_ic'] = daily_ic[['date', 'IC', 'period']].dropna()
+    
+    if progress_bar:
+        progress_bar.progress(100)
+    
+    return result
+
+
+def compute_group_returns(merged: pd.DataFrame, progress_bar=None) -> dict:
+    """后端：计算分组收益"""
+    if progress_bar:
+        progress_bar.progress(0)
+    
+    merged = merged.dropna(subset=['value', 'future_return'])
+    
+    if progress_bar:
+        progress_bar.progress(30)
+    
+    # 分组
+    merged['group'] = pd.qcut(merged['value'], q=5, labels=['Q1(低)', 'Q2', 'Q3', 'Q4', 'Q5(高)'])
+    
+    if progress_bar:
+        progress_bar.progress(50)
+    
+    # 计算收益（使用future_return）
+    group_returns = merged.groupby(['time', 'group'])['future_return'].mean().reset_index()
+    group_returns_pivot = group_returns.pivot(index='time', columns='group', values='future_return')
+    cumulative_returns = (1 + group_returns_pivot).cumprod() - 1
+    
+    # 统计
+    mean_returns = group_returns_pivot.mean() * 252
+    stats = group_returns_pivot.std() * (252 ** 0.5)
+    sharpe = mean_returns / stats
+    
+    result = {
+        'group_returns_pivot': group_returns_pivot,
+        'cumulative_returns': cumulative_returns,
+        'mean_returns': mean_returns,
+        'sharpe': sharpe,
+        'std': stats
+    }
+    
+    if progress_bar:
+        progress_bar.progress(100)
+    
+    return result
+
+
+def generate_ic_chart(rolling_ic_df: pd.DataFrame, split_date: dt, factor_name: str) -> go.Figure:
+    """后端：生成IC时间序列图"""
+    fig = px.line(
+        rolling_ic_df, 
+        x='date', 
+        y='IC',
+        color='period',
+        title=f"{factor_name} 滚动IC (60日)",
+        color_discrete_map={'训练集': 'green', '测试集': 'red'}
+    )
+    
+    # 添加分隔线
+    split_str = split_date.strftime('%Y-%m-%d')
+    fig.add_shape(
+        type="line",
+        x0=split_str, x1=split_str,
+        y0=0, y1=1,
+        xref="x", yref="paper",
+        line=dict(dash="dash", color="gray", width=2)
+    )
+    fig.add_annotation(
+        x=split_str, y=1,
+        xref="x", yref="paper",
+        text="训练/测试分界",
+        showarrow=False,
+        yshift=10
+    )
+    
+    fig.add_hline(y=0, line_dash="dot", line_color="black")
+    fig.add_hline(y=0.02, line_dash="dot", line_color="blue", annotation_text="IC=0.02")
+    fig.add_hline(y=-0.02, line_dash="dot", line_color="blue", annotation_text="IC=-0.02")
+    
+    fig.update_layout(template='plotly_white', height=400)
+    return fig
+
+
+def generate_group_returns_chart(cumulative_returns: pd.DataFrame, factor_name: str) -> go.Figure:
+    """后端：生成分组累计收益图"""
+    fig = px.line(
+        cumulative_returns, 
+        title=f"{factor_name} 各分组累计收益曲线",
+        labels={'value': '累计收益', 'time': '日期', 'group': '分组'}
+    )
+    fig.update_layout(template='plotly_white', height=400)
+    return fig
+
+
+def generate_long_short_chart(cumulative_returns: pd.DataFrame) -> go.Figure:
+    """后端：生成多空组合图"""
+    if 'Q5(高)' not in cumulative_returns.columns or 'Q1(低)' not in cumulative_returns.columns:
+        return None
+    
+    long_short = cumulative_returns['Q5(高)'] - cumulative_returns['Q1(低)']
+    
+    fig = px.line(
+        long_short, 
+        title="多空组合累计收益 (Q5-Q1)",
+        labels={'value': '累计收益', 'index': '日期'}
+    )
+    fig.add_hline(y=0, line_dash="dot", line_color="black")
+    fig.update_layout(template='plotly_white', height=350)
+    return fig
+
+
+def generate_group_bar_chart(mean_returns: pd.Series) -> go.Figure:
+    """后端：生成分组年化收益柱状图"""
+    fig = px.bar(
+        x=mean_returns.index, 
+        y=mean_returns.values * 100,
+        title="各分组年化收益率",
+        labels={'x': '分组', 'y': '年化收益率 (%)'},
+        color=mean_returns.values,
+        color_continuous_scale='RdYlGn'
+    )
+    fig.add_hline(y=0, line_dash="dot", line_color="black")
+    fig.update_layout(template='plotly_white', height=350)
+    return fig
+
+
+def generate_multi_rolling_ic_chart(daily_ic: pd.DataFrame) -> go.Figure:
+    """后端：生成多窗口滚动IC图（使用预计算的daily_ic）"""
+    windows = [20, 60, 120]
+    rolling_data = {}
+    
+    for w in windows:
+        rolling_data[f'IC_{w}d'] = daily_ic['IC'].rolling(window=w, min_periods=10).mean()
+    
+    df = pd.DataFrame(rolling_data).dropna()
+    
+    if df.empty:
+        return None
+    
+    fig = px.line(
+        df, 
+        title="不同窗口滚动IC对比",
+        labels={'value': 'IC', 'index': '日期'}
+    )
+    fig.add_hline(y=0, line_dash="dot", line_color="black")
+    fig.add_hline(y=0.02, line_dash="dot", line_color="blue", annotation_text="IC=0.02")
+    fig.add_hline(y=-0.02, line_dash="dot", line_color="blue", annotation_text="IC=-0.02")
+    fig.update_layout(template='plotly_white', height=400)
+    return fig
+
+
+def get_factor_overview(_db_connection) -> pd.DataFrame:
+    """获取所有因子概览"""
+    try:
+        cursor = _db_connection.cursor()
+        
+        cursor.execute("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name LIKE 'factor_%'
+            ORDER BY table_name
+        """)
+        
+        tables = [row[0] for row in cursor.fetchall()]
+        data = []
+        
+        for table in tables:
+            cursor.execute(f"""
+                SELECT COUNT(*), MIN(time), MAX(time)
+                FROM {table}
+            """)
+            stats = cursor.fetchone()
+            
+            cursor.execute(f"""
+                SELECT pg_size_pretty(pg_total_relation_size('{table}'::text))
+            """)
+            size = cursor.fetchone()[0]
+            
+            data.append({
+                '因子表': table,
+                '总记录': f"{stats[0]:,}",
+                '起始日期': stats[1].strftime('%Y-%m-%d') if stats[1] else '-',
+                '结束日期': stats[2].strftime('%Y-%m-%d') if stats[2] else '-',
+                '大小': size
+            })
+        
+        return pd.DataFrame(data)
+        
+    except Exception as e:
+        return pd.DataFrame()
 
 
 def main():
@@ -28,190 +360,215 @@ def main():
     
     st.title("📈 因子评估")
     
-    # 侧边栏
+    db = TimescaleDB()
+    
+    # ==================== 侧边栏 ====================
     with st.sidebar:
-        st.header("因子设置")
+        st.header("⚙️ 因子设置")
         
-        # 确保因子已注册
-        register_all_builtins()
-        factors = list_factors()
+        # 选择因子
+        factor_names = list(DATABASE_FACTORS.keys())
+        selected_factor = st.selectbox("选择因子", options=factor_names, index=0)
         
-        # 因子选择 (从注册表)
-        factor_names = [f['name'] for f in factors]
-        if not factor_names:
-            factor_names = ['momentum', 'ma', 'rsi', 'return_1d', 'return_20d']
-        
-        selected_factor = st.selectbox(
-            "选择因子",
-            options=factor_names,
-            index=0 if 'momentum' in factor_names else 0
-        )
-        
-        # 获取因子信息
-        factor_info = next((f for f in factors if f['name'] == selected_factor), None)
-        
-        if factor_info:
-            st.caption(f"类型: {factor_info.get('category', 'custom')}")
-            st.caption(f"类: {factor_info['class_name']}")
-        
-        # 参数设置
-        period = st.slider("回看期/周期", 5, 60, 20)
-        
-        symbols = st.text_input(
-            "股票代码",
-            value="TEST_001"
-        ).split(",")
-        symbols = [s.strip() for s in symbols if s.strip()]
-        
-        n_periods = st.slider("数据周期", 50, 500, 200)
-        
-        # 数据库选项
-        st.divider()
-        st.header("💾 存储设置")
-        save_to_db = st.checkbox("保存结果到数据库", value=True)
-        
+        st.caption(f"表名: {DATABASE_FACTORS[selected_factor]}")
         st.divider()
         
-        if st.button("🔄 重新计算"):
+        st.info("**📊 后端计算模式**")
+        st.caption("所有计算在后端完成，前端只展示结果")
+        
+        if st.button("🔄 刷新数据", type="primary"):
+            st.cache_data.clear()
             st.rerun()
     
-    # 主内容
-    try:
-        # 获取数据
-        dm = DataManager(use_db=False)
-        data = dm.get_price_data(
-            symbols=symbols,
-            frequency="daily",
-            n_periods=n_periods
-        )
+    # ==================== 主内容 ====================
+    
+    with db.connection() as conn:
+        # 获取因子数据
+        with st.spinner('正在加载因子数据...'):
+            factor_df, error = get_factor_data_backend(selected_factor, conn)
         
-        if data.empty:
+        if error:
+            st.warning(f"⚠️ {error}")
+            st.subheader("📋 数据库中的因子表")
+            overview = get_factor_overview(conn)
+            if not overview.empty:
+                st.dataframe(overview, use_container_width=True)
+            return
+        
+        if factor_df is None or factor_df.empty:
             st.warning("无数据")
             return
         
-        # 创建 Pipeline
-        pipe = Pipeline("Factor Evaluation")
+        # 计算数据范围和分界日期
+        min_date = factor_df['time'].min()
+        max_date = factor_df['time'].max()
+        split_date = min_date + (max_date - min_date) / 2
         
-        # 添加因子
-        pipe.add_factor(selected_factor, selected_factor, period=period)
+        # 划分训练/测试集
+        factor_df['period'] = factor_df['time'].apply(
+            lambda x: '🟢 训练集' if x <= split_date else '🔴 测试集'
+        )
         
-        # 计算
-        result = pipe.run(data)
+        train_df = factor_df[factor_df['period'] == '🟢 训练集']
+        test_df = factor_df[factor_df['period'] == '🔴 测试集']
         
-        if result is None or result.empty:
-            st.warning("因子计算无结果")
-            return
+        st.success(f"✅ {selected_factor}")
+        st.info(f"🟢 训练集: {len(train_df):,} 条 | 🔴 测试集: {len(test_df):,} 条")
         
-        st.success(f"✅ 因子计算完成 | {len(result)} 行数据")
+        # 基本信息
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("数据条数", f"{len(factor_df):,}")
+        with col2:
+            st.metric("股票数", f"{factor_df['symbol'].nunique():,}")
+        with col3:
+            st.metric("开始日期", min_date.strftime('%Y-%m-%d'))
+        with col4:
+            st.metric("结束日期", max_date.strftime('%Y-%m-%d'))
         
-        # 保存到数据库
-        if save_to_db:
-            try:
-                db = get_postgres_db()
-                
-                # 计算 IC
-                close = result['close']
-                returns = close.pct_change().dropna()
-                factor_col = [c for c in result.columns if c not in ['symbol', 'timestamp', 'close', 'volume']]
-                if factor_col:
-                    factor_values = result[factor_col[0]].dropna()
-                    common_idx = returns.index.intersection(factor_values.index)
-                    ic = returns.loc[common_idx].corr(factor_values.loc[common_idx])
-                    
-                    # 保存结果
-                    db.save_factor_results(result, selected_factor, ic=ic)
-                    st.success(f"✅ 已保存到数据库 (IC={ic:.4f})")
-            except Exception as e:
-                st.warning(f"保存失败: {e}")
+        # ==================== IC 分析 ====================
+        st.subheader("📈 IC分析 (信息系数)")
         
-        # 显示因子值
-        st.subheader("📊 因子值")
+        # 获取价格数据
+        symbols = factor_df['symbol'].unique().tolist()
+        with st.spinner('正在获取价格数据...'):
+            price_df = get_price_data_backend(symbols, min_date, max_date, conn)
         
-        factor_col = [c for c in result.columns if c not in ['symbol', 'timestamp', 'close', 'volume']]
-        
-        if factor_col:
-            st.dataframe(
-                result[['symbol', 'timestamp'] + factor_col].head(20),
-                use_container_width=True
-            )
-        
-        # 因子分析
-        st.subheader("📈 因子分析")
-        
-        if 'close' in result.columns and factor_col:
-            close = result['close']
-            returns = close.pct_change().dropna()
-            factor_values = result[factor_col[0]].dropna()
+        if price_df is not None and not price_df.empty:
+            # 计算IC
+            progress_bar = st.progress(0)
+            with st.spinner('正在计算IC分析...'):
+                ic_result = compute_ic_analysis(factor_df, price_df, split_date, progress_bar)
+            progress_bar.empty()
             
-            # 对齐数据
-            common_idx = returns.index.intersection(factor_values.index)
-            returns_aligned = returns.loc[common_idx]
-            factor_aligned = factor_values.loc[common_idx]
-            
-            if len(returns_aligned) > 10:
-                ic = returns_aligned.corr(factor_aligned)
-                
-                # 计算分组收益
-                result_valid = result.dropna(subset=[factor_col[0]]).copy()
-                try:
-                    result_valid['quantile'] = pd.qcut(result_valid[factor_col[0]], q=5, labels=False, duplicates='drop')
-                    group_returns = result_valid.groupby('quantile')['close'].apply(
-                        lambda x: (x.iloc[-1] / x.iloc[0] - 1) if len(x) > 1 else 0
-                    )
-                except:
-                    group_returns = pd.Series()
-                
-                # 显示指标
+            if 'error' not in ic_result:
+                # IC概览
                 col1, col2, col3 = st.columns(3)
-                
                 with col1:
-                    st.metric("IC (信息系数)", f"{ic:.4f}")
+                    st.metric("整体IC", f"{ic_result.get('all', {}).get('ic', 0):.4f}")
                 with col2:
-                    st.metric("IC > 0.02", "✅" if abs(ic) > 0.02 else "❌")
+                    st.metric("🟢 训练集IC", f"{ic_result.get('训练集', {}).get('ic', 0):.4f}")
                 with col3:
-                    if not group_returns.empty:
-                        top_group_return = group_returns.max()
-                        st.metric("最佳组收益", f"{top_group_return * 100:.2f}%")
+                    st.metric("🔴 测试集IC", f"{ic_result.get('测试集', {}).get('ic', 0):.4f}")
                 
-                # IC 序列图
-                st.write("### IC 序列")
+                # IC解读
+                st.write("**IC解读:**")
+                for period, data in [('🟢 训练集', ic_result.get('训练集', {})), 
+                                      ('🔴 测试集', ic_result.get('测试集', {}))]:
+                    if data:
+                        ic = data.get('ic', 0)
+                        direction = "反转 ⬇️" if ic < 0 else "动量 ⬆️"
+                        quality = "✅ 强" if abs(ic) > 0.03 else "⚠️ 中" if abs(ic) > 0.02 else "❌ 弱"
+                        st.write(f"{period}: IC={ic:.4f} | {direction} | {quality} | 样本={data.get('samples', 0):,} | {data.get('start', '')}~{data.get('end', '')}")
                 
-                window = 20
-                rolling_ic = []
-                for i in range(window, len(returns_aligned)):
-                    r = returns_aligned.iloc[i-window:i]
-                    f = factor_aligned.iloc[i-window:i]
-                    if len(r) > 0 and r.std() > 0:
-                        rolling_ic.append(r.corr(f))
-                    else:
-                        rolling_ic.append(0)
+                # IC时间序列图
+                st.write("### 📉 IC时间序列")
+                fig_ic = generate_ic_chart(ic_result['rolling_ic'], split_date, selected_factor)
+                st.plotly_chart(fig_ic, use_container_width=True)
                 
-                ic_df = pd.DataFrame({
-                    'timestamp': returns_aligned.index[window:],
-                    'rolling_ic': rolling_ic
-                })
-                
-                st.line_chart(
-                    ic_df.set_index('timestamp')['rolling_ic'],
-                    color="#1f77b4"
-                )
-                
-                # 分组收益柱状图
-                if not group_returns.empty:
-                    st.write("### 分组收益")
-                    st.bar_chart(group_returns, color="#2ca02c")
-                
-                # 因子值分布
-                st.write("### 因子值分布")
-                st.histogram(factor_aligned, bins=30)
+                # IC分布
+                st.write("### 📊 IC分布")
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig_ic_hist = px.histogram(
+                        ic_result['rolling_ic'], 
+                        x='IC', 
+                        nbins=30,
+                        color='period',
+                        color_discrete_map={'训练集': 'green', '测试集': 'red'},
+                        title="IC分布直方图",
+                        marginal='box'
+                    )
+                    fig_ic_hist.add_vline(x=0, line_dash="dot", line_color="black")
+                    fig_ic_hist.update_layout(template='plotly_white', height=400)
+                    st.plotly_chart(fig_ic_hist, use_container_width=True)
+                with col2:
+                    ic_stats = ic_result['rolling_ic'].groupby('period')['IC'].agg(['mean', 'std', 'min', 'max', 'median'])
+                    win_rate = ic_result['rolling_ic'].groupby('period').apply(lambda x: (x['IC'] > 0).mean())
+                    ic_rate = ic_result['rolling_ic'].groupby('period').apply(lambda x: (x['IC'].abs() > 0.02).mean())
+                    
+                    # 添加为新列
+                    ic_stats['胜率(IC>0)'] = win_rate
+                    ic_stats['|IC|>0.02比例'] = ic_rate
+                    
+                    st.write("**IC统计指标:**")
+                    st.dataframe(ic_stats.style.format("{:.4f}"), use_container_width=True)
+            else:
+                st.warning(f"IC计算失败: {ic_result.get('error')}")
+        else:
+            st.warning("无法获取价格数据，无法计算IC")
         
-        # 原始数据
-        with st.expander("📋 查看完整数据"):
-            st.dataframe(result, use_container_width=True)
-    
-    except Exception as e:
-        st.error(f"错误: {e}")
-        st.exception(e)
+        # ==================== 分组收益分析 ====================
+        st.subheader("🎯 因子分组收益分析")
+        
+        # 合并数据用于分组分析
+        if price_df is not None and not price_df.empty:
+            merged = pd.merge(factor_df, price_df, on=['time', 'symbol'], how='inner')
+            merged = merged.sort_values(['symbol', 'time'])
+            merged['future_return'] = merged.groupby('symbol')['close'].pct_change().shift(-1)
+            merged = merged.dropna(subset=['value', 'future_return'])
+            merged = merged[merged['future_return'].abs() < 0.11]
+            
+            progress_bar = st.progress(0)
+            with st.spinner('正在计算分组收益...'):
+                group_result = compute_group_returns(merged, progress_bar)
+            progress_bar.empty()
+            
+            # 分组年化收益柱状图
+            st.write("### 📊 各分组年化收益率")
+            fig_bar = generate_group_bar_chart(group_result['mean_returns'])
+            st.plotly_chart(fig_bar, use_container_width=True)
+            
+            # 累计收益曲线
+            st.write("### 📈 各分组累计收益曲线")
+            fig_cum = generate_group_returns_chart(group_result['cumulative_returns'], selected_factor)
+            st.plotly_chart(fig_cum, use_container_width=True)
+            
+            # 多空组合
+            st.write("### 🔄 多空组合 (Q5-Q1)")
+            fig_ls = generate_long_short_chart(group_result['cumulative_returns'])
+            if fig_ls:
+                st.plotly_chart(fig_ls, use_container_width=True)
+            
+            # 分组统计表
+            st.write("**分组收益统计:**")
+            stats_df = pd.DataFrame({
+                '分组': group_result['mean_returns'].index,
+                '年化收益(%)': (group_result['mean_returns'] * 100).round(2),
+                '收益标准差(%)': (group_result['std'] * 100).round(2),
+                '夏普比率': group_result['sharpe'].round(2)
+            })
+            st.dataframe(stats_df, use_container_width=True)
+        
+        # ==================== 滚动IC分析 ====================
+        st.subheader("📈 滚动IC统计分析")
+        
+        if price_df is not None and not price_df.empty:
+            progress_bar = st.progress(0)
+            with st.spinner('正在计算滚动IC...'):
+                # 使用预计算的daily_ic（已在compute_ic_analysis中完成）
+                daily_ic = ic_result['rolling_ic'][['date', 'IC']].copy()
+                fig_multi = generate_multi_rolling_ic_chart(daily_ic)
+            progress_bar.empty()
+            
+            if fig_multi:
+                st.plotly_chart(fig_multi, use_container_width=True)
+                
+                # 统计表
+                rolling_df = fig_multi.data[0].y  # 从图中提取数据
+                st.write("**滚动IC统计:**")
+                st.info("请查看图中各条线的统计信息")
+        
+        # ==================== 因子概览 ====================
+        st.divider()
+        st.subheader("📋 所有因子表概览")
+        
+        with st.spinner('正在加载因子表概览...'):
+            overview = get_factor_overview(conn)
+        if not overview.empty:
+            st.dataframe(overview, use_container_width=True)
+        else:
+            st.info("暂无因子表信息")
 
 
 if __name__ == "__main__":

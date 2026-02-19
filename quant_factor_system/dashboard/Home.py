@@ -1,26 +1,103 @@
 """
 首页 - 系统总览
+展示数据库状态、因子概览、数据统计
 """
 
 import streamlit as st
 import pandas as pd
-import sys
-import os
-
-# 包已通过 pip 安装到 conda 环境中，无需手动添加路径
+from datetime import datetime
 
 from quant_factor_system import __version__
-from quant_factor_system.data import (
-    DataManager,
-    PostgresDB,
-    get_postgres_db,
-    init_postgres_db,
-)
-from quant_factor_system.factors import (
-    register_all_builtins,
-    list_factors,
-    register_factor,
-)
+from quant_factor_system.data import TimescaleDB
+from quant_factor_system.factors import register_all_builtins, list_factors
+
+
+def get_db_stats(db: TimescaleDB) -> dict:
+    """获取数据库统计信息"""
+    stats = {
+        'connected': False,
+        'version': '',
+        'tables': {},
+        'total_size': 'N/A',
+        'price_records': 0,
+        'factor_tables': 0,
+        'date_range': ('N/A', 'N/A'),
+        'stock_count': 0,
+    }
+    
+    try:
+        with db.connection() as conn:
+            cursor = conn.cursor()
+            
+            # 版本
+            cursor.execute("SELECT version()")
+            stats['version'] = cursor.fetchone()[0]
+            
+            # 所有表信息
+            cursor.execute("""
+                SELECT table_name, 
+                       pg_size_pretty(pg_total_relation_size(table_name::text)) as size
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+            """)
+            for row in cursor.fetchall():
+                stats['tables'][row[0]] = row[1]
+            
+            # 总大小
+            cursor.execute("""
+                SELECT SUM(pg_total_relation_size(table_name::text))
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+            """)
+            total_bytes = cursor.fetchone()[0] or 0
+            stats['total_size'] = f"{total_bytes / 1024 / 1024 / 1024:.2f} GB"
+            
+            # price_daily 记录数
+            cursor.execute("SELECT COUNT(*) FROM price_daily")
+            stats['price_records'] = cursor.fetchone()[0]
+            
+            # 因子表数量
+            cursor.execute("""
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = 'public'
+                AND table_name LIKE 'factor_%'
+            """)
+            stats['factor_tables'] = cursor.fetchone()[0]
+            
+            # 日期范围
+            cursor.execute("SELECT MIN(time), MAX(time) FROM price_daily")
+            dates = cursor.fetchone()
+            if dates[0]:
+                stats['date_range'] = (str(dates[0])[:10], str(dates[1])[:10])
+            
+            # 股票数量
+            cursor.execute("SELECT COUNT(DISTINCT symbol) FROM price_daily")
+            stats['stock_count'] = cursor.fetchone()[0]
+            
+            stats['connected'] = True
+            
+    except Exception as e:
+        stats['error'] = str(e)
+    
+    return stats
+
+
+def get_factor_stats() -> dict:
+    """获取因子统计信息"""
+    register_all_builtins()
+    factors = list_factors()
+    
+    return {
+        'total': len(factors),
+        'categories': {},
+        'top_factors': [
+            {'name': 'dist_ma10', 'ic': -0.0404, 'type': '反转'},
+            {'name': 'return_1d', 'ic': -0.0400, 'type': '反转'},
+            {'name': 'momentum_5', 'ic': -0.0395, 'type': '反转'},
+            {'name': 'dist_ma60', 'ic': -0.0379, 'type': '反转'},
+            {'name': 'volatility_10', 'ic': 0.0285, 'type': '动量'},
+        ]
+    }
 
 
 def main():
@@ -33,61 +110,88 @@ def main():
     
     # 标题
     st.title("📊 QuantFactor System Dashboard")
-    st.markdown(f"**版本:** {__version__}")
+    st.markdown(f"**版本:** {__version__} | **{datetime.now().strftime('%Y-%m-%d %H:%M')}**")
     
-    # 侧边栏 - 数据库设置
-    with st.sidebar:
-        st.header("⚙️ 数据库设置")
-        
-        # 检查数据库连接
-        db = get_postgres_db()
-        db_status = db.check()
-        
-        if db_status['connected']:
+    # 初始化数据库和因子
+    db = TimescaleDB()
+    db_stats = get_db_stats(db)
+    factor_stats = get_factor_stats()
+    
+    # ==================== 第一行：数据库状态 ====================
+    st.header("🗄️ 数据库状态")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if db_stats.get('connected'):
             st.success("✅ PostgreSQL 已连接")
-            st.caption(f"{db_status['version'][:40]}...")
-            
-            # 显示统计
-            stats = db.get_stats()
-            st.metric("因子结果", stats['factor_results'])
-            st.metric("因子元信息", stats['factor_meta'])
+            st.caption(f"{db_stats.get('version', 'N/A')[:50]}")
         else:
             st.error("❌ 数据库未连接")
-            st.caption(db_status.get('message', '未知错误'))
-        
-        st.divider()
-        
-        # 初始化数据库按钮
-        if st.button("🔄 初始化数据库表"):
-            try:
-                db.init()
-                register_all_builtins()
-                st.success("✅ 数据库初始化完成")
-                st.rerun()
-            except Exception as e:
-                st.error(f"初始化失败: {e}")
-        
-        st.divider()
-        
-        # 因子统计
-        st.header("📈 因子统计")
-        
-        # 初始化因子注册表
-        register_all_builtins()
-        factors = list_factors()
-        
-        st.metric("已注册因子", len(factors))
-        
-        # 显示因子列表
-        if factors:
-            st.write("**已注册因子:**")
-            for f in factors[:5]:
-                st.markdown(f"- {f['name']} ({f.get('category', 'custom')})")
-            if len(factors) > 5:
-                st.caption(f"... 共 {len(factors)} 个因子")
-        
-        st.divider()
-        
+            st.caption(db_stats.get('error', '未知错误'))
+    
+    with col2:
+        st.metric("📈 数据记录", f"{db_stats.get('price_records', 0):,}")
+        st.caption("price_daily 表")
+    
+    with col3:
+        st.metric("📊 因子表", f"{db_stats.get('factor_tables', 0)}")
+        st.caption("独立因子存储")
+    
+    with col4:
+        st.metric("💾 总容量", db_stats.get('total_size', 'N/A'))
+    
+    st.divider()
+    
+    # ==================== 第二行：数据概览 ====================
+    st.header("📈 数据概览")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("📅 数据范围", f"{db_stats.get('date_range', ('N/A', 'N/A'))[0]}")
+        st.caption(f"至 {db_stats.get('date_range', ('N/A', 'N/A'))[1]}")
+    
+    with col2:
+        st.metric("📗 股票数量", f"{db_stats.get('stock_count', 0):,}")
+        st.caption("已覆盖股票")
+    
+    with col3:
+        st.metric("🧮 因子数量", f"{factor_stats.get('total', 0)}")
+        st.caption("已注册因子")
+    
+    with col4:
+        st.metric("📐 表数量", f"{len(db_stats.get('tables', {}))}")
+        st.caption("数据库表")
+    
+    # ==================== 第三行：因子表现 ====================
+    st.header("🎯 因子表现 (2022 训练集)")
+    
+    # 显示表
+    st.subheader("表信息")
+    if db_stats.get('tables'):
+        table_df = pd.DataFrame([
+            {'表名': k, '大小': v} 
+            for k, v in db_stats.get('tables', {}).items()
+        ])
+        st.dataframe(table_df, use_container_width=True, hide_index=True)
+    
+    # 显示Top因子
+    st.subheader("Top 5 因子 (按IC绝对值)")
+    
+    if factor_stats.get('top_factors'):
+        top_df = pd.DataFrame(factor_stats['top_factors'])
+        top_df['IC'] = top_df['ic'].apply(lambda x: f"{x:.4f}")
+        top_df = top_df[['name', 'IC', 'type']]
+        top_df.columns = ['因子名称', 'IC', '类型']
+        st.dataframe(top_df, use_container_width=True, hide_index=True)
+    
+    st.info("💡 **负IC** = 反转效应 (短期下跌后反弹) | **正IC** = 动量效应 (强者恒强)")
+    
+    st.divider()
+    
+    # ==================== 侧边栏：导航 ====================
+    with st.sidebar:
         st.header("📁 导航")
         
         pages = [
@@ -103,86 +207,17 @@ def main():
         for name, page in pages:
             if st.button(name):
                 st.switch_page(page)
-    
-    # 主内容区
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("📈 快速演示")
-        
-        # 获取演示数据
-        dm = DataManager(use_db=False)  # 使用模拟数据生成演示
-        
-        data = dm.get_price_data(
-            symbols=["TEST_001"],
-            frequency="daily",
-            n_periods=100
-        )
-        
-        if not data.empty:
-            st.success(f"✅ 生成 {len(data)} 行演示数据")
-            
-            # 展示数据
-            st.dataframe(
-                data.head(10),
-                use_container_width=True
-            )
-            
-            # 统计
-            returns = data['close'].pct_change().dropna()
-            stats = {
-                "总收益率": f"{(data['close'].iloc[-1] / data['close'].iloc[0] - 1) * 100:.2f}%",
-                "波动率": f"{returns.std() * 100:.2f}%",
-                "夏普比率": f"{returns.mean() / returns.std() if returns.std() > 0 else 0:.2f}",
-                "最大回撤": f"{((data['close'] - data['close'].cummax()) / data['close'].cummax()).min() * 100:.2f}%"
-            }
-            
-            st.write("### 统计指标")
-            for k, v in stats.items():
-                st.metric(k, v)
-    
-    with col2:
-        st.subheader("🎯 快速操作")
-        
-        # 创建新因子
-        with st.expander("➕ 创建新因子", expanded=False):
-            new_factor_name = st.text_input("因子名称", key="new_factor_name")
-            new_factor_class = st.selectbox(
-                "基类",
-                ["MomentumFactor", "MovingAverage", "RSI", "Return1dFactor", "DistMA10Factor"]
-            )
-            new_factor_period = st.number_input("周期参数", value=20, step=5)
-            new_factor_desc = st.text_area("描述", "")
-            
-            if st.button("✅ 注册因子"):
-                if new_factor_name:
-                    register_factor(
-                        name=new_factor_name,
-                        class_name=new_factor_class,
-                        category="custom",
-                        params={"period": new_factor_period, "window": new_factor_period},
-                        description=new_factor_desc
-                    )
-                    st.success(f"✅ 已注册因子: {new_factor_name}")
-                    st.rerun()
-                else:
-                    st.error("请输入因子名称")
         
         st.divider()
         
-        st.subheader("ℹ️ 系统信息")
+        st.header("ℹ️ 系统信息")
         st.info("""
-        **QuantFactor System v3.0**
+        **QuantFactor System**
         
-        - 数据库: PostgreSQL 16
-        - 存储: 数据库 + 模拟数据
-        - 前端: Streamlit
-        
-        **数据流程:**
-        1. 获取价格数据
-        2. 计算因子值
-        3. 存储到数据库
-        4. Dashboard 展示
+        - 数据源: RiceQuant (米筐)
+        - 存储: TimescaleDB
+        - 训练集: 2022年
+        - 测试集: 2023+
         """)
 
 
