@@ -27,7 +27,9 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 import logging
 
-from .timescale_db import TimescaleDB, Frequency, get_db
+from .storage.timescale_storage import TimescaleDB
+from .storage.db_utils import get_db
+from .storage.frequency import Frequency
 
 logger = logging.getLogger(__name__)
 
