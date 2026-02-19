@@ -9,7 +9,7 @@ Pipeline Module
 - 因子计算与存储
 
 使用方式:
-    from quant_factor_system.pipeline import Pipeline, Momentum, RSI
+    from quant_factor_system.factors import Pipeline, Frequency
     from quant_factor_system.data import DataManager
     
     # 创建Pipeline
@@ -225,50 +225,38 @@ class BuiltInFactors:
     
     使用方式:
         pipe.add_factor('momentum', BuiltInFactors.momentum(20))
-        pipe.add_factor('ma', BuiltInFactors.ma(20))
+        pipe.add_factor('value', BuiltInFactors.value('pe'))
     """
     
     @staticmethod
     def momentum(window: int = 20) -> type:
         """动量因子"""
-        from .factors import MomentumFactor
+        from ..basic.factors import MomentumFactor
         return lambda **kwargs: MomentumFactor(period=window, **kwargs)
     
     @staticmethod
     def value(metric: str = 'pe') -> type:
         """价值因子"""
-        from .factors import ValueFactor
+        from ..basic.factors import ValueFactor
         return lambda **kwargs: ValueFactor(metric=metric, **kwargs)
     
     @staticmethod
     def quality(metric: str = 'roe') -> type:
         """质量因子"""
-        from .factors import QualityFactor
+        from ..basic.factors import QualityFactor
         return lambda **kwargs: QualityFactor(metric=metric, **kwargs)
     
     @staticmethod
     def volatility(window: int = 20) -> type:
         """波动率因子"""
-        from .factors import VolatilityFactor
+        from ..basic.factors import VolatilityFactor
         return lambda **kwargs: VolatilityFactor(window=window, **kwargs)
     
     @staticmethod
     def size() -> type:
         """规模因子"""
-        from .factors import SizeFactor
+        from ..basic.factors import SizeFactor
         return lambda **kwargs: SizeFactor(**kwargs)
-    
-    @staticmethod
-    def ma(window: int = 20) -> type:
-        """移动平均"""
-        from .factors import MovingAverage
-        return lambda **kwargs: MovingAverage(window=window, **kwargs)
-    
-    @staticmethod
-    def rsi(window: int = 14) -> type:
-        """RSI"""
-        from .factors import RSI
-        return lambda **kwargs: RSI(window=window, **kwargs)
 
 
 # ==================== 便捷函数 ====================

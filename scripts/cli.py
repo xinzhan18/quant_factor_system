@@ -110,7 +110,7 @@ def cmd_data(args):
 def cmd_pipeline(args):
     """运行Pipeline"""
     from quant_factor_system import create_data_manager, create_pipeline
-    from quant_factor_system.pipeline import BuiltInFactors
+    from quant_factor_system.factors.core.pipeline import BuiltInFactors
     
     print("=" * 60)
     print("🔧 运行Pipeline")
@@ -130,15 +130,11 @@ def cmd_pipeline(args):
     print("创建Pipeline...")
     pipe = create_pipeline(args.name or 'CLI_Pipeline')
     
-    factors = args.factors or ['momentum', 'ma']
+    factors = args.factors or ['momentum']
     
     for factor in factors:
         if factor == 'momentum':
             pipe.add_factor('momentum', BuiltInFactors.momentum(20))
-        elif factor == 'ma':
-            pipe.add_factor('ma', BuiltInFactors.ma(20))
-        elif factor == 'rsi':
-            pipe.add_factor('rsi', BuiltInFactors.rsi(14))
         elif factor == 'volatility':
             pipe.add_factor('volatility', BuiltInFactors.volatility(20))
     
@@ -193,7 +189,8 @@ def cmd_benchmark(args):
     import pandas as pd
     import numpy as np
     
-    from quant_factor_system import create_data_manager, create_pipeline, BuiltInFactors
+    from quant_factor_system import create_data_manager, create_pipeline
+    from quant_factor_system.factors.core.pipeline import BuiltInFactors
     
     print("=" * 60)
     print("⏱️ 基准测试")
@@ -221,8 +218,6 @@ def cmd_benchmark(args):
     
     pipe = create_pipeline('Benchmark')
     pipe.add_factor('momentum', BuiltInFactors.momentum(20))
-    pipe.add_factor('ma', BuiltInFactors.ma(20))
-    pipe.add_factor('rsi', BuiltInFactors.rsi(14))
     pipe.add_factor('volatility', BuiltInFactors.volatility(20))
     
     start = time.time()

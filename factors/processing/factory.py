@@ -22,8 +22,6 @@ class FactorFactory:
     KNOWN_FACTORS = {
         # 技术因子
         'MomentumFactor': 'quant_factor_system.factors.basic',
-        'MovingAverage': 'quant_factor_system.factors.pipeline.factors',
-        'RSI': 'quant_factor_system.factors.pipeline.factors',
         'VolatilityFactor': 'quant_factor_system.factors.basic',
         
         # 收益率因子
@@ -99,13 +97,6 @@ class FactorFactory:
         except (ImportError, AttributeError):
             pass
         
-        # 3. 尝试从 factors.pipeline.factors 加载
-        try:
-            module = importlib.import_module('quant_factor_system.factors.pipeline.factors')
-            return getattr(module, class_name)
-        except (ImportError, AttributeError):
-            pass
-        
         raise ValueError(f"无法加载因子类: {class_name}")
     
     @classmethod
@@ -118,8 +109,6 @@ class FactorFactory:
         """获取内置因子列表"""
         return [
             {'name': 'momentum', 'class_name': 'MomentumFactor', 'category': 'tech', 'description': '动量因子'},
-            {'name': 'ma', 'class_name': 'MovingAverage', 'category': 'tech', 'description': '移动平均线'},
-            {'name': 'rsi', 'class_name': 'RSI', 'category': 'tech', 'description': '相对强弱指数'},
             {'name': 'return_1d', 'class_name': 'Return1dFactor', 'category': 'return', 'description': '1日收益率'},
             {'name': 'return_5d', 'class_name': 'Return5dFactor', 'category': 'return', 'description': '5日收益率'},
             {'name': 'return_20d', 'class_name': 'Return20dFactor', 'category': 'return', 'description': '20日收益率'},
