@@ -73,6 +73,11 @@ class PerformanceMetrics:
     winning_days: int = 0
     losing_days: int = 0
     
+    # 风险指标（来自 RiskMetrics）
+    downside_volatility: float = 0.0
+    value_at_risk: float = 0.0
+    conditional_value_at_risk: float = 0.0
+    
     def summary(self) -> Dict:
         return {
             '收益': {
@@ -471,6 +476,52 @@ class PerformanceAnalyzer:
             return tail_returns.mean()
         
         return var
+    
+    def calculate_all_metrics(
+        self,
+        returns: pd.Series,
+        period: str = 'daily'
+    ) -> 'PerformanceMetrics':
+        """
+        计算所有指标（合并自 RiskAnalyzer.calculate_all_metrics）
+        
+        Args:
+            returns: 收益率序列
+            period: 数据周期
+            
+        Returns:
+            完整的绩效指标
+        """
+        metrics = PerformanceMetrics()
+        
+        # 收益指标
+        if not returns.empty:
+            metrics.total_return = returns.sum()
+            metrics.annual_return = returns.mean() * self.trading_days
+            metrics.volatility = returns.std()
+            metrics.annual_volatility = returns.std() * np.sqrt(self.trading_days)
+            
+            # 最大回撤
+            equity = (1 + returns).cumprod()
+            drawdown = 1 - equity / equity.cummax()
+            metrics.max_drawdown = drawdown.max()
+            
+            # 风险调整收益
+            metrics.sharpe_ratio = self.calculate_sharpe_ratio(returns, period=period)
+            metrics.sortino_ratio = self.calculate_sortino_ratio(returns, period=period)
+            metrics.calmar_ratio = self.calculate_calmar_ratio(returns)
+            metrics.information_ratio = self.calculate_information_ratio(returns)
+            
+            # VaR 和 CVaR
+            metrics.value_at_risk = self.calculate_value_at_risk(returns)
+            metrics.conditional_value_at_risk = self.calculate_conditional_var(returns)
+            
+            # 下行波动率
+            negative_returns = returns[returns < 0]
+            if not negative_returns.empty:
+                metrics.downside_volatility = negative_returns.std() * np.sqrt(self.trading_days)
+        
+        return metrics
 
 
 # ==================== 导出 ====================
