@@ -78,13 +78,13 @@
 - [ ] 添加缓存管理
 
 ### 4.3 创建通用组件
-- [ ] 创建 `dashboard/components/charts/`
-- [ ] 创建 `dashboard/components/forms/`
-- [ ] 创建 `dashboard/components/tables/`
+- [x] 创建 `dashboard/components/charts/`
+- [x] 创建 `dashboard/components/forms/`
+- [x] 创建 `dashboard/components/tables/`
 
 **负责人**: AI
 **预计时间**: 4-6小时
-**状态**: 🔄 进行中 (Factors页面已完成)
+**状态**: ✅ Phase 4 完成 (通用组件已完成)
 
 ---
 
