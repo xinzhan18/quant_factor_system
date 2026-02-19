@@ -2,7 +2,7 @@
 因子评估页面 - 后端计算模式
 从数据库加载因子数据并计算IC，只传图表和统计结果给前端
 
-重构：调用 ICAnalyzer 实现 IC 计算，消除代码重复
+重构：调用 data/loaders 抽取数据加载逻辑
 """
 
 import streamlit as st
@@ -10,84 +10,26 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime as dt
-import time
 
 from quant_factor_system.data import TimescaleDB
+from quant_factor_system.data.loaders import (
+    get_factor_data,
+    get_price_data,
+    get_factor_overview,
+    get_available_factors,
+)
 from quant_factor_system.factors.visualization import ICAnalyzer
 
 
-# 数据库中实际存在的因子表
-DATABASE_FACTORS = {
-    'return_1d': 'factor_return_1d',
-    'return_5d': 'factor_return_5d',
-    'return_20d': 'factor_return_20d',
-    'return_60d': 'factor_return_60d',
-    'momentum_20': 'factor_momentum_20',
-    'momentum_60': 'factor_momentum_60',
-    'dist_ma10': 'factor_dist_ma10',
-    'dist_ma20': 'factor_dist_ma20',
-    'dist_ma60': 'factor_dist_ma60',
-    'volatility_20': 'factor_volatility_20',
-}
-
+# ==================== 因子评估页面 ====================
 
 @st.cache_data(ttl=3600)
-def get_factor_data_backend(factor_name: str, _db_connection):
-    """后端：获取因子全部数据"""
-    table_name = DATABASE_FACTORS.get(factor_name)
-    
-    try:
-        cursor = _db_connection.cursor()
-        
-        # 获取数据
-        cursor.execute(f"""
-            SELECT time, symbol, value 
-            FROM {table_name}
-            ORDER BY time
-        """)
-        
-        cols = ['time', 'symbol', 'value']
-        rows = cursor.fetchall()
-        
-        if not rows:
-            return None, "无数据"
-        
-        df = pd.DataFrame(rows, columns=cols)
-        return df, None
-        
-    except Exception as e:
-        return None, str(e)
+def get_factor_overview_cached(connection):
+    """获取因子概览（缓存）"""
+    return get_factor_overview(connection)
 
 
-@st.cache_data(ttl=3600)
-def get_price_data_backend(symbols: list, start_date, end_date, _db_connection):
-    """后端：获取价格数据"""
-    try:
-        cursor = _db_connection.cursor()
-        
-        placeholders = ','.join(['%s'] * len(symbols))
-        cursor.execute(f"""
-            SELECT time, symbol, close
-            FROM price_daily
-            WHERE symbol IN ({placeholders})
-            AND time >= %s AND time <= %s
-            ORDER BY symbol, time
-        """, symbols + [start_date, end_date])
-        
-        cols = ['time', 'symbol', 'close']
-        rows = cursor.fetchall()
-        
-        if not rows:
-            return None
-        
-        return pd.DataFrame(rows, columns=cols)
-        
-    except Exception as e:
-        return None
-
-
-def compute_ic_analysis(factor_df: pd.DataFrame, price_df: pd.DataFrame, 
-                       split_date: dt, progress_bar=None) -> dict:
+def generate_ic_chart(rolling_ic_df: pd.DataFrame, split_date: dt, factor_name: str) -> go.Figure:
     """
     后端：计算IC分析（调用 ICAnalyzer）
     
@@ -291,48 +233,6 @@ def generate_multi_rolling_ic_chart(daily_ic: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def get_factor_overview(_db_connection) -> pd.DataFrame:
-    """获取所有因子概览"""
-    try:
-        cursor = _db_connection.cursor()
-        
-        cursor.execute("""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name LIKE 'factor_%'
-            ORDER BY table_name
-        """)
-        
-        tables = [row[0] for row in cursor.fetchall()]
-        data = []
-        
-        for table in tables:
-            cursor.execute(f"""
-                SELECT COUNT(*), MIN(time), MAX(time)
-                FROM {table}
-            """)
-            stats = cursor.fetchone()
-            
-            cursor.execute(f"""
-                SELECT pg_size_pretty(pg_total_relation_size('{table}'::text))
-            """)
-            size = cursor.fetchone()[0]
-            
-            data.append({
-                '因子表': table,
-                '总记录': f"{stats[0]:,}",
-                '起始日期': stats[1].strftime('%Y-%m-%d') if stats[1] else '-',
-                '结束日期': stats[2].strftime('%Y-%m-%d') if stats[2] else '-',
-                '大小': size
-            })
-        
-        return pd.DataFrame(data)
-        
-    except Exception as e:
-        return pd.DataFrame()
-
-
 def main():
     st.set_page_config(
         page_title="因子评估 - QuantFactor",
@@ -348,26 +248,12 @@ def main():
     with st.sidebar:
         st.header("⚙️ 因子设置")
         
-        # 选择因子
-        factor_names = list(DATABASE_FACTORS.keys())
+        # 获取因子数据
+        factor_names = get_available_factors()
         selected_factor = st.selectbox("选择因子", options=factor_names, index=0)
         
-        st.caption(f"表名: {DATABASE_FACTORS[selected_factor]}")
-        st.divider()
-        
-        st.info("**📊 后端计算模式**")
-        st.caption("所有计算在后端完成，前端只展示结果")
-        
-        if st.button("🔄 刷新数据", type="primary"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    # ==================== 主内容 ====================
-    
-    with db.connection() as conn:
-        # 获取因子数据
         with st.spinner('正在加载因子数据...'):
-            factor_df, error = get_factor_data_backend(selected_factor, conn)
+            factor_df, error = get_factor_data(selected_factor, conn)
         
         if error:
             st.warning(f"⚠️ {error}")
@@ -414,7 +300,7 @@ def main():
         # 获取价格数据
         symbols = factor_df['symbol'].unique().tolist()
         with st.spinner('正在获取价格数据...'):
-            price_df = get_price_data_backend(symbols, min_date, max_date, conn)
+            price_df = get_price_data(symbols, min_date.strftime('%Y-%m-%d'), max_date.strftime('%Y-%m-%d'), conn)
         
         if price_df is not None and not price_df.empty:
             # 计算IC
@@ -546,7 +432,7 @@ def main():
         st.subheader("📋 所有因子表概览")
         
         with st.spinner('正在加载因子表概览...'):
-            overview = get_factor_overview(conn)
+            overview = get_factor_overview_cached(conn)
         if not overview.empty:
             st.dataframe(overview, use_container_width=True)
         else:

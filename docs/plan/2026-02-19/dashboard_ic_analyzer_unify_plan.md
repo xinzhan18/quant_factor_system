@@ -92,9 +92,20 @@ result[f'end_{period}'] = period_data['time'].max().strftime('%Y-%m-%d')
 
 ### Step 6: 测试验证
 
+- [x] 测试导入成功
+- [x] 测试函数签名正确
+- [ ] 测试 Dashboard 正常启动
 - [ ] 测试 IC 计算结果一致
-- [ ] 测试 Dashboard 正常显示
-- [ ] 测试图表渲染正常
+
+## ✅ 重构完成
+
+**改动文件**：
+- `dashboard/pages/Factors.py` - 调用 ICAnalyzer
+- `factors/visualization/ic_analyzer.py` - 添加 start/end 字段
+
+**删除代码**：~40 行重复的 IC 计算逻辑
+
+**复用**：ICAnalyzer.compute_ic() 全部逻辑
 
 ## 📝 改动总结
 
