@@ -1,6 +1,8 @@
 """
 因子评估页面 - 后端计算模式
 从数据库加载因子数据并计算IC，只传图表和统计结果给前端
+
+重构：调用 ICAnalyzer 实现 IC 计算，消除代码重复
 """
 
 import streamlit as st
@@ -11,6 +13,7 @@ from datetime import datetime as dt
 import time
 
 from quant_factor_system.data import TimescaleDB
+from quant_factor_system.factors.visualization import ICAnalyzer
 
 
 # 数据库中实际存在的因子表
@@ -85,79 +88,58 @@ def get_price_data_backend(symbols: list, start_date, end_date, _db_connection):
 
 def compute_ic_analysis(factor_df: pd.DataFrame, price_df: pd.DataFrame, 
                        split_date: dt, progress_bar=None) -> dict:
-    """后端：计算IC分析"""
+    """
+    后端：计算IC分析（调用 ICAnalyzer）
+    
+    统一使用 ICAnalyzer 的逻辑，消除代码重复
+    """
     if progress_bar:
         progress_bar.progress(10)
     
-    # 合并数据
-    merged = pd.merge(factor_df, price_df, on=['time', 'symbol'], how='inner')
+    # 使用 ICAnalyzer 计算 IC
+    analyzer = ICAnalyzer()
+    ic_result = analyzer.compute_ic(factor_df, price_df, split_date, method='spearman')
     
-    if len(merged) < 100:
-        return {'error': '数据量不足'}
-    
-    if progress_bar:
-        progress_bar.progress(30)
-    
-    # 计算未来收益率（关键：因子预测的是未来收益，不是当期收益）
-    # 用 shift(-1) 获取下一天收益率
-    merged = merged.sort_values(['symbol', 'time'])
-    merged['future_return'] = merged.groupby('symbol')['close'].pct_change().shift(-1)
-    
-    # 去除空值和异常值
-    merged = merged.dropna(subset=['value', 'future_return'])
-    merged = merged[merged['future_return'].abs() < 0.11]  # 去除涨跌停
-    
-    if len(merged) < 100:
-        return {'error': '合并后数据不足'}
-    
-    # 划分训练/测试集
-    merged['period'] = merged['time'].apply(
-        lambda x: '训练集' if x <= split_date else '测试集'
-    )
+    if 'error' in ic_result:
+        return ic_result
     
     if progress_bar:
         progress_bar.progress(50)
     
+    # 转换分组标识（英文 → 中文）
     result = {}
     
-    # 计算各周期IC（用future_return替代return）
-    for period in ['训练集', '测试集']:
-        period_data = merged[merged['period'] == period]
-        if len(period_data) > 100:
-            ic = period_data['value'].corr(period_data['future_return'], method='spearman')
-            result[period] = {
-                'ic': ic,
-                'samples': len(period_data),
-                'start': period_data['time'].min().strftime('%Y-%m-%d'),
-                'end': period_data['time'].max().strftime('%Y-%m-%d'),
-            }
-    
-    # 整体IC
+    # IC值转换
     result['all'] = {
-        'ic': merged['value'].corr(merged['future_return'], method='spearman'),
-        'samples': len(merged)
+        'ic': ic_result.get('ic_all', 0),
+        'samples': ic_result.get('samples_all', 0)
     }
     
-    if progress_bar:
-        progress_bar.progress(70)
+    if 'ic_train' in ic_result:
+        result['训练集'] = {
+            'ic': ic_result['ic_train'],
+            'samples': ic_result.get('samples_train', 0),
+            'start': ic_result.get('start_train', ''),
+            'end': ic_result.get('end_train', '')
+        }
     
-    # 计算滚动IC（优化：按日期分组向量化计算）
-    # 先计算每天的IC，再计算滚动平均
-    daily_ic = merged.groupby('time').apply(
-        lambda x: x['value'].corr(x['future_return'], method='spearman') 
-        if x['future_return'].std() > 0 else 0
-    ).reset_index()
-    daily_ic.columns = ['date', 'IC']
+    if 'ic_test' in ic_result:
+        result['测试集'] = {
+            'ic': ic_result['ic_test'],
+            'samples': ic_result.get('samples_test', 0),
+            'start': ic_result.get('start_test', ''),
+            'end': ic_result.get('end_test', '')
+        }
     
-    # 添加日期到merged用于划分
-    daily_ic['period'] = daily_ic['date'].apply(
-        lambda x: '训练集' if x <= split_date else '测试集'
-    )
-    
-    # 计算60日滚动IC
-    daily_ic['rolling_ic'] = daily_ic['IC'].rolling(window=60, min_periods=30).mean()
-    
-    result['rolling_ic'] = daily_ic[['date', 'IC', 'period']].dropna()
+    # 转换 rolling_ic 分组标识
+    if 'rolling_ic' in ic_result:
+        rolling_ic = ic_result['rolling_ic'].copy()
+        if 'period' in rolling_ic.columns:
+            rolling_ic['period'] = rolling_ic['period'].map({
+                'train': '训练集',
+                'test': '测试集'
+            })
+        result['rolling_ic'] = rolling_ic
     
     if progress_bar:
         progress_bar.progress(100)

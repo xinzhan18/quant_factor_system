@@ -77,6 +77,10 @@ class ICAnalyzer:
         
         result = {}
         
+        # 获取日期范围
+        min_date = merged['time'].min()
+        max_date = merged['time'].max()
+        
         # 计算各周期IC
         periods = ['train', 'test'] if split_date else ['all']
         for period in periods:
@@ -89,6 +93,8 @@ class ICAnalyzer:
                 ic = period_data['value'].corr(period_data['future_return'], method=method)
                 result[f'ic_{period}'] = ic
                 result[f'samples_{period}'] = len(period_data)
+                result[f'start_{period}'] = period_data['time'].min().strftime('%Y-%m-%d')
+                result[f'end_{period}'] = period_data['time'].max().strftime('%Y-%m-%d')
         
         # 整体IC
         result['ic_all'] = merged['value'].corr(merged['future_return'], method=method)
