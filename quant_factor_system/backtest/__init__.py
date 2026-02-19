@@ -5,9 +5,17 @@ Backtest Module
 功能:
 - 回测引擎 (engine.py)
 - 绩效分析 (analyzer.py)
+- 选股模块 (selection/)
+- 信号生成 (signal/)
 
 使用示例:
-    from quant_factor_system.backtest import BacktestEngine, PerformanceAnalyzer
+    from quant_factor_system.backtest import (
+        BacktestEngine,
+        PerformanceAnalyzer,
+        FactorSelector,
+        StockFilter,
+        StockRanker
+    )
     
     # 回测
     engine = BacktestEngine()
@@ -44,6 +52,33 @@ from .analyzer import (
     PerformanceMetrics,
 )
 
+from .selection import (
+    FactorSelector,
+    FactorScore,
+    create_factor_selector,
+    StockFilter,
+    FilterType,
+    FilterCondition,
+    industry_filter,
+    market_cap_filter,
+    liquidity_filter,
+    listing_date_filter,
+    limit_up_down_filter,
+    create_composite_filter,
+    StockRanker,
+    RankResult,
+    create_ranker,
+)
+
+from .signal import (
+    SignalGenerator,
+    SignalType,
+    SignalSource,
+    TradeSignal,
+    SignalBatch,
+    create_signal_generator,
+)
+
 __all__ = [
     # 引擎
     'BacktestEngine',
@@ -58,4 +93,29 @@ __all__ = [
     # 分析
     'PerformanceAnalyzer',
     'PerformanceMetrics',
+    
+    # 选股
+    'FactorSelector',
+    'FactorScore',
+    'create_factor_selector',
+    'StockFilter',
+    'FilterType',
+    'FilterCondition',
+    'industry_filter',
+    'market_cap_filter',
+    'liquidity_filter',
+    'listing_date_filter',
+    'limit_up_down_filter',
+    'create_composite_filter',
+    'StockRanker',
+    'RankResult',
+    'create_ranker',
+    
+    # 信号
+    'SignalGenerator',
+    'SignalType',
+    'SignalSource',
+    'TradeSignal',
+    'SignalBatch',
+    'create_signal_generator',
 ]

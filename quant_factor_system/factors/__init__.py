@@ -33,6 +33,15 @@ from .processor import (
     process_factor,
 )
 
+from .visualization import (
+    ICAnalyzer,
+    create_ic_analyzer,
+    GroupReturnsAnalyzer,
+    create_group_analyzer,
+    FactorReportGenerator,
+    create_report_generator,
+)
+
 __all__ = basic.__all__ + [
     'FactorRegistry',
     'get_registry',
@@ -54,4 +63,11 @@ __all__ = basic.__all__ + [
     'neutralize_market_cap',
     'filter_limit_up_down',
     'process_factor',
+    # 可视化
+    'ICAnalyzer',
+    'create_ic_analyzer',
+    'GroupReturnsAnalyzer',
+    'create_group_analyzer',
+    'FactorReportGenerator',
+    'create_report_generator',
 ]
