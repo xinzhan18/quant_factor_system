@@ -1,192 +1,176 @@
 # QuantFactorSystem v3.0
 
-量化因子分析系统
+完整的量化因子研究与交易平台。
 
-## 🚀 启动方式
+## 🎯 项目概述
 
-### 必需步骤（重要！）
+从数据获取到因子分析、回测、实盘交易的完整量化投资解决方案。
+
+### 核心能力
+
+- **数据层**: TimescaleDB 存储，米筐(RiceQuant) 唯一数据源
+- **因子层**: 分钟到日级因子计算，多种计算方法
+- **选股层**: 单因子/多因子选股，因子过滤与排名
+- **仓位层**: 等权、因子里重、凯利公式
+- **止损层**: 固定止损、ATR止损、追踪止损
+- **回测层**: 完整模拟与绩效分析
+- **Dashboard**: 策略配置、结果展示、任务监控
+
+## 🚀 快速启动
+
+### 环境配置
 
 ```bash
-# 1. 激活 conda 环境
+# 激活 conda 环境
 conda activate quantfactor
 
-# 2. 进入项目目录
+# 进入项目目录
 cd /Users/xinzhan/.openclaw/workspace/quant_factor_system
 
-# 3. 安装项目包（首次或更新后）
+# 安装项目包（首次或更新后）
 pip install -e .
+```
 
-# 4. 启动 Dashboard
-cd dashboard
+### 启动 Dashboard
+
+```bash
+# 方式1: 使用绝对路径
+/Users/xinzhan/miniconda3/envs/quantfactor/bin/streamlit run quant_factor_system/dashboard/Home.py
+
+# 方式2: 先 cd 再运行
+cd /Users/xinzhan/.openclaw/workspace/quant_factor_system/dashboard
 streamlit run Home.py
 ```
 
 **Dashboard 访问地址:** http://localhost:8501
 
----
+### 运行因子计算
 
-## 📊 架构概览
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    QuantFactor System                        │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │   Dashboard  │    │   Pipeline    │    │   CLI/Term   │  │
-│  │  (Streamlit) │    │   (Engine)    │    │   (Python)   │  │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘  │
-│         │                   │                   │           │
-│         └───────────────────┼───────────────────┘           │
-│                             │                               │
-│                    ┌────────▼────────┐                     │
-│                    │  FactorStorage   │                     │
-│                    │  (因子存储引擎)   │                     │
-│                    └────────┬────────┘                     │
-│                             │                               │
-│         ┌───────────────────┼───────────────────┐          │
-│         │                   │                   │          │
-│  ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    │
-│  │  分钟因子    │    │   日级因子   │    │   周级因子   │    │
-│  │  (窄表分区)  │    │   (宽表)     │    │   (宽表)     │    │
-│  │ ~7.5亿/年   │    │ ~365万/年    │    │ ~26万/年     │    │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘    │
-│         │                   │                   │          │
-│  ┌──────▼──────────────────────────────────────────────┐    │
-│  │                  PostgreSQL 16                      │    │
-│  │              (localhost:5432/quant)                 │    │
-│  └──────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
+```bash
+/Users/xinzhan/miniconda3/envs/quantfactor/bin/python recompute_factors.py
 ```
 
----
+## 📦 模块结构
 
-## 🗄️ 数据库连接信息
+```
+quant_factor_system/
+├── data/                   # 数据模块
+│   ├── postgres_db.py      # PostgreSQL 通用管理
+│   ├── timescale_db.py     # TimescaleDB (生产环境)
+│   ├── data_manager.py     # 数据管理
+│   ├── factor_storage.py   # 因子存储引擎
+│   └── clean/              # 数据清洗/验证
+│
+├── factors/                # 因子模块
+│   ├── registry.py         # 因子注册表
+│   ├── factory.py          # 因子工厂
+│   ├── basic/              # 基础因子
+│   │   ├── factors.py      # 动量、均线、RSI等
+│   │   └── return_factors.py
+│   ├── aggregator.py       # 因子聚合
+│   ├── processor.py        # 因子处理
+│   └── visualization/      # IC分析、分组收益可视化
+│
+├── backtest/               # 回测模块
+│   ├── engine.py           # 回测引擎
+│   ├── analyzer.py         # 绩效分析
+│   ├── selection/          # 因子选择
+│   │   ├── single.py       # 单因子选股
+│   │   ├── multi.py        # 多因子选股
+│   │   └── filter.py       # 因子过滤与排名
+│   └── signal/             # 信号生成
+│
+├── selector/                # 选股模块 (冗余，指向 backtest/selection)
+│
+├── position/               # 仓位模块
+│   ├── equal.py            # 等权配置
+│   ├── factor.py           # 因子里重
+│   └── kelly.py            # 凯利公式
+│
+├── stoploss/               # 止损模块
+│   ├── fixed.py            # 固定止损
+│   ├── atr.py              # ATR止损
+│   └── trailing.py         # 追踪止损
+│
+├── pipeline/               # Pipeline
+│   └── pipeline.py         # Pipeline引擎
+│
+├── dashboard/              # Web界面
+│   ├── Home.py             # 首页
+│   ├── pages/
+│   │   ├── Factors.py      # 因子评估
+│   │   ├── Pipeline.py     # Pipeline组合
+│   │   └── Backtest.py     # 回测结果
+│   └── components/         # 通用组件
+│
+├── core/                   # 核心模块
+│   └── base.py             # Factor基类
+│
+├── examples/               # 示例代码
+├── scripts/                # 工具脚本
+├── docs/                   # 文档
+└── tests/                  # 测试
+```
+
+## 🗄️ 数据库
 
 | 配置 | 值 |
 |------|-----|
+| 类型 | TimescaleDB (PostgreSQL 16 超集) |
 | 主机 | localhost |
 | 端口 | 5432 |
 | 数据库 | quant |
 | 用户 | postgres |
 | 密码 | postgres |
 
----
+### 因子存储架构
 
-## 📁 目录结构
+#### 按频率分表设计
 
-```
-quant_factor_system/
-├── run.sh              # 主启动脚本
-├── cli.py              # CLI工具
-├── setup.py            # 包配置
-│
-├── core/               # 核心模块
-│   └── base.py         # Factor基类
-│
-├── data/               # 数据模块
-│   ├── postgres_db.py   # PostgreSQL 通用管理
-│   ├── timescale_db.py   # TimescaleDB (兼容)
-│   ├── data_manager.py   # 数据管理
-│   └── factor_storage.py  # ⭐ 因子存储引擎
-│
-├── factors/            # 因子模块
-│   ├── __init__.py     # 导出注册表和工厂
-│   ├── registry.py      # 因子注册表
-│   ├── factory.py       # 因子工厂
-│   ├── basic/          # 基础因子
-│   │   ├── factors.py
-│   │   └── return_factors.py
-│   └── ...
-│
-├── pipeline/           # Pipeline
-│   └── pipeline.py     # Pipeline引擎
-│
-└── dashboard/          # Web界面
-    ├── Home.py         # 首页
-    ├── pages/
-    │   ├── Factors.py  # 因子评估
-    │   └── Pipeline.py # Pipeline组合
-    └── start_dashboard.sh
-```
+| 频率 | 存储类型 | 表名 | 数据量估算 |
+|------|---------|------|-----------|
+| 分钟 | 窄表分区 | `minute_factor_values` | ~7.5亿/年/因子 |
+| 日级 | 宽表 | `daily_factors_wide` | ~3650万/年/20因子 |
+| 周级 | 宽表 | `weekly_factors_wide` | ~260万/年 |
 
----
+#### 因子配置表 `factor_config`
 
-## 🗄️ 因子存储架构
+存储所有因子的元信息：名称、类别、频率、存储类型、描述、单位等。
 
-### 设计原则
+## 📊 内置因子
 
-1. **按频率分表** - 不同频率的因子分开存储
-2. **宽表 + 窄表** - 平衡存储空间和查询效率
-3. **时间分区** - 分钟级因子按月分区，便于管理
-4. **持久化存储** - 所有数据永久保存
+### 技术因子 (tech)
 
-### 表结构
+| 因子名 | 类名 | 说明 |
+|--------|------|------|
+| momentum | MomentumFactor | 动量因子 (5/10/20/60日) |
+| ma | MovingAverage | 移动平均线 |
+| rsi | RSI | 相对强弱指数 |
+| dist_ma | DistMAFactor | 均线偏离度 |
+| volatility | VolatilityFactor | 波动率 |
 
-#### 1. 因子配置表 `factor_config`
+### 收益因子 (return)
 
-```sql
-CREATE TABLE factor_config (
-    name VARCHAR(100) PRIMARY KEY,      -- 因子名称
-    display_name VARCHAR(200),           -- 显示名称
-    category VARCHAR(50),               -- 类别 (tech, return, etc.)
-    frequency VARCHAR(20) NOT NULL,     -- 频率 (minute, daily, weekly)
-    storage_type VARCHAR(20) NOT NULL,  -- 存储类型 (wide, narrow)
-    description TEXT,
-    unit VARCHAR(50),                   -- 单位
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
-);
-```
+| 因子名 | 类名 | 说明 |
+|--------|------|------|
+| return_1d | Return1dFactor | 1日收益率 |
+| return_5d | Return5dFactor | 5日收益率 |
+| return_20d | Return20dFactor | 20日收益率 |
 
-#### 2. 分钟因子 `minute_factor_values` (窄表分区)
+### 统计因子 (stats)
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| factor_name | VARCHAR(100) | 因子名称 |
-| symbol | VARCHAR(20) | 股票代码 |
-| timestamp | TIMESTAMP | 时间戳 |
-| factor_value | FLOAT | 因子值 |
-| ic | FLOAT | 信息系数 |
-| created_at | TIMESTAMP | 创建时间 |
+| 因子名 | 类名 | 说明 |
+|--------|------|------|
+| zscore | ZScoreFactor | Z分数标准化 |
+| ic | ICFactor | 信息系数 |
 
-**数据量**: 5000股票 × 每分钟 × 252天 ≈ **7.5亿/年**
+### 行业因子 (industry)
 
-**分区**: 按月自动分区 (`minute_factor_values_2026_01`, etc.)
-
-#### 3. 日级因子 `daily_factors_wide` (宽表)
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| symbol | VARCHAR(20) | 股票代码 |
-| date | DATE | 日期 |
-| momentum_5d/10d/20d/60d | FLOAT | 动量因子 |
-| return_1d/5d/10d/20d/60d | FLOAT | 收益率因子 |
-| ma_5/10/20/60 | FLOAT | 均线因子 |
-| dist_ma10/20 | FLOAT | 均线偏离度 |
-| rsi_14 | FLOAT | RSI |
-| zscore_60 | FLOAT | Z分数 |
-| volatility_20d | FLOAT | 波动率 |
-| updated_at | TIMESTAMP | 更新时间 |
-
-**数据量**: 5000股票 × 每天 × 20因子 ≈ **3650万/年**
-
----
-
-## 📈 数据量估算
-
-| 场景 | 股票数 | 频率 | 因子数 | 年数据量 | 存储方案 |
-|------|--------|------|--------|----------|----------|
-| 高频 | 5000 | 分钟 | 1 | 7.5亿 | 窄表 + 分区 |
-| 中频 | 5000 | 分钟 | 10 | 75亿 | 窄表 + 分区 |
-| 低频 | 5000 | 日 | 20 | 3650万 | 宽表 |
-| 低频 | 5000 | 日 | 100 | 1.8亿 | 窄表 |
-| 超低频 | 5000 | 周 | 10 | 260万 | 宽表 |
-
-**存储空间估算**:
-- 分钟因子: ~100GB/年 (1因子) / ~1TB/年 (10因子)
-- 日级因子: ~3GB/年 (20因子宽表) / ~15GB/年 (100因子窄表)
-
----
+| 因子类型 | 更新频率 | 示例 |
+|---------|---------|------|
+| 行业归属 | 季度 | 中信一级行业 |
+| 行业收益率 | 每日 | 行业日收益率 |
+| 行业动量 | 每日 | 20日行业累计收益 |
 
 ## 🔧 使用示例
 
@@ -195,164 +179,116 @@ CREATE TABLE factor_config (
 ```python
 from quant_factor_system.data import init_factor_storage
 
-# 初始化（创建表和分区）
 storage = init_factor_storage()
-
-# 查看统计
 print(storage.get_stats())
 ```
 
-### 2. 注册新因子
+### 2. 注册和计算因子
 
 ```python
-from quant_factor_system.data import get_factor_storage
+from quant_factor_system.factors import MomentumFactor
 
-storage = get_factor_storage()
-
-# 注册分钟级因子（窄表存储）
-storage.register_factor(
-    name="momentum_1min",
-    frequency="minute",
-    storage_type="narrow",
-    category="tech",
-    display_name="1分钟动量因子",
-    unit="ratio"
-)
-
-# 注册日级因子（宽表存储）
-storage.register_factor(
-    name="momentum_20d",
-    frequency="daily",
-    storage_type="wide",
-    category="tech",
-    display_name="20日动量因子",
-    unit="percent"
-)
+factor = MomentumFactor(lookback=20)
+result = factor.compute(data)
 ```
 
-### 3. 保存分钟因子数据
+### 3. 运行回测
 
 ```python
-import pandas as pd
-from quant_factor_system.data import get_factor_storage
+from quant_factor_system.backtest import BacktestEngine
 
-storage = get_factor_storage()
-
-# 模拟分钟数据
-df = pd.DataFrame({
-    'symbol': ['AAPL'] * 100,
-    'timestamp': pd.date_range('2026-01-01', periods=100, freq='1min'),
-    'factor_value': [0.01 * i for i in range(100)]
-})
-
-# 保存到窄表
-storage.save_minute_factor("momentum_1min", df, ic=0.05)
+engine = BacktestEngine()
+result = engine.run(strategy_config)
 ```
-
-### 4. 保存日级因子数据
-
-```python
-import pandas as pd
-from quant_factor_system.data import get_factor_storage
-
-storage = get_factor_storage()
-
-# 日级数据（宽表格式）
-df = pd.DataFrame({
-    'symbol': ['AAPL', 'GOOGL', 'MSFT'],
-    'date': pd.to_datetime(['2026-01-01'] * 3),
-    'momentum_20d': [0.05, 0.03, 0.07],
-    'rsi_14': [55, 60, 45],
-    'return_1d': [0.01, -0.02, 0.015]
-})
-
-# 保存到宽表
-storage.save_daily_factor(df)
-```
-
-### 5. 查询数据
-
-```python
-# 查询分钟因子
-minute_data = storage.query_minute_factor(
-    factor_name="momentum_1min",
-    symbols=["AAPL", "GOOGL"],
-    start=datetime(2026, 1, 1),
-    end=datetime(2026, 1, 2),
-    limit=10000
-)
-
-# 查询日级因子
-daily_data = storage.query_daily_factor(
-    symbols=["AAPL", "GOOGL"],
-    start_date=datetime(2026, 1, 1),
-    end_date=datetime(2026, 1, 31),
-    factor_columns=["momentum_20d", "rsi_14"]
-)
-```
-
----
-
-## 📦 内置因子
-
-| 因子名 | 类名 | 类别 | 说明 |
-|--------|------|------|------|
-| momentum | MomentumFactor | tech | 动量因子 |
-| ma | MovingAverage | tech | 移动平均 |
-| rsi | RSI | tech | 相对强弱 |
-| return_1d | Return1dFactor | return | 1日收益 |
-| return_5d | Return5dFactor | return | 5日收益 |
-| return_20d | Return20dFactor | return | 20日收益 |
-| dist_ma10 | DistMA10Factor | tech | 均线偏离 |
-| zscore_60 | ZScore60Factor | tech | Z分数 |
-
----
 
 ## 📈 Dashboard 页面
 
-1. **首页 (Home.py)**
+1. **首页 (Home)**
    - 系统状态概览
    - 数据库统计
    - 快速创建因子
 
-2. **因子评估 (Factors.py)**
+2. **因子评估 (Factors)**
    - 选择已有因子
-   - 设置参数
-   - 查看 IC、收益分析
+   - 参数配置
+   - IC分析、分组收益可视化
    - 保存到数据库
 
-3. **Pipeline (Pipeline.py)**
+3. **Pipeline (Pipeline)**
    - 多因子组合
    - 参数配置
    - 累计收益曲线
 
----
+4. **回测 (Backtest)**
+   - 策略配置
+   - 绩效分析
+   - 结果展示
 
 ## 🛠️ 维护命令
 
 ```bash
-# 数据库
+# 数据库管理
 ./scripts/db.sh start      # 启动
 ./scripts/db.sh stop       # 停止
-./scripts/db.sh shell      # 进入命令行
+./scripts/db.sh shell       # 进入命令行
 
-# 数据
+# 数据操作
 ./scripts/data.sh sample   # 生成示例数据
 ./scripts/data.sh import file.csv
 
-# 系统
+# 系统维护
 ./run.sh info       # 系统信息
 ./run.sh init       # 初始化
 ./run.sh clean      # 清理
 ```
 
----
+## 📋 开发规范
 
-## 📋 更新日志 (2026-02-10)
+### Git 工作流程
 
-### v3.0 - 因子存储架构重构
+1. **可以 commit**: 每次完成需求或阶段性任务
+2. **不能 push**: 所有 push 必须经过用户同意
+3. **询问后 push**: 完成用户要求的所有任务后，询问是否 push
 
-#### 新增功能
+```bash
+# 1. 添加更改
+git add -A
+
+# 2. 提交
+git commit -m "feat: 描述你的更改"
+
+# 3. ⚠️ 不要直接push！先询问用户
+# ...
+# 用户同意后:
+git push origin main
+```
+
+### 代码规范
+
+- 保持代码清晰、可扩展
+- 优先重构旧代码，不随意创建新文件
+- 一次性脚本放 `scripts/` 目录
+- 更新依赖时同步更新 `requirements.txt` 和文档
+
+## 📚 文档
+
+- **项目概览**: `docs/PROJECT_OVERVIEW.md`
+- **架构文档**: `docs/ARCHITECTURE.md`
+- **任务计划**: `docs/plan/OVERVIEW.md`
+
+## 🧰 技术栈
+
+- **Python**: 3.8+
+- **Web**: Streamlit
+- **数据处理**: Pandas, NumPy, SciPy
+- **数据库**: TimescaleDB (生产), SQLite (已移除)
+- **可视化**: Matplotlib, Plotly
+- **数据源**: RiceQuant (米筐)
+
+## 📝 更新日志
+
+### v3.0 (2026-02-10) - 因子存储架构重构
+
 - ✅ **FactorStorage** - 全新因子存储引擎
 - ✅ **分区表** - 分钟因子按月分区
 - ✅ **宽表设计** - 日级因子列式存储
@@ -360,8 +296,6 @@ daily_data = storage.query_daily_factor(
 - ✅ **自动分区创建** - 智能分区管理
 - ✅ **持久化存储** - 所有数据永久保存
 
-#### 架构优势
-- 1. **高性能** - 宽表查询快，分区管理易
-- 2. **可扩展** - 支持任意频率和因子数量
-- 3. **易维护** - 分区表便于备份和清理
-- 4. **成本可控** - 按需选择宽表/窄表
+---
+
+*最后更新: 2026-02-19*
