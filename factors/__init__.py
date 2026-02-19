@@ -40,6 +40,11 @@ from .visualization import (
     create_report_generator,
 )
 
+from .report import (
+    FactorReportGenerator,
+    create_factor_report,
+)
+
 __all__ = basic.__all__ + [
     # Core
     'FactorRegistry',
@@ -74,4 +79,6 @@ __all__ = basic.__all__ + [
     'create_group_analyzer',
     'FactorReportGenerator',
     'create_report_generator',
+    # Report
+    'create_factor_report',
 ]
