@@ -380,3 +380,72 @@ class EarningsYieldFactor(Factor):
         
         self.values = ey
         return ey
+
+
+class IntradayMomentumFactor(Factor):
+    """
+    日内动量变化因子
+    衡量日内形态（Hammer/Shooting Star）的 1 日变化率
+    
+    公式: -1 * delta((((close-low)-(high-close))/(high-low)), 1)
+    
+    含义:
+    - (close-low): 下影线长度
+    - (high-close): 上影线长度
+    - (close-low)-(high-close): 净下影线（正值=多头占优）
+    - / (high-low): 归一化（类似 Hammer 指标）
+    - delta(..., 1): 1 日变化率
+    - -1 *: 取负值
+    
+    支持 MultiIndex 数据
+    """
+    
+    def __init__(self, description: str = "日内动量变化因子"):
+        """
+        初始化日内动量变化因子
+        """
+        super().__init__("IntradayMomentum", description)
+        self.weight = 1.0
+        
+    def calculate(self, data: pd.DataFrame) -> pd.Series:
+        """
+        计算日内动量变化因子
+        
+        Args:
+            data: 需要包含 'high', 'low', 'close' 列
+            
+        Returns:
+            日内动量变化因子值
+        """
+        required_cols = ['high', 'low', 'close']
+        for col in required_cols:
+            if col not in data.columns:
+                raise ValueError(f"数据必须包含 '{col}' 列")
+        
+        high = data['high']
+        low = data['low']
+        close = data['close']
+        
+        # 计算归一化的日内形态指标
+        # (close-low)-(high-close) / (high-low)
+        range_ = high - low
+        
+        # 避免除以零
+        range_ = range_.replace(0, np.nan)
+        
+        intraday_pattern = ((close - low) - (high - close)) / range_
+        
+        # 计算 1 日变化率
+        if isinstance(intraday_pattern.index, pd.MultiIndex):
+            delta_factor = intraday_pattern.groupby(level='symbol').diff(1)
+        else:
+            delta_factor = intraday_pattern.diff(1)
+        
+        # 取负值
+        result = -1 * delta_factor
+        
+        # 处理无效值
+        result = result.replace([np.inf, -np.inf], np.nan)
+        
+        self.values = result
+        return result

@@ -7,6 +7,7 @@ from .factors import (
     GrowthFactor,
     SizeFactor,
     LiquidityFactor,
+    IntradayMomentumFactor,
 )
 
 from .return_factors import (
@@ -36,6 +37,7 @@ __all__ = [
     "GrowthFactor",
     "SizeFactor",
     "LiquidityFactor",
+    "IntradayMomentumFactor",
     
     # 收益率因子
     "Return1dFactor",
