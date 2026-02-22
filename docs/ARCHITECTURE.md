@@ -520,4 +520,78 @@ Load (数据加载)
 
 ---
 
-*最后更新: 2026-02-19*
+## 📊 因子评估规范 (重要!)
+
+### 训练集/测试集划分
+
+| 数据集 | 时间范围 | 用途 |
+|--------|----------|------|
+| **训练集** | 2015-01-01 ~ 2022-12-31 | 因子筛选、参数优化 |
+| **测试集** | 2023-01-01 ~ 至今 | 最终策略验证 |
+
+### 因子收益计算 (关键!)
+
+**所有因子评估必须使用 T+1 收益，计算方式:**
+
+```python
+# ❌ 错误: 当天收益 (用当天收盘价计算)
+df['return_1d'] = df.groupby(level='symbol')['close'].pct_change(1)
+
+# ✅ 正确: T+1 收益 (用明天收盘价计算)
+# 方法1: shift(-1) 后计算
+df['future_close'] = df.groupby(level='symbol')['close'].shift(-1)
+df['return_1d'] = (df['future_close'] - df['close']) / df['close']
+
+# 方法2: pct_change + shift
+df['return_1d'] = df.groupby(level='symbol')['close'].pct_change(1).shift(-1)
+```
+
+**为什么重要:**
+- 因子是用当天数据计算的
+- 收益应该是明天的收益 (T+1)
+- 如果不shift，会导致"未来函数"问题，IC虚高
+
+### IC 计算
+
+```python
+from scipy import stats
+
+# 每日 IC = 因子值与 T+1 收益的 Spearman 相关系数
+daily_ic = df.groupby('time').apply(
+    lambda x: stats.spearmanr(x['factor'], x['return_1d'])[0]
+)
+
+# IC 均值 = 因子预测能力的核心指标
+ic_mean = daily_ic.mean()
+ic_ir = daily_ic.mean() / daily_ic.std()  # IR > 0.5 为优秀
+```
+
+### 分组回测
+
+```python
+# 1. 每日按因子值分成5组 (Q1~Q5)
+df['group'] = df.groupby('time')['factor'].transform(
+    lambda x: pd.qcut(x, 5, labels=['Q1','Q2','Q3','Q4','Q5'], duplicates='drop')
+)
+
+# 2. 计算每组平均收益 (T+1)
+group_returns = df.groupby('group')['return_1d'].mean() * 252  # 年化
+
+# 3. 多空组合 (根据 IC 方向决定)
+# IC > 0: Long Q5, Short Q1
+# IC < 0: Long Q1, Short Q5
+long_short_return = group_returns['Q5'] - group_returns['Q1']  # 根据方向调整
+```
+
+### 评估指标
+
+| 指标 | 优秀 | 合格 | 较差 |
+|------|------|------|------|
+| IC 均值 | > 0.05 | 0.02~0.05 | < 0.02 |
+| IC IR | > 0.5 | 0.3~0.5 | < 0.3 |
+| IC > 0 占比 | > 60% | 50%~60% | < 50% |
+| 多空年化 | > 15% | 5%~15% | < 5% |
+
+---
+
+*最后更新: 2026-02-22*
