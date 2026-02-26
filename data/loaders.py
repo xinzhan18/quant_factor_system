@@ -38,6 +38,7 @@ DATABASE_FACTORS = {
     'dist_ma60': 'factor_dist_ma60',
     'volatility_20': 'factor_volatility_20',
     'intraday_momentum': 'factor_intraday_momentum',  # 日内动量因子
+    'sentiment_overflow': 'factor_sentiment_overflow',  # 情绪溢出因子
 }
 
 
