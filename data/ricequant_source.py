@@ -550,6 +550,13 @@ class RiceQuantSource:
         if symbols is None:
             symbols = ['SH600000']
         
+        # 解析日期
+        start = pd.to_datetime(start_date) if start_date else datetime.now() - timedelta(days=7)
+        end = pd.to_datetime(end_date) if end_date else datetime.now()
+        
+        # 生成交易日序列 (工作日)
+        trading_dates = pd.date_range(start, end, freq='B')
+        
         if frequency == '1min':
             minutes_per_day = 240
         elif frequency == '5min':
@@ -557,29 +564,31 @@ class RiceQuantSource:
         else:
             minutes_per_day = 16
         
-        date = start_date or (datetime.now() - timedelta(days=7)).strftime('%Y%m%d')
-        
-        times = pd.date_range(f'{date} 09:30:00', f'{date} 15:00:00', 
-                           freq='1min' if frequency == '1min' else frequency)
-        
         data = []
         
         for symbol in symbols:
             base_price = np.random.uniform(10, 50)
-            for time in times[:minutes_per_day]:
-                change = np.random.uniform(-0.001, 0.0015)
-                close = base_price * (1 + change)
-                base_price = close
+            
+            for date in trading_dates:
+                # 每天生成数据
+                times = pd.date_range(f'{date.strftime("%Y-%m-%d")} 09:30:00', 
+                                    f'{date.strftime("%Y-%m-%d")} 15:00:00', 
+                                    freq='1min' if frequency == '1min' else frequency)
                 
-                data.append({
-                    'symbol': symbol,
-                    'time': time,
-                    'open': close * (1 + np.random.uniform(-0.001, 0.001)),
-                    'high': close * (1 + np.random.uniform(0, 0.002)),
-                    'low': close * (1 - np.random.uniform(0, 0.002)),
-                    'close': close,
-                    'volume': np.random.uniform(10000, 100000)
-                })
+                for time in times[:minutes_per_day]:
+                    change = np.random.uniform(-0.001, 0.0015)
+                    close = base_price * (1 + change)
+                    base_price = close
+                    
+                    data.append({
+                        'symbol': symbol,
+                        'time': time,
+                        'open': close * (1 + np.random.uniform(-0.001, 0.001)),
+                        'high': close * (1 + np.random.uniform(0, 0.002)),
+                        'low': close * (1 - np.random.uniform(0, 0.002)),
+                        'close': close,
+                        'volume': np.random.uniform(10000, 100000)
+                    })
         
         return pd.DataFrame(data)
     

@@ -147,7 +147,7 @@ class TimescaleDB:
         # 默认连接
         if connection_string is None:
             connection_string = (
-                "postgresql://postgres:postgres@localhost:5432/quant"
+                "postgresql://postgres:quant123@localhost:5432/quant_data"
             )
         
         self.connection_string = connection_string
