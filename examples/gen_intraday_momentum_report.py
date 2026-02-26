@@ -24,9 +24,9 @@ OUTPUT_DIR = '/Users/xinzhan/.openclaw/workspace/quant_factor_system/output'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-def get_daily_data(n_stocks: int = 200, n_days: int = 500):
-    """从数据库获取日线数据"""
-    print("📊 从数据库获取日线数据...")
+def get_daily_data():
+    """从数据库获取全量日线数据 (2015-至今)"""
+    print("📊 从数据库获取全量日线数据 (2015-2024)...")
     
     conn = psycopg2.connect(
         host='localhost',
@@ -38,30 +38,23 @@ def get_daily_data(n_stocks: int = 200, n_days: int = 500):
     cursor = conn.cursor()
     
     try:
-        # 获取股票列表
-        cursor.execute("""
-            SELECT DISTINCT symbol 
-            FROM price_daily 
-            ORDER BY symbol 
-            LIMIT %s
-        """, (n_stocks,))
+        # 获取所有股票
+        cursor.execute("SELECT DISTINCT symbol FROM price_daily ORDER BY symbol")
         stocks = [row[0] for row in cursor.fetchall()]
-        print(f"   获取到 {len(stocks)} 只股票")
+        print(f"   股票数量: {len(stocks)}")
         
-        # 获取日期范围
-        cursor.execute("SELECT MAX(time) FROM price_daily")
-        end_date = cursor.fetchone()[0]
-        start_date = end_date - timedelta(days=n_days)
+        # 获取日期范围 (2015-01-01 至今)
+        start_date = '2015-01-01'
+        end_date = '2024-12-31'
         
-        # 获取日线数据
+        # 获取全量日线数据
         cursor.execute("""
             SELECT symbol, time, open, high, low, close, volume
             FROM price_daily 
-            WHERE symbol IN %s 
-            AND time >= %s 
+            WHERE time >= %s 
             AND time <= %s
             ORDER BY symbol, time
-        """, (tuple(stocks), start_date, end_date))
+        """, (start_date, end_date))
         
         data = cursor.fetchall()
         print(f"   获取到 {len(data):,} 条日线数据")
@@ -382,7 +375,7 @@ def compute_and_analyze():
     print("="*60)
     
     # 1. 获取数据
-    price_df = get_daily_data(n_stocks=200, n_days=500)
+    price_df = get_daily_data()
     
     # 2. 计算因子
     factor_df, price_factor_df = compute_intraday_momentum_factor(price_df)
