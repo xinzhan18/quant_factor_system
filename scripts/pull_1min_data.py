@@ -43,6 +43,12 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# 设置米筐配置 (从环境变量或默认配置读取)
+import os
+if 'RQDATAC_CONF' not in os.environ:
+    # 默认配置 (来自项目)
+    os.environ['RQDATAC_CONF'] = 'tcp://license:HZ9KQ7fUrGDbo_F2vppomXjs3-VpXzGY5anDDKDL5Te49kbTtDLmsTneaTvNNkDMMnQ9uUVeTHWkfwSMPaTt8CVZGZkaywfraeEUVOMXz1W6bGnuXoOTJ1qHVm5sfOGzMG-3drD1uYKCGNWfAAyIJbF0lnfJlzl9l0YElhWdUUk=DG_OVcg3wFeBRyuAjywrddEqJomlNjGY3EmKFLp-2KYeKg6hY7qwf4jxFxy_36gZSsvaAhhClwjLCZEJCW3RRGGFLoID28nZq4xkVjBF7p0-u-GyOqcnuxnio7eWJ5HklkwpInBUIY2x7sgIVvf-jgw3OlUZMKcv5KBilmi0DKE=@rqdatad-pro.ricequant.com:16011'
+
 from data.ricequant_source import RiceQuantSource
 from data.storage.timescale_storage import TimescaleDB
 
@@ -55,14 +61,16 @@ logger = logging.getLogger(__name__)
 
 # ==================== 配置 ====================
 
-# 每日配额限制 (条数, 约1GB)
-DAILY_QUOTA_LIMIT = 5_000_000  # 500万条/天
+# 每日配额限制 (安全设置: 1GB的80% ≈ 800MB)
+# 实测: 1GB ≈ 1600万条 ≈ 64MB/天
+# 安全值: 每天拉1200万条 (约800MB)，留20%余量
+DAILY_QUOTA_LIMIT = 12_000_000  # 1200万条/天
 
 # 每批股票数量 (米筐单次请求限制)
-BATCH_SIZE = 100
+BATCH_SIZE = 500  # 每批500只股票
 
 # 请求间隔 (秒) - 避免触发限流
-REQUEST_INTERVAL = 0.5
+REQUEST_INTERVAL = 1.0  # 每批间隔1秒
 
 # 重试次数
 MAX_RETRIES = 3
