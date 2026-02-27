@@ -64,7 +64,8 @@ logger = logging.getLogger(__name__)
 # 每日配额限制 (安全设置: 1GB的80% ≈ 800MB)
 # 实测: 1GB ≈ 1600万条 ≈ 64MB/天
 # 安全值: 每天拉1200万条 (约800MB)，留20%余量
-DAILY_QUOTA_LIMIT = 12_000_000  # 1200万条/天
+DAILY_QUOTA_LIMIT_ROWS = 12_000_000  # 1200万条/天 (基于条数估算)
+DAILY_QUOTA_LIMIT_BYTES = int(1024 * 1024 * 1024 * 0.8)  # 800MB (基于实际字节)
 
 # 每批股票数量 (米筐单次请求限制)
 BATCH_SIZE = 500  # 每批500只股票
@@ -242,20 +243,56 @@ class MinuteDataPuller:
         
         return missing
     
-    def _check_quota(self, records: int) -> bool:
+    def _get_quota_from_api(self) -> dict:
+        """从米筐API获取当前配额使用情况"""
+        try:
+            from rqdatac import user
+            quota = user.get_quota()
+            return {
+                'bytes_used': quota.get('bytes_used', 0),
+                'bytes_limit': quota.get('bytes_limit', 0),
+            }
+        except Exception as e:
+            logger.warning(f"获取配额失败: {e}")
+            return {'bytes_used': 0, 'bytes_limit': 0}
+    
+    def _check_quota(self, records: int, data_size_bytes: int = 0) -> bool:
         """
         检查配额是否足够
         
         Args:
             records: 本次计划拉取的记录数
+            data_size_bytes: 本次数据大小(字节)
             
         Returns:
             是否可以继续
         """
-        if self.quota_used + records > DAILY_QUOTA_LIMIT:
-            remaining = DAILY_QUOTA_LIMIT - self.quota_used
-            logger.warning(f"⚠️ 配额不足! 剩余可用: {remaining:,} 条")
+        # 方法1: 检查条数限制
+        if self.quota_used + records > DAILY_QUOTA_LIMIT_ROWS:
+            remaining = DAILY_QUOTA_LIMIT_ROWS - self.quota_used
+            logger.warning(f"⚠️ 条数配额不足! 剩余可用: {remaining:,} 条")
             return False
+        
+        # 方法2: 检查字节限制 (更准确)
+        if data_size_bytes > 0:
+            quota_info = self._get_quota_from_api()
+            bytes_limit = quota_info.get('bytes_limit', 1024*1024*1024)  # 默认1GB
+            bytes_used = quota_info.get('bytes_used', 0)
+            
+            # 80% 阈值
+            safe_limit = int(bytes_limit * 0.8)
+            
+            # 估算本次使用后的总量
+            estimated_total = bytes_used + data_size_bytes
+            
+            if estimated_total > safe_limit:
+                remaining_bytes = safe_limit - bytes_used
+                logger.warning(f"⚠️ 字节配额不足! 剩余可用: {remaining_bytes/1024/1024:.1f} MB")
+                return False
+            else:
+                # 显示当前使用情况
+                logger.info(f"📊 配额: {bytes_used/1024/1024:.1f}/{bytes_limit/1024/1024:.1f} MB ({bytes_used/bytes_limit*100:.1f}%)")
+        
         return True
     
     def _pull_batch(
@@ -398,14 +435,6 @@ class MinuteDataPuller:
             batch = missing_symbols[i:i + BATCH_SIZE]
             batch_num = i // BATCH_SIZE + 1
             
-            # 检查配额
-            # 估算: 每只股票约480条/天 (240分钟 × 2市场)
-            estimated_records = len(batch) * 500  # 保守估算
-            
-            if not self._check_quota(estimated_records):
-                logger.warning("⚠️ 配额已用尽，停止拉取")
-                break
-            
             logger.info(f"📦 拉取第 {batch_num}/{total_batches} 批 ({len(batch)} 只股票)...")
             
             # 拉取数据
@@ -415,6 +444,14 @@ class MinuteDataPuller:
                 logger.debug(f"第 {batch_num} 批无数据")
                 self.stats['skipped_existing'] += len(batch)
                 continue
+            
+            # 计算数据大小
+            data_size_bytes = data.memory_usage(deep=True).sum()
+            
+            # 检查配额 (基于实际数据大小)
+            if not self._check_quota(len(data), data_size_bytes):
+                logger.warning("⚠️ 配额已用尽，停止拉取")
+                break
             
             # 插入数据库
             try:
