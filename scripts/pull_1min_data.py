@@ -289,12 +289,25 @@ class MinuteDataPuller:
                     return pd.DataFrame()
                 
                 # 标准化列名
+                data = data.reset_index()  # 确保把索引变成列
+                
                 if 'date' in data.columns:
                     data['time'] = pd.to_datetime(data['date'])
-                elif 'time' not in data.columns:
-                    # 尝试从索引获取
-                    if isinstance(data.index, pd.MultiIndex):
-                        data = data.reset_index()
+                elif 'datetime' in data.columns:
+                    data['time'] = pd.to_datetime(data['datetime'])
+                elif 'time' not in data.columns and isinstance(data.index, pd.MultiIndex):
+                    # 从索引获取时间
+                    data = data.reset_index()
+                    if 'time' in data.columns:
+                        data['time'] = pd.to_datetime(data['time'])
+                
+                # 转换symbol格式
+                if 'order_book_id' in data.columns:
+                    data['symbol'] = data['order_book_id'].apply(
+                        lambda x: f"SH{x.split('.')[0]}" if x.endswith('.SH') 
+                        else f"SZ{x.split('.')[0]}" if x.endswith('.XSHE') 
+                        else x
+                    )
                 
                 # 确保必要字段
                 required_cols = ['time', 'symbol', 'open', 'high', 'low', 'close', 'volume']
