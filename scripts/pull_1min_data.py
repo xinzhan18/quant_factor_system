@@ -43,11 +43,14 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# 设置米筐配置 (从环境变量或默认配置读取)
+# 设置米筐配置 (从环境变量读取)
 import os
 if 'RQDATAC_CONF' not in os.environ:
-    # 默认配置 (来自项目)
-    os.environ['RQDATAC_CONF'] = 'tcp://license:HZ9KQ7fUrGDbo_F2vppomXjs3-VpXzGY5anDDKDL5Te49kbTtDLmsTneaTvNNkDMMnQ9uUVeTHWkfwSMPaTt8CVZGZkaywfraeEUVOMXz1W6bGnuXoOTJ1qHVm5sfOGzMG-3drD1uYKCGNWfAAyIJbF0lnfJlzl9l0YElhWdUUk=DG_OVcg3wFeBRyuAjywrddEqJomlNjGY3EmKFLp-2KYeKg6hY7qwf4jxFxy_36gZSsvaAhhClwjLCZEJCW3RRGGFLoID28nZq4xkVjBF7p0-u-GyOqcnuxnio7eWJ5HklkwpInBUIY2x7sgIVvf-jgw3OlUZMKcv5KBilmi0DKE=@rqdatad-pro.ricequant.com:16011'
+    raise EnvironmentError(
+        "请设置环境变量 RQDATAC_CONF，例如:\n"
+        "  export RQDATAC_CONF='tcp://license:YOUR_KEY@rqdatad-pro.ricequant.com:16011'\n"
+        "或在 .env 文件中配置"
+    )
 
 from data.ricequant_source import RiceQuantSource
 from data.storage.timescale_storage import TimescaleDB
@@ -267,13 +270,7 @@ class MinuteDataPuller:
         Returns:
             是否可以继续
         """
-        # 方法1: 检查条数限制
-        if self.quota_used + records > DAILY_QUOTA_LIMIT_ROWS:
-            remaining = DAILY_QUOTA_LIMIT_ROWS - self.quota_used
-            logger.warning(f"⚠️ 条数配额不足! 剩余可用: {remaining:,} 条")
-            return False
-        
-        # 方法2: 检查字节限制 (更准确)
+        # 主要方法: 检查API返回的字节配额 (更准确)
         if data_size_bytes > 0:
             quota_info = self._get_quota_from_api()
             bytes_limit = quota_info.get('bytes_limit', 1024*1024*1024)  # 默认1GB
@@ -287,11 +284,18 @@ class MinuteDataPuller:
             
             if estimated_total > safe_limit:
                 remaining_bytes = safe_limit - bytes_used
-                logger.warning(f"⚠️ 字节配额不足! 剩余可用: {remaining_bytes/1024/1024:.1f} MB")
+                logger.warning(f"⚠️ 配额不足! 剩余可用: {remaining_bytes/1024/1024:.1f} MB (80%阈值)")
                 return False
             else:
                 # 显示当前使用情况
                 logger.info(f"📊 配额: {bytes_used/1024/1024:.1f}/{bytes_limit/1024/1024:.1f} MB ({bytes_used/bytes_limit*100:.1f}%)")
+                return True
+        
+        # 备用方法: 检查条数限制
+        if self.quota_used + records > DAILY_QUOTA_LIMIT_ROWS:
+            remaining = DAILY_QUOTA_LIMIT_ROWS - self.quota_used
+            logger.warning(f"⚠️ 条数配额不足! 剩余可用: {remaining:,} 条")
+            return False
         
         return True
     
@@ -481,7 +485,7 @@ class MinuteDataPuller:
         logger.info(f"   实际插入: {self.stats['total_inserted']:,} 条")
         logger.info(f"   跳过/已有: {self.stats['skipped_existing']}")
         logger.info(f"   失败: {len(self.stats['failed_symbols'])}")
-        logger.info(f"   今日配额: {self.quota_used:,}/{DAILY_QUOTA_LIMIT:,}")
+        logger.info(f"   今日配额: {self.quota_used:,}/{DAILY_QUOTA_LIMIT_ROWS:,}")
         logger.info(f"   耗时: {elapsed:.1f}秒")
         logger.info("=" * 50)
         
@@ -538,7 +542,7 @@ class MinuteDataPuller:
 # ==================== 命令行 ====================
 
 def main():
-    global DAILY_QUOTA_LIMIT  # noqa: E0602
+    global DAILY_QUOTA_LIMIT_ROWS  # noqa: E0602
     
     parser = argparse.ArgumentParser(
         description='米筐1分钟数据拉取脚本',
@@ -586,14 +590,14 @@ def main():
     parser.add_argument(
         '--quota',
         type=int,
-        default=DAILY_QUOTA_LIMIT,
-        help=f'每日配额限制 (默认 {DAILY_QUOTA_LIMIT:,})'
+        default=DAILY_QUOTA_LIMIT_ROWS,
+        help=f'每日配额限制 (默认 {DAILY_QUOTA_LIMIT_ROWS:,})'
     )
     
     args = parser.parse_args()
     
     # 全局配额设置
-    DAILY_QUOTA_LIMIT = args.quota
+    DAILY_QUOTA_LIMIT_ROWS = args.quota
     
     # 创建拉取器
     puller = MinuteDataPuller(date=args.date if not args.start_date else None)

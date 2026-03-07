@@ -67,7 +67,13 @@ def render_db_status(db):
     col1, col2 = st.columns(2)
     
     with col1:
-        if db.connection_status.get('connected'):
+        connected = False
+        if hasattr(db, 'connection_status'):
+            connected = db.connection_status.get('connected', False)
+        elif hasattr(db, '_pool') and db._pool is not None:
+            connected = True
+
+        if connected:
             st.success("✅ 数据库已连接")
         else:
             st.error("❌ 数据库未连接")

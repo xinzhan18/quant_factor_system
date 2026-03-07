@@ -293,7 +293,8 @@ class SingleFactorSelector:
         
         try:
             return pd.to_datetime(date_str).date()
-        except:
+        except (ValueError, TypeError):
+            logger.warning(f"无法解析日期字符串: {date_str!r}, 使用今天日期")
             return date.today()
 
 

@@ -21,8 +21,16 @@ Data Loaders Module
     price_df = get_price_data(['SH600000'], '20240101', '20240131', connection)
 """
 
+import re
 import pandas as pd
 from typing import List, Tuple, Optional
+
+
+def _validate_identifier(name: str) -> str:
+    """验证SQL标识符（表名/列名）是否安全"""
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+        raise ValueError(f"不安全的SQL标识符: {name}")
+    return name
 
 
 # 数据库中实际存在的因子表映射
@@ -69,10 +77,11 @@ def get_factor_data(
     
     try:
         cursor = connection.cursor()
-        
+
         # 查询数据
+        _validate_identifier(table_name)
         cursor.execute(f"""
-            SELECT time, symbol, value 
+            SELECT time, symbol, value
             FROM {table_name}
             ORDER BY time
         """)
@@ -116,6 +125,7 @@ def get_price_data(
         
         cursor = connection.cursor()
         
+        _validate_identifier(table_name)
         placeholders = ','.join(['%s'] * len(symbols))
         cursor.execute(f"""
             SELECT time, symbol, close
@@ -164,15 +174,16 @@ def get_factor_overview(connection) -> pd.DataFrame:
         
         for table in tables:
             try:
+                _validate_identifier(table)
                 cursor.execute(f"""
                     SELECT COUNT(*), MIN(time), MAX(time)
                     FROM {table}
                 """)
                 stats = cursor.fetchone()
-                
-                cursor.execute(f"""
-                    SELECT pg_size_pretty(pg_total_relation_size('{table}'::text))
-                """)
+
+                cursor.execute("""
+                    SELECT pg_size_pretty(pg_total_relation_size(%s::text))
+                """, (table,))
                 size = cursor.fetchone()[0]
                 
                 data.append({

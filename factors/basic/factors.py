@@ -371,9 +371,10 @@ class EarningsYieldFactor(Factor):
         if 'pe' not in data.columns:
             raise ValueError("数据必须包含 'pe' 列")
         
-        # PE 的倒数
-        ey = 1.0 / data['pe']
-        
+        # PE 的倒数 (保护 pe=0)
+        pe = data['pe'].replace(0, np.nan)
+        ey = 1.0 / pe
+
         # 处理无效值
         ey = ey.replace([np.inf, -np.inf], np.nan)
         ey = ey.fillna(ey.median())

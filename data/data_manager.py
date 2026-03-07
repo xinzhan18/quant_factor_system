@@ -68,11 +68,10 @@ class DataManager:
                 if status.get('timescaledb'):
                     logger.info("✅ TimescaleDB 已连接")
                 else:
-                    logger.warning("⚠️ TimescaleDB 未安装，将使用模拟数据")
-                    self.use_db = False
+                    raise ConnectionError("TimescaleDB 扩展未安装")
             except Exception as e:
-                logger.warning(f"⚠️ 数据库连接失败: {e}")
-                self.use_db = False
+                logger.error(f"数据库连接失败: {e}")
+                raise ConnectionError(f"数据库连接失败: {e}") from e
     
     @property
     def db(self) -> Optional[TimescaleDB]:

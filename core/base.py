@@ -53,11 +53,17 @@ class Factor(ABC):
             raise ValueError("请先计算因子值")
             
         if method == "zscore":
-            return (self.values - self.values.mean()) / self.values.std()
+            std = self.values.std()
+            if std == 0 or pd.isna(std):
+                return pd.Series(0.0, index=self.values.index)
+            return (self.values - self.values.mean()) / std
         elif method == "rank":
             return self.values.rank(pct=True)
         elif method == "minmax":
-            return (self.values - self.values.min()) / (self.values.max() - self.values.min())
+            val_range = self.values.max() - self.values.min()
+            if val_range == 0 or pd.isna(val_range):
+                return pd.Series(0.0, index=self.values.index)
+            return (self.values - self.values.min()) / val_range
         else:
             raise ValueError(f"不支持的标准化方法: {method}")
     
@@ -84,7 +90,10 @@ class Factor(ABC):
         
         # 计算IC
         ic = factor_aligned.corr(returns_aligned)
-        ic_ir = ic / factor_aligned.std() if factor_aligned.std() > 0 else 0
+        if pd.isna(ic):
+            ic = 0.0
+        # IC_IR 应为 IC均值/IC标准差, 单期IC直接返回0
+        ic_ir = 0.0
         ic_sign_ratio = (factor_aligned * returns_aligned > 0).mean()
         
         return {
@@ -181,7 +190,9 @@ class FactorSystem:
             if name in self.factor_values.columns:
                 factor_values = self.factor_values[name]
                 if normalize:
-                    factor_values = (factor_values - factor_values.mean()) / factor_values.std()
+                    std = factor_values.std()
+                    if std > 0:
+                        factor_values = (factor_values - factor_values.mean()) / std
                 weighted_scores += factor_values * weight
         
         return weighted_scores

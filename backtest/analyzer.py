@@ -162,7 +162,7 @@ class PerformanceAnalyzer:
             metrics = self._analyze_trades(trades, metrics)
         
         # 3. 计算风险调整收益
-        metrics = self._calculate_risk_adjusted_metrics(metrics)
+        metrics = self._calculate_risk_adjusted_metrics(metrics, returns=returns)
         
         # 4. 月度收益分析
         if returns is not None:
@@ -288,27 +288,35 @@ class PerformanceAnalyzer:
     
     def _calculate_risk_adjusted_metrics(
         self,
-        metrics: PerformanceMetrics
+        metrics: PerformanceMetrics,
+        returns: pd.Series = None
     ) -> PerformanceMetrics:
         """计算风险调整收益指标"""
-        # 夏普比率
+        daily_rf = self.risk_free_rate / self.trading_days_per_year
+
+        # 夏普比率 (基于日收益率)
         if metrics.volatility > 0:
-            # 日夏普
-            self.risk_free_rate / self.trading_days_per_year
             excess_return = metrics.annual_return - self.risk_free_rate
-            
             metrics.sharpe_ratio = excess_return / metrics.annual_volatility if metrics.annual_volatility > 0 else 0
-        
-        # 索提诺比率 (只考虑下行波动)
-        # 需要收益率数据，这里简化
-        metrics.sortino_ratio = metrics.sharpe_ratio * 1.1  # 简化估计
-        
+
+        # 索提诺比率 (基于下行波动率)
+        if returns is not None and not returns.empty:
+            downside_returns = returns[returns < daily_rf] - daily_rf
+            if len(downside_returns) > 0:
+                downside_vol = downside_returns.std() * np.sqrt(self.trading_days_per_year)
+                if downside_vol > 0:
+                    excess_return = metrics.annual_return - self.risk_free_rate
+                    metrics.sortino_ratio = excess_return / downside_vol
+                    metrics.downside_volatility = downside_vol
+        elif metrics.sharpe_ratio != 0:
+            metrics.sortino_ratio = 0
+
         # 卡玛比率
         if metrics.max_drawdown > 0:
             metrics.calmar_ratio = metrics.annual_return / metrics.max_drawdown
         else:
             metrics.calmar_ratio = 0
-        
+
         return metrics
     
     def _analyze_monthly_returns(
@@ -417,11 +425,11 @@ class PerformanceAnalyzer:
         
         beta = covariance / benchmark_var if benchmark_var > 0 else 1.0
         
-        # 计算Alpha (年化)
+        # 计算Alpha (年化, CAPM标准公式)
         strategy_annual = combined['strategy'].mean() * self.trading_days_per_year
         benchmark_annual = combined['benchmark'].mean() * self.trading_days_per_year
-        
-        alpha = strategy_annual - beta * benchmark_annual
+
+        alpha = strategy_annual - self.risk_free_rate - beta * (benchmark_annual - self.risk_free_rate)
         
         return beta, alpha
     
@@ -496,9 +504,9 @@ class PerformanceAnalyzer:
         # 收益指标
         if not returns.empty:
             metrics.total_return = returns.sum()
-            metrics.annual_return = returns.mean() * self.trading_days
+            metrics.annual_return = returns.mean() * self.trading_days_per_year
             metrics.volatility = returns.std()
-            metrics.annual_volatility = returns.std() * np.sqrt(self.trading_days)
+            metrics.annual_volatility = returns.std() * np.sqrt(self.trading_days_per_year)
             
             # 最大回撤
             equity = (1 + returns).cumprod()
@@ -506,10 +514,24 @@ class PerformanceAnalyzer:
             metrics.max_drawdown = drawdown.max()
             
             # 风险调整收益
-            metrics.sharpe_ratio = self.calculate_sharpe_ratio(returns, period=period)
-            metrics.sortino_ratio = self.calculate_sortino_ratio(returns, period=period)
-            metrics.calmar_ratio = self.calculate_calmar_ratio(returns)
-            metrics.information_ratio = self.calculate_information_ratio(returns)
+            daily_rf = self.risk_free_rate / self.trading_days_per_year
+            excess_return = metrics.annual_return - self.risk_free_rate
+
+            # Sharpe
+            if metrics.annual_volatility > 0:
+                metrics.sharpe_ratio = excess_return / metrics.annual_volatility
+
+            # Sortino
+            downside_returns = returns[returns < daily_rf] - daily_rf
+            if len(downside_returns) > 0:
+                downside_vol = downside_returns.std() * np.sqrt(self.trading_days_per_year)
+                if downside_vol > 0:
+                    metrics.sortino_ratio = excess_return / downside_vol
+                    metrics.downside_volatility = downside_vol
+
+            # Calmar
+            if metrics.max_drawdown > 0:
+                metrics.calmar_ratio = metrics.annual_return / metrics.max_drawdown
             
             # VaR 和 CVaR
             metrics.value_at_risk = self.calculate_value_at_risk(returns)
@@ -518,7 +540,7 @@ class PerformanceAnalyzer:
             # 下行波动率
             negative_returns = returns[returns < 0]
             if not negative_returns.empty:
-                metrics.downside_volatility = negative_returns.std() * np.sqrt(self.trading_days)
+                metrics.downside_volatility = negative_returns.std() * np.sqrt(self.trading_days_per_year)
         
         return metrics
 

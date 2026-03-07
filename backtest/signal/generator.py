@@ -17,6 +17,9 @@ from enum import Enum
 import json
 import os
 
+# 信号历史最大保留条数，防止内存无限增长
+MAX_HISTORY = 1000
+
 
 class SignalType(Enum):
     """信号类型"""
@@ -133,7 +136,9 @@ class SignalGenerator:
         
         # 保存到历史
         self.signal_history.append(SignalBatch(latest_date, signals))
-        
+        if len(self.signal_history) > MAX_HISTORY:
+            self.signal_history = self.signal_history[-MAX_HISTORY:]
+
         return signals
     
     def generate_technical_signals(

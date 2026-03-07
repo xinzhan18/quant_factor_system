@@ -41,7 +41,7 @@ from .visualization import (
 )
 
 from .report import (
-    FactorReportGenerator,
+    FactorReportGenerator as HTMLFactorReport,
     create_factor_report,
 )
 
@@ -80,5 +80,6 @@ __all__ = basic.__all__ + [
     'FactorReportGenerator',
     'create_report_generator',
     # Report
+    'HTMLFactorReport',
     'create_factor_report',
 ]

@@ -4,10 +4,10 @@
 AlphaLens 风格
 """
 
-import sys
-sys.path.insert(0, '/Users/xinzhan/.openclaw/workspace')
-
 import os
+import sys
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -18,7 +18,9 @@ warnings.filterwarnings('ignore')
 
 import psycopg2
 
-OUTPUT_DIR = '/Users/xinzhan/.openclaw/workspace/quant_factor_system/output'
+# 使用项目相对路径
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+OUTPUT_DIR = str(_PROJECT_ROOT / 'output')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -35,8 +37,11 @@ class FactorAnalyzer:
     def load_factor_data(self) -> pd.DataFrame:
         """从数据库加载因子数据"""
         conn = psycopg2.connect(
-            host='localhost', port=5432, database='quant_data',
-            user='postgres', password='quant123'
+            host=os.environ.get('TIMESCALE_HOST', 'localhost'),
+            port=int(os.environ.get('TIMESCALE_PORT', 5432)),
+            database=os.environ.get('TIMESCALE_DB', 'quant_data'),
+            user=os.environ.get('TIMESCALE_USER', 'postgres'),
+            password=os.environ.get('TIMESCALE_PASSWORD', ''),
         )
         cursor = conn.cursor()
         

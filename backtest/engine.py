@@ -189,19 +189,25 @@ class BacktestEngine:
         self,
         commission_rate: float = 0.001,  # 佣金费率 (0.1%)
         slippage: float = 0.001,          # 滑点 (0.1%)
-        min_commission: float = 5.0        # 最低佣金
+        min_commission: float = 5.0,       # 最低佣金
+        stamp_duty_rate: float = 0.001,   # 印花税 (卖出0.1%)
+        transfer_fee_rate: float = 0.00001  # 过户费 (0.001%)
     ):
         """
         初始化
-        
+
         Args:
             commission_rate: 佣金费率
             slippage: 滑点
             min_commission: 最低佣金
+            stamp_duty_rate: 印花税费率 (仅卖出)
+            transfer_fee_rate: 过户费费率
         """
         self.commission_rate = commission_rate
         self.slippage = slippage
         self.min_commission = min_commission
+        self.stamp_duty_rate = stamp_duty_rate
+        self.transfer_fee_rate = transfer_fee_rate
         
         # 状态
         self.positions: Dict[str, Position] = {}
@@ -348,24 +354,45 @@ class BacktestEngine:
     def _check_stoploss(self, current_date: date):
         """检查止盈止损"""
         orders_to_create = []
-        
+
         for symbol, position in self.positions.items():
             if position.quantity == 0:
                 continue
-            
+
+            # 获取当日最高价和最低价
+            low_price = position.current_price
+            high_price = position.current_price
+
+            if symbol in self.price_data:
+                df = self.price_data[symbol]
+
+                if 'datetime' in df.columns:
+                    mask = pd.to_datetime(df['datetime']).dt.date == current_date
+                elif 'date' in df.columns:
+                    mask = pd.to_datetime(df['date']).dt.date == current_date
+                else:
+                    mask = df.index.date == current_date
+
+                if mask.any():
+                    price_row = df[mask].iloc[0]
+                    if 'low' in price_row:
+                        low_price = price_row['low']
+                    if 'high' in price_row:
+                        high_price = price_row['high']
+
             # 检查是否触发止盈止损
             should_close = False
             reason = ''
-            
-            # 止损检查
+
+            # 止损检查: 当日最低价触及止损价即触发
             if position.stop_loss_price is not None:
-                if position.current_price <= position.stop_loss_price:
+                if low_price <= position.stop_loss_price:
                     should_close = True
                     reason = 'stop_loss'
-            
-            # 止盈检查
+
+            # 止盈检查: 当日最高价触及止盈价即触发
             if not should_close and position.take_profit_price is not None:
-                if position.current_price >= position.take_profit_price:
+                if high_price >= position.take_profit_price:
                     should_close = True
                     reason = 'stop_profit'
             
@@ -500,22 +527,27 @@ class BacktestEngine:
             else:
                 execution_price = execution_price * (1 - self.slippage)
             
-            # 计算佣金
+            # 计算费用
             turnover = execution_price * order.quantity
             commission = max(turnover * self.commission_rate, self.min_commission)
-            
+            transfer_fee = turnover * self.transfer_fee_rate
+
+            # 印花税仅卖出收取
+            stamp_duty = turnover * self.stamp_duty_rate if order.side == 'sell' else 0
+            total_cost = commission + stamp_duty + transfer_fee
+
             # 执行订单
             order.filled_at = datetime.combine(current_date, datetime.min.time())
             order.filled_price = execution_price
             order.filled_quantity = order.quantity
             order.status = 'filled'
-            order.commission = commission
-            
+            order.commission = total_cost
+
             # 更新现金
             if order.side == 'buy':
-                self.cash -= (turnover + commission)
+                self.cash -= (turnover + total_cost)
             else:
-                self.cash += (turnover - commission)
+                self.cash += (turnover - total_cost)
             
             # 更新持仓
             self._update_position(order, current_date)

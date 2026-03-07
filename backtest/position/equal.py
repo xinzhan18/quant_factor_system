@@ -195,15 +195,22 @@ class EqualWeightManager(PositionManager):
         base_weight = 1.0 / n if n > 0 else 0
         
         # 5. 计算每个股票的仓位
+        # 先计算并裁剪权重
+        weights = {}
+        for symbol in top_signals:
+            weights[symbol] = max(min(base_weight, self.max_weight), self.min_weight)
+
+        # 归一化权重，确保总和为1.0
+        total_weight = sum(weights.values())
+        if total_weight > 0:
+            weights = {s: w / total_weight for s, w in weights.items()}
+
         positions = {}
         total_value = 0
-        
-        for symbol, signal in top_signals.items():
+
+        for symbol, weight in weights.items():
             price = prices.get(symbol, 0) if prices else 0
-            
-            # 限制单只权重
-            weight = max(min(base_weight, self.max_weight), self.min_weight)
-            
+
             # 计算目标市值
             target_value = cash * weight
             

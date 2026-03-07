@@ -23,6 +23,8 @@ Quant Data Storage with TimescaleDB
     pip install psycopg2-binary
 """
 
+import os
+import re
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List
@@ -32,14 +34,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _validate_identifier(name: str) -> str:
+    """验证SQL标识符（表名/列名）是否安全"""
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+        raise ValueError(f"不安全的SQL标识符: {name}")
+    return name
+
+
 # ==================== 配置 ====================
 
 TIMESCALE_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'quant_data',
-    'user': 'postgres',
-    'password': 'quant123',
+    'host': os.environ.get('TIMESCALE_HOST', 'localhost'),
+    'port': int(os.environ.get('TIMESCALE_PORT', 5432)),
+    'database': os.environ.get('TIMESCALE_DB', 'quant_data'),
+    'user': os.environ.get('TIMESCALE_USER', 'postgres'),
+    'password': os.environ.get('TIMESCALE_PASSWORD', ''),
 }
 
 # 分区配置
@@ -102,8 +111,10 @@ class TimescaleDB:
                 'database': self.config.get('database', 'quant_data'),
                 'user': self.config.get('user', 'postgres'),
                 'password': self.config.get('password', ''),
+                'connect_timeout': 10,
+                'options': '-c idle_in_transaction_session_timeout=300000',
             }
-            
+
             # 创建连接池
             self._pool = pool.SimpleConnectionPool(
                 minconn=1,
@@ -150,12 +161,6 @@ class TimescaleDB:
         if self._pool:
             self._pool.closeall()
             logger.info("✅ TimescaleDB 连接已关闭")
-            raise e
-    
-    def close(self):
-        """关闭连接"""
-        if self._conn:
-            self._conn.close()
     
     # ==================== 表管理 ====================
     
@@ -171,8 +176,9 @@ class TimescaleDB:
             logger.warning(f"⚠️ 模拟模式: 跳过创建超表 {table}")
             return
         
+        _validate_identifier(table)
         chunk = chunk_time or CHUNK_CONFIG.get(table, '1 week')
-        
+
         with self.connection() as conn:
             cursor = conn.cursor()
             
@@ -259,13 +265,14 @@ class TimescaleDB:
         Returns:
             插入的记录数
         """
+        _validate_identifier(table)
         if df.empty:
             return 0
-        
+
         if self._conn is None:
             logger.info(f"⚠️ 模拟模式: 跳过插入 {len(df)} 条数据")
             return len(df)
-        
+
         df = df.copy()
         
         # 标准化列名
@@ -343,8 +350,12 @@ class TimescaleDB:
             logger.warning("⚠️ 模拟模式: 返回空数据")
             return pd.DataFrame()
         
+        _validate_identifier(table)
+        if columns:
+            for col in columns:
+                _validate_identifier(col)
         cols = ', '.join(columns) if columns else '*'
-        
+
         query = f"SELECT {cols} FROM {table} WHERE 1=1"
         params = []
         
@@ -405,9 +416,10 @@ class TimescaleDB:
     
     def create_factor_table(self, name: str):
         """创建因子表"""
+        _validate_identifier(name)
         if self._conn is None:
             return
-        
+
         with self.connection() as conn:
             cursor = conn.cursor()
             
@@ -443,9 +455,10 @@ class TimescaleDB:
         value_col: str = 'value'
     ) -> int:
         """插入因子数据"""
+        _validate_identifier(name)
         if df.empty:
             return 0
-        
+
         if self._conn is None:
             return len(df)
         
@@ -474,9 +487,10 @@ class TimescaleDB:
         end_date: str = None
     ) -> pd.DataFrame:
         """查询因子数据"""
+        _validate_identifier(name)
         if self._conn is None:
             return pd.DataFrame()
-        
+
         query = f"SELECT time, symbol, value FROM factor_{name} WHERE 1=1"
         params = []
         

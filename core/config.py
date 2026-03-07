@@ -10,9 +10,11 @@ QuantFactor System Configuration
 """
 
 import os
+import threading
 from typing import Any, Dict, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 
 
 @dataclass
@@ -122,26 +124,59 @@ class SystemConfig:
         }
 
 
-# 全局配置实例
+# 全局配置实例 (线程安全)
 _config: Optional[SystemConfig] = None
+_config_lock = threading.Lock()
 
 
 def get_config() -> SystemConfig:
-    """获取全局配置"""
+    """获取全局配置（线程安全）"""
     global _config
     if _config is None:
-        _config = SystemConfig()
+        with _config_lock:
+            if _config is None:
+                _config = _load_config_from_sources()
     return _config
+
+
+def _load_config_from_sources() -> SystemConfig:
+    """按优先级加载配置：环境变量 > config.yaml > 默认值"""
+    config = SystemConfig()
+
+    # 尝试加载 config.yaml
+    yaml_path = Path(__file__).parent.parent / 'config.yaml'
+    if yaml_path.exists():
+        try:
+            import yaml
+            with open(yaml_path) as f:
+                yaml_config = yaml.safe_load(f) or {}
+
+            if 'database' in yaml_config:
+                db = yaml_config['database']
+                config.database.host = db.get('host', config.database.host)
+                config.database.port = db.get('port', config.database.port)
+                config.database.database = db.get('database', config.database.database)
+                config.database.user = db.get('user', config.database.user)
+                config.database.password = db.get('password', config.database.password)
+        except ImportError:
+            pass
+
+    # 环境变量覆盖（最高优先级）
+    config.database = DatabaseConfig.from_env()
+
+    return config
 
 
 def load_config(config_dict: Dict[str, Any]) -> SystemConfig:
     """加载配置"""
     global _config
-    _config = SystemConfig(**config_dict)
+    with _config_lock:
+        _config = SystemConfig(**config_dict)
     return _config
 
 
 def reset_config():
     """重置配置为默认值"""
     global _config
-    _config = SystemConfig()
+    with _config_lock:
+        _config = None

@@ -49,7 +49,8 @@ def get_db_stats(db: TimescaleDB) -> dict:
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
             """)
-            total_bytes = cursor.fetchone()[0] or 0
+            result = cursor.fetchone()
+            total_bytes = result[0] if result and result[0] else 0
             stats['total_size'] = f"{total_bytes / 1024 / 1024 / 1024:.2f} GB"
             
             # price_daily 记录数
@@ -87,17 +88,28 @@ def get_factor_stats() -> dict:
     register_all_builtins()
     factors = list_factors()
     
-    return {
+    result = {
         'total': len(factors),
         'categories': {},
-        'top_factors': [
-            {'name': 'dist_ma10', 'ic': -0.0404, 'type': '反转'},
-            {'name': 'return_1d', 'ic': -0.0400, 'type': '反转'},
-            {'name': 'momentum_5', 'ic': -0.0395, 'type': '反转'},
-            {'name': 'dist_ma60', 'ic': -0.0379, 'type': '反转'},
-            {'name': 'volatility_10', 'ic': 0.0285, 'type': '动量'},
-        ]
+        'top_factors': []
     }
+
+    # 从因子注册表获取实际信息
+    for f in factors:
+        cat = f.get('category', '其他')
+        result['categories'][cat] = result['categories'].get(cat, 0) + 1
+        if f.get('ic') is not None:
+            result['top_factors'].append({
+                'name': f.get('name', ''),
+                'ic': f.get('ic', 0),
+                'type': f.get('type', '未知'),
+            })
+
+    # 按IC绝对值排序取前5
+    result['top_factors'].sort(key=lambda x: abs(x.get('ic', 0)), reverse=True)
+    result['top_factors'] = result['top_factors'][:5]
+
+    return result
 
 
 def main():
