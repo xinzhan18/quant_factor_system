@@ -82,6 +82,34 @@ MAX_RETRIES = 3
 # 1分钟数据表
 TABLE_1MIN = 'price_1min'
 
+# 历史数据范围
+HISTORICAL_START_DATE = '20150101'  # 从2015年开始
+
+
+# ==================== 辅助函数 ====================
+
+def get_trading_dates(start_date: str, end_date: str = None) -> List[str]:
+    """
+    获取交易日列表 (排除周末)
+    
+    Args:
+        start_date: 开始日期 YYYYMMDD
+        end_date: 结束日期 YYYYMMDD, 默认今天
+        
+    Returns:
+        交易日列表
+    """
+    end_date = end_date or datetime.now().strftime('%Y%m%d')
+    
+    start = pd.to_datetime(start_date, format='%Y%m%d')
+    end = pd.to_datetime(end_date, format='%Y%m%d')
+    
+    # 使用业务日生成器 (排除周末)
+    bday = pd.tseries.offsets.CustomBusinessDay(weekmask='Mon Tue Wed Thu Fri')
+    dates = pd.date_range(start, end, freq=bday)
+    
+    return [d.strftime('%Y%m%d') for d in dates]
+
 
 # ==================== 主类 ====================
 
@@ -193,6 +221,95 @@ class MinuteDataPuller:
         except Exception as e:
             logger.warning(f"查询已存在数据失败: {e}")
             return set()
+    
+    def get_existing_dates(self) -> Set[str]:
+        """
+        获取数据库中已有数据的日期列表
+        
+        Returns:
+            日期集合 (YYYYMMDD格式)
+        """
+        query = f"""
+            SELECT DISTINCT time::date as date FROM {TABLE_1MIN}
+            ORDER BY date
+        """
+        
+        try:
+            with self.db.connection() as conn:
+                df = pd.read_sql(query, conn)
+            
+            if df.empty:
+                return set()
+            
+            # 转换为 YYYYMMDD 格式
+            dates = set(pd.to_datetime(df['date']).dt.strftime('%Y%m%d'))
+            logger.info(f"📊 数据库中已有 {len(dates)} 个交易日的数据")
+            return dates
+        except Exception as e:
+            logger.warning(f"查询已有日期失败: {e}")
+            return set()
+    
+    def detect_missing_dates(
+        self,
+        start_date: str = None,
+        end_date: str = None,
+        check_recent_only: bool = True
+    ) -> List[str]:
+        """
+        检测缺失的交易日
+        
+        Args:
+            start_date: 开始日期 (默认看 check_recent_only)
+            end_date: 结束日期 (默认今天)
+            check_recent_only: 是否只检查最近90天 (避免全表扫描)
+            
+        Returns:
+            缺失的交易日列表
+        """
+        end_date = end_date or datetime.now().strftime('%Y%m%d')
+        
+        # 优化: 默认只检查最近90天，避免全表扫描
+        if check_recent_only and start_date is None:
+            start_date = (datetime.now() - timedelta(days=90)).strftime('%Y%m%d')
+        else:
+            start_date = start_date or HISTORICAL_START_DATE
+        
+        # 获取应有交易日
+        expected_dates = set(get_trading_dates(start_date, end_date))
+        
+        # 获取已有日期 (优化: 使用 time_bucket 加速)
+        try:
+            query = f"""
+                SELECT DISTINCT time_bucket('1 day', time)::date as day
+                FROM {TABLE_1MIN}
+                WHERE time >= '{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}'
+                AND time <= '{end_date[:4]}-{end_date[4:6]}-{end_date[6:]} 23:59:59'
+            """
+            with self.db.connection() as conn:
+                df = pd.read_sql(query, conn)
+            existing_dates = set(pd.to_datetime(df['day']).dt.strftime('%Y%m%d')) if not df.empty else set()
+        except Exception as e:
+            logger.warning(f"快速检测失败: {e}, 尝试全量检测...")
+            existing_dates = self.get_existing_dates()
+        
+        # 计算缺失
+        missing_dates = sorted(expected_dates - existing_dates)
+        
+        logger.info(f"📊 检查范围: {start_date} ~ {end_date}")
+        logger.info(f"📊 应有交易日: {len(expected_dates)}")
+        logger.info(f"📊 已有交易日: {len(existing_dates)}")
+        logger.info(f"📊 缺失交易日: {len(missing_dates)}")
+        
+        # 如果最近90天没有缺失，检查更早的日期
+        if check_recent_only and not missing_dates:
+            logger.info("📊 最近90天无缺失，检查更早日期...")
+            return self.detect_missing_dates(
+                start_date=HISTORICAL_START_DATE,
+                end_date=end_date,
+                check_recent_only=False
+            )
+        
+        return missing_dates
     
     def _get_all_symbols(self) -> List[str]:
         """获取全市场股票列表"""
@@ -537,6 +654,67 @@ class MinuteDataPuller:
             
             # 每日间隔
             time.sleep(1)
+    
+    def auto_pull_historical(
+        self,
+        max_dates_per_run: int = 5,
+        max_quota_per_day: int = None
+    ):
+        """
+        自动补历史数据 (每天定时任务)
+        
+        检测缺失数据，按配额限制逐天拉取
+        
+        Args:
+            max_dates_per_run: 每次运行最多拉取天数
+            max_quota_per_day: 每天配额限制 (默认 DAILY_QUOTA_LIMIT_ROWS)
+        """
+        max_quota_per_day = max_quota_per_day or DAILY_QUOTA_LIMIT_ROWS
+        
+        logger.info("🔍 开始检测缺失数据...")
+        
+        # 检测缺失日期
+        missing_dates = self.detect_missing_dates()
+        
+        if not missing_dates:
+            logger.info("✅ 没有缺失数据，无需拉取")
+            return
+        
+        # 限制每次拉取数量
+        dates_to_pull = missing_dates[:max_dates_per_run]
+        
+        logger.info(f"📅 本次将拉取 {len(dates_to_pull)} 个交易日: {dates_to_pull}")
+        
+        # 逐天拉取
+        for date in dates_to_pull:
+            self.date = date
+            self.date_formatted = f"{date[:4]}-{date[4:6]}-{date[6:]}"
+            
+            logger.info(f"\n{'='*50}")
+            logger.info(f"处理日期: {self.date}")
+            logger.info(f"{'='*50}")
+            
+            # 重置统计
+            self.stats = {
+                'total_requested': 0,
+                'total_inserted': 0,
+                'skipped_existing': 0,
+                'failed_symbols': [],
+                'start_time': datetime.now(),
+            }
+            
+            # 检查配额
+            if self.quota_used >= max_quota_per_day:
+                logger.warning("⚠️ 今日配额已用尽，停止拉取")
+                break
+            
+            # 拉取
+            self.pull(force=False)
+            
+            # 每日间隔 (避免请求过快)
+            time.sleep(2)
+        
+        logger.info("✅ 自动拉取完成")
 
 
 # ==================== 命令行 ====================
@@ -594,6 +772,25 @@ def main():
         help=f'每日配额限制 (默认 {DAILY_QUOTA_LIMIT_ROWS:,})'
     )
     
+    parser.add_argument(
+        '--detect',
+        action='store_true',
+        help='检测缺失数据 (不拉取)'
+    )
+    
+    parser.add_argument(
+        '--auto-pull',
+        action='store_true',
+        help='自动补历史数据 (检测缺失后拉取)'
+    )
+    
+    parser.add_argument(
+        '--max-dates',
+        type=int,
+        default=5,
+        help='每次自动拉取的最大天数 (默认5)'
+    )
+    
     args = parser.parse_args()
     
     # 全局配额设置
@@ -603,6 +800,28 @@ def main():
     puller = MinuteDataPuller(date=args.date if not args.start_date else None)
     
     # 执行拉取
+    if args.detect:
+        # 检测模式
+        missing = puller.detect_missing_dates()
+        if missing:
+            print(f"\n缺失 {len(missing)} 个交易日:")
+            # 按年份分组显示
+            from collections import defaultdict
+            by_year = defaultdict(list)
+            for d in missing:
+                by_year[d[:4]].append(d)
+            for year in sorted(by_year.keys()):
+                dates = by_year[year]
+                print(f"  {year}: {len(dates)} 天 ({dates[0]} ~ {dates[-1]})")
+        else:
+            print("✅ 没有缺失数据")
+        sys.exit(0)
+    
+    if args.auto-pull:
+        # 自动拉取模式
+        puller.auto_pull_historical(max_dates_per_run=args.max_dates)
+        sys.exit(0)
+    
     if args.start_date:
         # 历史数据补录模式
         puller.pull_historical(
