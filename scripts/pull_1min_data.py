@@ -4,13 +4,24 @@
 米筐1分钟数据拉取脚本
 RiceQuant 1-Minute Data Puller
 
-设计思路 (适应1GB/天限额):
+📊 米筐配额限制:
+   - 每日限额: 1GB/天
+   - 约等于: 1200万条/天 (约800MB)
+   - 脚本会自动检测配额，接近80%时停止
+
+设计思路:
 1. 增量更新: 只拉取数据库中不存在的数据
 2. 分批处理: 每天只拉取部分股票,轮询完成
-3. 配额监控: 记录拉取量,接近限额时停止
+3. 配额监控: 从米筐API获取配额，接近80%时停止
 4. 错误重试: 失败自动重试,跳过无效股票
 
 使用:
+    # 检测缺失数据 (不拉取)
+    python scripts/pull_1min_data.py --detect
+    
+    # 自动拉取缺失数据 (每天最多5天，受配额限制)
+    python scripts/pull_1min_data.py --auto-pull
+    
     # 拉取今天的数据 (增量)
     python scripts/pull_1min_data.py --date today
     
@@ -64,11 +75,11 @@ logger = logging.getLogger(__name__)
 
 # ==================== 配置 ====================
 
-# 每日配额限制 (安全设置: 1GB的80% ≈ 800MB)
-# 实测: 1GB ≈ 1600万条 ≈ 64MB/天
-# 安全值: 每天拉1200万条 (约800MB)，留20%余量
-DAILY_QUOTA_LIMIT_ROWS = 12_000_000  # 1200万条/天 (基于条数估算)
-DAILY_QUOTA_LIMIT_BYTES = int(1024 * 1024 * 1024 * 0.8)  # 800MB (基于实际字节)
+# 米筐配额限制 (来自米筐API: 1GB/天)
+# 脚本会自动从米筐API获取实际配额使用情况
+# 超过80%阈值时自动停止，避免触发限流
+DAILY_QUOTA_LIMIT_ROWS = 12_000_000  # 备用: 条数限制 (1200万条/天)
+DAILY_QUOTA_LIMIT_BYTES = int(1024 * 1024 * 1024 * 0.8)  # 800MB (80% of 1GB)
 
 # 每批股票数量 (米筐单次请求限制)
 BATCH_SIZE = 500  # 每批500只股票
@@ -817,7 +828,7 @@ def main():
             print("✅ 没有缺失数据")
         sys.exit(0)
     
-    if args.auto-pull:
+    if args.auto_pull:
         # 自动拉取模式
         puller.auto_pull_historical(max_dates_per_run=args.max_dates)
         sys.exit(0)
