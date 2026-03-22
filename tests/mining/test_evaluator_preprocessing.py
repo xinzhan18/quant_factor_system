@@ -114,7 +114,9 @@ class TestEvaluatorPreprocessing:
             # Second call — should return cached value
             result2 = evaluator._load_aux_data(instruments, start, end)
 
-            assert mock_D.features.call_count == 1
+            # First call makes 2 D.features calls (core + optional), second call is cached
+            first_call_count = mock_D.features.call_count
+            assert first_call_count == 2  # core fields + optional limit fields
             assert result1 is result2
 
     @patch("mining.evaluator.FactorMiningEvaluator._ensure_qlib_initialized")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -58,26 +59,37 @@ class FactorMiningEvaluator:
 
     def _load_aux_data(self, instruments: list, start_time: str, end_time: str) -> Dict[str, pd.DataFrame]:
         """Load auxiliary data for preprocessing. Cached."""
-        cache_key = f"{len(instruments)}_{start_time}_{end_time}"
+        inst_hash = hashlib.md5(",".join(sorted(instruments)).encode()).hexdigest()[:12]
+        cache_key = f"{inst_hash}_{start_time}_{end_time}"
         if cache_key in self._aux_cache:
             return self._aux_cache[cache_key]
 
         aux: Dict[str, pd.DataFrame] = {}
+        # Core fields (always available)
         try:
-            fields = ["$volume", "$close"]
-            optional = ["$limit_up", "$limit_down"]
-            all_fields = fields + optional
-            aux_df = D.features(
+            core_df = D.features(
                 instruments=instruments,
-                fields=all_fields,
+                fields=["$volume", "$close"],
                 start_time=start_time,
                 end_time=end_time,
             )
-            for col in aux_df.columns:
-                key = col.replace("$", "")  # $volume -> volume
-                aux[key] = aux_df[[col]]
+            for col in core_df.columns:
+                aux[col.replace("$", "")] = core_df[[col]]
         except Exception as e:
-            logger.warning("Failed to load aux data: %s — preprocessing will be limited", e)
+            logger.warning("Failed to load core aux data: %s — preprocessing will be limited", e)
+
+        # Optional limit fields (may not exist if not synced)
+        try:
+            limit_df = D.features(
+                instruments=instruments,
+                fields=["$limit_up", "$limit_down"],
+                start_time=start_time,
+                end_time=end_time,
+            )
+            for col in limit_df.columns:
+                aux[col.replace("$", "")] = limit_df[[col]]
+        except Exception:
+            logger.debug("limit_up/limit_down not available in Qlib data")
 
         self._aux_cache[cache_key] = aux
         return aux
