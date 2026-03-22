@@ -318,6 +318,9 @@ class FactorMiningEvaluator:
                     "ls_return": ls_return,
                     "monotonicity": monotonicity,
                 }
+                # Attach transient values for publisher (not saved to YAML)
+                c["_factor_values"] = cached_vals
+                c["_factor_values_oos"] = vals_oos
                 validated.append(c)
             except Exception as e:
                 c["stage3"] = {"error": str(e)}

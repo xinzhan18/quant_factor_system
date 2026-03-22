@@ -234,3 +234,28 @@ class TestEvaluateBatch:
             assert isinstance(result, BatchResult)
             total = len(result.admitted) + len(result.rejected) + len(result.replacements)
             assert total >= 1
+
+
+class TestTransientKeys:
+    """Verify _factor_values, _factor_values_oos are attached after Stage 3."""
+
+    def test_admitted_factors_have_transient_values(self, config, sample_factor_values, sample_returns):
+        from mining.evaluator import FactorMiningEvaluator
+
+        evaluator = FactorMiningEvaluator.__new__(FactorMiningEvaluator)
+        evaluator.config = config
+        evaluator._factor_cache = {"Rank($close)": sample_factor_values}
+        evaluator._subset_factor_cache = {}
+
+        with patch.object(evaluator, '_get_full_universe', return_value=["SH600000"]):
+            with patch.object(evaluator, '_get_returns_qlib', return_value=sample_returns):
+                with patch.object(evaluator, '_compute_factor_qlib', return_value=sample_factor_values):
+                    candidates = [{"name": "Test", "expression": "Rank($close)", "category": "momentum"}]
+                    validated, errors = evaluator._full_validation(candidates)
+
+        assert len(validated) == 1
+        c = validated[0]
+        assert "_factor_values" in c
+        assert "_factor_values_oos" in c
+        assert isinstance(c["_factor_values"], pd.DataFrame)
+        assert isinstance(c["_factor_values_oos"], pd.DataFrame)
