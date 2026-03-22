@@ -672,7 +672,8 @@ Truly new operators to register:
 $open, $high, $low, $close, $volume, $amount, $vwap
 
 # Computed fields
-$returns = $close / Ref($close, 1) - 1
+$returns = $close / Ref($close, 1) - 1   # backward-looking, for use in factor expressions
+$returns_1d                                # forward 1-day return, for IC evaluation only
 
 # Minute-aggregated fields (from price_1min)
 $intraday_vol, $intraday_skew, $intraday_kurt
@@ -732,7 +733,7 @@ candidates:
     stage1: { passed: true, ic_mean: 0.065, ic_ir: 0.82 }
     stage2: { passed: true, max_corr: 0.31, max_corr_factor: "momentum_20" }
     stage3: { passed: true }
-    stage4:
+    stage3:
       ic_mean: 0.062
       ic_std: 0.078
       ic_ir: 0.79
@@ -753,8 +754,9 @@ candidates:
 summary:
   total_candidates: 8
   stage1_passed: 6
+  stage1_5_after_dedup: 5
   stage2_passed: 3
-  stage2_rejected: 3
+  stage2_rejected: 2
   replacements: 0
   stage3_passed: 3
   admitted: 3
