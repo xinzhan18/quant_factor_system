@@ -102,10 +102,10 @@ class TestToFlatDf:
 # ---------------------------------------------------------------------------
 
 class TestEnsureTables:
-    def test_executes_two_create_statements(self, publisher, mock_conn):
+    def test_executes_three_statements(self, publisher, mock_conn):
         conn, cur = mock_conn
         publisher.ensure_tables(conn)
-        assert cur.execute.call_count == 2
+        assert cur.execute.call_count == 3
 
     def test_commits(self, publisher, mock_conn):
         conn, cur = mock_conn
@@ -123,6 +123,12 @@ class TestEnsureTables:
         publisher.ensure_tables(conn)
         calls_sql = [c.args[0] for c in cur.execute.call_args_list]
         assert any("mining_factor_values" in sql for sql in calls_sql)
+
+    def test_creates_index(self, publisher, mock_conn):
+        conn, cur = mock_conn
+        publisher.ensure_tables(conn)
+        calls_sql = [c.args[0] for c in cur.execute.call_args_list]
+        assert any("idx_mfv_factor_date" in sql for sql in calls_sql)
 
     def test_idempotent_keyword_present(self, publisher, mock_conn):
         conn, cur = mock_conn

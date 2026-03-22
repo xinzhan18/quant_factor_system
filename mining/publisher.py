@@ -61,6 +61,10 @@ class FactorPublisher:
                     PRIMARY KEY (factor_id, symbol, trade_date)
                 )
             """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_mfv_factor_date
+                    ON mining_factor_values (factor_id, trade_date)
+            """)
         conn.commit()
 
     def publish(
@@ -113,7 +117,7 @@ class FactorPublisher:
     @staticmethod
     def _to_flat_df(qlib_df: pd.DataFrame) -> pd.DataFrame:
         """Convert Qlib MultiIndex (datetime, instrument) DataFrame to flat (time, symbol, value)."""
-        df = qlib_df.reset_index()
+        df = qlib_df.iloc[:, [0]].reset_index()
         df.columns = ["time", "symbol", "value"]
         return df
 
