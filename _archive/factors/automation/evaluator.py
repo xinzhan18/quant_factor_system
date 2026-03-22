@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from data.ricequant_source import RiceQuantSource
-from data.storage.timescale_storage import TimescaleDB
+from ...data.ricequant_source import RiceQuantSource
+from ...data.storage.timescale_storage import TimescaleDB
 
 logger = logging.getLogger(__name__)
 
@@ -134,4 +134,3 @@ class FactorEvaluator:
             return df[["time", "symbol", candidate_cols[0]]].rename(columns={candidate_cols[0]: value_name})
 
         raise ValueError("DataFrame format not supported; expected long format with time/symbol/value")
-

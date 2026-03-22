@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, Optional
 
-from data.storage.timescale_storage import TimescaleDB
+from ...data.storage.timescale_storage import TimescaleDB
 
 from .factor_extractor import FactorInfo
 
@@ -81,4 +81,3 @@ class FactorRegister:
         except Exception as exc:
             self._logger.exception("Failed to register factor %s: %s", factor_info.name, exc)
             return {"name": factor_info.name, "status": "failed", "error": str(exc)}
-
