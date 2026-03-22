@@ -161,7 +161,7 @@ class TestSaveMetrics:
     def test_executes_upsert(self, publisher, mock_conn):
         conn, cur = mock_conn
         factor_dict = self._make_factor_dict()
-        publisher._save_metrics(conn, "001", factor_dict, publisher.config)
+        publisher._save_metrics(conn, "001", factor_dict)
         assert cur.execute.called
         sql = cur.execute.call_args.args[0]
         assert "ON CONFLICT" in sql
@@ -170,13 +170,13 @@ class TestSaveMetrics:
     def test_passes_factor_id(self, publisher, mock_conn):
         conn, cur = mock_conn
         factor_dict = self._make_factor_dict()
-        publisher._save_metrics(conn, "042", factor_dict, publisher.config)
+        publisher._save_metrics(conn, "042", factor_dict)
         params = cur.execute.call_args.args[1]
         assert "042" in params
 
     def test_uses_do_update(self, publisher, mock_conn):
         conn, cur = mock_conn
-        publisher._save_metrics(conn, "001", self._make_factor_dict(), publisher.config)
+        publisher._save_metrics(conn, "001", self._make_factor_dict())
         sql = cur.execute.call_args.args[0]
         assert "DO UPDATE" in sql
 
@@ -265,13 +265,7 @@ class TestPublish:
             patch.object(publisher, "_generate_report", return_value=str(tmp_path / "report.html")),
             patch.object(publisher, "_update_report_path"),
         ):
-            publisher.publish(
-                "001",
-                self._factor_dict(),
-                _make_qlib_df(),
-                _make_qlib_df(),
-                publisher.config,
-            )
+            publisher.publish("001", self._factor_dict(), _make_qlib_df(), _make_qlib_df())
         # commit called at least once (after DB writes)
         assert conn.commit.call_count >= 1
 
@@ -283,13 +277,7 @@ class TestPublish:
             patch.object(publisher, "_save_metrics", side_effect=RuntimeError("DB error")),
         ):
             with pytest.raises(RuntimeError, match="DB error"):
-                publisher.publish(
-                    "001",
-                    self._factor_dict(),
-                    _make_qlib_df(),
-                    _make_qlib_df(),
-                    publisher.config,
-                )
+                publisher.publish("001", self._factor_dict(), _make_qlib_df(), _make_qlib_df())
         conn.rollback.assert_called_once()
 
     def test_no_commit_on_error(self, publisher, mock_conn):
@@ -300,13 +288,7 @@ class TestPublish:
             patch.object(publisher, "_save_metrics", side_effect=RuntimeError("DB error")),
         ):
             with pytest.raises(RuntimeError):
-                publisher.publish(
-                    "001",
-                    self._factor_dict(),
-                    _make_qlib_df(),
-                    _make_qlib_df(),
-                    publisher.config,
-                )
+                publisher.publish("001", self._factor_dict(), _make_qlib_df(), _make_qlib_df())
         conn.commit.assert_not_called()
 
     def test_report_path_returned(self, publisher, mock_conn, tmp_path):
@@ -320,13 +302,7 @@ class TestPublish:
             patch.object(publisher, "_generate_report", return_value=expected_path),
             patch.object(publisher, "_update_report_path"),
         ):
-            result = publisher.publish(
-                "001",
-                self._factor_dict(),
-                _make_qlib_df(),
-                _make_qlib_df(),
-                publisher.config,
-            )
+            result = publisher.publish("001", self._factor_dict(), _make_qlib_df(), _make_qlib_df())
         assert result == expected_path
 
     def test_combines_is_oos(self, publisher, mock_conn, tmp_path):
@@ -353,31 +329,27 @@ class TestPublish:
             patch.object(publisher, "_generate_report", return_value=str(tmp_path / "r.html")),
             patch.object(publisher, "_update_report_path"),
         ):
-            publisher.publish("001", self._factor_dict(), is_df, oos_df, publisher.config)
+            publisher.publish("001", self._factor_dict(), is_df, oos_df)
 
         combined = saved_values["df"]
         assert len(combined) == (5 + 3) * 2
 
     def test_report_failure_does_not_rollback(self, publisher, mock_conn):
-        """Report generation failure is non-transactional — DB writes are committed."""
+        """Report generation failure is non-transactional — DB writes are committed, method returns gracefully."""
         conn, cur = mock_conn
         with (
             patch.object(publisher, "_get_connection", return_value=conn),
             patch.object(publisher, "ensure_tables"),
             patch.object(publisher, "_save_metrics"),
             patch.object(publisher, "_save_values"),
-            patch.object(publisher, "_generate_report", side_effect=RuntimeError("report failed")),
+            patch.object(publisher, "_generate_report", return_value=""),
+            patch.object(publisher, "_update_report_path"),
         ):
-            with pytest.raises(RuntimeError, match="report failed"):
-                publisher.publish(
-                    "001",
-                    self._factor_dict(),
-                    _make_qlib_df(),
-                    _make_qlib_df(),
-                    publisher.config,
-                )
-        # DB was committed, not rolled back
-        conn.commit.assert_called_once()
+            result = publisher.publish("001", self._factor_dict(), _make_qlib_df(), _make_qlib_df())
+        # Returns empty string, no exception raised
+        assert result == ""
+        # DB was committed (at least once for the transactional writes), not rolled back
+        assert conn.commit.call_count >= 1
         conn.rollback.assert_not_called()
 
 

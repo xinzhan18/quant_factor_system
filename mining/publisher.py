@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 import os
 from datetime import date
-from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from psycopg2.extras import execute_values
@@ -73,15 +71,14 @@ class FactorPublisher:
         factor_dict: dict,
         factor_values_is: pd.DataFrame,
         factor_values_oos: pd.DataFrame,
-        config: MiningConfig,
     ) -> str:
         """
         Publish an admitted factor.
 
         Steps 1–2 run in a single DB transaction.  Step 3 is non-transactional:
-        report-generation failure is propagated but does not roll back DB writes.
+        report-generation failure is logged but does not roll back DB writes.
 
-        Returns: path to the HTML report.
+        Returns: path to the HTML report, or empty string if report generation failed.
         """
         conn = self._get_connection()
         self.ensure_tables(conn)
@@ -90,7 +87,7 @@ class FactorPublisher:
             combined = pd.concat([factor_values_is, factor_values_oos])
             combined = combined[~combined.index.duplicated(keep="last")]
 
-            self._save_metrics(conn, factor_id, factor_dict, config)
+            self._save_metrics(conn, factor_id, factor_dict)
             self._save_values(conn, factor_id, combined)
             conn.commit()
         except Exception:
@@ -98,7 +95,7 @@ class FactorPublisher:
             raise
 
         # Non-transactional: generate HTML report
-        report_path = self._generate_report(factor_id, factor_dict, combined, config)
+        report_path = self._generate_report(factor_id, factor_dict, combined)
         self._update_report_path(conn, factor_id, report_path)
         conn.commit()
         return report_path
@@ -121,7 +118,7 @@ class FactorPublisher:
         df.columns = ["time", "symbol", "value"]
         return df
 
-    def _save_metrics(self, conn, factor_id: str, factor_dict: dict, config: MiningConfig) -> None:
+    def _save_metrics(self, conn, factor_id: str, factor_dict: dict) -> None:
         """Upsert factor metadata and metrics into mining_factors."""
         metrics = factor_dict.get("metrics", {})
         sql = """
@@ -167,10 +164,10 @@ class FactorPublisher:
             metrics.get("ic_win_rate"),
             metrics.get("ls_return"),
             metrics.get("monotonicity"),
-            config.train_start,
-            config.train_end,
-            config.test_start,
-            config.test_end,
+            self.config.train_start,
+            self.config.train_end,
+            self.config.test_start,
+            self.config.test_end,
             date.today(),
         )
         with conn.cursor() as cur:
@@ -179,7 +176,10 @@ class FactorPublisher:
     def _save_values(self, conn, factor_id: str, factor_values: pd.DataFrame) -> None:
         """Delete existing values for factor_id, then bulk-insert new ones."""
         flat = self._to_flat_df(factor_values)
-        rows = [(factor_id, r.symbol, r.time, r.value) for _, r in flat.iterrows()]
+        rows = [
+            (factor_id, sym, t, v)
+            for sym, t, v in zip(flat["symbol"], flat["time"], flat["value"])
+        ]
         with conn.cursor() as cur:
             cur.execute(
                 "DELETE FROM mining_factor_values WHERE factor_id = %s",
@@ -197,39 +197,40 @@ class FactorPublisher:
         factor_id: str,
         factor_dict: dict,
         factor_values: pd.DataFrame,
-        config: MiningConfig,
     ) -> str:
-        """Convert factor values to flat format, load price data, and generate an HTML report."""
+        """Convert factor values to flat format, load price data, and generate an HTML report.
+
+        Returns the path to the saved report, or empty string if generation fails.
+        Failure is logged but not re-raised — report generation is non-transactional.
+        """
         from visualization.report import FactorReportGenerator
 
         flat_factor_df = self._to_flat_df(factor_values)
 
-        report_dir = os.path.join(os.path.dirname(config.library_dir), "reports")
+        report_dir = os.path.join(os.path.dirname(self.config.library_dir), "reports")
         os.makedirs(report_dir, exist_ok=True)
 
         factor_name = factor_dict.get("name", f"factor_{factor_id}")
         report_output_dir = os.path.join(report_dir, f"factor_{factor_id}")
 
         try:
-            price_df = self._load_price_data(flat_factor_df, config)
-            split_date = pd.Timestamp(config.test_start)
+            price_df = self._load_price_data(flat_factor_df)
+            split_date = pd.Timestamp(self.config.test_start)
 
             gen = FactorReportGenerator(factor_name, report_output_dir)
             gen.analyze(flat_factor_df, price_df, split_date=split_date, n_groups=5)
             gen.generate_charts()
             saved = gen.save_charts(format="html")
 
-            # Return the first saved path (or a synthetic path if nothing was saved)
+            # Return the first saved path, or fallback if no charts were produced
             if saved:
                 return next(iter(saved.values()))
+            return os.path.join(report_output_dir, f"factor_{factor_id}.html")
         except Exception as e:
             logger.warning("Report generation failed for factor %s: %s", factor_id, e)
-            raise
+            return ""
 
-        # Fallback path if no charts were produced
-        return os.path.join(report_output_dir, f"factor_{factor_id}.html")
-
-    def _load_price_data(self, flat_factor_df: pd.DataFrame, config: MiningConfig) -> pd.DataFrame:
+    def _load_price_data(self, flat_factor_df: pd.DataFrame) -> pd.DataFrame:
         """Load close prices from price_daily for the symbols and date range in flat_factor_df."""
         symbols = flat_factor_df["symbol"].unique().tolist()
         start = flat_factor_df["time"].min()
