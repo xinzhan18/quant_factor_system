@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from .config import MiningConfig
+from core.config import SystemConfig
 from data.qlib_sync import DataSynchronizer
 from .evaluator import FactorMiningEvaluator
 from .library import FactorLibrary
@@ -34,8 +35,9 @@ def cmd_sync(args):
 
 def cmd_evaluate(args):
     """Evaluate a single factor expression."""
+    system = SystemConfig(qlib_data_dir=args.qlib_dir)
     config = MiningConfig(
-        qlib_data_dir=args.qlib_dir,
+        system=system,
         train_start=args.train_start,
         train_end=args.train_end,
         test_start=args.test_start,

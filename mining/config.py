@@ -5,13 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from core.config import SystemConfig
+
 
 @dataclass
 class MiningConfig:
     """Configuration for the factor mining pipeline."""
 
-    # Data
-    qlib_data_dir: str = "~/.qlib/qlib_data/cn_data_1d"
+    # System config reference
+    system: SystemConfig = field(default_factory=SystemConfig)
+
+    @property
+    def qlib_data_dir(self) -> str:
+        return self.system.qlib_data_dir
 
     # Evaluation thresholds
     ic_threshold: float = 0.03

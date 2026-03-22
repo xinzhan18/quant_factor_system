@@ -64,49 +64,24 @@ class LoggingConfig:
 
 
 @dataclass
-class PipelineConfig:
-    """Pipeline配置"""
-    default_window: int = 20
-    max_factors: int = 100
-    enable_cache: bool = True
-    save_results: bool = True
-
-
-@dataclass
-class FactorConfig:
-    """因子配置"""
-    supported_frequencies = ['tick', '1min', '5min', '15min', '30min', '1hour', 'daily', 'weekly', 'monthly']
-    default_frequency = 'daily'
-    
-    # 因子参数约束
-    momentum_windows = [5, 10, 20, 60, 120, 250]
-    ma_windows = [5, 10, 20, 50, 100, 200]
-    rsi_windows = [6, 14, 21]
-
-
-@dataclass
 class SystemConfig:
     """系统配置"""
     name: str = "QuantFactorSystem"
-    version: str = "3.0.0"
+    version: str = "4.1.0"
     created_at: datetime = field(default_factory=datetime.now)
-    
+    qlib_data_dir: str = "~/.qlib/qlib_data/cn_data_1d"
+
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
-    pipeline: PipelineConfig = field(default_factory=PipelineConfig)
-    factor: FactorConfig = field(default_factory=FactorConfig)
-    
+
     def validate(self) -> bool:
         """验证配置"""
         if self.database.port < 1 or self.database.port > 65535:
             raise ValueError(f"无效的数据库端口: {self.database.port}")
-        
-        if self.pipeline.default_window < 1:
-            raise ValueError(f"无效的默认窗口: {self.pipeline.default_window}")
-        
+
         return True
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
@@ -116,10 +91,6 @@ class SystemConfig:
                 'host': self.database.host,
                 'port': self.database.port,
                 'database': self.database.database,
-            },
-            'pipeline': {
-                'default_window': self.pipeline.default_window,
-                'max_factors': self.pipeline.max_factors,
             },
         }
 
