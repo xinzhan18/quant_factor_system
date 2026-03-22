@@ -18,14 +18,21 @@ class ValidationResult:
 
 
 KNOWN_OPERATORS = {
+    # Qlib built-in (53 operators)
     "Add", "Sub", "Mul", "Div", "Abs", "Log", "Power", "Sign", "Neg",
-    "Mean", "Std", "Var", "Skew", "Kurt", "Med", "Sum", "Prod",
-    "Ref", "Delta", "TsRank", "TsMax", "TsMin", "TsArgMax", "TsArgMin", "Correlation",
-    "Rank", "CSRankNorm",
-    "EMA", "SMA", "WMA",
+    "Not", "And", "Or", "Eq", "Ne", "Gt", "Ge", "Lt", "Le",
+    "Mean", "Std", "Var", "Skew", "Kurt", "Med", "Mad", "Sum", "Prod",
+    "Count", "Quantile", "Min", "Max",
+    "Ref", "Delta", "TsRank", "IdxMax", "IdxMin", "Correlation", "Corr", "Cov",
+    "Rank", "Mask",
+    "EMA", "WMA",
     "Slope", "Rsquare", "Resi",
     "If", "IfElse", "Greater", "Less",
-    "SignedPower", "TsDecay", "Scale", "Tanh", "Exp",
+    # Custom operators (15 operators)
+    "SignedPower", "Tanh", "Exp", "Sigmoid", "Softmax",
+    "Scale", "Zscore", "Winsorize",
+    "TsDecay", "TsMomentum", "TsAutoCorr", "RealizedVol", "TsEntropy",
+    "AmihudIlliq", "HHI",
 }
 
 
