@@ -2,10 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name="quant_factor_system",
-    version="3.0.0",
-    description="Quantitative Factor Research and Trading Platform",
+    version="4.1.0",
+    description="Quantitative Factor Mining and Research Platform",
     author="QuantFactorSystem",
-    packages=find_packages(),
+    packages=find_packages(exclude=["_archive", "_archive.*", "examples", "examples.*"]),
     python_requires=">=3.8",
     install_requires=[
         "pandas>=1.5.0",
@@ -31,7 +31,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "quant-factor=cli:main",
+            "quant-mining=quant_factor_system.mining.cli:main",
         ],
     },
 )
