@@ -71,3 +71,16 @@ class MiningConfig:
         "efficiency", "distribution", "trend", "candlestick",
         "intraday_agg", "other",
     ])
+
+    # === Preprocessing ===
+    # Universe filtering
+    filter_suspend: bool = True
+    filter_limit: bool = True
+
+    # Factor value cleaning
+    winsorize_method: str = "mad"  # "mad" or "sigma"
+    winsorize_n: float = 5.0  # MAD multiplier (or sigma multiplier)
+    standardize_method: str = "zscore"  # "zscore" or "rank"
+
+    # Neutralization (optional, requires $market_cap / $industry_code synced)
+    neutralize_mode: str = "none"  # "none", "market_cap", "industry", "both"
