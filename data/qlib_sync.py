@@ -25,6 +25,7 @@ class DataSynchronizer:
     """
 
     FIELDS = ["open", "high", "low", "close", "volume", "amount"]
+    AUX_FIELDS = ["limit_up", "limit_down"]
     FIELD_MAP = {
         "open": "$open", "high": "$high", "low": "$low",
         "close": "$close", "volume": "$volume", "amount": "$amount",
@@ -86,6 +87,9 @@ class DataSynchronizer:
 
         # Write features per symbol
         all_fields = self.FIELDS + ["vwap", "returns", "returns_1d"]
+        for af in self.AUX_FIELDS:
+            if af in df.columns:
+                all_fields.append(af)
         for symbol, group in df.groupby("symbol"):
             self._write_symbol_features(str(symbol), group, all_fields, trading_days)
 

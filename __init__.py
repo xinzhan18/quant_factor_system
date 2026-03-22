@@ -14,18 +14,21 @@ Quant Factor System - 量化因子研究平台
 
 __version__ = "4.1.0"
 
-# 数据层
-from .data import (
-    QuantDataManager,
-    RiceQuantSource,
-    TimescaleDB,
-    DataManager,
-)
+# 数据层 (guard against standalone import during pytest collection)
+try:
+    from .data import (
+        QuantDataManager,
+        RiceQuantSource,
+        TimescaleDB,
+        DataManager,
+    )
 
-__all__ = [
-    '__version__',
-    'QuantDataManager',
-    'RiceQuantSource',
-    'TimescaleDB',
-    'DataManager',
-]
+    __all__ = [
+        '__version__',
+        'QuantDataManager',
+        'RiceQuantSource',
+        'TimescaleDB',
+        'DataManager',
+    ]
+except ImportError:
+    __all__ = ['__version__']
