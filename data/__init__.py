@@ -36,7 +36,6 @@ from .storage import (
     COMPRESSION_POLICY,
     get_timescaledb,
     init_quant_db,
-    FactorStorage,
     FactorVersion,
     VersionStatus,
     FactorVersionManager,
@@ -95,9 +94,8 @@ __all__ = [
     'init_quant_db',
     'get_db',
     'init_db',
-    
-    # 因子存储
-    'FactorStorage',
+
+    # 因子版本管理
     'FactorVersion',
     'VersionStatus',
     'FactorVersionManager',

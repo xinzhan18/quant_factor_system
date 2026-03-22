@@ -20,10 +20,6 @@ from .timescale_storage import (
     init_quant_db,
 )
 
-from .factor_storage import (
-    FactorStorage,
-)
-
 from .factor_version import (
     FactorVersion,
     VersionStatus,
@@ -48,18 +44,15 @@ __all__ = [
     'COMPRESSION_POLICY',
     'get_timescaledb',
     'init_quant_db',
-    
-    # 因子存储
-    'FactorStorage',
-    
+
     # 因子版本
     'FactorVersion',
     'VersionStatus',
     'FactorVersionManager',
-    
+
     # 频率常量
     'Frequency',
-    
+
     # 数据库工具
     'get_db',
     'init_db',
