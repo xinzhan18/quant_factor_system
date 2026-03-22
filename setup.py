@@ -18,9 +18,11 @@ setup(
         "streamlit>=1.20.0",
         "python-dateutil>=2.8.0",
         "pytz>=2023.3",
+        "pyyaml>=6.0",
     ],
     extras_require={
         "ricequant": ["rqdatac>=1.0.0"],
+        "mining": ["qlib>=0.9.0"],
         "dev": [
             "pytest>=7.0.0",
             "black>=23.0.0",

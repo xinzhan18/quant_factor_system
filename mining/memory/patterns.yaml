@@ -1,0 +1,36 @@
+recommended_directions:
+  - pattern: "Higher Moment Regimes"
+    description: "Use Skew/Kurt as IfElse conditions to identify extreme distribution environments for reversal signals"
+    success_rate: high
+    example_factors: []
+
+  - pattern: "Trend Regression Adaptive"
+    description: "Use Rsquare/Slope/Resi for adaptive trend regression. High R2 trend follow, Low R2 mean reversion"
+    success_rate: high
+    example_factors: []
+
+  - pattern: "PV Corr Interaction"
+    description: "Combine price-volume correlation with amount efficiency or trend operators to capture volume-price coordination"
+    success_rate: high
+    example_factors: []
+
+  - pattern: "Robust Efficiency"
+    description: "Use median and other robust statistics to smooth amount efficiency, filtering extreme noise"
+    success_rate: high
+    example_factors: []
+
+  - pattern: "Intraday Aggregation Features"
+    description: "Leverage minute-data aggregated features (intraday_vol, intraday_skew, volume_concentration) as inputs for daily factors"
+    success_rate: medium
+    example_factors: []
+
+forbidden_regions:
+  - direction: "Simple VWAP Deviation"
+    reason: "High correlation with VWAP factor cluster"
+    correlated_factors: []
+    correlation: "> 0.5"
+
+  - direction: "Standardized Returns/Amount"
+    reason: "Simple return standardization is redundant with existing factors"
+    correlated_factors: []
+    correlation: "> 0.6"
