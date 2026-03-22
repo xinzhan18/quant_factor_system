@@ -83,6 +83,8 @@ from .clean import (
     validate_and_report,
 )
 
+from .qlib_sync import DataSynchronizer
+
 __all__ = [
     # TimescaleDB 存储 (生产环境) ⭐
     'TimescaleDB',
@@ -142,4 +144,7 @@ __all__ = [
     'DataValidator',
     'ValidationResult',
     'validate_and_report',
+
+    # Qlib 同步
+    'DataSynchronizer',
 ]

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mining.data_sync import DataSynchronizer
+from data.qlib_sync import DataSynchronizer
 
 
 @pytest.fixture

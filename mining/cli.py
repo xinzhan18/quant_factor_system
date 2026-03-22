@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 
 from .config import MiningConfig
-from .data_sync import DataSynchronizer
+from data.qlib_sync import DataSynchronizer
 from .evaluator import FactorMiningEvaluator
 from .library import FactorLibrary
 from .memory import ExperienceMemory
