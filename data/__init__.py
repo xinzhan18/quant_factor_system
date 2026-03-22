@@ -52,11 +52,10 @@ from .data_manager import (
 
 from .loaders import (
     get_factor_data,
+    get_factor_metrics,
     get_price_data,
-    get_factor_overview,
     get_database_tables,
     get_available_factors,
-    DATABASE_FACTORS,
 )
 
 from .utils import (
@@ -115,11 +114,10 @@ __all__ = [
     
     # 数据加载
     'get_factor_data',
+    'get_factor_metrics',
     'get_price_data',
-    'get_factor_overview',
     'get_database_tables',
     'get_available_factors',
-    'DATABASE_FACTORS',
     
     # 工具类
     'PostgresDB',
