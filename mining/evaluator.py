@@ -12,8 +12,15 @@ from scipy.stats import spearmanr
 
 from .config import MiningConfig
 from .expression import ExpressionValidator
+from .preprocessing import FactorPreprocessor
 
 logger = logging.getLogger(__name__)
+
+# Optional Qlib import — patched in tests via `mining.evaluator.D`
+try:
+    from qlib.data import D
+except ImportError:
+    D = None  # type: ignore[assignment]
 
 
 @dataclass
@@ -31,6 +38,8 @@ class FactorMiningEvaluator:
         self.config = config
         self._factor_cache: Dict[str, pd.DataFrame] = {}
         self._subset_factor_cache: Dict[str, pd.DataFrame] = {}
+        self._preprocessor = FactorPreprocessor(config)
+        self._aux_cache: Dict[str, Dict[str, pd.DataFrame]] = {}
         self._ensure_qlib_initialized()
 
     def _ensure_qlib_initialized(self) -> None:
@@ -47,10 +56,47 @@ class FactorMiningEvaluator:
         except Exception as e:
             logger.error("Qlib init failed: %s", e)
 
-    def _compute_ic_from_frames(self, factor_values: pd.DataFrame, returns: pd.DataFrame) -> Dict[str, Any]:
+    def _load_aux_data(self, instruments: list, start_time: str, end_time: str) -> Dict[str, pd.DataFrame]:
+        """Load auxiliary data for preprocessing. Cached."""
+        cache_key = f"{len(instruments)}_{start_time}_{end_time}"
+        if cache_key in self._aux_cache:
+            return self._aux_cache[cache_key]
+
+        aux: Dict[str, pd.DataFrame] = {}
+        try:
+            fields = ["$volume", "$close"]
+            optional = ["$limit_up", "$limit_down"]
+            all_fields = fields + optional
+            aux_df = D.features(
+                instruments=instruments,
+                fields=all_fields,
+                start_time=start_time,
+                end_time=end_time,
+            )
+            for col in aux_df.columns:
+                key = col.replace("$", "")  # $volume -> volume
+                aux[key] = aux_df[[col]]
+        except Exception as e:
+            logger.warning("Failed to load aux data: %s — preprocessing will be limited", e)
+
+        self._aux_cache[cache_key] = aux
+        return aux
+
+    def _compute_ic_from_frames(
+        self,
+        factor_values: pd.DataFrame,
+        returns: pd.DataFrame,
+        aux_data: Optional[Dict[str, pd.DataFrame]] = None,
+    ) -> Dict[str, Any]:
         """Compute daily cross-sectional Spearman IC.
         Both DataFrames must have (datetime, instrument) MultiIndex.
+        If aux_data is provided, applies preprocessing first.
         """
+        if aux_data:
+            factor_values, returns = self._preprocessor.preprocess_for_ic(
+                factor=factor_values, returns=returns, **aux_data,
+            )
+
         factor_col = factor_values.columns[0]
         returns_col = returns.columns[0]
         merged = factor_values.join(returns, how="inner").dropna()
@@ -149,13 +195,14 @@ class FactorMiningEvaluator:
         subset = self._get_fast_screening_universe()
         # I1: Load returns once outside the loop — same for all candidates
         returns = self._get_returns_qlib(subset, self.config.train_start, self.config.train_end)
+        aux = self._load_aux_data(subset, self.config.train_start, self.config.train_end)
         results = []
         for c in candidates:
             try:
                 values = self._compute_factor_qlib(c["expression"], subset, self.config.train_start, self.config.train_end)
                 # I3: Cache subset factor values for reuse in Stage 1.5
                 self._subset_factor_cache[c["expression"]] = values
-                ic_stats = self._compute_ic_from_frames(values, returns)
+                ic_stats = self._compute_ic_from_frames(values, returns, aux_data=aux)
                 c["stage1"] = ic_stats
                 if abs(ic_stats.get("ic_mean", 0)) >= self.config.ic_threshold:
                     results.append(c)
@@ -223,11 +270,12 @@ class FactorMiningEvaluator:
                 logger.warning("Failed to compute library factor %s: %s", lf["id"], e)
         # I1: Load returns once outside the loop
         returns = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
+        aux = self._load_aux_data(full_universe, self.config.train_start, self.config.train_end)
         for c in candidates:
             try:
                 factor_vals = self._compute_factor_qlib(c["expression"], full_universe, self.config.train_start, self.config.train_end)
                 self._factor_cache[c["expression"]] = factor_vals
-                full_ic = self._compute_ic_from_frames(factor_vals, returns)
+                full_ic = self._compute_ic_from_frames(factor_vals, returns, aux_data=aux)
                 c["full_ic"] = full_ic
                 max_corr, max_corr_factor = 0.0, None
                 all_corrs: Dict[str, float] = {}
@@ -278,6 +326,7 @@ class FactorMiningEvaluator:
         Returns (validated, errors) — factors that error in Stage 3 are separated.
         """
         full_universe = self._get_full_universe()
+        aux_is = self._load_aux_data(full_universe, self.config.train_start, self.config.train_end)
         validated = []
         errors = []
         for c in candidates:
@@ -285,15 +334,16 @@ class FactorMiningEvaluator:
                 cached_vals = self._factor_cache.get(c["expression"])
                 returns_is = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
                 if cached_vals is not None:
-                    ic_is = self._compute_ic_from_frames(cached_vals, returns_is)
+                    ic_is = self._compute_ic_from_frames(cached_vals, returns_is, aux_data=aux_is)
                 else:
                     vals_is = self._compute_factor_qlib(c["expression"], full_universe, self.config.train_start, self.config.train_end)
-                    ic_is = self._compute_ic_from_frames(vals_is, returns_is)
+                    ic_is = self._compute_ic_from_frames(vals_is, returns_is, aux_data=aux_is)
                     cached_vals = vals_is
                 test_end = self.config.test_end or str(pd.Timestamp.now().date())
+                aux_oos = self._load_aux_data(full_universe, self.config.test_start, test_end)
                 vals_oos = self._compute_factor_qlib(c["expression"], full_universe, self.config.test_start, test_end)
                 returns_oos = self._get_returns_qlib(full_universe, self.config.test_start, test_end)
-                ic_oos = self._compute_ic_from_frames(vals_oos, returns_oos)
+                ic_oos = self._compute_ic_from_frames(vals_oos, returns_oos, aux_data=aux_oos)
                 quantile_ret = self._compute_quantile_returns(cached_vals, returns_is)
 
                 # Compute long-short return and monotonicity
