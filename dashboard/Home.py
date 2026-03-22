@@ -9,7 +9,7 @@ from datetime import datetime
 
 from quant_factor_system import __version__
 from quant_factor_system.data import TimescaleDB
-from quant_factor_system.factors import register_all_builtins, list_factors
+from quant_factor_system.mining import FactorLibrary, MiningConfig
 
 
 def get_db_stats(db: TimescaleDB) -> dict:
@@ -84,28 +84,30 @@ def get_db_stats(db: TimescaleDB) -> dict:
 
 
 def get_factor_stats() -> dict:
-    """获取因子统计信息"""
-    register_all_builtins()
-    factors = list_factors()
-    
+    """获取因子统计信息（从 mining library 读取）"""
+    try:
+        lib = FactorLibrary(MiningConfig())
+        factors = lib.list_factors()
+    except Exception:
+        factors = []
+
     result = {
         'total': len(factors),
         'categories': {},
         'top_factors': []
     }
 
-    # 从因子注册表获取实际信息
     for f in factors:
         cat = f.get('category', '其他')
         result['categories'][cat] = result['categories'].get(cat, 0) + 1
-        if f.get('ic') is not None:
+        ic = f.get('ic_mean')
+        if ic is not None:
             result['top_factors'].append({
                 'name': f.get('name', ''),
-                'ic': f.get('ic', 0),
-                'type': f.get('type', '未知'),
+                'ic': ic,
+                'type': f.get('category', '未知'),
             })
 
-    # 按IC绝对值排序取前5
     result['top_factors'].sort(key=lambda x: abs(x.get('ic', 0)), reverse=True)
     result['top_factors'] = result['top_factors'][:5]
 

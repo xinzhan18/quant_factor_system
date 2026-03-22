@@ -81,17 +81,16 @@ def render_db_status(db):
 
 def render_factor_selector(key: str = "factor"):
     """
-    渲染因子选择器
-    
-    Args:
-        key: 组件 key
+    渲染因子选择器（从 mining library 读取）
     """
-    from quant_factor_system.factors import list_factors, register_all_builtins
-    
-    register_all_builtins()
-    factors = list_factors()
-    factor_names = [f['name'] for f in factors] if factors else []
-    
+    try:
+        from quant_factor_system.mining import FactorLibrary, MiningConfig
+        lib = FactorLibrary(MiningConfig())
+        factors = lib.list_factors()
+        factor_names = [f['name'] for f in factors] if factors else []
+    except Exception:
+        factor_names = []
+
     return st.selectbox("选择因子", factor_names, key=key)
 
 

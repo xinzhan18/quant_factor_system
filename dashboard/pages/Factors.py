@@ -18,7 +18,7 @@ from quant_factor_system.data.loaders import (
     get_factor_overview,
     get_available_factors,
 )
-from quant_factor_system.factors.visualization import ICAnalyzer
+from quant_factor_system.visualization import ICAnalyzer
 
 
 # ==================== 因子评估页面 ====================

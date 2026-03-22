@@ -11,7 +11,7 @@ from quant_factor_system.data import (
     DataManager,
     TimescaleDB,
 )
-from quant_factor_system.factors import Pipeline, list_factors, register_all_builtins
+# TODO: Redesign to use mining/library workflow
 
 
 def main():
@@ -22,7 +22,10 @@ def main():
     )
     
     st.title("🔧 Pipeline")
-    
+
+    st.info("Pipeline 页面正在重构中，将整合 mining 工作流。请使用 /factor-mine 技能进行因子挖掘。")
+    return
+
     st.markdown("""
     **Pipeline** 是量化因子的处理管道，支持：
     - 多因子组合计算

@@ -5,17 +5,16 @@
 import streamlit as st
 from datetime import datetime, timedelta
 
-from quant_factor_system.factors import register_all_builtins, list_factors
-from quant_factor_system.dashboard.components import (
-    factor_selector_form
-)
+from quant_factor_system.mining import FactorLibrary, MiningConfig
 
 
 def get_available_factors():
     """获取可用的因子列表"""
-    register_all_builtins()
-    factors = list_factors()
-    return [f['name'] for f in factors]
+    try:
+        lib = FactorLibrary(MiningConfig())
+        return [f['name'] for f in lib.list_factors()]
+    except Exception:
+        return []
 
 
 def main():
@@ -36,7 +35,7 @@ def main():
     # 1. 因子选择 - 使用通用组件
     st.subheader("1. 选择因子")
     
-    selected_factors = factor_selector_form(available_factors, key_prefix='strategy')
+    selected_factors = st.multiselect("选择因子", get_available_factors(), key='strategy_factors')
     
     st.metric("已选因子数", len(selected_factors))
     
