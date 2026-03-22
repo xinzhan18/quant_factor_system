@@ -57,19 +57,24 @@ class FactorPreprocessor:
                 )
 
         if self.config.filter_limit:
-            if close is not None and limit_up is not None:
-                mask &= close[close.columns[0]] < limit_up[limit_up.columns[0]]
-            elif close is not None and limit_up is None:
+            if close is None:
                 logger.warning(
-                    "filter_limit enabled but limit_up data not provided — skipping limit-up filter"
+                    "filter_limit enabled but close data not provided — skipping limit filter"
                 )
+            else:
+                if limit_up is not None:
+                    mask &= close[close.columns[0]] < limit_up[limit_up.columns[0]]
+                else:
+                    logger.warning(
+                        "filter_limit enabled but limit_up data not provided — skipping limit-up filter"
+                    )
 
-            if close is not None and limit_down is not None:
-                mask &= close[close.columns[0]] > limit_down[limit_down.columns[0]]
-            elif close is not None and limit_down is None:
-                logger.warning(
-                    "filter_limit enabled but limit_down data not provided — skipping limit-down filter"
-                )
+                if limit_down is not None:
+                    mask &= close[close.columns[0]] > limit_down[limit_down.columns[0]]
+                else:
+                    logger.warning(
+                        "filter_limit enabled but limit_down data not provided — skipping limit-down filter"
+                    )
 
         return mask
 
