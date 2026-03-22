@@ -120,7 +120,15 @@ class FactorPublisher:
 
     def _save_metrics(self, conn, factor_id: str, factor_dict: dict) -> None:
         """Upsert factor metadata and metrics into mining_factors."""
-        metrics = factor_dict.get("metrics", {})
+        s3 = factor_dict.get("stage3", {})
+        # Compute full-sample IC as average of IS and OOS
+        ic_is = s3.get("ic_mean_is")
+        ic_oos = s3.get("ic_mean_oos")
+        ic_mean = None
+        if ic_is is not None and ic_oos is not None:
+            ic_mean = (ic_is + ic_oos) / 2
+        elif ic_is is not None:
+            ic_mean = ic_is
         sql = """
             INSERT INTO mining_factors (
                 factor_id, name, expression, category,
@@ -157,13 +165,13 @@ class FactorPublisher:
             factor_dict.get("name", f"factor_{factor_id}"),
             factor_dict.get("expression", ""),
             factor_dict.get("category", "other"),
-            metrics.get("ic_mean"),
-            metrics.get("ic_ir"),
-            metrics.get("ic_mean_is"),
-            metrics.get("ic_mean_oos"),
-            metrics.get("ic_win_rate"),
-            metrics.get("ls_return"),
-            metrics.get("monotonicity"),
+            ic_mean,
+            s3.get("ic_ir_is"),
+            s3.get("ic_mean_is"),
+            s3.get("ic_mean_oos"),
+            s3.get("ic_win_rate"),
+            s3.get("ls_return"),
+            s3.get("monotonicity"),
             self.config.train_start,
             self.config.train_end,
             self.config.test_start,

@@ -147,11 +147,11 @@ class TestSaveMetrics:
             "name": "Test Factor",
             "expression": "Rank($close)",
             "category": "momentum",
-            "metrics": {
-                "ic_mean": 0.055,
-                "ic_ir": 0.72,
+            "stage3": {
                 "ic_mean_is": 0.060,
                 "ic_mean_oos": 0.048,
+                "ic_ir_is": 0.72,
+                "ic_ir_oos": 0.55,
                 "ic_win_rate": 0.63,
                 "ls_return": 0.012,
                 "monotonicity": 0.9,
@@ -179,6 +179,25 @@ class TestSaveMetrics:
         publisher._save_metrics(conn, "001", self._make_factor_dict())
         sql = cur.execute.call_args.args[0]
         assert "DO UPDATE" in sql
+
+    def test_ic_mean_computed_as_average(self, publisher, mock_conn):
+        """ic_mean should be (ic_mean_is + ic_mean_oos) / 2."""
+        conn, cur = mock_conn
+        factor_dict = self._make_factor_dict()
+        publisher._save_metrics(conn, "001", factor_dict)
+        params = cur.execute.call_args.args[1]
+        # params[4] is ic_mean (5th positional param)
+        expected_ic_mean = (0.060 + 0.048) / 2
+        assert abs(params[4] - expected_ic_mean) < 1e-10
+
+    def test_ic_ir_uses_is_value(self, publisher, mock_conn):
+        """ic_ir column should use ic_ir_is from stage3."""
+        conn, cur = mock_conn
+        factor_dict = self._make_factor_dict()
+        publisher._save_metrics(conn, "001", factor_dict)
+        params = cur.execute.call_args.args[1]
+        # params[5] is ic_ir (6th positional param)
+        assert params[5] == 0.72
 
 
 # ---------------------------------------------------------------------------
@@ -244,11 +263,11 @@ class TestPublish:
             "name": "Test Factor",
             "expression": "Rank($close)",
             "category": "momentum",
-            "metrics": {
-                "ic_mean": 0.055,
-                "ic_ir": 0.72,
+            "stage3": {
                 "ic_mean_is": 0.060,
                 "ic_mean_oos": 0.048,
+                "ic_ir_is": 0.72,
+                "ic_ir_oos": 0.55,
                 "ic_win_rate": 0.63,
                 "ls_return": 0.012,
                 "monotonicity": 0.9,
