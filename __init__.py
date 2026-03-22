@@ -1,20 +1,15 @@
 """
 Quant Factor System - 量化因子研究平台
 
-功能:
-- 数据层: TimescaleDB存储, RiceQuant数据源
-- 因子层: 因子计算, 聚合, 处理
-- 回测层: 回测引擎, 绩效分析, 选股, 仓位, 止损
+核心工作流: 自动化因子挖掘 (mining)
+- 数据层: TimescaleDB存储, RiceQuant数据源, Qlib同步
+- 挖掘层: 表达式引擎, 多阶段评估, 因子库, 经验记忆
+- 可视化: IC分析, 分组收益, 报告生成
 
 使用:
-    # 数据
-    from quant_factor_system.data import QuantDataManager, RiceQuantSource
-    
-    # 因子
-    from quant_factor_system.factors import FactorProcessor, FactorAggregator
-    
-    # 回测（包含选股、仓位、止损）
-    from quant_factor_system.backtest import BacktestEngine, PerformanceAnalyzer
+    from quant_factor_system.data import TimescaleDB
+    from quant_factor_system.mining import FactorMiningEvaluator, FactorLibrary
+    from quant_factor_system.visualization import ICAnalyzer
 """
 
 __version__ = "4.1.0"
@@ -27,66 +22,10 @@ from .data import (
     DataManager,
 )
 
-# 因子层
-from .factors import (
-    FactorProcessor,
-    FactorProcessorConfig,
-    FactorAggregator,
-    FactorFactory,
-    FactorRegistry,
-)
-
-# 回测层
-from .backtest import (
-    BacktestEngine,
-    PerformanceAnalyzer,
-    # 选股
-    SingleFactorSelector,
-    MultiFactorCombiner,
-    IntersectionFilter,
-    # 仓位
-    EqualWeightManager,
-    FixedWeightManager,
-    FactorWeightedManager,
-    KellyManager,
-    # 止损
-    FixedStopLoss,
-    ATRStopLoss,
-)
-
 __all__ = [
-    # 版本
     '__version__',
-    
-    # 数据层
     'QuantDataManager',
     'RiceQuantSource',
     'TimescaleDB',
     'DataManager',
-    
-    # 因子层
-    'FactorProcessor',
-    'FactorProcessorConfig',
-    'FactorAggregator',
-    'FactorFactory',
-    'FactorRegistry',
-    
-    # 回测层
-    'BacktestEngine',
-    'PerformanceAnalyzer',
-    
-    # 选股
-    'SingleFactorSelector',
-    'MultiFactorCombiner',
-    'IntersectionFilter',
-    
-    # 仓位
-    'EqualWeightManager',
-    'FixedWeightManager',
-    'FactorWeightedManager',
-    'KellyManager',
-    
-    # 止损
-    'FixedStopLoss',
-    'ATRStopLoss',
 ]
