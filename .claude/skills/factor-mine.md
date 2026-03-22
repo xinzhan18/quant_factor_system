@@ -48,6 +48,22 @@ candidates:
     rationale: "Why this factor should work"
 ```
 
+## Preprocessing (Automatic)
+
+The evaluator automatically preprocesses factor values and returns before IC calculation. **You do NOT need to add Winsorize/Zscore/Scale to factor expressions** — the pipeline handles this uniformly:
+
+1. **Universe filtering**: Suspended stocks (volume=0) and limit-up/down stocks are excluded
+2. **Factor cleaning**: inf→NaN, MAD winsorization (5×), zscore standardization
+3. **Return masking**: Forward returns of untradable stocks are set to NaN
+
+Optional neutralization (market cap / industry) can be enabled via `MiningConfig(neutralize_mode="market_cap")`.
+
+All preprocessing config is in `MiningConfig`:
+- `filter_suspend` / `filter_limit` — universe filters (default: True)
+- `winsorize_method` / `winsorize_n` — outlier treatment (default: "mad" / 5.0)
+- `standardize_method` — "zscore" or "rank" (default: "zscore")
+- `neutralize_mode` — "none", "market_cap", "industry", "both" (default: "none")
+
 ## Step 3: Evaluate
 
 Run the evaluation pipeline:
