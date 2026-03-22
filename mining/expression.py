@@ -24,7 +24,7 @@ KNOWN_OPERATORS = {
     "Rank", "CSRankNorm",
     "EMA", "SMA", "WMA",
     "Slope", "Rsquare", "Resi",
-    "If", "Greater", "Less",
+    "If", "IfElse", "Greater", "Less",
     "SignedPower", "TsDecay", "Scale", "Tanh", "Exp",
 }
 
@@ -84,12 +84,58 @@ class ExpressionValidator:
         return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
 
     def safe_wrap(self, expression: str) -> str:
-        """Wrap Div operations to handle zero division."""
-        pattern = r"Div\(([^()]+(?:\([^()]*\))*[^()]*),\s*([^()]+(?:\([^()]*\))*[^()]*)\)"
-        def _safe_div(match):
-            a, b = match.group(1).strip(), match.group(2).strip()
-            return f"If(Greater(Abs({b}), 1e-8), Div({a}, {b}), 0)"
-        return re.sub(pattern, _safe_div, expression)
+        """Wrap Div operations to handle zero division.
+
+        Uses iterative parsing to handle arbitrarily nested expressions.
+        """
+        result = self._wrap_div_recursive(expression)
+        return result
+
+    def _wrap_div_recursive(self, expr: str) -> str:
+        """Find and wrap Div(...) calls, handling nested parentheses."""
+        output = []
+        i = 0
+        while i < len(expr):
+            # Look for "Div("
+            if expr[i:i+4] == "Div(" and (i == 0 or not expr[i-1].isalpha()):
+                # Find the matching closing paren
+                start = i + 4
+                args = self._split_top_level_args(expr, start)
+                if args is not None:
+                    a_raw, b_raw, end_pos = args
+                    a = self._wrap_div_recursive(a_raw.strip())
+                    b = self._wrap_div_recursive(b_raw.strip())
+                    output.append(f"If(Greater(Abs({b}), 1e-8), Div({a}, {b}), 0)")
+                    i = end_pos
+                    continue
+            output.append(expr[i])
+            i += 1
+        return "".join(output)
+
+    @staticmethod
+    def _split_top_level_args(expr: str, start: int):
+        """Split two comma-separated arguments respecting nested parens.
+
+        Returns (arg1, arg2, end_position) or None if parsing fails.
+        ``start`` should point to the first character after the opening '('.
+        """
+        depth = 1
+        comma_pos = None
+        i = start
+        while i < len(expr) and depth > 0:
+            ch = expr[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            elif ch == "," and depth == 1 and comma_pos is None:
+                comma_pos = i
+            i += 1
+        if depth != 0 or comma_pos is None:
+            return None
+        return expr[start:comma_pos], expr[comma_pos+1:i], i + 1
 
     def _max_nesting_depth(self, expr: str) -> int:
         max_d = 0

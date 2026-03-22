@@ -200,8 +200,9 @@ class TestStage3FullValidation:
                 pd.DataFrame({"$returns_1d": signal_oos * 0.5 + np.random.randn(len(idx_oos)) * 0.1}, index=idx_oos),
             ]
             mock_factor.return_value = pd.DataFrame({"factor": signal_oos}, index=idx_oos)
-            validated = evaluator._full_validation([candidate])
+            validated, errors = evaluator._full_validation([candidate])
             assert len(validated) == 1
+            assert len(errors) == 0
             s3 = validated[0]["stage3"]
             assert "ic_mean_is" in s3
             assert "ic_mean_oos" in s3

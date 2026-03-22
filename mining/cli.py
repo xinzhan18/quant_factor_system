@@ -21,7 +21,11 @@ logger = logging.getLogger(__name__)
 
 def cmd_sync(args):
     """Sync TimescaleDB data to Qlib format."""
-    from data.storage import TimescaleDB
+    try:
+        from data.storage import TimescaleDB
+    except ImportError:
+        print("Error: data.storage module not found. Ensure the project's data layer is installed.")
+        sys.exit(1)
     db = TimescaleDB()
     syncer = DataSynchronizer(db=db, qlib_dir=args.qlib_dir)
     syncer.sync_daily(start=args.start, end=args.end)

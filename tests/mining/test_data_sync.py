@@ -1,7 +1,7 @@
 """Tests for DataSynchronizer."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 import numpy as np
 import pandas as pd
@@ -119,6 +119,30 @@ class TestMinuteAggregates:
         features_dir = tmp_path / "qlib_data" / "features" / "SH600000"
         assert (features_dir / "intraday_vol.day.bin").exists()
         assert (features_dir / "volume_conc.day.bin").exists()
+
+
+class TestIncrementalUpdate:
+    def test_incremental_from_last_date(self, syncer, mock_db, tmp_path):
+        """incremental_update reads last calendar date and calls sync_daily from there."""
+        # First do a full sync to create calendar
+        syncer.sync_daily()
+        cal_file = tmp_path / "qlib_data" / "calendars" / "day.txt"
+        lines = cal_file.read_text().strip().split("\n")
+        last_date = lines[-1]
+
+        # Now call incremental_update — it should call sync_daily with start=last_date
+        with patch.object(syncer, "sync_daily") as mock_sync:
+            syncer.incremental_update()
+            mock_sync.assert_called_once_with(start=last_date)
+
+    def test_incremental_no_calendar_does_full_sync(self, tmp_path):
+        """When no calendar exists, incremental_update does a full sync."""
+        mock_db = MagicMock()
+        mock_db.query_price.return_value = pd.DataFrame()
+        syncer = DataSynchronizer(db=mock_db, qlib_dir=str(tmp_path / "fresh_qlib"))
+        with patch.object(syncer, "sync_daily") as mock_sync:
+            syncer.incremental_update()
+            mock_sync.assert_called_once_with()
 
 
 class TestSymbolConversion:

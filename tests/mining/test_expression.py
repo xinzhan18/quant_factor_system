@@ -72,4 +72,18 @@ class TestSyntaxCheck:
 class TestSafeWrap:
     def test_wraps_div(self, validator):
         wrapped = validator.safe_wrap("Div($close, $volume)")
-        assert "Div" in wrapped or "If" in wrapped
+        assert "If(Greater(Abs($volume)" in wrapped
+
+    def test_wraps_nested_div(self, validator):
+        """safe_wrap should handle deeply nested expressions inside Div."""
+        expr = "Div(Rank(Mean($close, 5)), Std($volume, 10))"
+        wrapped = validator.safe_wrap(expr)
+        assert "If(Greater(Abs(Std($volume, 10))" in wrapped
+        assert "Rank(Mean($close, 5))" in wrapped
+
+    def test_wraps_double_nested_div(self, validator):
+        """safe_wrap should handle Div inside Div."""
+        expr = "Div(Div($close, $open), $volume)"
+        wrapped = validator.safe_wrap(expr)
+        # Both Divs should be wrapped
+        assert wrapped.count("If(Greater(Abs(") == 2

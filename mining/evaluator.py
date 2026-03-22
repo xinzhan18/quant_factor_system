@@ -30,6 +30,7 @@ class FactorMiningEvaluator:
     def __init__(self, config: MiningConfig):
         self.config = config
         self._factor_cache: Dict[str, pd.DataFrame] = {}
+        self._subset_factor_cache: Dict[str, pd.DataFrame] = {}
         self._ensure_qlib_initialized()
 
     def _ensure_qlib_initialized(self) -> None:
@@ -38,8 +39,13 @@ class FactorMiningEvaluator:
             import qlib
             if not getattr(qlib, "_is_initialized", False):
                 qlib.init(provider_uri=self.config.qlib_data_dir)
+        except ImportError:
+            logger.error(
+                "Qlib is not installed. Install with: pip install qlib. "
+                "The evaluator will fail when computing factors."
+            )
         except Exception as e:
-            logger.warning("Qlib init failed: %s", e)
+            logger.error("Qlib init failed: %s", e)
 
     def _compute_ic_from_frames(self, factor_values: pd.DataFrame, returns: pd.DataFrame) -> Dict[str, Any]:
         """Compute daily cross-sectional Spearman IC.
@@ -80,12 +86,20 @@ class FactorMiningEvaluator:
 
     def _pairwise_correlation(self, a: pd.DataFrame, b: pd.DataFrame) -> float:
         """Compute time-averaged cross-sectional Spearman correlation."""
-        a_col, b_col = a.columns[0], b.columns[0]
+        a_col = a.columns[0]
+        b_col = b.columns[0]
+        # Use explicit suffixes and reference them directly
         merged = a.join(b, how="inner", lsuffix="_a", rsuffix="_b").dropna()
         if merged.empty:
             return 0.0
+        # After join, columns are either suffixed (if same name) or original
+        if a_col == b_col:
+            col_a = f"{a_col}_a"
+            col_b = f"{b_col}_b"
+        else:
+            col_a = a_col
+            col_b = b_col
         corrs = []
-        col_a, col_b = merged.columns[0], merged.columns[1]
         for dt, group in merged.groupby(level="datetime"):
             if len(group) < 3:
                 continue
@@ -95,15 +109,34 @@ class FactorMiningEvaluator:
         return float(np.mean(corrs)) if corrs else 0.0
 
     def _get_fast_screening_universe(self) -> list:
-        """Select top-N stocks by average daily turnover from configured universe."""
+        """Select top-N stocks by average daily volume from configured universe."""
         if self.config.custom_universe:
             universe = self.config.custom_universe
         else:
             from qlib.data import D
             universe = list(D.instruments(self.config.universe))
-        if len(universe) > self.config.fast_screening_universe_size:
+
+        if len(universe) <= self.config.fast_screening_universe_size:
+            return universe
+
+        # Sort by average daily volume (liquidity proxy) and take top-N
+        try:
+            from qlib.data import D
+            vol_data = D.features(
+                instruments=universe,
+                fields=["$volume"],
+                start_time=self.config.train_start,
+                end_time=self.config.train_end,
+            )
+            avg_vol = vol_data.groupby(level="instrument").mean().squeeze()
+            top_symbols = avg_vol.nlargest(self.config.fast_screening_universe_size).index.tolist()
+            return top_symbols
+        except Exception as e:
+            logger.warning(
+                "Failed to sort universe by liquidity (%s), falling back to first %d symbols",
+                e, self.config.fast_screening_universe_size,
+            )
             return universe[:self.config.fast_screening_universe_size]
-        return universe
 
     def _get_full_universe(self) -> list:
         if self.config.custom_universe:
@@ -114,11 +147,14 @@ class FactorMiningEvaluator:
     def _fast_ic_screening(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Stage 1: Calculate IC on fast-screening subset universe."""
         subset = self._get_fast_screening_universe()
+        # I1: Load returns once outside the loop — same for all candidates
+        returns = self._get_returns_qlib(subset, self.config.train_start, self.config.train_end)
         results = []
         for c in candidates:
             try:
                 values = self._compute_factor_qlib(c["expression"], subset, self.config.train_start, self.config.train_end)
-                returns = self._get_returns_qlib(subset, self.config.train_start, self.config.train_end)
+                # I3: Cache subset factor values for reuse in Stage 1.5
+                self._subset_factor_cache[c["expression"]] = values
                 ic_stats = self._compute_ic_from_frames(values, returns)
                 c["stage1"] = ic_stats
                 if abs(ic_stats.get("ic_mean", 0)) >= self.config.ic_threshold:
@@ -134,14 +170,19 @@ class FactorMiningEvaluator:
         """Stage 1.5: Remove intra-batch duplicates. Keep higher-IC factor."""
         if len(candidates) <= 1:
             return list(candidates)
-        subset = self._get_fast_screening_universe()
+        # I3: Reuse cached subset factor values from Stage 1
         values_map: Dict[str, pd.DataFrame] = {}
         for c in candidates:
-            try:
-                vals = self._compute_factor_qlib(c["expression"], subset, self.config.train_start, self.config.train_end)
-                values_map[c["expression"]] = vals
-            except Exception:
-                values_map[c["expression"]] = pd.DataFrame()
+            cached = self._subset_factor_cache.get(c["expression"])
+            if cached is not None:
+                values_map[c["expression"]] = cached
+            else:
+                try:
+                    subset = self._get_fast_screening_universe()
+                    vals = self._compute_factor_qlib(c["expression"], subset, self.config.train_start, self.config.train_end)
+                    values_map[c["expression"]] = vals
+                except Exception:
+                    values_map[c["expression"]] = pd.DataFrame()
         sorted_candidates = sorted(candidates, key=lambda c: abs(c.get("stage1", {}).get("ic_mean", 0)), reverse=True)
         kept = []
         for c in sorted_candidates:
@@ -180,11 +221,12 @@ class FactorMiningEvaluator:
                 lib_values[lf["id"]] = vals
             except Exception as e:
                 logger.warning("Failed to compute library factor %s: %s", lf["id"], e)
+        # I1: Load returns once outside the loop
+        returns = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
         for c in candidates:
             try:
                 factor_vals = self._compute_factor_qlib(c["expression"], full_universe, self.config.train_start, self.config.train_end)
                 self._factor_cache[c["expression"]] = factor_vals
-                returns = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
                 full_ic = self._compute_ic_from_frames(factor_vals, returns)
                 c["full_ic"] = full_ic
                 max_corr, max_corr_factor = 0.0, None
@@ -230,10 +272,14 @@ class FactorMiningEvaluator:
         corrs = candidate.get("_lib_correlations", {})
         return sum(1 for v in corrs.values() if v >= self.config.correlation_threshold)
 
-    def _full_validation(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Stage 3: Full validation with IS/OOS metrics. Reuses cached factor values."""
+    def _full_validation(self, candidates: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Stage 3: Full validation with IS/OOS metrics. Reuses cached factor values.
+
+        Returns (validated, errors) — factors that error in Stage 3 are separated.
+        """
         full_universe = self._get_full_universe()
         validated = []
+        errors = []
         for c in candidates:
             try:
                 cached_vals = self._factor_cache.get(c["expression"])
@@ -275,8 +321,9 @@ class FactorMiningEvaluator:
                 validated.append(c)
             except Exception as e:
                 c["stage3"] = {"error": str(e)}
-                validated.append(c)
-        return validated
+                errors.append(c)
+                logger.warning("Stage 3 error for %s: %s", c.get("name"), e)
+        return validated, errors
 
     def _compute_quantile_returns(self, factor_values: pd.DataFrame, returns: pd.DataFrame, n_quantiles: int = 5) -> Dict[str, float]:
         factor_col = factor_values.columns[0]
@@ -285,19 +332,34 @@ class FactorMiningEvaluator:
         if merged.empty:
             return {f"q{i+1}": np.nan for i in range(n_quantiles)}
         result = {}
+        total_days = merged.index.get_level_values("datetime").nunique()
+        skipped_days = 0
         for dt, group in merged.groupby(level="datetime"):
             if len(group) < n_quantiles:
+                skipped_days += 1
                 continue
             group = group.copy()
             group["quantile"] = pd.qcut(group[factor_col], n_quantiles, labels=False, duplicates="drop")
             for q in range(n_quantiles):
                 q_ret = group.loc[group["quantile"] == q, returns_col].mean()
                 result.setdefault(f"q{q+1}", []).append(q_ret)
+        if skipped_days > 0:
+            logger.warning(
+                "Quantile returns: skipped %d/%d days with too few stocks (< %d)",
+                skipped_days, total_days, n_quantiles,
+            )
+        # Warn if not all quantile buckets are present
+        present_keys = set(result.keys())
+        expected_keys = {f"q{i+1}" for i in range(n_quantiles)}
+        missing_keys = expected_keys - present_keys
+        if missing_keys:
+            logger.warning("Quantile returns: missing buckets %s — monotonicity/ls_return may be unreliable", missing_keys)
         return {k: float(np.nanmean(v)) if v else np.nan for k, v in result.items()}
 
     def evaluate_batch(self, candidates: List[Dict[str, Any]]) -> BatchResult:
         """Run multi-stage pipeline on a batch of candidate factors."""
         self._factor_cache.clear()
+        self._subset_factor_cache: Dict[str, pd.DataFrame] = {}
         validator = ExpressionValidator(self.config)
         valid, invalid = [], []
         for c in candidates:
@@ -313,8 +375,9 @@ class FactorMiningEvaluator:
         stage1_deduped = self._batch_dedup(stage1_passed)
         stage2_passed, stage2_rejected = self._correlation_check(stage1_deduped)
         replacements = self._replacement_check(stage2_rejected)
-        validated = self._full_validation(stage2_passed)
+        validated, stage3_errors = self._full_validation(stage2_passed)
         all_rejected = invalid + [c for c in valid if c not in stage1_passed]
         all_rejected += [c for c in stage1_passed if c not in stage1_deduped]
         all_rejected += stage2_rejected
+        all_rejected += stage3_errors
         return BatchResult(admitted=validated, rejected=all_rejected, replacements=replacements)
