@@ -101,19 +101,28 @@ User invokes /factor-mine
     │   │   - Current library state (domain saturation)
     │   ├── Output format: Qlib Alpha expressions
     │   │   Example: Neg(Rank(Div(Sub($close, $vwap), $vwap)))
+    │   │   Category must be one of: vwap, momentum, volatility, volume,
+    │   │   regime, efficiency, distribution, trend, candlestick, intraday_agg, other
     │   ├── Write to mining/candidates/batch_XXX.yaml
-    │   └── Generates 5-10 candidates per batch
+    │   └── Generates candidates_per_batch candidates (default 8)
+    │
+    │   Note: The skill prompt template includes instructions for Claude to
+    │   read YAML memory files via the Read tool, and to write candidates
+    │   via the Write tool. Memory content is loaded into prompt context.
     │
     ├── Step 3: Multi-Stage Evaluation (Python script)
     │   ├── Invoke: python -m mining.evaluator --batch batch_XXX
-    │   ├── Stage 1: Fast IC Screening (50-stock subset)
+    │   ├── Stage 1: Fast IC Screening (top-50 by liquidity from universe)
     │   │   └── Filter: |IC_mean| ≥ τ_IC (default 0.03 for daily)
-    │   ├── Stage 2: Correlation Check (against library L)
+    │   ├── Stage 1.5: Batch Deduplication (intra-batch ρ < θ before library check)
+    │   ├── Stage 2: Full Universe Computation + Correlation Check (against library L)
+    │   │   ├── Compute factor values on full universe (cached for Stage 4 reuse)
     │   │   └── Filter: max_{g∈L} |ρ(α, g)| < θ (default 0.5)
     │   ├── Stage 2.5: Replacement Check (for Stage 2 rejects)
-    │   │   └── Condition: IC(α) ≥ 0.05 AND IC(α) ≥ 1.3×IC(g*) AND single conflict
-    │   ├── Stage 3: Batch Deduplication (intra-batch ρ < θ)
-    │   ├── Stage 4: Full Validation (complete asset set + time range)
+    │   │   └── Condition: IC_full(α) ≥ 0.05 AND IC_full(α) ≥ 1.3×IC(g*) AND single conflict
+    │   │       (uses full-universe IC, not Stage 1 subset IC)
+    │   ├── Stage 3: Full Validation (reuse cached factor values)
+    │   │   └── Compute full metrics: IC, ICIR, quantile returns, win rate
     │   └── Output: mining/candidates/batch_XXX_result.yaml
     │
     ├── Step 4: Library Update
@@ -264,54 +273,219 @@ quantile_returns:
 financial_logic: "VWAP deviation captures mean-reversion to volume-weighted average price. Negative rank means lower factor value → higher expected return (buy when price is below VWAP)."
 ```
 
-## 4-Stage Evaluation Pipeline
+## Evaluation Pipeline
+
+### Pipeline Stages (revised order)
+
+The pipeline has been revised from the paper's 4-stage design to address:
+- **Batch dedup before library check** (avoids wasted computation on duplicates)
+- **Factor value caching** (Stage 2 full-universe values reused in Stage 3)
+- **Consistent IC comparison** (replacement check uses full-universe IC, not subset IC)
+
+```
+Stage 1: Fast IC Screening
+  → subset universe (top-50 by liquidity from configured universe)
+  → filter |IC_mean| ≥ τ_IC
+
+Stage 1.5: Batch Deduplication
+  → compute pairwise correlation among Stage 1 survivors (on subset)
+  → keep higher-IC factor from each correlated pair (ρ ≥ θ)
+
+Stage 2: Full Universe Computation + Correlation Check
+  → compute factor values on FULL universe (results cached in _factor_cache)
+  → re-compute IC on full universe → "full_ic" (used for replacement)
+  → compute correlation with all library factors
+  → filter max|ρ| < θ
+
+Stage 2.5: Replacement Check (on Stage 2 rejects)
+  → uses full_ic (from Stage 2), NOT subset IC from Stage 1
+  → conflict count = number of library factors with ρ ≥ θ
+  → replace if: full_ic ≥ replacement_ic_min AND full_ic ≥ 1.3×IC(g*) AND conflicts == 1
+
+Stage 3: Full Validation (reuses cached factor values)
+  → compute: IC/ICIR (in-sample + out-of-sample), quantile returns, win rate
+  → in-sample: train_start to train_end
+  → out-of-sample: test_start to test_end
+```
+
+### Expression Validation
+
+Before any factor evaluation, expressions are validated:
+
+```python
+# mining/expression.py
+
+class ExpressionValidator:
+    """Validate Qlib factor expressions before computation."""
+
+    def validate(self, expression: str) -> ValidationResult:
+        """
+        1. Syntax check: parse expression through Qlib's expression parser
+           without computing (catches malformed expressions)
+        2. Field check: verify all referenced fields ($close, $vwap, etc.)
+           exist in the data
+        3. Depth check: expression tree depth ≤ MAX_DEPTH (default 10)
+           to prevent runaway computation
+        4. Safety check: no infinite values possible (wrap Div with safe_div)
+        Returns: ValidationResult(valid, errors, warnings)
+        """
+
+    def safe_wrap(self, expression: str) -> str:
+        """Add safety wrappers (e.g., replace Div with safe_div that handles zero)."""
+```
+
+### T+1 Returns Computation
+
+Forward returns are computed as a Qlib expression field, ensuring consistency:
+
+```python
+# T+1 returns field (computed during data sync and stored as a feature)
+# In data_sync.py, we pre-compute and store:
+#   $returns_1d = Ref($close, -1) / $close - 1   (forward 1-day return)
+#
+# In evaluator, IC is computed as:
+#   Spearman correlation between factor_values and $returns_1d
+#   grouped by date (cross-sectional)
+#
+# Stock suspensions: NaN returns (excluded from IC calculation)
+# Limit-up/down: included but with NaN returns on the following day
+#   when the stock cannot be traded
+```
+
+### Fast Screening Universe Selection
+
+```python
+def _get_fast_screening_universe(self) -> list:
+    """
+    Select top-N stocks by average daily turnover from the configured universe.
+    Rationale: high-liquidity stocks have more reliable price signals,
+    making Stage 1 IC screening more representative.
+    N = config.fast_screening_universe_size (default 50)
+    """
+```
+
+### Category Classification
+
+Factor categories are assigned by Claude during generation and must match one of
+the predefined categories in `state.yaml.domain_saturation`. If Claude proposes
+a new category, it maps to the closest existing one or "other". The skill prompt
+includes the category list as a constraint.
+
+Predefined categories: vwap, momentum, volatility, volume, regime, efficiency,
+distribution, trend, candlestick, intraday_agg, other.
+
+### Qlib Operator Semantics Note
+
+**Important**: Qlib's `Rank` operator is `CSRankNorm` (cross-sectional rank
+normalized to [0,1]). This is the correct mapping for the paper's `CsRank`.
+Verify during implementation by checking:
+```python
+from qlib.data.ops import Rank
+# Rank computes percentile rank across all instruments at each timestamp
+```
+If Qlib's `Rank` is time-series instead of cross-sectional, use `CSRankNorm`
+explicitly or register a custom `CsRank` operator.
 
 ### mining/evaluator.py
 
 ```python
+@dataclass
+class BatchResult:
+    """Result of a batch evaluation."""
+    admitted: List[dict]
+    rejected: List[dict]
+    replacements: List[dict]
+
 class FactorMiningEvaluator:
-    """4-stage factor mining evaluation pipeline using Qlib."""
+    """Multi-stage factor mining evaluation pipeline using Qlib."""
 
     def __init__(self, config: MiningConfig):
         self.config = config
-        # Initialize Qlib
-        qlib.init(provider_uri=config.qlib_data_dir)
+        self._factor_cache: Dict[str, pd.DataFrame] = {}  # expression -> values
+        self._ensure_qlib_initialized()
+
+    def _ensure_qlib_initialized(self):
+        """Initialize Qlib idempotently (safe to call multiple times)."""
+        try:
+            import qlib
+            if not qlib.is_initialized():
+                qlib.init(provider_uri=self.config.qlib_data_dir)
+        except AttributeError:
+            # Older Qlib versions: catch re-init warning
+            import qlib
+            qlib.init(provider_uri=self.config.qlib_data_dir, exist_ok=True)
 
     def evaluate_batch(self, candidates: List[dict]) -> BatchResult:
-        """Run 4-stage pipeline on a batch of candidate factors."""
-        # Stage 1: Fast IC on small subset
-        stage1_passed = self._fast_ic_screening(candidates)
-        # Stage 2: Correlation with library
-        stage2_passed, stage2_rejected = self._correlation_check(stage1_passed)
-        # Stage 2.5: Replacement for rejects
+        """Run multi-stage pipeline on a batch of candidate factors."""
+        self._factor_cache.clear()
+
+        # Validate expressions first
+        valid, invalid = self._validate_expressions(candidates)
+
+        # Stage 1: Fast IC on subset
+        stage1_passed = self._fast_ic_screening(valid)
+
+        # Stage 1.5: Intra-batch dedup (before library check, saves computation)
+        stage1_deduped = self._batch_dedup(stage1_passed, use_subset=True)
+
+        # Stage 2: Full universe computation + correlation check
+        # Factor values computed here are CACHED for Stage 3 reuse
+        stage2_passed, stage2_rejected = self._correlation_check(stage1_deduped)
+
+        # Stage 2.5: Replacement check (uses full-universe IC from Stage 2)
         replacements = self._replacement_check(stage2_rejected)
-        # Stage 3: Intra-batch dedup
-        stage3_passed = self._batch_dedup(stage2_passed)
-        # Stage 4: Full validation
-        validated = self._full_validation(stage3_passed)
-        return BatchResult(admitted=validated, rejected=stage2_rejected, replacements=replacements)
+
+        # Stage 3: Full validation (reuses cached values)
+        validated = self._full_validation(stage2_passed)
+
+        all_rejected = invalid + [c for c in valid if c not in stage1_passed] + stage2_rejected
+        return BatchResult(admitted=validated, rejected=all_rejected, replacements=replacements)
+
+    def _validate_expressions(self, candidates):
+        """Pre-validate all expressions before evaluation."""
+        valid, invalid = [], []
+        validator = ExpressionValidator()
+        for c in candidates:
+            result = validator.validate(c["expression"])
+            if result.valid:
+                valid.append(c)
+            else:
+                c["validation_error"] = result.errors
+                invalid.append(c)
+        return valid, invalid
 
     def _fast_ic_screening(self, candidates):
-        """Stage 1: Calculate IC on small asset subset."""
+        """Stage 1: Calculate IC on top-50 liquidity subset."""
         subset = self._get_fast_screening_universe()
         results = []
         for c in candidates:
             try:
                 values = self._compute_factor(c["expression"], subset)
-                ic_stats = self._compute_ic(values)
+                ic_stats = self._compute_ic(values, subset)
                 if abs(ic_stats["ic_mean"]) >= self.config.ic_threshold:
                     c["stage1"] = ic_stats
                     results.append(c)
+                else:
+                    c["stage1"] = {**ic_stats, "rejected": True}
             except Exception as e:
                 c["stage1"] = {"error": str(e)}
         return results
 
     def _correlation_check(self, candidates):
-        """Stage 2: Check cross-sectional correlation with library."""
+        """Stage 2: Compute on full universe, check correlation with library."""
         library = self._load_library_factors()
+        full_universe = self._get_full_universe()
         passed, rejected = [], []
         for c in candidates:
-            factor_vals = self._compute_factor(c["expression"], self._get_full_universe())
+            # Compute on full universe and CACHE
+            factor_vals = self._compute_factor(c["expression"], full_universe)
+            self._factor_cache[c["expression"]] = factor_vals
+
+            # Re-compute IC on full universe for accurate comparison
+            full_ic = self._compute_ic(factor_vals, full_universe)
+            c["full_ic"] = full_ic
+
+            # Correlation check
             max_corr, max_corr_factor = self._max_library_correlation(factor_vals, library)
             if max_corr < self.config.correlation_threshold:
                 c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": True}
@@ -322,34 +496,48 @@ class FactorMiningEvaluator:
         return passed, rejected
 
     def _replacement_check(self, rejected):
-        """Stage 2.5: Check if rejected factors can replace weaker library members."""
+        """Stage 2.5: Check if rejected factors can replace weaker library members.
+        Uses full-universe IC (c["full_ic"]) for fair comparison with library ICs.
+        Conflict = number of library factors with ρ ≥ correlation_threshold.
+        """
         replacements = []
         for c in rejected:
-            if abs(c["stage1"]["ic_mean"]) < self.config.replacement_ic_min:
+            full_ic = abs(c["full_ic"]["ic_mean"])
+            if full_ic < self.config.replacement_ic_min:
                 continue
             g_star = c["stage2"]["max_corr_factor"]
             g_ic = self._get_library_factor_ic(g_star)
             conflicts = self._count_library_conflicts(c)
-            if (abs(c["stage1"]["ic_mean"]) >= self.config.replacement_ic_ratio * abs(g_ic)
-                    and conflicts == 1):
+            if full_ic >= self.config.replacement_ic_ratio * abs(g_ic) and conflicts == 1:
                 replacements.append({"new_factor": c, "replaces": g_star})
         return replacements
 
-    def _batch_dedup(self, candidates):
-        """Stage 3: Remove intra-batch duplicates."""
+    def _count_library_conflicts(self, candidate) -> int:
+        """Count library factors with ρ ≥ correlation_threshold."""
+        # Uses correlation values computed in Stage 2
+        # Returns number of library factors exceeding θ
+        ...
+
+    def _batch_dedup(self, candidates, use_subset=False):
+        """Remove intra-batch duplicates. Keep higher-IC factor from correlated pairs."""
         if len(candidates) <= 1:
             return candidates
-        # Compute pairwise correlation, keep higher-IC factor in each correlated pair
+        # Compute pairwise correlation (on subset or full universe)
+        # Greedy removal: sort by IC desc, remove later factors that correlate with earlier ones
         ...
 
     def _full_validation(self, candidates):
-        """Stage 4: Full validation on complete asset set."""
-        universe = self._get_full_universe()
+        """Stage 3: Full validation. Reuses cached factor values from Stage 2."""
         validated = []
         for c in candidates:
-            values = self._compute_factor(c["expression"], universe)
-            full_stats = self._compute_full_metrics(values)
-            c["stage4"] = full_stats
+            # Reuse cached values instead of recomputing
+            cached_vals = self._factor_cache.get(c["expression"])
+            if cached_vals is None:
+                cached_vals = self._compute_factor(c["expression"], self._get_full_universe())
+
+            # Compute full metrics (in-sample + out-of-sample)
+            full_stats = self._compute_full_metrics(cached_vals)
+            c["stage3"] = full_stats
             validated.append(c)
         return validated
 
@@ -363,17 +551,38 @@ class FactorMiningEvaluator:
             end_time=self.config.train_end,
         )
 
-    def _compute_ic(self, factor_values: pd.DataFrame) -> dict:
-        """Compute daily cross-sectional Spearman IC."""
-        # Merge with T+1 returns
-        # Group by date, compute Spearman correlation
-        # Return ic_mean, ic_std, ic_ir, ic_win_rate
+    def _compute_ic(self, factor_values: pd.DataFrame, universe: list) -> dict:
+        """Compute daily cross-sectional Spearman IC.
+        Forward returns: uses pre-computed $returns_1d field from Qlib data.
+        Groups by date, computes Spearman correlation per date, then aggregates.
+        Returns: ic_mean, ic_std, ic_ir, ic_win_rate, n_days
+        """
+        from qlib.data import D
+        returns = D.features(instruments=universe, fields=["$returns_1d"],
+                             start_time=self.config.train_start,
+                             end_time=self.config.train_end)
+        # Merge factor_values with returns on (datetime, instrument) index
+        # For each date: Spearman correlation between factor and returns
+        # Aggregate: mean, std, ir, win_rate
+        ...
+
+    def _compute_full_metrics(self, factor_values: pd.DataFrame) -> dict:
+        """Compute comprehensive metrics including OOS performance.
+        Returns:
+          - ic_mean_is, ic_ir_is (in-sample: train period)
+          - ic_mean_oos, ic_ir_oos (out-of-sample: test period)
+          - ic_win_rate
+          - quantile_returns: {q1, q2, q3, q4, q5}
+          - ls_return (long Q5 - short Q1)
+          - monotonicity (perfect ranking = 1.0)
+        """
         ...
 
     def _max_library_correlation(self, factor_vals, library_vals) -> tuple:
-        """Compute max cross-sectional Spearman correlation with library."""
-        # For each library factor, compute time-averaged cross-sectional correlation
-        # Return (max_correlation, most_correlated_factor_id)
+        """Compute max cross-sectional Spearman correlation with library.
+        For each library factor, compute time-averaged |cross-sectional Spearman ρ|.
+        Returns: (max_correlation, most_correlated_factor_id)
+        """
         ...
 ```
 
@@ -399,8 +608,12 @@ class DataSynchronizer:
           price_daily.close  → $close
           price_daily.volume → $volume
           price_daily.amount → $amount
-          price_daily.vwap   → $vwap
+          price_daily.vwap   → $vwap (NULL values filled with (open+high+low+close)/4)
           computed: $returns = close / Ref(close, 1) - 1
+          computed: $returns_1d = forward 1-day return (for IC evaluation)
+
+        Qlib instrument format: SH600000 (Shanghai), SZ000001 (Shenzhen)
+        Creates instruments file: instruments/all.txt and instruments/csi500.txt
         """
 
     def sync_minute_aggregates(self, start: str = "2024-01-01"):
@@ -437,17 +650,20 @@ class DataSynchronizer:
 
 ### Custom Extensions Needed
 
+Note: Some "missing" operators can be expressed with existing ones:
+- `Sqrt(x)` = `Power(x, 0.5)`, `Square(x)` = `Power(x, 2)`
+- `Inv(x)` = `Div(1, x)`, `Neg(x)` = `Mul(-1, x)`
+- `Corr(x, y, N)` = Qlib has `Correlation` built-in
+
+Truly new operators to register:
+
 | Operator | Definition | Reason |
 |----------|-----------|--------|
-| SignedPower | sign(x) * \|x\|^p | Non-linear transformation |
-| TsDecay | Time-decay weighted average | Recency weighting |
-| Scale | Normalize to [-1, 1] cross-sectionally | Cross-sectional normalization |
-| Corr | Rolling correlation between two series | Price-volume correlation |
-| Inv | 1/x | Inverse transformation |
-| Sqrt | sqrt(x) | Square root |
-| Square | x^2 | Square |
-| Exp | exp(x) | Exponential |
+| SignedPower | sign(x) * \|x\|^p | Non-linear transformation preserving sign |
+| TsDecay | Time-decay weighted average | Recency weighting (not just EMA) |
+| Scale | Cross-sectional normalization to [-1, 1] | Different from Rank (continuous vs ordinal) |
 | Tanh | tanh(x) | Bounded non-linearity |
+| Exp | exp(x) | Exponential (use with caution - overflow risk) |
 
 ### Base Feature Fields
 
@@ -488,7 +704,7 @@ class MiningConfig:
 
     # Universe
     universe: str = "csi500"              # Default universe
-    custom_universe: List[str] = None     # Custom stock pool
+    custom_universe: Optional[List[str]] = None  # Custom stock pool
 
     # Time ranges
     train_start: str = "2020-01-01"
