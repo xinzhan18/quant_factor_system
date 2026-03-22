@@ -3,6 +3,7 @@
 import yaml
 import pytest
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 from mining.library import FactorLibrary
 
 
@@ -61,3 +62,49 @@ class TestExpressions:
         exprs = library.get_all_expressions()
         assert len(exprs) == 2
         assert "Rank($close)" in exprs.values()
+
+
+class TestPublisherIntegration:
+    def test_admit_calls_publisher_when_values_present(self, library):
+        with patch("mining.publisher.FactorPublisher") as MockPub:
+            mock_instance = MockPub.return_value
+            mock_instance.publish.return_value = "/reports/factor_001.html"
+
+            factor = {
+                "name": "Test", "expression": "Rank($close)", "category": "momentum",
+                "batch": "b1", "metrics": {"ic_mean": 0.05},
+                "stage3": {"ic_mean_is": 0.05, "ic_ir_is": 0.8, "ic_mean_oos": 0.04,
+                           "ic_ir_oos": 0.6, "ic_win_rate": 0.65, "ls_return": 0.03, "monotonicity": 0.9},
+                "_factor_values": MagicMock(),
+                "_factor_values_oos": MagicMock(),
+            }
+            factor_id = library.admit(factor)
+            assert factor_id == "001"
+            mock_instance.publish.assert_called_once()
+
+    def test_admit_skips_publisher_when_no_values(self, library):
+        with patch("mining.publisher.FactorPublisher") as MockPub:
+            factor = {
+                "name": "Test", "expression": "Rank($close)", "category": "momentum",
+                "batch": "b1", "metrics": {"ic_mean": 0.05},
+            }
+            library.admit(factor)
+            MockPub.assert_not_called()
+
+    def test_replace_calls_publisher_when_values_present(self, library):
+        library.admit({
+            "name": "Old", "expression": "Rank($close)", "category": "momentum",
+            "batch": "b1", "metrics": {"ic_mean": 0.04},
+        })
+        with patch("mining.publisher.FactorPublisher") as MockPub:
+            mock_instance = MockPub.return_value
+            mock_instance.publish.return_value = "/reports/factor_001.html"
+
+            new_factor = {
+                "name": "Better", "expression": "Rank(Div($close, $vwap))",
+                "category": "momentum", "batch": "b2", "metrics": {"ic_mean": 0.07},
+                "_factor_values": MagicMock(),
+                "_factor_values_oos": MagicMock(),
+            }
+            library.replace("001", new_factor)
+            mock_instance.publish.assert_called_once()
