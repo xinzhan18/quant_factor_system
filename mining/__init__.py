@@ -5,6 +5,7 @@ from .expression import ExpressionValidator, ValidationResult
 from .evaluator import FactorMiningEvaluator, BatchResult
 from .library import FactorLibrary
 from .memory import ExperienceMemory
+from .preprocessing import FactorPreprocessor
 from data.qlib_sync import DataSynchronizer
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "BatchResult",
     "FactorLibrary",
     "ExperienceMemory",
+    "FactorPreprocessor",
     "DataSynchronizer",
 ]
