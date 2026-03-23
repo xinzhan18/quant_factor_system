@@ -246,6 +246,8 @@ class TestTransientKeys:
         evaluator.config = config
         evaluator._factor_cache = {"Rank($close)": sample_factor_values}
         evaluator._subset_factor_cache = {}
+        evaluator._aux_cache = {}
+        evaluator._preprocessor = MagicMock()
 
         with patch.object(evaluator, '_get_full_universe', return_value=["SH600000"]):
             with patch.object(evaluator, '_get_returns_qlib', return_value=sample_returns):
