@@ -10,7 +10,32 @@ insights:
   - insight: "Amount efficiency (Returns/Amount) produces signals orthogonal to pure price-based factors"
     confidence: high
     source: "paper finding"
+    note: "$amount field is zero in our dataset — need data fix before testing this direction"
 
   - insight: "Daily frequency VWAP signal space is more limited than intraday; minute-aggregated features may offer more room"
     confidence: medium
     source: hypothesis
+
+  - insight: "Low volatility anomaly is strong in A-shares: Std(returns,20) yields IC=-0.058 with -0.9 monotonicity"
+    confidence: high
+    source: "batch_001 empirical"
+
+  - insight: "Volume contraction (declining relative volume) predicts positive returns: IC=-0.032, mono=-0.9"
+    confidence: high
+    source: "batch_001 empirical"
+
+  - insight: "Simple trend regression signals (Slope, Rsquare) have near-zero IC — need to be used as regime conditions in IfElse, not as standalone factors"
+    confidence: high
+    source: "batch_001 empirical"
+
+  - insight: "Higher moments (Kurt, Skew) are too noisy as standalone signals (IC < 0.02) — should be used as conditional branches"
+    confidence: high
+    source: "batch_001 empirical"
+
+  - insight: "Correlation operator is not registered in our Qlib build — use Rsquare or Cov-based alternatives"
+    confidence: high
+    source: "batch_001 runtime error"
+
+  - insight: "OOS IC closely matches IS IC for both admitted factors — low overfitting risk at this expression complexity"
+    confidence: medium
+    source: "batch_001 empirical"

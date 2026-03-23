@@ -3,5 +3,14 @@ thresholds:
   correlation_max: 0.5
   replacement_ic_ratio: 1.3
   replacement_ic_min: 0.05
-
-factors: []
+factors:
+- id: '001'
+  name: std_returns_20
+  expression: Std($close/Ref($close,1)-1, 20)
+  category: volatility
+  ic_mean: -0.0575
+- id: '002'
+  name: delta_volume_5
+  expression: Delta($volume, 5) / Mean($volume, 20)
+  category: volume
+  ic_mean: -0.0323

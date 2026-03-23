@@ -6,23 +6,36 @@ recommended_directions:
 
   - pattern: "Trend Regression Adaptive"
     description: "Use Rsquare/Slope/Resi for adaptive trend regression. High R2 trend follow, Low R2 mean reversion"
-    success_rate: high
+    success_rate: low
     example_factors: []
+    note: "Batch 001: Slope IC=-0.0004, Rsquare IC=-0.007 — simple linear trend signals too weak on their own. Need non-linear combinations."
 
   - pattern: "PV Corr Interaction"
     description: "Combine price-volume correlation with amount efficiency or trend operators to capture volume-price coordination"
     success_rate: high
     example_factors: []
+    note: "Correlation operator not registered in Qlib. Use Rsquare or manual correlation via (Cov/Std*Std) instead."
 
   - pattern: "Robust Efficiency"
     description: "Use median and other robust statistics to smooth amount efficiency, filtering extreme noise"
     success_rate: high
     example_factors: []
+    note: "Batch 001: amount field is zero in our data — need to fix data sync or use $volume * $vwap as proxy."
 
   - pattern: "Intraday Aggregation Features"
     description: "Leverage minute-data aggregated features (intraday_vol, intraday_skew, volume_concentration) as inputs for daily factors"
     success_rate: medium
     example_factors: []
+
+  - pattern: "Low Volatility Anomaly"
+    description: "Low realized volatility stocks outperform — confirmed by std_returns_20 (IC=-0.058, mono=-0.9)"
+    success_rate: high
+    example_factors: ["factor_001"]
+
+  - pattern: "Volume Contraction"
+    description: "Declining volume predicts positive returns — confirmed by delta_volume_5 (IC=-0.032, mono=-0.9)"
+    success_rate: high
+    example_factors: ["factor_002"]
 
 forbidden_regions:
   - direction: "Simple VWAP Deviation"
@@ -34,3 +47,13 @@ forbidden_regions:
     reason: "Simple return standardization is redundant with existing factors"
     correlated_factors: []
     correlation: "> 0.6"
+
+  - direction: "Simple Linear Trend (Slope/Rsquare alone)"
+    reason: "Batch 001: IC < 0.01 — linear trend signals have no predictive power in isolation"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Raw Kurtosis/Skewness"
+    reason: "Batch 001: IC < 0.02 — higher moments alone are too noisy as direct signals"
+    correlated_factors: []
+    correlation: "N/A"

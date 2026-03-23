@@ -1,0 +1,129 @@
+admitted:
+- category: volatility
+  expression: Std($close/Ref($close,1)-1, 20)
+  full_ic:
+    ic_ir: -0.3041961283067097
+    ic_mean: -0.05824082555028279
+    ic_std: 0.19145814206931888
+    ic_win_rate: 0.374896779521057
+    n_days: 1211
+  name: std_returns_20
+  rationale: 20-day realized volatility
+  stage1:
+    ic_ir: -0.1988709150410958
+    ic_mean: -0.05745832446590093
+    ic_std: 0.2889227137815875
+    ic_win_rate: 0.4186622625928984
+    n_days: 1211
+  stage2:
+    max_corr: 0.0
+    max_corr_factor: null
+    passed: true
+  stage3:
+    ic_ir_is: -0.3041961283067097
+    ic_ir_oos: -0.23952040379553713
+    ic_mean_is: -0.05824082555028279
+    ic_mean_oos: -0.05740273176517664
+    ic_win_rate: 0.374896779521057
+    ls_return: -0.0008941056294133887
+    monotonicity: -0.8999999999999998
+    quantile_returns:
+      q1: 0.0007279872079379857
+      q2: 0.0007338030845858157
+      q3: 0.000642202387098223
+      q4: 0.0005403258837759495
+      q5: -0.000166118421475403
+- category: volume
+  expression: Delta($volume, 5) / Mean($volume, 20)
+  full_ic:
+    ic_ir: -0.41506056198832925
+    ic_mean: -0.037850660612104355
+    ic_std: 0.09119310307580764
+    ic_win_rate: 0.3338842975206612
+    n_days: 1210
+  name: delta_volume_5
+  rationale: 5-day volume change normalized by 20-day average
+  stage1:
+    ic_ir: -0.15975417648884022
+    ic_mean: -0.032332312265090216
+    ic_std: 0.20238789980773256
+    ic_win_rate: 0.43553719008264463
+    n_days: 1210
+  stage2:
+    max_corr: 0.0
+    max_corr_factor: null
+    passed: true
+  stage3:
+    ic_ir_is: -0.41506056198832925
+    ic_ir_oos: -0.5923448804307563
+    ic_mean_is: -0.037850660612104355
+    ic_mean_oos: -0.051192387551537856
+    ic_win_rate: 0.3338842975206612
+    ls_return: -0.0010261486750096083
+    monotonicity: -0.8999999999999998
+    quantile_returns:
+      q1: 0.0007235723314806819
+      q2: 0.0007301162113435566
+      q3: 0.0006828710320405662
+      q4: 0.0006034885882399976
+      q5: -0.00030257634352892637
+batch_id: batch_001
+rejected:
+- category: trend
+  expression: Slope($close, 20)
+  name: slope_close_20
+  rationale: 20-day price trend slope
+  stage1:
+    ic_ir: -0.0016879993972440854
+    ic_mean: -0.0004390459455816739
+    ic_std: 0.2600984018705711
+    ic_win_rate: 0.49710982658959535
+    n_days: 1211
+- category: trend
+  expression: Rsquare($close, 20)
+  name: rsquare_close_20
+  rationale: R-squared of 20-day trend regression
+  stage1:
+    ic_ir: -0.03630595006394015
+    ic_mean: -0.006890345284599452
+    ic_std: 0.18978556607014924
+    ic_win_rate: 0.4913294797687861
+    n_days: 1211
+- category: distribution
+  expression: Kurt($close/Ref($close,1)-1, 20)
+  name: kurt_returns_20
+  rationale: 20-day return kurtosis — fat tail regime
+  stage1:
+    ic_ir: 0.042971516368076335
+    ic_mean: 0.0072309518379685715
+    ic_std: 0.16827313646628647
+    ic_win_rate: 0.5243600330305532
+    n_days: 1211
+- category: distribution
+  expression: Skew($close/Ref($close,1)-1, 20)
+  name: skew_returns_20
+  rationale: 20-day return skewness — asymmetry signal
+  stage1:
+    ic_ir: -0.10359855191558036
+    ic_mean: -0.019216900438339655
+    ic_std: 0.18549390974112248
+    ic_win_rate: 0.4434351775392238
+    n_days: 1211
+- category: volume
+  expression: Correlation($close, $volume, 10)
+  name: corr_close_volume_10
+  rationale: 10-day price-volume correlation
+  stage1:
+    error: The operator [Correlation] is not registered
+- category: efficiency
+  expression: Mean($close/Ref($close,1)-1, 20) / Mean($amount, 20)
+  name: amount_efficiency_20
+  rationale: Return per unit of trading amount
+  stage1:
+    ic_ir: .nan
+    ic_mean: .nan
+    ic_std: .nan
+    ic_win_rate: .nan
+    n_days: 0
+replacements: []
+timestamp: '2026-03-23T21:52:52.011524'
