@@ -67,13 +67,13 @@ class FactorLibrary:
         if "_factor_values" in factor:
             try:
                 from .publisher import FactorPublisher
-                publisher = FactorPublisher(self._config)
-                publisher.publish(
-                    factor_id=factor_id,
-                    factor_dict=factor,
-                    factor_values_is=factor["_factor_values"],
-                    factor_values_oos=factor["_factor_values_oos"],
-                )
+                with FactorPublisher(self._config) as publisher:
+                    publisher.publish(
+                        factor_id=factor_id,
+                        factor_dict=factor,
+                        factor_values_is=factor["_factor_values"],
+                        factor_values_oos=factor["_factor_values_oos"],
+                    )
             except Exception as e:
                 logger.warning("Failed to publish factor %s: %s", factor_id, e)
         return factor_id
@@ -105,13 +105,13 @@ class FactorLibrary:
         if "_factor_values" in new_factor:
             try:
                 from .publisher import FactorPublisher
-                publisher = FactorPublisher(self._config)
-                publisher.publish(
-                    factor_id=old_id,
-                    factor_dict=new_factor,
-                    factor_values_is=new_factor["_factor_values"],
-                    factor_values_oos=new_factor["_factor_values_oos"],
-                )
+                with FactorPublisher(self._config) as publisher:
+                    publisher.publish(
+                        factor_id=old_id,
+                        factor_dict=new_factor,
+                        factor_values_is=new_factor["_factor_values"],
+                        factor_values_oos=new_factor["_factor_values_oos"],
+                    )
             except Exception as e:
                 logger.warning("Failed to publish factor %s: %s", old_id, e)
         return old_id

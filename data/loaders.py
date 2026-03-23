@@ -3,9 +3,13 @@
 Data Loaders Module
 """
 
+import logging
 import re
+
 import pandas as pd
 from typing import List, Tuple, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def _validate_identifier(name: str) -> str:
@@ -65,25 +69,21 @@ def get_price_data(
     table_name: str = 'price_daily'
 ) -> Optional[pd.DataFrame]:
     """从数据库获取价格数据"""
+    if not symbols:
+        return None
     try:
-        if not symbols:
-            return None
-        cursor = connection.cursor()
         _validate_identifier(table_name)
-        placeholders = ','.join(['%s'] * len(symbols))
-        cursor.execute(f"""
+        sql = f"""
             SELECT time, symbol, close
             FROM {table_name}
-            WHERE symbol IN ({placeholders})
+            WHERE symbol = ANY(%s)
             AND time >= %s AND time <= %s
             ORDER BY symbol, time
-        """, symbols + [start_date, end_date])
-        cols = ['time', 'symbol', 'close']
-        rows = cursor.fetchall()
-        if not rows:
-            return None
-        return pd.DataFrame(rows, columns=cols)
-    except Exception:
+        """
+        df = pd.read_sql(sql, connection, params=[symbols, start_date, end_date])
+        return df if not df.empty else None
+    except Exception as e:
+        logger.warning("Failed to load price data: %s", e)
         return None
 
 
@@ -95,8 +95,8 @@ def get_database_tables(connection) -> List[str]:
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = 'public'
-            AND table_name NOT LIKE 'pg_%%'
-            AND table_name NOT LIKE 'sql_%%'
+            AND table_name NOT LIKE 'pg_%'
+            AND table_name NOT LIKE 'sql_%'
             ORDER BY table_name
         """)
         return [row[0] for row in cursor.fetchall()]

@@ -68,6 +68,8 @@ class TestPublisherIntegration:
     def test_admit_calls_publisher_when_values_present(self, library):
         with patch("mining.publisher.FactorPublisher") as MockPub:
             mock_instance = MockPub.return_value
+            mock_instance.__enter__ = MagicMock(return_value=mock_instance)
+            mock_instance.__exit__ = MagicMock(return_value=False)
             mock_instance.publish.return_value = "/reports/factor_001.html"
 
             factor = {
@@ -98,6 +100,8 @@ class TestPublisherIntegration:
         })
         with patch("mining.publisher.FactorPublisher") as MockPub:
             mock_instance = MockPub.return_value
+            mock_instance.__enter__ = MagicMock(return_value=mock_instance)
+            mock_instance.__exit__ = MagicMock(return_value=False)
             mock_instance.publish.return_value = "/reports/factor_001.html"
 
             new_factor = {
