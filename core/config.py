@@ -22,7 +22,7 @@ class DatabaseConfig:
     """数据库配置"""
     host: str = "localhost"
     port: int = 5432
-    database: str = "quant"
+    database: str = "quant_data"
     user: str = "postgres"
     password: str = "postgres"
     pool_size: int = 5

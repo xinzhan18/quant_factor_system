@@ -503,10 +503,18 @@ class ReportDataBuilder:
     def _generate_distribution_charts(self, fv_is, fv_oos, name) -> dict:
         charts = {}
         try:
+            # Sample up to 20k points to keep chart size manageable
+            _MAX_HIST_PTS = 20_000
+            is_vals = fv_is.iloc[:, 0].dropna()
+            if len(is_vals) > _MAX_HIST_PTS:
+                is_vals = is_vals.sample(_MAX_HIST_PTS, random_state=42)
             fig = go.Figure()
-            fig.add_trace(go.Histogram(x=fv_is.iloc[:, 0].dropna(), name="In-Sample", opacity=0.6, histnorm="probability density"))
+            fig.add_trace(go.Histogram(x=is_vals, name="In-Sample", opacity=0.6, histnorm="probability density"))
             if len(fv_oos) > 0:
-                fig.add_trace(go.Histogram(x=fv_oos.iloc[:, 0].dropna(), name="Out-of-Sample", opacity=0.6, histnorm="probability density"))
+                oos_vals = fv_oos.iloc[:, 0].dropna()
+                if len(oos_vals) > _MAX_HIST_PTS:
+                    oos_vals = oos_vals.sample(_MAX_HIST_PTS, random_state=42)
+                fig.add_trace(go.Histogram(x=oos_vals, name="Out-of-Sample", opacity=0.6, histnorm="probability density"))
             fig.update_layout(title=f"{name} Factor Distribution IS vs OOS", template="plotly_white", height=350, barmode="overlay")
             charts["distribution_overlay"] = self._fig_to_html(fig)
 
