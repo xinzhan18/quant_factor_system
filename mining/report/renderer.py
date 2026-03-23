@@ -19,7 +19,7 @@ class ReportRenderer:
         template_dir = os.path.join(os.path.dirname(__file__), "templates")
         self._env = Environment(
             loader=FileSystemLoader(template_dir),
-            autoescape=select_autoescape(default=False),
+            autoescape=select_autoescape(default=True),
         )
 
     def render(self, report_data: dict, narrative: dict) -> str:

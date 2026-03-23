@@ -580,14 +580,11 @@
         {% if narrative.construction_logic.formula_decomposition %}
             <p><strong>公式分解：</strong>{{ narrative.construction_logic.formula_decomposition }}</p>
         {% endif %}
-        {% if narrative.construction_logic.data_inputs %}
-            <p><strong>数据输入：</strong>{{ narrative.construction_logic.data_inputs }}</p>
+        {% if narrative.construction_logic.parameter_rationale %}
+            <p><strong>参数选择：</strong>{{ narrative.construction_logic.parameter_rationale }}</p>
         {% endif %}
-        {% if narrative.construction_logic.computation_steps %}
-            <p><strong>计算步骤：</strong>{{ narrative.construction_logic.computation_steps }}</p>
-        {% endif %}
-        {% if narrative.construction_logic.parameter_sensitivity %}
-            <p><strong>参数敏感性：</strong>{{ narrative.construction_logic.parameter_sensitivity }}</p>
+        {% if narrative.construction_logic.preprocessing_notes %}
+            <p><strong>预处理说明：</strong>{{ narrative.construction_logic.preprocessing_notes }}</p>
         {% endif %}
     </div>
     {% else %}
@@ -631,14 +628,11 @@
     {% if narrative and narrative.economic_interpretation %}
     <div class="narrative-box">
         <div class="llm-prefix">LLM 解读:</div>
-        {% if narrative.economic_interpretation.main_hypothesis %}
-            <p><strong>核心假设：</strong>{{ narrative.economic_interpretation.main_hypothesis }}</p>
+        {% if narrative.economic_interpretation.theoretical_foundations %}
+            <p><strong>理论基础：</strong>{{ narrative.economic_interpretation.theoretical_foundations }}</p>
         {% endif %}
-        {% if narrative.economic_interpretation.market_mechanism %}
-            <p><strong>市场机制：</strong>{{ narrative.economic_interpretation.market_mechanism }}</p>
-        {% endif %}
-        {% if narrative.economic_interpretation.expected_conditions %}
-            <p><strong>适用条件：</strong>{{ narrative.economic_interpretation.expected_conditions }}</p>
+        {% if narrative.economic_interpretation.china_context %}
+            <p><strong>A股市场特征：</strong>{{ narrative.economic_interpretation.china_context }}</p>
         {% endif %}
     </div>
 
@@ -646,8 +640,8 @@
     <div class="attribution-grid">
         {% for angle in narrative.economic_interpretation.attribution_angles %}
         <div class="attribution-card {{ ['behavioral','fundamental','microstructure','macro'][loop.index0 % 4] }}">
-            <h3>{{ angle.title }}</h3>
-            <p>{{ angle.description }}</p>
+            <h3>{% if angle.icon %}{{ angle.icon }} {% endif %}{{ angle.title }}</h3>
+            <p>{{ angle.body }}</p>
         </div>
         {% endfor %}
     </div>
@@ -875,10 +869,16 @@
     {% endif %}
 
     <!-- Narrative -->
-    {% if narrative and narrative.section_interpretations and narrative.section_interpretations.ic_analysis %}
+    {% if narrative and narrative.section_interpretations and narrative.section_interpretations.ic_annual %}
     <div class="narrative-box">
-        <div class="llm-prefix">LLM 解读:</div>
-        <p>{{ narrative.section_interpretations.ic_analysis }}</p>
+        <div class="llm-prefix">LLM 解读 (年度):</div>
+        <p>{{ narrative.section_interpretations.ic_annual }}</p>
+    </div>
+    {% endif %}
+    {% if narrative and narrative.section_interpretations and narrative.section_interpretations.ic_monthly %}
+    <div class="narrative-box">
+        <div class="llm-prefix">LLM 解读 (月度):</div>
+        <p>{{ narrative.section_interpretations.ic_monthly }}</p>
     </div>
     {% endif %}
 </div>
@@ -1129,10 +1129,10 @@
     </div>
 
     <!-- Narrative -->
-    {% if narrative and narrative.section_interpretations and narrative.section_interpretations.scorecard %}
+    {% if narrative and narrative.section_interpretations and narrative.section_interpretations.composite %}
     <div class="narrative-box">
         <div class="llm-prefix">LLM 解读:</div>
-        <p>{{ narrative.section_interpretations.scorecard }}</p>
+        <p>{{ narrative.section_interpretations.composite }}</p>
     </div>
     {% endif %}
 </div>
@@ -1174,7 +1174,7 @@
                 <h3>
                     {% if w.title %}{{ w.title }}{% else %}弱点 {{ loop.index }}{% endif %}
                 </h3>
-                <p>{% if w.description %}{{ w.description }}{% else %}{{ w }}{% endif %}</p>
+                <p>{% if w.detail %}{{ w.detail }}{% elif w.description %}{{ w.description }}{% else %}{{ w }}{% endif %}</p>
             </div>
             {% endfor %}
         </div>

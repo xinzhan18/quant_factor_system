@@ -151,7 +151,7 @@ class ReportDataBuilder:
                 "ic_ir": ic_summary_is["ic_ir"],
                 "ic_win_rate": ic_summary_is["win_rate"],
                 "monotonicity": self._compute_monotonicity(gr_result),
-                "ls_return": (gr_result.get("mean_returns", pd.Series()).get("Q1", 0) - gr_result.get("mean_returns", pd.Series()).get("Q5", 0)),
+                "ls_return": (gr_result.get("mean_returns", pd.Series()).get("Q1", 0) - gr_result.get("mean_returns", pd.Series()).get("Q5", 0)) * 252,
                 "composite_grade": scores["composite"]["grade"],
             },
             "distribution": {
