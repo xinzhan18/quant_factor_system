@@ -58,7 +58,11 @@ class ReportDataBuilder:
         # IC analysis (reuse ic_analyzer)
         from visualization.ic_analyzer import ICAnalyzer
         ic = ICAnalyzer(factor_meta["name"])
-        ic_result = ic.compute_ic(flat_factor, price_df, split_date)
+        try:
+            ic_result = ic.compute_ic(flat_factor, price_df, split_date)
+        except Exception as exc:
+            logger.warning("IC analysis failed, using empty defaults: %s", exc)
+            ic_result = {}
         daily_ic = ic_result.get("rolling_ic", pd.DataFrame())
 
         # Distribution stats
@@ -72,14 +76,26 @@ class ReportDataBuilder:
         # Quintile analysis (reuse group_returns)
         from visualization.group_returns import GroupReturnsAnalyzer
         gr = GroupReturnsAnalyzer(factor_meta["name"])
-        gr_result = gr.compute_group_returns(flat_factor, price_df, n_groups=5, split_date=split_date)
+        try:
+            gr_result = gr.compute_group_returns(flat_factor, price_df, n_groups=5, split_date=split_date)
+        except Exception as exc:
+            logger.warning("Quintile analysis failed, using empty defaults: %s", exc)
+            gr_result = {}
 
         # Quintile detailed stats
         quintile_stats = self._compute_quintile_detailed_stats(gr_result)
 
         # IS vs OOS quintile
-        gr_is = gr.compute_group_returns(flat_is, price_df, n_groups=5) if len(flat_is) > 100 else {}
-        gr_oos = gr.compute_group_returns(flat_oos, price_df, n_groups=5) if len(flat_oos) > 100 else {}
+        try:
+            gr_is = gr.compute_group_returns(flat_is, price_df, n_groups=5) if len(flat_is) > 100 else {}
+        except Exception as exc:
+            logger.warning("IS quintile analysis failed, using empty defaults: %s", exc)
+            gr_is = {}
+        try:
+            gr_oos = gr.compute_group_returns(flat_oos, price_df, n_groups=5) if len(flat_oos) > 100 else {}
+        except Exception as exc:
+            logger.warning("OOS quintile analysis failed, using empty defaults: %s", exc)
+            gr_oos = {}
 
         # Decay analysis
         decay = self._compute_decay(flat_factor, price_df)
@@ -186,11 +202,20 @@ class ReportDataBuilder:
     def _load_data_from_db(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Load factor values and price data from DB."""
         import psycopg2
-        conn = psycopg2.connect(self.config.system.database.connection_string)
+        try:
+            conn = psycopg2.connect(self.config.system.database.connection_string)
+        except psycopg2.Error as exc:
+            raise RuntimeError(
+                f"Failed to connect to database: {exc}"
+            ) from exc
         try:
             # Factor values
             fv_sql = "SELECT symbol, trade_date, value FROM mining_factor_values WHERE factor_id = %s ORDER BY trade_date, symbol"
             fv = pd.read_sql(fv_sql, conn, params=[self.factor_id])
+            if fv.empty:
+                raise ValueError(
+                    f"No factor data found in DB for factor_id={self.factor_id!r}"
+                )
             fv["trade_date"] = pd.to_datetime(fv["trade_date"])
             fv = fv.set_index(["trade_date", "symbol"]).rename(columns={"value": "factor"})
             fv.index.names = ["datetime", "instrument"]
@@ -201,6 +226,11 @@ class ReportDataBuilder:
             end = fv.index.get_level_values("datetime").max()
             price_sql = "SELECT symbol, time, close FROM price_daily WHERE symbol = ANY(%s) AND time BETWEEN %s AND %s"
             price_df = pd.read_sql(price_sql, conn, params=[symbols, start, end])
+            if price_df.empty:
+                raise ValueError(
+                    f"No price data found in DB for factor_id={self.factor_id!r} "
+                    f"(symbols={len(symbols)}, {start} – {end})"
+                )
             return fv, price_df
         finally:
             conn.close()
@@ -372,14 +402,16 @@ class ReportDataBuilder:
     def _compute_autocorrelation(self, factor_values: pd.DataFrame) -> list:
         """Compute factor value autocorrelation at lags 1-20."""
         result = []
+        unique_dates = factor_values.index.get_level_values("datetime").unique()
         for lag in [1, 2, 3, 5, 10, 15, 20]:
             corrs = []
-            for date in factor_values.index.get_level_values("datetime").unique()[lag:]:
+            for date in unique_dates[lag:]:
                 try:
+                    date_loc = unique_dates.get_loc(date)
+                    if date_loc < lag:
+                        continue
                     current = factor_values.xs(date, level="datetime").iloc[:, 0]
-                    prev_date = factor_values.index.get_level_values("datetime").unique()[
-                        factor_values.index.get_level_values("datetime").unique().get_loc(date) - lag
-                    ]
+                    prev_date = unique_dates[date_loc - lag]
                     prev = factor_values.xs(prev_date, level="datetime").iloc[:, 0]
                     common = current.index.intersection(prev.index)
                     if len(common) > 10:
