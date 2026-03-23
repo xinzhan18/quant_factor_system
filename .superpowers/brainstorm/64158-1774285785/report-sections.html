@@ -1,0 +1,172 @@
+<h2>因子报告 — 章节结构设计</h2>
+<p class="subtitle">学术论文风格，叙事驱动，图文穿插</p>
+
+<div class="mockup">
+  <div class="mockup-header">Factor Report: std_returns_20</div>
+  <div class="mockup-body" style="background:#fafafa;color:#333;padding:0;font-size:12px;font-family:'Georgia','Noto Serif SC',serif;max-height:none;">
+
+    <!-- Header -->
+    <div style="background:#fff;padding:24px 32px;border-bottom:3px solid #1a1a2e;">
+      <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;">Quant Factor System — Factor Analysis Report</div>
+      <div style="font-size:22px;font-weight:bold;margin-top:8px;color:#1a1a2e;">20日收益率波动率因子</div>
+      <div style="font-size:13px;color:#666;margin-top:4px;">Factor 001 · std_returns_20 · Volatility · Admitted 2026-03-23</div>
+      <div style="margin-top:12px;background:#f5f5ff;border:1px solid #ddd;border-radius:4px;padding:12px;text-align:center;font-size:16px;font-family:'Courier New',monospace;color:#333;">
+        σ₂₀ = Std( close_t / close_{t-1} - 1, 20 )
+        <div style="font-size:10px;color:#999;margin-top:4px;">* LaTeX rendered via MathJax in actual report</div>
+      </div>
+    </div>
+
+    <!-- KPI Strip -->
+    <div style="display:flex;background:#fff;border-bottom:1px solid #eee;padding:12px 32px;gap:24px;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;color:#888;letter-spacing:1px;">IC MEAN</div>
+        <div style="font-size:20px;font-weight:bold;color:#c0392b;">-0.058</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;color:#888;letter-spacing:1px;">IC IR</div>
+        <div style="font-size:20px;font-weight:bold;color:#c0392b;">-0.304</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;color:#888;letter-spacing:1px;">IC WIN RATE</div>
+        <div style="font-size:20px;font-weight:bold;color:#c0392b;">37.5%</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;color:#888;letter-spacing:1px;">MONOTONICITY</div>
+        <div style="font-size:20px;font-weight:bold;color:#27ae60;">-0.90</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;color:#888;letter-spacing:1px;">LS RETURN</div>
+        <div style="font-size:20px;font-weight:bold;color:#c0392b;">-0.089%</div>
+      </div>
+    </div>
+
+    <!-- Section 1: 构建逻辑 -->
+    <div style="padding:20px 32px;background:#fff;border-bottom:1px solid #eee;">
+      <div style="font-size:15px;font-weight:bold;color:#1a1a2e;border-left:4px solid #3498db;padding-left:12px;">1. 构建逻辑 Construction Logic</div>
+      <div style="margin-top:12px;font-size:12px;line-height:1.8;color:#444;">
+        <p>本因子计算每只股票过去20个交易日日收益率的标准差，作为短期实现波动率的度量。构建思路源自经典的低波动率异象（Low Volatility Anomaly）：历史波动率较低的股票组合往往能够获得风险调整后的超额收益。</p>
+        <p style="margin-top:8px;">数学上，因子值 σ₂₀ = Std(rₜ, 20)，其中 rₜ = Pₜ/Pₜ₋₁ - 1。20日窗口在捕捉短期波动率变化和降低噪音之间取得平衡。</p>
+      </div>
+    </div>
+
+    <!-- Section 2: 经济含义 -->
+    <div style="padding:20px 32px;background:#fff;border-bottom:1px solid #eee;">
+      <div style="font-size:15px;font-weight:bold;color:#1a1a2e;border-left:4px solid #9b59b6;padding-left:12px;">2. 经济含义 Economic Interpretation</div>
+      <div style="margin-top:12px;font-size:12px;line-height:1.8;color:#444;">
+        <p>低波动率异象的经济学解释主要有三个角度：(1) <strong>彩票偏好</strong>——散户投资者偏好高波动个股，推高其价格导致未来收益偏低；(2) <strong>杠杆约束</strong>——机构受限于杠杆率，被迫购买高beta资产来提高组合预期收益，导致高波动资产被高估；(3) <strong>注意力效应</strong>——高波动股票更容易吸引市场关注...</p>
+      </div>
+    </div>
+
+    <!-- Section 3: IC Analysis with chart -->
+    <div style="padding:20px 32px;background:#fff;border-bottom:1px solid #eee;">
+      <div style="font-size:15px;font-weight:bold;color:#1a1a2e;border-left:4px solid #2ecc71;padding-left:12px;">3. IC 分析 Information Coefficient</div>
+      <div style="margin-top:12px;">
+        <table style="width:100%;font-size:11px;border-collapse:collapse;">
+          <tr style="background:#f8f8f8;">
+            <th style="padding:6px;text-align:left;border-bottom:1px solid #ddd;">Period</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">IC Mean</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">IC Std</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">IC IR</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">Win Rate</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">N Days</th>
+          </tr>
+          <tr>
+            <td style="padding:6px;border-bottom:1px solid #eee;">In-Sample (2020-2024)</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;color:#c0392b;">-0.058</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">0.190</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;color:#c0392b;">-0.304</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">37.5%</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">1,200</td>
+          </tr>
+          <tr>
+            <td style="padding:6px;border-bottom:1px solid #eee;">Out-of-Sample (2025+)</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;color:#c0392b;">-0.057</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">0.185</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;color:#c0392b;">-0.308</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">38.2%</td>
+            <td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">60</td>
+          </tr>
+        </table>
+      </div>
+      <div style="background:#f0f0f0;height:80px;display:flex;align-items:center;justify-content:center;color:#999;margin-top:16px;border:1px solid #ddd;border-radius:4px;">
+        [Plotly Interactive: IC Time Series — train/test split line]
+      </div>
+      <div style="display:flex;gap:12px;margin-top:12px;">
+        <div style="flex:1;background:#f0f0f0;height:70px;display:flex;align-items:center;justify-content:center;color:#999;border:1px solid #ddd;border-radius:4px;">
+          [IC Distribution Histogram]
+        </div>
+        <div style="flex:1;background:#f0f0f0;height:70px;display:flex;align-items:center;justify-content:center;color:#999;border:1px solid #ddd;border-radius:4px;">
+          [Rolling IC Comparison 20/60/120d]
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Quintile Analysis -->
+    <div style="padding:20px 32px;background:#fff;border-bottom:1px solid #eee;">
+      <div style="font-size:15px;font-weight:bold;color:#1a1a2e;border-left:4px solid #e67e22;padding-left:12px;">4. 分层分析 Quintile Analysis</div>
+      <div style="margin-top:12px;">
+        <div style="background:#f0f0f0;height:80px;display:flex;align-items:center;justify-content:center;color:#999;border:1px solid #ddd;border-radius:4px;">
+          [Plotly: Quintile Mean Returns Bar Chart — Q1 to Q5]
+        </div>
+        <div style="display:flex;gap:12px;margin-top:12px;">
+          <div style="flex:1;background:#f0f0f0;height:70px;display:flex;align-items:center;justify-content:center;color:#999;border:1px solid #ddd;border-radius:4px;">
+            [Cumulative Returns by Quintile]
+          </div>
+          <div style="flex:1;background:#f0f0f0;height:70px;display:flex;align-items:center;justify-content:center;color:#999;border:1px solid #ddd;border-radius:4px;">
+            [Long-Short (Q5-Q1) Curve]
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <table style="width:100%;font-size:11px;border-collapse:collapse;">
+          <tr style="background:#f8f8f8;">
+            <th style="padding:6px;text-align:left;border-bottom:1px solid #ddd;">Quintile</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">Ann. Return</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">Ann. Vol</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">Sharpe</th>
+            <th style="padding:6px;text-align:right;border-bottom:1px solid #ddd;">Max DD</th>
+          </tr>
+          <tr><td style="padding:5px;border-bottom:1px solid #eee;">Q1 (Low)</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;color:#27ae60;">+12.3%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">18.5%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">0.66</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">-22.1%</td></tr>
+          <tr><td style="padding:5px;border-bottom:1px solid #eee;">Q2</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">+8.1%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">20.2%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">0.40</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">-28.5%</td></tr>
+          <tr><td style="padding:5px;border-bottom:1px solid #eee;">Q3</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">+5.4%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">22.1%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">0.24</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">-31.2%</td></tr>
+          <tr><td style="padding:5px;border-bottom:1px solid #eee;">Q4</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">+2.8%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">25.3%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">0.11</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">-36.8%</td></tr>
+          <tr><td style="padding:5px;border-bottom:1px solid #eee;">Q5 (High)</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;color:#c0392b;">-1.5%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">30.1%</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">-0.05</td><td style="padding:5px;text-align:right;border-bottom:1px solid #eee;">-45.2%</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 5: Harsh Critique -->
+    <div style="padding:20px 32px;background:#fff8f8;border-bottom:1px solid #eee;">
+      <div style="font-size:15px;font-weight:bold;color:#c0392b;border-left:4px solid #e74c3c;padding-left:12px;">5. 毒舌点评 Critical Review</div>
+      <div style="margin-top:12px;font-size:12px;line-height:1.8;color:#555;">
+        <p><strong>一句话总结：这就是个教科书因子的复读机。</strong></p>
+        <p style="margin-top:8px;">IC 绝对值不到 0.06，信息比率 -0.304 堪称"统计显著的平庸"。37.5%的胜率意味着每周5个交易日里有3天是反向的——你需要极强的信仰才能持有这个策略。</p>
+        <p style="margin-top:8px;">更致命的是，20日波动率是全市场最拥挤的因子之一。从2017年至今，低波策略的超额收益已经被套利了大半。你不是在挖掘alpha，你是在捡别人剩下的面包屑...</p>
+      </div>
+      <div style="margin-top:12px;background:#fff0f0;border:1px solid #ffcccc;border-radius:4px;padding:10px;">
+        <div style="font-size:11px;font-weight:bold;color:#c0392b;">&#x26a0; Key Weaknesses</div>
+        <ul style="font-size:11px;color:#884444;margin:6px 0 0 16px;padding:0;">
+          <li>IC 绝对值过低（&lt;0.06），实战中信号噪比不足</li>
+          <li>胜率仅 37.5%，需要较长持有期才能体现</li>
+          <li>因子拥挤度极高，alpha 衰减严重</li>
+          <li>未做行业中性化，可能暴露在行业波动率差异上</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:16px 32px;background:#f8f8f8;font-size:10px;color:#999;text-align:center;border-top:1px solid #eee;">
+      Generated by Quant Factor System · Ralph Loop · 2026-03-24
+    </div>
+
+  </div>
+</div>
+
+<div style="margin-top:16px;padding:12px;background:#1e1e2e;border-radius:8px;color:#ccc;font-size:12px;">
+  <strong style="color:#fff;">报告共 5 个章节:</strong><br>
+  <span style="color:#3498db;">1. 构建逻辑</span> — 因子公式解读 + 数学定义<br>
+  <span style="color:#9b59b6;">2. 经济含义</span> — 资深量化分析师视角的经济学解释<br>
+  <span style="color:#2ecc71;">3. IC 分析</span> — IS/OOS 统计表 + IC 时序 + IC 分布 + Rolling IC<br>
+  <span style="color:#e67e22;">4. 分层分析</span> — 分层收益柱状图 + 累计收益 + 多空曲线 + 统计表<br>
+  <span style="color:#e74c3c;">5. 毒舌点评</span> — 犀利批评 + Key Weaknesses 清单
+</div>
