@@ -1,59 +1,115 @@
 recommended_directions:
-  - pattern: "Higher Moment Regimes"
-    description: "Use Skew/Kurt as IfElse conditions to identify extreme distribution environments for reversal signals"
+  - pattern: "Volatility Regime Switching"
+    description: "Use current vs historical volatility as IfElse condition to switch between ASYMMETRIC payloads (not x vs -x)"
     success_rate: high
-    example_factors: []
+    example_factors: ["factor_003"]
+    note: "Batch 002: IC=-0.044, OOS=-0.056. MUST use asymmetric payloads — symmetric IfElse(cond, x, Mul(x,-1)) always produces same values regardless of condition."
 
-  - pattern: "Trend Regression Adaptive"
-    description: "Use Rsquare/Slope/Resi for adaptive trend regression. High R2 trend follow, Low R2 mean reversion"
-    success_rate: low
-    example_factors: []
-    note: "Batch 001: Slope IC=-0.0004, Rsquare IC=-0.007 — simple linear trend signals too weak on their own. Need non-linear combinations."
-
-  - pattern: "PV Corr Interaction"
-    description: "Combine price-volume correlation with amount efficiency or trend operators to capture volume-price coordination"
+  - pattern: "Volume Volatility"
+    description: "Std($volume, N) captures speculative activity and event-driven trading"
     success_rate: high
-    example_factors: []
-    note: "Correlation operator not registered in Qlib. Use Rsquare or manual correlation via (Cov/Std*Std) instead."
+    example_factors: ["factor_004"]
+    note: "Batch 006: IC=-0.039, perfect monotonicity -1.0, low corr with price-vol (0.36). Truly orthogonal to volatility dimension."
 
-  - pattern: "Robust Efficiency"
-    description: "Use median and other robust statistics to smooth amount efficiency, filtering extreme noise"
-    success_rate: high
-    example_factors: []
-    note: "Batch 001: amount field is zero in our data — need to fix data sync or use $volume * $vwap as proxy."
-
-  - pattern: "Intraday Aggregation Features"
-    description: "Leverage minute-data aggregated features (intraday_vol, intraday_skew, volume_concentration) as inputs for daily factors"
+  - pattern: "Regression Residual"
+    description: "Resi($close, N) as mean-reversion signal — captures price deviation from linear trend"
     success_rate: medium
     example_factors: []
+    note: "Batch 005: Resi($close,20) IC=-0.036 passed Stage 1 but corr=0.65 with factor_003. Try Resi on different features (not $close) or combine with other signals."
 
-  - pattern: "Low Volatility Anomaly"
-    description: "Low realized volatility stocks outperform — confirmed by std_returns_20 (IC=-0.058, mono=-0.9)"
-    success_rate: high
-    example_factors: ["factor_001"]
+  - pattern: "PV Corr Interaction"
+    description: "Price-volume coordination and divergence signals"
+    success_rate: low
+    example_factors: []
+    note: "Batch 002: Rank divergence IC=0.013. Batch 005: volume-return sync IC=-0.024. Both too weak. Need deeper constructions."
 
-  - pattern: "Volume Contraction"
-    description: "Declining volume predicts positive returns — confirmed by delta_volume_5 (IC=-0.032, mono=-0.9)"
+  - pattern: "Robust Efficiency"
+    description: "Use median and other robust statistics to smooth amount efficiency"
     success_rate: high
-    example_factors: ["factor_002"]
+    example_factors: []
+    note: "BLOCKED: $amount field is zero. Cannot test until data fix."
+
+  - pattern: "Intraday Aggregation Features"
+    description: "Leverage minute-data aggregated features as inputs for daily factors"
+    success_rate: medium
+    example_factors: []
+    note: "BLOCKED: Need minute-data sync."
 
 forbidden_regions:
-  - direction: "Simple VWAP Deviation"
-    reason: "High correlation with VWAP factor cluster"
-    correlated_factors: []
-    correlation: "> 0.5"
-
-  - direction: "Standardized Returns/Amount"
-    reason: "Simple return standardization is redundant with existing factors"
-    correlated_factors: []
-    correlation: "> 0.6"
-
-  - direction: "Simple Linear Trend (Slope/Rsquare alone)"
-    reason: "Batch 001: IC < 0.01 — linear trend signals have no predictive power in isolation"
+  # Operator errors
+  - direction: "Expressions using Neg, TsRank, TsMax, TsMin, SMA, Correlation"
+    reason: "These operators are NOT registered in pyqlib 0.9.7"
     correlated_factors: []
     correlation: "N/A"
 
-  - direction: "Raw Kurtosis/Skewness"
-    reason: "Batch 001: IC < 0.02 — higher moments alone are too noisy as direct signals"
+  # Saturated dimensions
+  - direction: "Volatility Window Variants (Std of returns at any window)"
+    reason: "Batch 002/003: 10d/20d/60d all corr>0.78 with each other and >0.80 with factor_001. Also intraday range (H-L)/C corr=0.91."
+    correlated_factors: ["factor_001"]
+    correlation: "> 0.78"
+
+  - direction: "Symmetric IfElse (x vs Mul(x,-1) or x vs Sub(0,x))"
+    reason: "Batch 003/004: Produces IDENTICAL factor values regardless of condition (corr=1.0). Must use asymmetric payloads."
+    correlated_factors: ["factor_003"]
+    correlation: "1.0"
+
+  # Weak signal families (IC < 0.03)
+  - direction: "Simple Linear Trend (Slope/Rsquare alone)"
+    reason: "Batch 001: Slope IC=-0.0004, Rsquare IC=-0.007"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Raw Kurtosis/Skewness (standalone or as IfElse condition)"
+    reason: "Batch 001-002: IC < 0.02 standalone, IC=0.010 as IfElse condition"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Rsquare as IfElse condition for Slope"
+    reason: "Batch 002: IC=-0.008. R² too noisy as regime indicator."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Simple Risk-Adjusted Momentum (return/vol)"
+    reason: "Batch 002: IC=-0.010. Sharpe-like construction weak in A-shares."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Volume Median Ratio (short/long)"
+    reason: "Batch 002: IC=-0.007. Batch 006: log version IC=-0.019."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "EMA crossover / EMA-SMA spread"
+    reason: "Batch 003: EMA crossover IC=-0.007. Batch 006: SMA not registered."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Candlestick Patterns (upper shadow, close position, open-close gap)"
+    reason: "Batch 003: All IC < 0.005. No predictive power."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Gap Momentum (open vs prev close)"
+    reason: "Batch 003: IC=0.011. Overnight gaps too weak."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Return Autocorrelation Proxy"
+    reason: "Batch 005: IC=0.006. Near zero."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Bollinger Band Z-score (close - MA) / Std"
+    reason: "Batch 004: IC=-0.020."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Volume-Weighted Return"
+    reason: "Batch 004: IC=-0.023."
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Conditional expressions producing mostly zeros on 50-stock sample"
+    reason: "Batch 004-005: If(..., value, 0) patterns produce NaN IC or pass on tiny samples (n_days=5). Avoid on small universes."
     correlated_factors: []
     correlation: "N/A"

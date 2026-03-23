@@ -6,54 +6,102 @@ user_invocable: true
 
 # Factor Mining — Ralph Loop
 
-Run one complete mining iteration:
-1. Load exploration memory + experience memory
-2. Generate candidate factors
-3. Evaluate candidates
-4. Update library and memory
+Run one complete mining iteration. **Every step is mandatory — do NOT skip any step.**
 
-## Step 0: Load Exploration Memory
+## Step 1: Load ALL Memory (MANDATORY — DO NOT SKIP)
 
-**MUST READ FIRST** — contains critical engineering pitfalls and known issues:
+You MUST read ALL of the following files and absorb their content before proceeding:
 
+### 1a. Engineering Memory (pitfalls, broken operators, workarounds)
 ```
 ~/.claude/projects/-Users-xinzhan--openclaw-workspace-quant-factor-system/memory/mining-exploration.md
 ```
 
-Key things to remember:
-- **Qlib multiprocessing**: Scripts MUST use `multiprocessing.set_start_method('fork', force=True)` + `if __name__ == '__main__':` guard
-- **D.instruments('all')** returns dict, not list — use `custom_universe` instead
-- **Broken operators**: `Correlation` is NOT registered. Use Rsquare or manual Cov formula
-- **Broken fields**: `$amount` and `$vwap` are zero — do NOT use them in expressions
-- **Evaluation scripts**: MUST be written to a .py file and run with `python3 file.py`, NOT inline `python -c` or heredoc (multiprocessing will crash)
-
-## Step 1: Retrieve Experience Memory
-
-Read the Experience Memory files to understand current state:
-
-```bash
-cat mining/memory/state.yaml
-cat mining/memory/patterns.yaml
-cat mining/memory/insights.yaml
+### 1b. Experience Memory (library state, patterns, insights)
+```
+mining/memory/state.yaml
+mining/memory/patterns.yaml
+mining/memory/insights.yaml
 ```
 
-Use these to compose your search context for factor generation.
+### 1c. Recent Batch History (last 3 batches)
+```
+ls mining/memory/history/
+```
+Read the most recent 3 batch history files to understand what was tried and what failed.
 
-## Step 2: Generate Candidates
+### 1d. Current Factor Library
+```
+mining/library/library.yaml
+```
 
-Based on the Memory context, generate **8 candidate factor expressions** using Qlib Alpha expression syntax.
+## Step 2: Context Summary (MANDATORY — print before generating)
+
+After loading all memory, you MUST output a structured context summary. This proves you have absorbed the memory and prevents repeating past mistakes.
+
+**Print this summary to the user:**
+
+```
+=== Mining Context (Batch XXX) ===
+
+LIBRARY STATUS:
+- Size: X/100 factors
+- Factors: [list each factor_id: name, category, IC]
+
+OPERATOR STATUS:
+- Working: [list from exploration memory]
+- Broken: [list from exploration memory]
+- Workarounds: [list each]
+
+FIELD STATUS:
+- Working: [list]
+- Broken: [list]
+
+FORBIDDEN REGIONS (from patterns.yaml):
+- [list each direction + reason]
+
+RECOMMENDED DIRECTIONS (from patterns.yaml):
+- [list each pattern + success_rate + notes]
+
+KEY INSIGHTS (from insights.yaml):
+- [list the top 5 most relevant insights for this batch]
+
+LAST 3 BATCH RESULTS:
+- Batch N: X/8 admitted, key finding: ...
+- Batch N-1: ...
+- Batch N-2: ...
+
+CANDIDATE STRATEGY:
+Based on the above, this batch will explore:
+1. [direction + rationale]
+2. [direction + rationale]
+...
+```
+
+**CRITICAL**: If any candidate expression uses a broken operator, broken field, or falls into a forbidden region, STOP and redesign before proceeding.
+
+## Step 3: Generate Candidates
+
+Based on the Context Summary, generate **8 candidate factor expressions** using Qlib Alpha expression syntax.
 
 **Rules:**
-- Confirmed working operators: Add, Sub, Mul, Div, Abs, Log, Power, Sign, Neg, Mean, Std, Var, Skew, Kurt, Med, Sum, Rank, EMA, SMA, WMA, Ref, Delta, TsRank, TsMax, TsMin, Slope, Rsquare, Resi, If, Greater, Less
-- **Do NOT use**: Correlation (not registered), SignedPower/Tanh/Scale (untested)
-- Valid fields: $open, $high, $low, $close, $volume, $returns (and minute-agg fields if synced)
-- **Do NOT use**: $amount (all zeros), $vwap (all zeros)
+- Operators: ONLY use operators listed as "Working" in your Context Summary
+- Fields: ONLY use fields listed as "Working" in your Context Summary
+- Workarounds: Apply workarounds from exploration memory (e.g., Mul(x,-1) for Neg)
+- Forbidden: Cross-check EVERY candidate against forbidden regions — reject before evaluation
+- Recommended: Prioritize recommended directions with high success_rate
 - Category must be one of: vwap, momentum, volatility, volume, regime, efficiency, distribution, trend, candlestick, intraday_agg, other
-- Avoid forbidden regions listed in patterns.yaml
-- Prioritize recommended directions from patterns.yaml
 - Expression depth must not exceed 10
+- Avoid symmetric IfElse (x vs -x) — produces identical factors regardless of condition
 
-Write candidates to `mining/candidates/batch_XXX.yaml` using this format:
+**Validation checklist** (check each candidate):
+- [ ] All operators are in the working list?
+- [ ] All fields are in the working list?
+- [ ] Not in a forbidden region?
+- [ ] Not a near-duplicate of an existing library factor?
+- [ ] Expression depth ≤ 10?
+
+Write candidates to `mining/candidates/batch_XXX.yaml`:
 
 ```yaml
 batch_id: "batch_XXX"
@@ -81,7 +129,7 @@ All preprocessing config is in `MiningConfig`:
 - `standardize_method` — "zscore" or "rank" (default: "zscore")
 - `neutralize_mode` — "none", "market_cap", "industry", "both" (default: "none")
 
-## Step 3: Evaluate
+## Step 4: Evaluate
 
 **IMPORTANT**: Write the evaluation script to a `.py` file, do NOT use `python -c` or heredoc.
 
@@ -161,32 +209,54 @@ Then run: `python3 run_batch_XXX.py`
 
 Clean up the script after use: `rm run_batch_XXX.py`
 
-## Step 4: Library Update
+## Step 5: Library Update
 
-For each admitted factor, add to the library:
+For each admitted factor:
 
+1. Verify the factor is NOT a pipeline loophole (check n_days > 100, quantile returns not NaN)
+2. Add to library:
 ```python
 from mining.library import FactorLibrary
 from mining.config import MiningConfig
 
 lib = FactorLibrary(MiningConfig())
-# For each admitted factor:
-# lib.admit(factor_dict)
+lib.admit(factor_dict)
 ```
+3. Manually fix `ic_mean` in `library.yaml` if null (known bug: evaluator stores IC under `full_ic.ic_mean`)
+4. Write detailed `mining/library/factors/factor_XXX.yaml` with full metrics
 
 For replacements, use `lib.replace(old_id, new_factor_dict)`.
 
-## Step 5: Memory Evolution
+## Step 6: Memory Update (MANDATORY — DO NOT SKIP)
 
-Analyze the batch results and update Experience Memory:
+After evaluation, update ALL memory files. This is how the next iteration learns from this one.
 
-1. Read batch results
-2. For successful factors: add to `patterns.yaml` recommended_directions
-3. For rejected (high correlation): add to `patterns.yaml` forbidden_regions
-4. For rejected (low IC): add to `patterns.yaml` forbidden_regions with reason
-5. Update `state.yaml` with new library stats
-6. Distill strategic insights and update `insights.yaml`
-7. Save batch summary to `mining/memory/history/batch_XXX.yaml`
-8. **Update exploration memory** at `~/.claude/projects/.../memory/mining-exploration.md` with any new engineering findings
+### 6a. Update `mining/memory/patterns.yaml`
+- Admitted factors → add to `recommended_directions` with success_rate and example_factors
+- Rejected (high corr) → add to `forbidden_regions` with correlation value and correlated factor
+- Rejected (low IC) → add to `forbidden_regions` with IC value and reason
+- Rejected (operator error) → note in existing pattern entries
 
-Write updates using the Write tool to the appropriate YAML files.
+### 6b. Update `mining/memory/insights.yaml`
+- New empirical findings (e.g., "X operator not registered", "Y factor type always correlates with Z")
+- Updated confidence levels based on repeated evidence
+- Remove or downgrade insights proven wrong
+
+### 6c. Update `mining/memory/state.yaml`
+- Library size, avg_ic, domain saturation counts
+- Mining stats: total_batches, total_candidates, yield_rate
+
+### 6d. Save batch history to `mining/memory/history/batch_XXX.yaml`
+Include: all candidates, admitted/rejected with reasons, key_learnings, engineering_findings
+
+### 6e. Update exploration memory (if new engineering findings)
+```
+~/.claude/projects/-Users-xinzhan--openclaw-workspace-quant-factor-system/memory/mining-exploration.md
+```
+Add any new operator discoveries, runtime errors, workarounds, pipeline bugs.
+
+### 6f. Verification
+After updating, re-read `patterns.yaml` and confirm:
+- No duplicate forbidden regions
+- All new findings are captured
+- Recommended directions reflect current evidence

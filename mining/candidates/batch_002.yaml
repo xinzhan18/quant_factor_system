@@ -1,0 +1,42 @@
+batch_id: "batch_002"
+timestamp: "2026-03-24T01:15:00"
+candidates:
+  - name: "vol_regime_reversal"
+    expression: "If(Greater(Std($close/Ref($close,1)-1, 20), Med(Std($close/Ref($close,1)-1, 20), 60)), $close/Ref($close,5)-1, Mul($close/Ref($close,5)-1, -1))"
+    category: "regime"
+    rationale: "High volatility regime → 5d return as reversal signal; low vol → momentum. Uses Mul(x,-1) instead of Neg."
+
+  - name: "skew_momentum_switch"
+    expression: "If(Greater(Skew($close/Ref($close,1)-1, 20), 0), Mul($close/Ref($close,10)-1, -1), $close/Ref($close,10)-1)"
+    category: "regime"
+    rationale: "Positive skew → reversal; negative skew → momentum. Uses skew as conditional branch."
+
+  - name: "rsq_trend_adaptive"
+    expression: "If(Greater(Rsquare($close, 20), Mean(Rsquare($close, 20), 60)), Slope($close, 10), Mul(Slope($close, 10), -1))"
+    category: "trend"
+    rationale: "High R² → trend follow (use slope); low R² → contrarian (negate slope)."
+
+  - name: "vol_returns_10"
+    expression: "Std($close/Ref($close,1)-1, 10)"
+    category: "volatility"
+    rationale: "10-day short-window volatility. Different horizon may capture faster regime changes."
+
+  - name: "vol_returns_60"
+    expression: "Std($close/Ref($close,1)-1, 60)"
+    category: "volatility"
+    rationale: "60-day long-window volatility. Captures structural low-vol anomaly at quarterly scale."
+
+  - name: "pv_rank_divergence"
+    expression: "Sub(Rank($close, 20), Rank($volume, 20))"
+    category: "volume"
+    rationale: "Price rank minus volume rank over 20 days. Uses Rank(x,N) instead of TsRank."
+
+  - name: "volume_med_ratio"
+    expression: "Div(Med($volume, 5), Med($volume, 20))"
+    category: "volume"
+    rationale: "Short-term median volume / long-term median volume. Robust volume trend indicator using median to resist outliers."
+
+  - name: "risk_adj_momentum_20"
+    expression: "Div($close/Ref($close,20)-1, Std($close/Ref($close,1)-1, 20))"
+    category: "momentum"
+    rationale: "20-day return normalized by 20-day volatility — Sharpe-like risk-adjusted momentum."

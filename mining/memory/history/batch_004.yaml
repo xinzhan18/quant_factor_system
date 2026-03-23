@@ -1,0 +1,37 @@
+batch_id: batch_004
+timestamp: "2026-03-24T01:24:59"
+candidates: 8
+admitted: 0
+rejected: 8
+replacements: 0
+yield_rate: 0.0
+note: "volume_spike_freq technically passed but has only 5 valid Stage1 days — pipeline loophole, NOT admitted"
+
+rejected_summary:
+  - name: vol_regime_range_vol
+    reason: "Stage 2 reject: corr=0.781 with factor_001 (range vol still volatility proxy)"
+    ic: -0.066
+  - name: vol_regime_asym_mom
+    reason: "Stage 2 reject: corr=1.0 with factor_003 (IfElse payload doesn't matter with same condition)"
+    ic: -0.032
+  - name: volume_spike_freq
+    reason: "Pipeline loophole: passed with 5 valid days. Full IC=0.003, OOS=0.001 — no real signal"
+    ic: 0.043
+  - name: vol_weighted_return
+    reason: "Stage 1 reject: IC=-0.023"
+  - name: mean_reversion_strength
+    reason: "Stage 1 reject: IC=-0.020 (Bollinger z-score)"
+  - name: price_high_distance
+    reason: "Stage 1 error: TsMax not registered"
+  - name: price_low_distance
+    reason: "Stage 1 error: TsMin not registered"
+  - name: max_drawdown_20
+    reason: "Stage 1 error: TsMin not registered"
+
+key_learnings:
+  - "TsMax and TsMin operators are NOT registered — no rolling max/min available"
+  - "Pipeline loophole: factors with mostly NaN values can pass on tiny samples (n_days=5)"
+  - "Asymmetric IfElse payloads with same vol condition still corr=1.0 with factor_003"
+  - "Vol-regime switching with range-vol payload: strong IC (-0.066) but corr=0.78 with factor_001"
+  - "Vol-weighted return (IC=-0.023) and Bollinger z-score (IC=-0.020) are too weak"
+  - "Need to move away from volatility-correlated factors entirely"

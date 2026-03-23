@@ -14,3 +14,14 @@ factors:
   expression: Delta($volume, 5) / Mean($volume, 20)
   category: volume
   ic_mean: -0.0323
+- id: '003'
+  name: vol_regime_reversal
+  expression: If(Greater(Std($close/Ref($close,1)-1, 20), Med(Std($close/Ref($close,1)-1,
+    20), 60)), $close/Ref($close,5)-1, Mul($close/Ref($close,5)-1, -1))
+  category: regime
+  ic_mean: -0.0435
+- id: '004'
+  name: std_volume_20
+  expression: Std($volume, 20)
+  category: volume
+  ic_mean: -0.0392

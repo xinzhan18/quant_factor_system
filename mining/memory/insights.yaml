@@ -1,41 +1,74 @@
 insights:
-  - insight: "Non-linear combinations (IfElse branching) are more likely to produce orthogonal factors than linear combinations"
-    confidence: high
-    source: "paper finding"
-
-  - insight: "CsRank wrapping can effectively reduce inter-factor correlation"
-    confidence: high
-    source: "paper Appendix G"
-
-  - insight: "Amount efficiency (Returns/Amount) produces signals orthogonal to pure price-based factors"
-    confidence: high
-    source: "paper finding"
-    note: "$amount field is zero in our dataset — need data fix before testing this direction"
-
-  - insight: "Daily frequency VWAP signal space is more limited than intraday; minute-aggregated features may offer more room"
-    confidence: medium
-    source: hypothesis
-
-  - insight: "Low volatility anomaly is strong in A-shares: Std(returns,20) yields IC=-0.058 with -0.9 monotonicity"
+  # ===== Confirmed Strong Signals =====
+  - insight: "Low volatility anomaly is the strongest daily signal in A-shares: Std(returns,20) IC=-0.058, mono=-0.9"
     confidence: high
     source: "batch_001 empirical"
+
+  - insight: "Volume volatility (Std($volume,20)) is a strong independent dimension: IC=-0.039, mono=-1.0, corr only 0.36 with price-vol"
+    confidence: high
+    source: "batch_006 empirical"
+
+  - insight: "Volatility regime switching (current vol vs historical median) produces orthogonal IfElse factors: IC=-0.044, corr=0.43"
+    confidence: high
+    source: "batch_002 empirical"
 
   - insight: "Volume contraction (declining relative volume) predicts positive returns: IC=-0.032, mono=-0.9"
     confidence: high
     source: "batch_001 empirical"
 
-  - insight: "Simple trend regression signals (Slope, Rsquare) have near-zero IC — need to be used as regime conditions in IfElse, not as standalone factors"
+  # ===== Factor Construction Rules =====
+  - insight: "Symmetric IfElse (x vs -x) always produces identical factor values regardless of condition — MUST use asymmetric payloads"
     confidence: high
-    source: "batch_001 empirical"
+    source: "batch_003-004 empirical (corr=1.0 between different conditions with same symmetric payload)"
 
-  - insight: "Higher moments (Kurt, Skew) are too noisy as standalone signals (IC < 0.02) — should be used as conditional branches"
+  - insight: "IfElse branching is the most promising direction for orthogonal factor construction — but requires truly different signals in each branch"
     confidence: high
-    source: "batch_001 empirical"
+    source: "batch_002-004 empirical + paper finding"
 
-  - insight: "Correlation operator is not registered in our Qlib build — use Rsquare or Cov-based alternatives"
+  - insight: "CsRank wrapping can effectively reduce inter-factor correlation"
     confidence: high
-    source: "batch_001 runtime error"
+    source: "paper Appendix G (untested in our pipeline)"
 
-  - insight: "OOS IC closely matches IS IC for both admitted factors — low overfitting risk at this expression complexity"
+  # ===== Dimension Saturation =====
+  - insight: "Volatility dimension is saturated: Std(returns, any_window), intraday range (H-L)/C, Resi($close,20) all corr>0.65 with each other"
+    confidence: high
+    source: "batch_001-006 empirical"
+
+  - insight: "Volatility window variants (10d/20d/60d) are essentially the same signal (corr>0.78)"
+    confidence: high
+    source: "batch_002 empirical"
+
+  # ===== Weak/Failed Directions =====
+  - insight: "Classical technical analysis signals (EMA cross, Bollinger, momentum) have near-zero IC in A-shares"
+    confidence: high
+    source: "batch_002-006 empirical"
+
+  - insight: "Candlestick patterns (shadow ratio, close position, intraday return) have zero predictive power"
+    confidence: high
+    source: "batch_003 empirical"
+
+  - insight: "Risk-adjusted momentum (Sharpe-like return/vol) is weak: IC=-0.010"
     confidence: medium
-    source: "batch_001 empirical"
+    source: "batch_002 empirical"
+
+  # ===== Engineering Knowledge =====
+  - insight: "6 operators NOT registered: Correlation, Neg, TsRank, TsMax, TsMin, SMA. Workarounds: Mul(x,-1) for Neg, Rank(x,N) for TsRank, no workaround for TsMax/TsMin/SMA"
+    confidence: high
+    source: "batch_002-006 runtime errors"
+
+  - insight: "Conditional expressions producing mostly zeros (If(..., val, 0)) cause NaN IC or pass on tiny samples — pipeline loophole"
+    confidence: high
+    source: "batch_004-005 empirical"
+
+  - insight: "OOS IC closely matches IS IC for factors with depth < 10 — low overfitting risk at this complexity"
+    confidence: high
+    source: "batch_001-006 empirical"
+
+  # ===== Blocked Directions =====
+  - insight: "Amount efficiency factors blocked — $amount field is zero in our dataset"
+    confidence: high
+    source: "batch_001 runtime"
+
+  - insight: "Intraday aggregation features blocked — need minute-data sync"
+    confidence: high
+    source: "system limitation"

@@ -1,0 +1,31 @@
+batch_id: batch_005
+timestamp: "2026-03-24T01:27:30"
+candidates: 8
+admitted: 0
+rejected: 8
+yield_rate: 0.0
+
+rejected_summary:
+  - name: resi_close_20
+    reason: "Stage 2 reject: corr=0.647 with factor_003. IC=-0.036 passed S1, full_ic=-0.029"
+  - name: up_vol_ratio
+    reason: "Stage 1 reject: IC=NaN (conditional zeros unreliable on 50-stock sample)"
+  - name: down_day_intensity
+    reason: "Stage 1 reject: IC=NaN (conditional zeros)"
+  - name: vol_asymmetry
+    reason: "Stage 1 reject: IC=NaN (conditional zeros)"
+  - name: wma_deviation
+    reason: "Stage 1 reject: IC=-0.027 (close to threshold)"
+  - name: volume_return_sync
+    reason: "Stage 1 reject: IC=-0.024"
+  - name: return_autocorr_proxy
+    reason: "Stage 1 reject: IC=0.006"
+  - name: mean_open_close_gap
+    reason: "Stage 1 reject: IC=-0.002"
+
+key_learnings:
+  - "Resi($close, 20) has real signal (IC=-0.036) but corr=0.65 with factor_003"
+  - "Conditional expressions producing lots of zeros → NaN IC on 50-stock sample"
+  - "WMA deviation close to threshold (-0.027) — explore with different windows"
+  - "Return autocorrelation proxy is weak (IC=0.006)"
+  - "Need completely different alpha dimensions beyond volatility"

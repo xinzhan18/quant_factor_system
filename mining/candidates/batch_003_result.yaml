@@ -1,0 +1,117 @@
+admitted: []
+batch_id: batch_003
+rejected:
+- category: regime
+  expression: If(Greater(Std($close/Ref($close,1)-1, 20), Med(Std($close/Ref($close,1)-1,
+    20), 60)), Sub(EMA($close, 5), EMA($close, 20)), Sub(EMA($close, 20), EMA($close,
+    5)))
+  name: vol_regime_ema_cross
+  rationale: Volatility regime switching with EMA crossover payload. High vol → short
+    EMA above long (trend follow), Low vol → contrarian (long above short).
+  stage1:
+    ic_ir: -0.02669832381072186
+    ic_mean: -0.0072123473783921865
+    ic_std: 0.2701423291411185
+    ic_win_rate: 0.48967795210569776
+    n_days: 1211
+- category: candlestick
+  expression: Mean(Div(Sub($high, If(Greater($close, $open), $close, $open)), Sub($high,
+    $low)), 20)
+  name: upper_shadow_ratio
+  rationale: Average upper shadow ratio over 20 days. High upper shadow = selling
+    pressure at highs. If/Greater handles max(close,open).
+  stage1:
+    ic_ir: -0.020647542761172293
+    ic_mean: -0.00488775627700071
+    ic_std: 0.23672338803395707
+    ic_win_rate: 0.49876135425268375
+    n_days: 1211
+- category: momentum
+  expression: Mean(Sub($open, Ref($close, 1)), 10)
+  name: gap_momentum
+  rationale: Average overnight gap over 10 days. Persistent positive gaps indicate
+    institutional buying; negative gaps indicate distribution.
+  stage1:
+    ic_ir: 0.0530565114624544
+    ic_mean: 0.011005581770696748
+    ic_std: 0.20743131177188084
+    ic_win_rate: 0.518579686209744
+    n_days: 1211
+- category: candlestick
+  expression: Mean(Div(Sub($close, $low), Sub($high, $low)), 20)
+  name: close_position_20
+  rationale: Average close position within daily range over 20 days. High = consistently
+    closing near highs (bullish), Low = closing near lows (bearish).
+  stage1:
+    ic_ir: 0.020652272039528703
+    ic_mean: 0.0048888906004290866
+    ic_std: 0.2367241043054096
+    ic_win_rate: 0.5012386457473162
+    n_days: 1211
+- category: momentum
+  expression: Sub(Div(EMA($close, 5), EMA($close, 20)), 1)
+  name: ema_momentum_diff
+  rationale: EMA(5)/EMA(20) - 1, measuring short-term vs long-term exponential trend.
+    Classic technical momentum signal.
+  stage1:
+    ic_ir: -0.023546130017120057
+    ic_mean: -0.006575443410700274
+    ic_std: 0.27925792501440205
+    ic_win_rate: 0.5053674649050371
+    n_days: 1211
+- category: volatility
+  expression: Sub(Delta($high, 10), Delta($low, 10))
+  name: delta_high_low_spread
+  rationale: Difference between 10-day change in high and 10-day change in low. Expanding
+    range = increasing volatility asymmetry.
+  stage1:
+    ic_ir: -0.10693304601457189
+    ic_mean: -0.022438723374523416
+    ic_std: 0.20983899936288794
+    ic_win_rate: 0.46153846153846156
+    n_days: 1209
+- category: candlestick
+  expression: Mean(Div(Sub($high, $low), $close), 20)
+  full_ic:
+    ic_ir: -0.3005071410396859
+    ic_mean: -0.06116682103324957
+    ic_std: 0.2035453161666188
+    ic_win_rate: 0.3905862923203964
+    n_days: 1211
+  name: intraday_range_20
+  rationale: Average daily range normalized by close price over 20 days. Captures
+    intraday volatility which may differ from close-to-close volatility.
+  stage1:
+    ic_ir: -0.20589711835776756
+    ic_mean: -0.06127687365609849
+    ic_std: 0.29760918532926517
+    ic_win_rate: 0.4227910817506193
+    n_days: 1211
+  stage2:
+    max_corr: 0.906961285645013
+    max_corr_factor: '001'
+    passed: false
+- category: regime
+  expression: If(Greater(Mean($volume, 5), Mean($volume, 20)), $close/Ref($close,5)-1,
+    Mul($close/Ref($close,5)-1, -1))
+  full_ic:
+    ic_ir: -0.2505510882746388
+    ic_mean: -0.04354273232511919
+    ic_std: 0.1737878395379002
+    ic_win_rate: 0.3867768595041322
+    n_days: 1210
+  name: volume_regime_return
+  rationale: Volume expansion regime → momentum (5d return); volume contraction regime
+    → reversal. Analogous to vol_regime_reversal but with volume as condition.
+  stage1:
+    ic_ir: -0.12031231643151709
+    ic_mean: -0.031923437652698394
+    ic_std: 0.26533806845012015
+    ic_win_rate: 0.4487603305785124
+    n_days: 1210
+  stage2:
+    max_corr: 0.9999999974377239
+    max_corr_factor: '003'
+    passed: false
+replacements: []
+timestamp: '2026-03-24T01:22:25.868796'

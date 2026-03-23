@@ -1,0 +1,50 @@
+batch_id: batch_002
+timestamp: "2026-03-24T01:18:03"
+candidates: 8
+admitted: 1
+rejected: 7
+replacements: 0
+yield_rate: 0.125
+
+admitted_factors:
+  - id: "003"
+    name: vol_regime_reversal
+    expression: "If(Greater(Std($close/Ref($close,1)-1, 20), Med(Std($close/Ref($close,1)-1, 20), 60)), $close/Ref($close,5)-1, Mul($close/Ref($close,5)-1, -1))"
+    category: regime
+    ic_mean: -0.0435
+    ic_ir: -0.2506
+    ic_mean_oos: -0.0559
+    ic_ir_oos: -0.2883
+    monotonicity: -0.3
+    max_corr: 0.4255
+    max_corr_factor: "002"
+
+rejected_summary:
+  - name: skew_momentum_switch
+    reason: "Stage 1 reject: IC=0.010"
+  - name: rsq_trend_adaptive
+    reason: "Stage 1 reject: IC=-0.008"
+  - name: pv_rank_divergence
+    reason: "Stage 1 reject: IC=0.013"
+  - name: volume_med_ratio
+    reason: "Stage 1 reject: IC=-0.007"
+  - name: risk_adj_momentum_20
+    reason: "Stage 1 reject: IC=-0.010"
+  - name: vol_returns_10
+    reason: "Stage 1.5 dedup: corr=0.789 with vol_returns_60"
+  - name: vol_returns_60
+    reason: "Stage 2 reject: corr=0.809 with factor_001"
+
+key_learnings:
+  - "IfElse regime switching with volatility condition produces orthogonal factors"
+  - "Neg and TsRank operators are NOT registered — use Mul(x,-1) and Rank(x,N)"
+  - "Volatility window variants are saturated (corr>0.78)"
+  - "Skew/Rsquare as IfElse conditions are too weak"
+  - "Risk-adjusted momentum (Sharpe-like) has low IC in A-shares"
+  - "OOS often stronger than IS — low overfitting risk at this complexity"
+
+engineering_findings:
+  - "Neg operator: not registered. Workaround: Mul(x, -1)"
+  - "TsRank operator: not registered. Workaround: Rank(x, N)"
+  - "Rank operator: requires N parameter (Rank($close) fails, Rank($close, 20) works)"
+  - "If with literal 0: works fine (If(Greater(...), $volume, 0) → OK)"
