@@ -154,13 +154,22 @@ class ICAnalyzer:
         fig.add_hline(y=0.02, line_dash="dot", line_color="blue", opacity=0.5)
         fig.add_hline(y=-0.02, line_dash="dot", line_color="blue", opacity=0.5)
         
-        # 添加分界线
+        # 添加分界线 — use add_shape to avoid plotly/pandas date arithmetic bug
         if split_date:
-            fig.add_vline(
-                x=split_date,
-                line_dash="dash",
-                line_color="gray",
-                annotation_text="Train/Test Split"
+            split_x = split_date.strftime("%Y-%m-%d") if hasattr(split_date, "strftime") else str(split_date)
+            fig.add_shape(
+                type="line",
+                x0=split_x, x1=split_x,
+                y0=0, y1=1,
+                xref="x", yref="paper",
+                line=dict(dash="dash", color="gray"),
+            )
+            fig.add_annotation(
+                x=split_x, y=1,
+                xref="x", yref="paper",
+                text="Train/Test Split",
+                showarrow=False,
+                yanchor="bottom",
             )
         
         fig.update_layout(

@@ -218,48 +218,33 @@ class FactorPublisher:
         factor_dict: dict,
         factor_values: pd.DataFrame,
     ) -> str:
-        """Convert factor values to flat format, load price data, and generate an HTML report.
+        """Generate data-only HTML report using the report pipeline.
 
         Returns the path to the saved report, or empty string if generation fails.
         Failure is logged but not re-raised — report generation is non-transactional.
         """
-        from visualization.report import FactorReportGenerator
-
-        flat_factor_df = self._to_flat_df(factor_values)
+        from mining.report.builder import ReportDataBuilder
+        from mining.report.renderer import ReportRenderer
 
         report_dir = os.path.join(os.path.dirname(self.config.library_dir), "reports")
-        os.makedirs(report_dir, exist_ok=True)
-
-        factor_name = factor_dict.get("name", f"factor_{factor_id}")
-        report_output_dir = os.path.join(report_dir, f"factor_{factor_id}")
 
         try:
-            price_df = self._load_price_data(flat_factor_df)
-            split_date = pd.Timestamp(self.config.test_start)
+            builder = ReportDataBuilder(factor_id, self.config)
+            data = builder.build()
 
-            gen = FactorReportGenerator(factor_name, report_output_dir)
-            gen.analyze(flat_factor_df, price_df, split_date=split_date, n_groups=5)
-            gen.generate_charts()
-            saved = gen.save_charts(format="html")
+            empty_narrative = {
+                "factor_metadata": {
+                    "name_cn": "",
+                    "expression_latex": factor_dict.get("expression", ""),
+                },
+            }
 
-            # Return the first saved path, or fallback if no charts were produced
-            if saved:
-                return next(iter(saved.values()))
-            return os.path.join(report_output_dir, f"factor_{factor_id}.html")
+            renderer = ReportRenderer()
+            path = renderer.render_to_file(data, empty_narrative, report_dir, factor_id)
+            return path
         except Exception as e:
             logger.warning("Report generation failed for factor %s: %s", factor_id, e)
             return ""
-
-    def _load_price_data(self, flat_factor_df: pd.DataFrame) -> pd.DataFrame:
-        """Load close prices from price_daily for the symbols and date range in flat_factor_df."""
-        symbols = flat_factor_df["symbol"].unique().tolist()
-        start = flat_factor_df["time"].min()
-        end = flat_factor_df["time"].max()
-        sql = (
-            "SELECT symbol, time, close FROM price_daily "
-            "WHERE symbol = ANY(%s) AND time BETWEEN %s AND %s"
-        )
-        return pd.read_sql(sql, self._get_connection(), params=[symbols, start, end])
 
     def _update_report_path(self, conn, factor_id: str, report_path: str) -> None:
         """Update mining_factors.report_path for the given factor_id."""
