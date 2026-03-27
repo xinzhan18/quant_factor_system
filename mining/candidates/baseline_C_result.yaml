@@ -1,0 +1,220 @@
+batch_id: baseline_C
+timestamp: '2026-03-24T09:35:31.468101'
+mode: ic_screening
+summary:
+  total: 26
+  computed: 26
+  errors: 0
+results:
+- name: williams_r_variant
+  expression: Div(Sub(Mul(2, $close), $low), Sub($high, $low))
+  category: candlestick
+  ic_mean: 0.06729696396817014
+  ic_std: 0.25516811896330865
+  ic_ir: 0.26373578424131805
+  ic_win_rate: 0.5920726672171759
+  n_days: 1211
+- name: amihud_illiq_20
+  expression: AmihudIlliq($close/Ref($close,1)-1, 20)
+  category: volume
+  ic_mean: -0.05693630552109323
+  ic_std: 0.2966859291214472
+  ic_ir: -0.19190767047730997
+  ic_win_rate: 0.42609413707679605
+  n_days: 1211
+- name: signed_sqrt_return
+  expression: SignedPower($close/Ref($close,1)-1, 0.5)
+  category: momentum
+  ic_mean: -0.05689093602181448
+  ic_std: 0.2525581646174409
+  ic_ir: -0.22525874824909842
+  ic_win_rate: 0.41074380165289254
+  n_days: 1210
+- name: realized_vol_20
+  expression: RealizedVol($close/Ref($close,1)-1, 20)
+  category: volatility
+  ic_mean: -0.05521681760041918
+  ic_std: 0.2922911400007163
+  ic_ir: -0.18891033645523386
+  ic_win_rate: 0.42526837324525185
+  n_days: 1211
+- name: rank_ret_times_rank_vol
+  expression: Mul(Rank($close/Ref($close,1)-1, 20), Rank($volume, 20))
+  category: volume
+  ic_mean: -0.050392879503965794
+  ic_std: 0.22076029010782336
+  ic_ir: -0.22826967422154135
+  ic_win_rate: 0.39669421487603307
+  n_days: 1210
+- name: pv_corr_times_vol
+  expression: Mul(Corr($close, $volume, 10), Std($close/Ref($close,1)-1, 10))
+  category: volume
+  ic_mean: -0.0417354329482272
+  ic_std: 0.2309269464822956
+  ic_ir: -0.18073002559459608
+  ic_win_rate: 0.43682906688687034
+  n_days: 1211
+- name: hhi_volume_20
+  expression: HHI($volume, 20)
+  category: volume
+  ic_mean: -0.03362651803025461
+  ic_std: 0.1917930027904864
+  ic_ir: -0.17532713676206443
+  ic_win_rate: 0.4186622625928984
+  n_days: 1211
+- name: obv_ratio_20
+  expression: Div(Sum(If(Greater($close, Ref($close,1)), $volume, 0), 20), Sum($volume,
+    20))
+  category: volume
+  ic_mean: .nan
+  ic_std: .nan
+  ic_ir: .nan
+  ic_win_rate: .nan
+  n_days: 0
+- name: vol_weighted_abs_return
+  expression: Mean(Mul(Abs($close/Ref($close,1)-1), Div($volume, Mean($volume,20))),
+    20)
+  category: volume
+  ic_mean: -0.05276742504554915
+  ic_std: 0.2665044156404823
+  ic_ir: -0.19799831428209075
+  ic_win_rate: 0.4194880264244426
+  n_days: 1211
+- name: robust_normalized_residual
+  expression: Div(Resi($close, 20), Mad($close/Ref($close,1)-1, 20))
+  category: trend
+  ic_mean: -0.0333296216663523
+  ic_std: 0.23668344655905385
+  ic_ir: -0.14081940309262977
+  ic_win_rate: 0.4401321222130471
+  n_days: 1211
+- name: volume_range_iqr
+  expression: Sub(Quantile($volume, 20, 0.9), Quantile($volume, 20, 0.1))
+  category: volume
+  ic_mean: -0.03182443443035535
+  ic_std: 0.2239759124376924
+  ic_ir: -0.14208864731920023
+  ic_win_rate: 0.4434351775392238
+  n_days: 1211
+- name: ts_decay_volume_10
+  expression: TsDecay($volume, 10)
+  category: volume
+  ic_mean: -0.027914437410035076
+  ic_std: 0.2240644780456365
+  ic_ir: -0.12458216337330177
+  ic_win_rate: 0.4559068219633943
+  n_days: 1202
+- name: bounded_zscore
+  expression: Tanh(Div(Sub($close, Mean($close,20)), Std($close,20)))
+  category: trend
+  ic_mean: -0.020695868113357715
+  ic_std: 0.25528201252621036
+  ic_ir: -0.0810706085734608
+  ic_win_rate: 0.4508670520231214
+  n_days: 1211
+- name: price_vol_co_movement
+  expression: Mul(Delta($close, 10), Delta($volume, 10))
+  category: volume
+  ic_mean: -0.019182647562307226
+  ic_std: 0.21185831053863177
+  ic_ir: -0.09054470185067072
+  ic_win_rate: 0.46732837055417703
+  n_days: 1209
+- name: volume_extreme_timing
+  expression: Div(Sub(IdxMin($volume,20), IdxMax($volume,20)), 20)
+  category: volume
+  ic_mean: 0.0176750099053294
+  ic_std: 0.20024622269417192
+  ic_ir: 0.08826638359278187
+  ic_win_rate: 0.5310402684563759
+  n_days: 1192
+- name: sign_ret_delta_vol
+  expression: Mul(Sign(Delta($close, 5)), Delta($volume, 5))
+  category: volume
+  ic_mean: -0.017532835985443068
+  ic_std: 0.1918221431607096
+  ic_ir: -0.09140152276765026
+  ic_win_rate: 0.4557485525227461
+  n_days: 1209
+- name: ts_momentum_close_20
+  expression: TsMomentum($close, 20)
+  category: momentum
+  ic_mean: -0.016187644329293132
+  ic_std: 0.27479050000049793
+  ic_ir: -0.05890903917443943
+  ic_win_rate: 0.4768595041322314
+  n_days: 1210
+- name: volume_beta
+  expression: Div(Cov($close/Ref($close,1)-1, $volume, 20), Var($close/Ref($close,1)-1,
+    20))
+  category: volume
+  ic_mean: -0.015567366981907402
+  ic_std: 0.2017896853207079
+  ic_ir: -0.07714649515987852
+  ic_win_rate: 0.4649050371593724
+  n_days: 1211
+- name: ts_momentum_close_60
+  expression: TsMomentum($close, 60)
+  category: momentum
+  ic_mean: -0.01052395752999139
+  ic_std: 0.28647357895380215
+  ic_ir: -0.03673622387245884
+  ic_win_rate: 0.4859504132231405
+  n_days: 1210
+- name: pv_aligned_trend
+  expression: Mul(Corr($close,$volume,20), Slope($close,20))
+  category: trend
+  ic_mean: -0.009804048832838336
+  ic_std: 0.23087364554682827
+  ic_ir: -0.04246499772469601
+  ic_win_rate: 0.4847233691164327
+  n_days: 1211
+- name: ts_decay_close_20
+  expression: TsDecay($close, 20)
+  category: trend
+  ic_mean: -0.008994754017569348
+  ic_std: 0.22593207373022953
+  ic_ir: -0.03981176231007106
+  ic_win_rate: 0.49077181208053694
+  n_days: 1192
+- name: trend_vs_vol_rank
+  expression: Sub(Rank(Slope($close, 20), 60), Rank(Std($close/Ref($close,1)-1, 20),
+    60))
+  category: trend
+  ic_mean: 0.008837874035591935
+  ic_std: 0.20592950910541843
+  ic_ir: 0.04291698685625329
+  ic_win_rate: 0.5276630883567299
+  n_days: 1211
+- name: drawdown_from_20d_high
+  expression: Sub(Div(Max($close,20), $close), 1)
+  category: momentum
+  ic_mean: -0.005290328985937878
+  ic_std: 0.28349941950486585
+  ic_ir: -0.018660810647081687
+  ic_win_rate: 0.4995871180842279
+  n_days: 1211
+- name: ts_autocorr_ret_20
+  expression: TsAutoCorr($close/Ref($close,1)-1, 20)
+  category: distribution
+  ic_mean: -0.004242656581867399
+  ic_std: 0.18988660105495367
+  ic_ir: -0.022343106666275855
+  ic_win_rate: 0.4920235096557515
+  n_days: 1191
+- name: relative_idx_max_60
+  expression: Div(IdxMax($close,60), 60)
+  category: momentum
+  ic_mean: -0.0018593849204051496
+  ic_std: 0.23184091388778189
+  ic_ir: -0.008020089677981294
+  ic_win_rate: 0.4947916666666667
+  n_days: 1152
+- name: ts_entropy_ret_20
+  expression: TsEntropy($close/Ref($close,1)-1, 20)
+  category: distribution
+  ic_mean: 0.00047135573031417124
+  ic_std: 0.1638661521604375
+  ic_ir: 0.0028764679227512337
+  ic_win_rate: 0.5053674649050371
+  n_days: 1211

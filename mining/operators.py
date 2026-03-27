@@ -154,140 +154,205 @@ def hhi(volume: np.ndarray, period: int) -> float:
 # Qlib ExpressionOps classes (registered with Qlib expression engine)
 # ---------------------------------------------------------------------------
 
-from qlib.data.ops import PairOperator, ElemOperator, Rolling, NpElemOperator
+from qlib.data.ops import PairOperator, ElemOperator, Rolling, NpElemOperator, NpPairOperator
+from qlib.data.base import Expression
+
+import pandas as pd
 
 
 # --- Non-linear transforms ---
 
-class SignedPowerOp(PairOperator):
+class SignedPowerOp(NpPairOperator):
     """``SignedPower($close, 0.5)`` — sign(x) * |x|^p"""
 
-    def _execute(self, series_left, series_right):
+    def __init__(self, feature_left, feature_right):
+        super().__init__(feature_left, feature_right, "power")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        if isinstance(self.feature_left, Expression):
+            series_left = self.feature_left.load(instrument, start_index, end_index, *args)
+        else:
+            series_left = self.feature_left
+        if isinstance(self.feature_right, Expression):
+            series_right = self.feature_right.load(instrument, start_index, end_index, *args)
+        else:
+            series_right = self.feature_right
         return np.sign(series_left) * np.abs(series_left) ** series_right
 
 
 class TanhOp(NpElemOperator):
     """``Tanh($close)`` — bounded [-1, 1] non-linearity"""
 
-    def _execute(self, series):
-        return np.tanh(series)
+    def __init__(self, feature):
+        super().__init__(feature, "tanh")
 
 
 class ExpOp(NpElemOperator):
     """``Exp($close)`` — exponential with clamping [-20, 20]"""
 
-    def _execute(self, series):
+    def __init__(self, feature):
+        super().__init__(feature, "exp")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
         return np.exp(np.clip(series, -20.0, 20.0))
 
 
-class SigmoidOp(NpElemOperator):
+class SigmoidOp(ElemOperator):
     """``Sigmoid($close)`` — maps R to (0, 1)"""
 
-    def _execute(self, series):
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
         clamped = np.clip(series, -20.0, 20.0)
         return 1.0 / (1.0 + np.exp(-clamped))
 
 
-class SoftmaxOp(NpElemOperator):
+class SoftmaxOp(ElemOperator):
     """``Softmax($close)`` — cross-sectional softmax, output sums to 1"""
 
-    def _execute(self, series):
-        shifted = series - np.nanmax(series)
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        shifted = series - np.nanmax(series.values)
         e = np.exp(shifted)
-        s = np.nansum(e)
+        s = np.nansum(e.values)
         return e / s if s != 0 else e * 0.0
 
 
 # --- Normalization ---
 
-class ScaleOp(NpElemOperator):
+class ScaleOp(ElemOperator):
     """``Scale($close)`` — min-max normalization to [-1, 1]"""
 
-    def _execute(self, series):
-        vmin, vmax = np.nanmin(series), np.nanmax(series)
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        vmin = np.nanmin(series.values)
+        vmax = np.nanmax(series.values)
         if vmax == vmin:
             return series * 0.0
         return 2.0 * (series - vmin) / (vmax - vmin) - 1.0
 
 
-class ZscoreOp(NpElemOperator):
+class ZscoreOp(ElemOperator):
     """``Zscore($close)`` — (x - mean) / std"""
 
-    def _execute(self, series):
-        mean = np.nanmean(series)
-        std = np.nanstd(series)
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        mean = np.nanmean(series.values)
+        std = np.nanstd(series.values)
         if std == 0:
             return series * 0.0
         return (series - mean) / std
 
 
-class WinsorizeOp(NpElemOperator):
+class WinsorizeOp(ElemOperator):
     """``Winsorize($close)`` — clip to [mean-3*std, mean+3*std]"""
 
-    def _execute(self, series):
-        mean = np.nanmean(series)
-        std = np.nanstd(series)
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        mean = np.nanmean(series.values)
+        std = np.nanstd(series.values)
         if std == 0:
             return series
-        return np.clip(series, mean - 3.0 * std, mean + 3.0 * std)
+        return series.clip(lower=mean - 3.0 * std, upper=mean + 3.0 * std)
 
 
 # --- Time-series ---
+# NOTE: Rolling._load_internal uses pandas .rolling(N).{func}() by default.
+# Custom operators must override _load_internal to apply custom window logic,
+# and pass a dummy func string to super().__init__().
+
 
 class TsDecayOp(Rolling):
     """``TsDecay($close, 10)`` — linearly weighted average, recent values heavier"""
 
-    def _execute(self, series):
-        n = len(series)
-        weights = np.arange(1, n + 1, dtype=float)
-        weights /= weights.sum()
-        return np.dot(series, weights)
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_decay")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+
+        def _apply(arr):
+            n = len(arr)
+            w = np.arange(1, n + 1, dtype=float)
+            return np.dot(arr, w) / w.sum()
+
+        return series.rolling(self.N, min_periods=1).apply(_apply, raw=True)
 
 
 class TsMomentumOp(Rolling):
     """``TsMomentum($close, 20)`` — period return: last/first - 1"""
 
-    def _execute(self, series):
-        if len(series) == 0 or series[0] == 0:
-            return np.nan
-        return series[-1] / series[0] - 1
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_momentum")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+
+        def _apply(arr):
+            if len(arr) == 0 or arr[0] == 0:
+                return np.nan
+            return arr[-1] / arr[0] - 1
+
+        return series.rolling(self.N, min_periods=1).apply(_apply, raw=True)
 
 
 class TsAutoCorrelation(Rolling):
     """``TsAutoCorr($close, 20)`` — lag-1 autocorrelation of the series"""
 
-    def _execute(self, series):
-        if len(series) < 4:
-            return np.nan
-        x, y = series[:-1], series[1:]
-        std_x, std_y = np.std(x), np.std(y)
-        if std_x == 0 or std_y == 0:
-            return 0.0
-        return float(np.corrcoef(x, y)[0, 1])
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_autocorr")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+
+        def _apply(arr):
+            if len(arr) < 4:
+                return np.nan
+            x, y = arr[:-1], arr[1:]
+            sx, sy = np.std(x), np.std(y)
+            if sx == 0 or sy == 0:
+                return 0.0
+            return float(np.corrcoef(x, y)[0, 1])
+
+        return series.rolling(self.N, min_periods=4).apply(_apply, raw=True)
 
 
 class RealizedVolOp(Rolling):
     """``RealizedVol($returns, 20)`` — sqrt(sum(x^2)), realized volatility"""
 
-    def _execute(self, series):
-        return np.sqrt(np.nansum(series ** 2))
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "realized_vol")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        return series.rolling(self.N, min_periods=1).apply(
+            lambda arr: np.sqrt(np.nansum(arr ** 2)), raw=True
+        )
 
 
 class TsEntropyOp(Rolling):
     """``TsEntropy($returns, 20)`` — Shannon entropy of return distribution"""
 
-    def _execute(self, series):
-        s = series[~np.isnan(series)]
-        if len(s) < 2:
-            return np.nan
-        # Discretize into 10 bins
-        counts, _ = np.histogram(s, bins=min(10, len(s)))
-        probs = counts / counts.sum()
-        probs = probs[probs > 0]
-        return -float(np.sum(probs * np.log(probs)))
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_entropy")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+
+        def _apply(arr):
+            s = arr[~np.isnan(arr)]
+            if len(s) < 2:
+                return np.nan
+            counts, _ = np.histogram(s, bins=min(10, len(s)))
+            probs = counts / counts.sum()
+            probs = probs[probs > 0]
+            return -float(np.sum(probs * np.log(probs)))
+
+        return series.rolling(self.N, min_periods=2).apply(_apply, raw=True)
 
 
 # --- Microstructure ---
+
 
 class AmihudIlliqOp(Rolling):
     """``AmihudIlliq($returns, 20)`` — mean(|x|) as illiquidity proxy
@@ -296,19 +361,31 @@ class AmihudIlliqOp(Rolling):
     uses |return| only. For the full version, use PairRolling with volume.
     """
 
-    def _execute(self, series):
-        return np.nanmean(np.abs(series))
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "amihud_illiq")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        return series.abs().rolling(self.N, min_periods=1).mean()
 
 
 class HHIOp(Rolling):
     """``HHI($volume, 20)`` — Herfindahl index of volume concentration"""
 
-    def _execute(self, series):
-        total = np.nansum(series)
-        if total == 0:
-            return np.nan
-        shares = series / total
-        return np.nansum(shares ** 2)
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "hhi")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+
+        def _apply(arr):
+            total = np.nansum(arr)
+            if total == 0:
+                return np.nan
+            shares = arr / total
+            return np.nansum(shares ** 2)
+
+        return series.rolling(self.N, min_periods=1).apply(_apply, raw=True)
 
 
 # ---------------------------------------------------------------------------
@@ -342,12 +419,13 @@ _CUSTOM_OPS: Dict[str, type] = {
 def register_custom_operators() -> Dict[str, type]:
     """Register all custom operators with Qlib's expression engine.
 
-    Injects operator classes into ``qlib.data.ops`` module namespace so they
-    can be used in expression strings like ``Zscore(TsDecay($close, 10))``.
+    Directly inserts into ``Operators._ops`` dict keyed by expression name
+    (e.g. ``TsDecay``) rather than class name (``TsDecayOp``), since
+    ``Operators.register()`` uses ``cls.__name__`` which doesn't match.
 
     Returns dict of {name: class} for reference.
     """
-    from qlib.data import ops as qlib_ops
+    from qlib.data.ops import Operators
     for name, cls in _CUSTOM_OPS.items():
-        setattr(qlib_ops, name, cls)
+        Operators._ops[name] = cls
     return dict(_CUSTOM_OPS)

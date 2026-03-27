@@ -1,0 +1,54 @@
+batch_id: "batch_015"
+timestamp: "2026-03-24T10:35:00"
+description: "Re-evaluate top unused baseline factors — replacement or admission check against current 12-factor library"
+candidates:
+  # Top unused baseline factors by |IC| >= 0.05
+  - name: "williams_r_variant"
+    expression: "Div(Sub(Mul(2, $close), $low), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "Strongest baseline factor IC=0.067. Check if orthogonal to current library."
+
+  - name: "avg_range_5d"
+    expression: "Mean(Div(Sub($high, $low), $close), 5)"
+    category: "candlestick"
+    rationale: "2nd strongest IC=-0.064. May correlate with 011 (range*vol)."
+
+  - name: "pv_corr_regime_range"
+    expression: "If(Greater(Corr($close,$volume,20), 0), Mean(Div(Sub($high,$low),$close),5), Mean(Div(Sub($high,$low),$close),60))"
+    category: "regime"
+    rationale: "3rd strongest IC=-0.062. Novel regime condition."
+
+  - name: "close_position"
+    expression: "Div(Sub($close, $low), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "IC=-0.053. Different from upper_shadow_ratio?"
+
+  - name: "rank_ret_times_rank_vol"
+    expression: "Mul(Rank($close/Ref($close,1)-1, 20), Rank($volume, 20))"
+    category: "volume"
+    rationale: "IC=-0.050. Rank transform may decorrelate from raw Corr/Cov."
+
+  - name: "vol_weighted_abs_return"
+    expression: "Mean(Mul(Abs($close/Ref($close,1)-1), Div($volume, Mean($volume,20))), 20)"
+    category: "volume"
+    rationale: "IC=-0.053. Volume-weighted activity measure."
+
+  - name: "intraday_ret_over_range"
+    expression: "Div(Sub($close, $open), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "IC=-0.052. Direction within range."
+
+  - name: "price_range_pct_20"
+    expression: "Div(Sub(Max($close,20), Min($close,20)), Min($close,20))"
+    category: "volatility"
+    rationale: "IC=-0.048. 20d price range %."
+
+  - name: "dist_from_60d_low"
+    expression: "Div(Sub($close, Min($close, 60)), Min($close, 60))"
+    category: "momentum"
+    rationale: "IC=-0.039. Long-term price position."
+
+  - name: "normalized_residual_20"
+    expression: "Div(Resi($close, 20), Std($close, 20))"
+    category: "trend"
+    rationale: "IC=-0.035. Normalized regression residual."

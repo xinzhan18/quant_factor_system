@@ -1,0 +1,136 @@
+admitted: []
+batch_id: batch_010
+rejected:
+- category: candlestick
+  expression: Mul(Div($high, $close), Div($volume, Mean($volume, 20)))
+  name: high_relative_volume
+  rationale: "How high price goes * volume intensity \u2014 conviction of intraday\
+    \ highs"
+  stage1:
+    ic_ir: -0.12943465689019426
+    ic_mean: -0.027103139231770924
+    ic_std: 0.2093963076269738
+    ic_win_rate: 0.4401321222130471
+    n_days: 1211
+- category: trend
+  expression: Div(Sub($close, Mean($close, 60)), Mean($close, 60))
+  name: price_position_in_mean
+  rationale: "Price deviation from 60d mean as percentage \u2014 long-term mean reversion"
+  stage1:
+    ic_ir: -0.0607912185817816
+    ic_mean: -0.01758888517320772
+    ic_std: 0.2893326632290753
+    ic_win_rate: 0.4880264244426094
+    n_days: 1211
+- category: volume
+  expression: Skew($volume, 20)
+  name: volume_skew_20
+  rationale: "Volume skewness \u2014 are there a few very large volume days?"
+  stage1:
+    ic_ir: -0.08272714206077954
+    ic_mean: -0.014437392700931063
+    ic_std: 0.17451820939642673
+    ic_win_rate: 0.46160198183319573
+    n_days: 1211
+- category: regime
+  expression: If(Greater(Rsquare($close, 60), 0.5), Slope($close, 20), Var($close/Ref($close,1)-1,
+    20))
+  name: trend_regime_slope_var
+  rationale: "Strong trend \u2192 use slope; no trend \u2192 use variance. R\xB2=0.5\
+    \ as threshold."
+  stage1:
+    ic_ir: -0.01690159804659502
+    ic_mean: -0.004498539969321586
+    ic_std: 0.26616062912630073
+    ic_win_rate: 0.4962840627580512
+    n_days: 1211
+- category: candlestick
+  expression: Mean(Div(Abs(Sub($close, $open)), Sub($high, $low)), 10)
+  name: avg_body_ratio_10
+  rationale: "Average body/range ratio \u2014 how much of range is body vs shadows"
+  stage1:
+    ic_ir: -0.043922628007569534
+    ic_mean: -0.007956296791503566
+    ic_std: 0.181143459588356
+    ic_win_rate: 0.47481420313790257
+    n_days: 1211
+- category: distribution
+  expression: Std(If(Less($close/Ref($close,1)-1, 0), $close/Ref($close,1)-1, 0),
+    20)
+  name: downside_vol_20
+  rationale: "Downside-only volatility \u2014 only counts negative returns. Different\
+    \ from symmetric vol."
+  stage1:
+    ic_ir: -0.1465977855220432
+    ic_mean: -0.042861253620352924
+    ic_std: 0.29237313147481403
+    ic_win_rate: 0.44426094137076794
+    n_days: 1211
+- _lib_correlations:
+    '001': 0.0421737399134446
+    '002': 0.021067344906720034
+    '003': 0.01356866877989245
+    '004': 0.010796461553370471
+    '005': 0.013787645087733641
+    '006': 0.013372686171251254
+    '007': 0.015964505688405177
+    008: 0.021386048782600246
+    009: 0.026947759580249822
+    '010': 0.08224884271177722
+    '011': 0.04307469357562913
+    '012': 0.6289780251255509
+  category: momentum
+  expression: Sum(If(Greater($close, Ref($close,1)), 1, -1), 10)
+  full_ic:
+    ic_ir: 0.329669419114027
+    ic_mean: 0.00853948278395967
+    ic_std: 0.025903169323103065
+    ic_win_rate: 0.6483516483516484
+    n_days: 1092
+  name: consecutive_up_score
+  rationale: "Net up/down day count over 10 days \u2014 +10 = all up, -10 = all down"
+  stage1:
+    ic_ir: 0.6745986282762261
+    ic_mean: 0.10415596198145356
+    ic_std: 0.1543969371055482
+    ic_win_rate: 0.7142857142857143
+    n_days: 14
+  stage2:
+    max_corr: 0.6289780251255509
+    max_corr_factor: '012'
+    passed: false
+- _lib_correlations:
+    '001': 0.9945580417069096
+    '002': 0.048637747929893005
+    '003': 0.003660259734710417
+    '004': 0.3234656811214687
+    '005': 0.034169809232801635
+    '006': 0.0013856040144497772
+    '007': 0.016949934713441507
+    008: 0.29835913570873374
+    009: 0.44939898441718545
+    '010': 0.363835515868381
+    '011': 0.43266622371742697
+    '012': 0.013899378604374233
+  category: other
+  expression: Mul(Std($close/Ref($close,1)-1, 20), Div(Count(Greater($close, Ref($close,1)),
+    20), 20))
+  full_ic:
+    ic_ir: -0.3036224211886709
+    ic_mean: -0.05734174880939272
+    ic_std: 0.1888587429903952
+    ic_win_rate: 0.37985136251032203
+    n_days: 1211
+  name: vol_times_up_count
+  rationale: "Volatility * up-day fraction \u2014 high vol + many up days = overextended?"
+  stage1:
+    ic_ir: -0.18852641968773345
+    ic_mean: -0.054768629290823795
+    ic_std: 0.2905090404917255
+    ic_win_rate: 0.4269199009083402
+    n_days: 1211
+  stage2:
+    max_corr: 0.9945580417069096
+    max_corr_factor: '001'
+    passed: false
+replacements: []

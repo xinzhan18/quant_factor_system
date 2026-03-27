@@ -1,0 +1,133 @@
+batch_id: "baseline_A"
+timestamp: "2026-03-24T10:00:00"
+description: "Classic Price/Volume Factors — momentum, volatility, volume, candlestick, regression"
+candidates:
+  # === Momentum/Reversal ===
+  - name: "return_5d"
+    expression: "$close/Ref($close, 5) - 1"
+    category: "momentum"
+    rationale: "5-day simple return — short-term momentum"
+
+  - name: "return_10d"
+    expression: "$close/Ref($close, 10) - 1"
+    category: "momentum"
+    rationale: "10-day simple return — medium-term momentum"
+
+  - name: "return_20d"
+    expression: "$close/Ref($close, 20) - 1"
+    category: "momentum"
+    rationale: "20-day simple return — monthly momentum"
+
+  - name: "return_60d"
+    expression: "$close/Ref($close, 60) - 1"
+    category: "momentum"
+    rationale: "60-day simple return — quarterly momentum"
+
+  - name: "dist_from_60d_high"
+    expression: "Div(Sub($close, Max($close, 60)), Max($close, 60))"
+    category: "momentum"
+    rationale: "Distance from 60-day high — drawdown measure"
+
+  - name: "dist_from_60d_low"
+    expression: "Div(Sub($close, Min($close, 60)), Min($close, 60))"
+    category: "momentum"
+    rationale: "Distance from 60-day low — recovery measure"
+
+  - name: "dist_from_20d_high"
+    expression: "Div(Sub($close, Max($close, 20)), Max($close, 20))"
+    category: "momentum"
+    rationale: "Distance from 20-day high — short-term drawdown"
+
+  - name: "ema_momentum"
+    expression: "Sub(Div(EMA($close, 5), EMA($close, 20)), 1)"
+    category: "momentum"
+    rationale: "EMA(5)/EMA(20) ratio minus 1 — exponential momentum"
+
+  # === Volatility ===
+  - name: "mad_volatility_20"
+    expression: "Mad($close/Ref($close,1)-1, 20)"
+    category: "volatility"
+    rationale: "Robust volatility using MAD instead of Std"
+
+  - name: "vol_ratio_5_20"
+    expression: "Div(Std($close/Ref($close,1)-1, 5), Std($close/Ref($close,1)-1, 20))"
+    category: "volatility"
+    rationale: "Short/long volatility ratio — vol regime detection"
+
+  - name: "price_range_pct_20"
+    expression: "Div(Sub(Max($close,20), Min($close,20)), Min($close,20))"
+    category: "volatility"
+    rationale: "20-day price range as percentage of min — range-based volatility"
+
+  # === Volume ===
+  - name: "pv_corr_20"
+    expression: "Corr($close, $volume, 20)"
+    category: "volume"
+    rationale: "20-day price-volume correlation"
+
+  - name: "ret_vol_corr_20"
+    expression: "Corr($close/Ref($close,1)-1, $volume, 20)"
+    category: "volume"
+    rationale: "Return-volume correlation over 20 days"
+
+  - name: "volume_ratio_5_60"
+    expression: "Div(Mean($volume, 5), Mean($volume, 60))"
+    category: "volume"
+    rationale: "5d/60d volume ratio — volume trend"
+
+  - name: "log_avg_volume_20"
+    expression: "Log(Mean($volume, 20))"
+    category: "volume"
+    rationale: "Log average volume — liquidity proxy"
+
+  - name: "relative_volume_today"
+    expression: "Div($volume, Mean($volume, 20))"
+    category: "volume"
+    rationale: "Today's volume relative to 20d average"
+
+  # === Candlestick/OHLC ===
+  - name: "intraday_ret_over_range"
+    expression: "Div(Sub($close, $open), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "Intraday return normalized by range"
+
+  - name: "upper_shadow_ratio"
+    expression: "Div(Sub($high, If(Greater($close, $open), $close, $open)), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "Upper shadow as fraction of total range"
+
+  - name: "avg_range_5d"
+    expression: "Mean(Div(Sub($high, $low), $close), 5)"
+    category: "candlestick"
+    rationale: "5-day average intraday range normalized by close"
+
+  - name: "close_position"
+    expression: "Div(Sub($close, $low), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "Close position within day's range (0=low, 1=high)"
+
+  # === Regression/Trend ===
+  - name: "resi_close_5"
+    expression: "Resi($close, 5)"
+    category: "trend"
+    rationale: "5-day regression residual — very short-term mean reversion"
+
+  - name: "resi_volume_20"
+    expression: "Resi($volume, 20)"
+    category: "trend"
+    rationale: "Volume regression residual — volume deviation from trend"
+
+  - name: "slope_close_60"
+    expression: "Slope($close, 60)"
+    category: "trend"
+    rationale: "60-day price slope — quarterly trend strength"
+
+  - name: "rsquare_close_60"
+    expression: "Rsquare($close, 60)"
+    category: "trend"
+    rationale: "60-day R-squared — trend linearity"
+
+  - name: "normalized_residual_20"
+    expression: "Div(Resi($close, 20), Std($close, 20))"
+    category: "trend"
+    rationale: "Regression residual normalized by price volatility"

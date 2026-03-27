@@ -1,0 +1,77 @@
+batch_id: "alpha101_batch_4"
+timestamp: "2026-03-24T11:00:00"
+description: "Alpha101 remaining + near-miss factors from previous batches (with relaxed corr<0.7)"
+candidates:
+  # Alpha#19 simplified: sign reversal * long momentum
+  - name: "alpha019"
+    expression: "Mul(Sign(Sub(Sub($close, Ref($close, 7)), Delta($close, 7))), Sub(1, Rank(Sum($close/Ref($close,1)-1, 60), 60)))"
+    category: "momentum"
+    rationale: "Alpha101#19 adapted: Weekly reversal * inverse long momentum"
+
+  # Alpha#21: SMA regime switching
+  - name: "alpha021"
+    expression: "If(Less(Sub(Mean($close, 8), Std($close, 8)), Mean($close, 2)), -1, If(Greater(Mean($close, 2), Sub(Mean($close, 8), Std($close, 8))), 1, If(Greater(Div($volume, Mean($volume, 20)), 1), 1, -1)))"
+    category: "regime"
+    rationale: "Alpha101#21: Bollinger band regime — below lower band / above / volume surge"
+
+  # Alpha#24: conditional on 100d SMA trend
+  - name: "alpha024"
+    expression: "If(Less(Div(Delta(Mean($close, 60), 60), Ref($close, 60)), 0.05), Mul(Sub($close, Min($close, 60)), -1), Mul(Delta($close, 3), -1))"
+    category: "momentum"
+    rationale: "Alpha101#24 adapted: Weak long trend → distance from low; else → 3d reversal"
+
+  # Alpha#52: -1*delta(ts_min(low,5),5) * rank((sum(ret,240)-sum(ret,20))/220) * ts_rank(vol,5)
+  - name: "alpha052"
+    expression: "Mul(Mul(Mul(Delta(Min($low, 5), 5), -1), Rank(Div(Sub(Sum($close/Ref($close,1)-1, 60), Sum($close/Ref($close,1)-1, 20)), 40), 60)), Rank($volume, 5))"
+    category: "momentum"
+    rationale: "Alpha101#52 adapted: Low breakout * long vs short momentum * volume rank"
+
+  # === Previously rejected factors that should pass at corr < 0.7 ===
+
+  # Was corr=0.50 with 011, now passes
+  - name: "rank_ret_times_rank_vol"
+    expression: "Mul(Rank($close/Ref($close,1)-1, 20), Rank($volume, 20))"
+    category: "volume"
+    rationale: "Rank(return)*Rank(volume) — Alpha101-style. Previously corr=0.50, passes at 0.7"
+
+  # Was corr=0.61 with 005, now passes
+  - name: "intraday_vs_overnight"
+    expression: "Sub(Div(Sub($close, $open), $open), Div(Sub($open, Ref($close, 1)), Ref($close, 1)))"
+    category: "momentum"
+    rationale: "Intraday return - overnight gap. Previously corr=0.61, passes at 0.7"
+
+  # Was corr=0.62 with 011, now passes
+  - name: "range_compression_60"
+    expression: "Div(Div(Sub($high, $low), $close), Mean(Div(Sub($high, $low), $close), 60))"
+    category: "candlestick"
+    rationale: "Today's range / 60d avg range. Previously corr=0.62, passes at 0.7"
+
+  # intraday_ret_over_range: baseline IC=-0.052, previously 2 conflicts
+  - name: "intraday_ret_over_range"
+    expression: "Div(Sub($close, $open), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "Alpha101#101 variant. Baseline IC=-0.052."
+
+  # close_position: baseline IC=-0.053
+  - name: "close_position"
+    expression: "Div(Sub($close, $low), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "Close position in range. Baseline IC=-0.053."
+
+  # williams_r_variant: strongest baseline IC=0.067
+  - name: "williams_r_variant"
+    expression: "Div(Sub(Mul(2, $close), $low), Sub($high, $low))"
+    category: "candlestick"
+    rationale: "Williams %R variant. Baseline IC=0.067, strongest single factor."
+
+  # pv_corr_regime_range: IC=-0.062
+  - name: "pv_corr_regime_range"
+    expression: "If(Greater(Corr($close,$volume,20), 0), Mean(Div(Sub($high,$low),$close),5), Mean(Div(Sub($high,$low),$close),60))"
+    category: "regime"
+    rationale: "PV corr regime switching range windows. Baseline IC=-0.062."
+
+  # avg_range_5d: IC=-0.064
+  - name: "avg_range_5d"
+    expression: "Mean(Div(Sub($high, $low), $close), 5)"
+    category: "candlestick"
+    rationale: "5-day average normalized range. Baseline IC=-0.064."

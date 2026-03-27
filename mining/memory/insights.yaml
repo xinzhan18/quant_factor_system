@@ -1,68 +1,163 @@
 insights:
-  # ===== Confirmed Strong Signals =====
-  - insight: "Low volatility anomaly is the strongest daily signal in A-shares: Std(returns,20) IC=-0.058, mono=-0.9"
+  # ===== Baseline IC Rankings (top 26 with |IC| >= 0.03) =====
+  - insight: "Williams %R variant Div(Sub(Mul(2,C),L), Sub(H,L)) is the strongest single factor: IC=0.067"
     confidence: high
-    source: "batch_001 empirical"
+    source: "baseline_C screening (50 stocks, 2020-2024)"
 
-  - insight: "Volume volatility (Std($volume,20)) is a strong independent dimension: IC=-0.039, mono=-1.0, corr only 0.36 with price-vol"
+  - insight: "Intraday range Mean((H-L)/C, 5) is the 2nd strongest: IC=-0.064"
     confidence: high
-    source: "batch_006 empirical"
+    source: "baseline_A screening"
 
-  - insight: "Volatility regime switching (current vol vs historical median) produces orthogonal IfElse factors: IC=-0.044, corr=0.43"
+  - insight: "PV corr regime switching range windows: IC=-0.062 — strongest regime factor"
     confidence: high
-    source: "batch_002 empirical"
+    source: "baseline_B screening"
 
-  - insight: "Volume contraction (declining relative volume) predicts positive returns: IC=-0.032, mono=-0.9"
+  - insight: "Low volatility anomaly confirmed across all measures: Std(ret,20)=-0.058, MAD=-0.058, RealizedVol=-0.055, AmihudIlliq=-0.057, IQR=-0.058"
     confidence: high
-    source: "batch_001 empirical"
+    source: "baseline A/B/C screening"
+
+  - insight: "Distribution tail measures strongly predict: Q90 IC=-0.056, Q10 IC=0.044 — wider tails = underperformance"
+    confidence: high
+    source: "baseline_B screening"
+
+  - insight: "Close position Div(C-L, H-L) IC=-0.053 — stocks closing near day's low underperform"
+    confidence: high
+    source: "baseline_A screening"
+
+  - insight: "Upper shadow ratio IC=0.053 — large upper shadow = positive next-day signal"
+    confidence: high
+    source: "baseline_A screening"
+
+  - insight: "Volume-weighted abs return IC=-0.053 — high activity = negative signal"
+    confidence: high
+    source: "baseline_C screening"
+
+  - insight: "Intraday return/range IC=-0.052 — strong daily construction"
+    confidence: high
+    source: "baseline_A screening"
+
+  # ===== Custom Operator Status =====
+  - insight: "All 15 custom operators now registered and working with Operators._ops direct injection"
+    confidence: high
+    source: "baseline_C screening — TsDecay, SignedPower, RealizedVol, AmihudIlliq, HHI, Tanh all computed successfully"
+
+  - insight: "Custom op IC rankings: AmihudIlliq(-0.057) > SignedPower(-0.057) > RealizedVol(-0.055) > HHI(-0.034) > TsDecay_vol(-0.028) > Tanh_zscore(-0.021)"
+    confidence: high
+    source: "baseline_C screening"
+
+  - insight: "TsAutoCorr and TsEntropy are very weak: IC=-0.004 and IC=0.001 respectively"
+    confidence: high
+    source: "baseline_C screening"
 
   # ===== Factor Construction Rules =====
   - insight: "Symmetric IfElse (x vs -x) always produces identical factor values regardless of condition — MUST use asymmetric payloads"
     confidence: high
-    source: "batch_003-004 empirical (corr=1.0 between different conditions with same symmetric payload)"
+    source: "batch_003-004 empirical (corr=1.0)"
 
-  - insight: "IfElse branching is the most promising direction for orthogonal factor construction — but requires truly different signals in each branch"
+  - insight: "IfElse with truly different signals in each branch works well — pv_corr_regime_range IC=-0.062"
     confidence: high
-    source: "batch_002-004 empirical + paper finding"
+    source: "baseline_B screening"
 
-  - insight: "CsRank wrapping can effectively reduce inter-factor correlation"
+  # ===== Signal Strength Tiers =====
+  - insight: "Tier 1 (|IC|>0.05): Williams%R, avg_range, pv_corr_regime_range, IQR, MAD, AmihudIlliq, SignedPower, Q90, RealizedVol, upper_shadow, close_pos, rank_ret*rank_vol, vol_weighted_abs_ret, intraday_ret/range"
     confidence: high
-    source: "paper Appendix G (untested in our pipeline)"
+    source: "baseline screening"
+
+  - insight: "Tier 2 (0.03<=|IC|<=0.05): Q10, pv_corr*vol, price_range%20, Resi(5), vol_regime_resi_slope, dist_60d_low, norm_residual, return_5d, robust_norm_resi, ret_vol_cov, volume_range_iqr, HHI"
+    confidence: high
+    source: "baseline screening"
+
+  - insight: "Weak (|IC|<0.03): All remaining 50 factors including long momentum, EMA, Slope, Rsquare, Kurt, IdxMax/Min, autocorrelation, entropy, vol term structure"
+    confidence: high
+    source: "baseline screening"
 
   # ===== Dimension Saturation =====
-  - insight: "Volatility dimension is saturated: Std(returns, any_window), intraday range (H-L)/C, Resi($close,20) all corr>0.65 with each other"
+  - insight: "Volatility dimension saturated: 7+ factors in Tier 1 are all volatility variants (Std, MAD, RealizedVol, AmihudIlliq, IQR, Q90). Most will be correlated."
     confidence: high
-    source: "batch_001-006 empirical"
+    source: "baseline screening"
 
-  - insight: "Volatility window variants (10d/20d/60d) are essentially the same signal (corr>0.78)"
+  - insight: "Candlestick/range dimension rich: Williams%R, avg_range, close_position, upper_shadow, intraday_ret/range — 5 factors, likely 2-3 orthogonal ones"
     confidence: high
-    source: "batch_002 empirical"
-
-  # ===== Weak/Failed Directions =====
-  - insight: "Classical technical analysis signals (EMA cross, Bollinger, momentum) have near-zero IC in A-shares"
-    confidence: high
-    source: "batch_002-006 empirical"
-
-  - insight: "Candlestick patterns (shadow ratio, close position, intraday return) have zero predictive power"
-    confidence: high
-    source: "batch_003 empirical"
-
-  - insight: "Risk-adjusted momentum (Sharpe-like return/vol) is weak: IC=-0.010"
-    confidence: medium
-    source: "batch_002 empirical"
+    source: "baseline screening"
 
   # ===== Engineering Knowledge =====
-  - insight: "6 operators NOT registered: Correlation, Neg, TsRank, TsMax, TsMin, SMA. Workarounds: Mul(x,-1) for Neg, Rank(x,N) for TsRank, no workaround for TsMax/TsMin/SMA"
+  - insight: "Custom operator registration requires Operators._ops[name]=cls (direct dict injection). Operators.register() uses cls.__name__ which doesn't match expression names."
     confidence: high
-    source: "batch_002-006 runtime errors"
+    source: "debugging during baseline eval"
 
-  - insight: "Conditional expressions producing mostly zeros (If(..., val, 0)) cause NaN IC or pass on tiny samples — pipeline loophole"
+  - insight: "Rolling-based custom ops must override _load_internal() (not _execute()) and provide __init__(self, feature, N) calling super().__init__(feature, N, func_name)"
     confidence: high
-    source: "batch_004-005 empirical"
+    source: "debugging during baseline eval"
 
-  - insight: "OOS IC closely matches IS IC for factors with depth < 10 — low overfitting risk at this complexity"
+  - insight: "NpElemOperator-based custom ops need custom _load_internal() for anything beyond np.{func}(). Simple ones like Tanh can just pass func='tanh'."
     confidence: high
-    source: "batch_001-006 empirical"
+    source: "debugging during baseline eval"
+
+  - insight: "PairOperator/SignedPower must handle numeric second argument — extend NpPairOperator and check isinstance(feature, Expression) before calling .load()"
+    confidence: high
+    source: "debugging during baseline eval"
+
+  - insight: "C.kernels = 1 required when using custom operators — multiprocessing workers don't inherit Operators._ops registry"
+    confidence: high
+    source: "debugging during baseline eval"
+
+  - insight: "D.instruments('all') returns dict {'market': 'all'}, not stock codes. Must pass dict to D.features() which resolves it, then extract codes from index."
+    confidence: high
+    source: "debugging during baseline eval"
+
+  - insight: "OBV ratio Div(Sum(If(Greater(C,Ref(C,1)),V,0),20), Sum(V,20)) returned NaN — likely issue with nested If inside Sum"
+    confidence: medium
+    source: "baseline_C screening"
+
+  # ===== Alpha101 Batch Insights =====
+  - insight: "Alpha101 yield rate 21.7% (13/60) vs blind mining 5.9% (12/202) — classic formulas far outperform random construction"
+    confidence: high
+    source: "alpha101_batch_1-5 evaluation"
+
+  - insight: "Relaxing corr_max from 0.5 to 0.7 enabled 12 additional admissions — threshold was too restrictive for early library building"
+    confidence: high
+    source: "alpha101 batch evaluation"
+
+  - insight: "Alpha024 (conditional on 60d SMA trend) is strongest Alpha101 composite: IC=+0.049"
+    confidence: high
+    source: "alpha101_batch_4"
+
+  - insight: "Williams %R variant replaced range_volume_interaction (011) via replacement mechanism — IC improved from ~0.035 to 0.070"
+    confidence: high
+    source: "alpha101_batch_4"
+
+  - insight: "Cross-sectional rank() → Rank(x, 60) translation works for A-shares OHLCV but loses cross-sectional information"
+    confidence: high
+    source: "alpha101 translation process"
+
+  - insight: "~55 Alpha101 factors untranslatable: ~35 need $vwap, ~18 need industry data, ~2 need market cap"
+    confidence: high
+    source: "alpha101 formula analysis"
+
+  - insight: "Stage 1 IC on 50 stocks / 14 days can inflate by 10x — consecutive_up_score showed IC=0.104 but full IC=0.009"
+    confidence: high
+    source: "batch_010 evaluation"
+
+  - insight: "Normalizing by volatility DESTROYS signal: range_over_vol IC=-0.008, resi_over_vol IC=-0.004 — strong signals ARE volatility"
+    confidence: high
+    source: "batch_013 evaluation"
+
+  - insight: "8 consecutive 0-admission batches (010-017, 78 candidates) confirmed OHLCV daily signal space exhaustion at corr<0.5"
+    confidence: high
+    source: "batches 010-017"
+
+  # ===== Process Lessons =====
+  - insight: "evaluate_batch() does NOT persist to library.yaml — must call lib.admit() separately for each admitted factor"
+    confidence: high
+    source: "alpha101 batch persistence"
+
+  - insight: "lib.replace() stores ic_mean=null if metrics dict uses 'ic_mean_is' key — must ensure key matches library schema"
+    confidence: high
+    source: "williams_r_variant replacement bug"
+
+  - insight: "YAML result files with pandas DataFrame objects fail yaml.safe_load — use yaml.unsafe_load or avoid serializing _factor_values"
+    confidence: high
+    source: "result file loading errors"
 
   # ===== Blocked Directions =====
   - insight: "Amount efficiency factors blocked — $amount field is zero in our dataset"

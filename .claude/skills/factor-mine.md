@@ -1,107 +1,107 @@
 ---
 name: factor-mine
-description: Run one Ralph Loop iteration — retrieve memory, generate candidates, evaluate, update library and memory
+description: 执行一轮 Ralph Loop 因子挖掘迭代 — 加载记忆、生成候选、评估、更新因子库和记忆
 user_invocable: true
 ---
 
-# Factor Mining — Ralph Loop
+# 因子挖掘 — Ralph Loop
 
-Run one complete mining iteration. **Every step is mandatory — do NOT skip any step.**
+执行一轮完整的挖掘迭代。**每一步都是强制性的，不得跳过任何步骤。**
 
-## Step 1: Load ALL Memory (MANDATORY — DO NOT SKIP)
+## 第1步：加载全部记忆（强制 — 不得跳过）
 
-You MUST read ALL of the following files and absorb their content before proceeding:
+必须读取以下所有文件并理解其内容，然后才能继续：
 
-### 1a. Engineering Memory (pitfalls, broken operators, workarounds)
+### 1a. 挖掘经验教训（工程陷阱、策略错误、市场洞察、Alpha101 笔记）
 ```
-~/.claude/projects/-Users-xinzhan--openclaw-workspace-quant-factor-system/memory/mining-exploration.md
+mining/memory/mining-lessons.md
 ```
 
-### 1b. Experience Memory (library state, patterns, insights)
+### 1b. 经验记忆（因子库状态、模式、洞察）
 ```
 mining/memory/state.yaml
 mining/memory/patterns.yaml
 mining/memory/insights.yaml
 ```
 
-### 1c. Recent Batch History (last 3 batches)
+### 1c. 最近批次历史（最近3个批次）
 ```
 ls mining/memory/history/
 ```
-Read the most recent 3 batch history files to understand what was tried and what failed.
+读取最近3个批次历史文件，了解已尝试过什么、失败了什么。
 
-### 1d. Current Factor Library
+### 1d. 当前因子库
 ```
 mining/library/library.yaml
 ```
 
-## Step 2: Context Summary (MANDATORY — print before generating)
+## 第2步：上下文摘要（强制 — 生成候选前必须打印）
 
-After loading all memory, you MUST output a structured context summary. This proves you have absorbed the memory and prevents repeating past mistakes.
+加载所有记忆后，必须输出结构化的上下文摘要。这证明你已经吸收了记忆，防止重复过去的错误。
 
-**Print this summary to the user:**
+**向用户打印以下摘要：**
 
 ```
-=== Mining Context (Batch XXX) ===
+=== 挖掘上下文 (批次 XXX) ===
 
-LIBRARY STATUS:
-- Size: X/100 factors
-- Factors: [list each factor_id: name, category, IC]
+因子库状态：
+- 规模：X/100 个因子
+- 因子列表：[列出每个 factor_id: 名称, 类别, IC]
 
-OPERATOR STATUS:
-- Working: [list from exploration memory]
-- Broken: [list from exploration memory]
-- Workarounds: [list each]
+算子状态：
+- 可用：[从经验教训中列出]
+- 不可用：[从经验教训中列出]
+- 替代方案：[逐一列出]
 
-FIELD STATUS:
-- Working: [list]
-- Broken: [list]
+字段状态：
+- 可用：[列出]
+- 不可用：[列出]
 
-FORBIDDEN REGIONS (from patterns.yaml):
-- [list each direction + reason]
+禁区（来自 patterns.yaml）：
+- [列出每个方向 + 原因]
 
-RECOMMENDED DIRECTIONS (from patterns.yaml):
-- [list each pattern + success_rate + notes]
+推荐方向（来自 patterns.yaml）：
+- [列出每个模式 + 成功率 + 备注]
 
-KEY INSIGHTS (from insights.yaml):
-- [list the top 5 most relevant insights for this batch]
+关键洞察（来自 insights.yaml）：
+- [列出与本批次最相关的前5条洞察]
 
-LAST 3 BATCH RESULTS:
-- Batch N: X/8 admitted, key finding: ...
-- Batch N-1: ...
-- Batch N-2: ...
+最近3个批次结果：
+- 批次 N: X/8 录取, 关键发现: ...
+- 批次 N-1: ...
+- 批次 N-2: ...
 
-CANDIDATE STRATEGY:
-Based on the above, this batch will explore:
-1. [direction + rationale]
-2. [direction + rationale]
+候选策略：
+基于以上信息，本批次将探索：
+1. [方向 + 理由]
+2. [方向 + 理由]
 ...
 ```
 
-**CRITICAL**: If any candidate expression uses a broken operator, broken field, or falls into a forbidden region, STOP and redesign before proceeding.
+**关键检查**：如果任何候选表达式使用了不可用算子、不可用字段、或落入禁区，必须停止并重新设计。
 
-## Step 3: Generate Candidates
+## 第3步：生成候选因子
 
-Based on the Context Summary, generate **8 candidate factor expressions** using Qlib Alpha expression syntax.
+基于上下文摘要，使用 Qlib Alpha 表达式语法生成 **8 个候选因子表达式**。
 
-**Rules:**
-- Operators: ONLY use operators listed as "Working" in your Context Summary
-- Fields: ONLY use fields listed as "Working" in your Context Summary
-- Workarounds: Apply workarounds from exploration memory (e.g., Mul(x,-1) for Neg)
-- Forbidden: Cross-check EVERY candidate against forbidden regions — reject before evaluation
-- Recommended: Prioritize recommended directions with high success_rate
-- Category must be one of: vwap, momentum, volatility, volume, regime, efficiency, distribution, trend, candlestick, intraday_agg, other
-- Expression depth must not exceed 10
-- Avoid symmetric IfElse (x vs -x) — produces identical factors regardless of condition
+**规则：**
+- 算子：只使用上下文摘要中列为"可用"的算子
+- 字段：只使用上下文摘要中列为"可用"的字段
+- 替代方案：应用经验教训中的变通方法（如用 `Mul(x,-1)` 替代 `Neg`）
+- 禁区：将每个候选与禁区逐一交叉检查 — 评估前就排除
+- 推荐：优先选择成功率高的推荐方向
+- 类别必须是以下之一：vwap, momentum, volatility, volume, regime, efficiency, distribution, trend, candlestick, intraday_agg, other
+- 表达式深度不超过 10
+- 避免对称 IfElse（x vs -x）— 无论条件如何都会产生相同因子值
 
-**Validation checklist** (check each candidate):
-- [ ] All operators are in the working list?
-- [ ] All fields are in the working list?
-- [ ] Not in a forbidden region?
-- [ ] Not a near-duplicate of an existing library factor?
-- [ ] Expression depth ≤ 10?
+**验证清单**（检查每个候选）：
+- [ ] 所有算子都在可用列表中？
+- [ ] 所有字段都在可用列表中？
+- [ ] 未落入禁区？
+- [ ] 与现有因子库中的因子不是近似重复？
+- [ ] 表达式深度 ≤ 10？
 
-Write candidates to `mining/candidates/batch_XXX.yaml`:
+将候选写入 `mining/candidates/batch_XXX.yaml`：
 
 ```yaml
 batch_id: "batch_XXX"
@@ -110,33 +110,33 @@ candidates:
   - name: "descriptive_name"
     expression: "Qlib_expression_here"
     category: "category"
-    rationale: "Why this factor should work"
+    rationale: "该因子应该有效的原因"
 ```
 
-## Preprocessing (Automatic)
+## 预处理（自动完成）
 
-The evaluator automatically preprocesses factor values and returns before IC calculation. **You do NOT need to add Winsorize/Zscore/Scale to factor expressions** — the pipeline handles this uniformly:
+评估器会自动对因子值和收益率进行预处理后再计算 IC。**不需要在因子表达式中添加 Winsorize/Zscore/Scale** — 管道会统一处理：
 
-1. **Universe filtering**: Suspended stocks (volume=0) and limit-up/down stocks are excluded
-2. **Factor cleaning**: inf→NaN, MAD winsorization (5×), zscore standardization
-3. **Return masking**: Forward returns of untradable stocks are set to NaN
+1. **股票池过滤**：排除停牌股（成交量=0）和涨跌停股
+2. **因子清洗**：inf→NaN，MAD 缩尾（5倍），zscore 标准化
+3. **收益率遮罩**：不可交易股票的前向收益率设为 NaN
 
-Optional neutralization (market cap / industry) can be enabled via `MiningConfig(neutralize_mode="market_cap")`.
+可通过 `MiningConfig(neutralize_mode="market_cap")` 启用市值/行业中性化。
 
-All preprocessing config is in `MiningConfig`:
-- `filter_suspend` / `filter_limit` — universe filters (default: True)
-- `winsorize_method` / `winsorize_n` — outlier treatment (default: "mad" / 5.0)
-- `standardize_method` — "zscore" or "rank" (default: "zscore")
-- `neutralize_mode` — "none", "market_cap", "industry", "both" (default: "none")
+`MiningConfig` 中的所有预处理配置：
+- `filter_suspend` / `filter_limit` — 股票池过滤（默认：True）
+- `winsorize_method` / `winsorize_n` — 异常值处理（默认："mad" / 5.0）
+- `standardize_method` — "zscore" 或 "rank"（默认："zscore"）
+- `neutralize_mode` — "none", "market_cap", "industry", "both"（默认："none"）
 
-## Step 4: Evaluate
+## 第4步：评估
 
-**IMPORTANT**: Write the evaluation script to a `.py` file, do NOT use `python -c` or heredoc.
+**重要**：将评估脚本写入 `.py` 文件，不要使用 `python -c` 或 heredoc。
 
-Create `run_batch_XXX.py`:
+创建 `run_batch_XXX.py`：
 
 ```python
-"""Batch XXX evaluation"""
+"""批次 XXX 评估"""
 import warnings; warnings.filterwarnings('ignore')
 import os
 os.environ['JOBLIB_START_METHOD'] = 'fork'
@@ -156,7 +156,7 @@ def main():
     qlib.init(provider_uri='~/.qlib/qlib_data/cn_data_1d', region=REG_CN)
     from qlib.data import D
 
-    # Load universe (D.instruments returns dict, must resolve to list)
+    # 加载股票池（D.instruments 返回 dict，需要解析为列表）
     inst_dict = D.instruments('all')
     df_temp = D.features(instruments=inst_dict, fields=['$close'],
                          start_time='2024-06-01', end_time='2024-06-30')
@@ -179,17 +179,17 @@ def main():
 
     result = evaluator.evaluate_batch(batch['candidates'])
 
-    # Print results
-    logger.info(f"Admitted: {len(result.admitted)}, Rejected: {len(result.rejected)}")
+    # 打印结果
+    logger.info(f"录取: {len(result.admitted)}, 淘汰: {len(result.rejected)}")
     for f in result.admitted:
         s1 = f.get('stage1', {})
         s3 = f.get('stage3', {})
-        logger.info(f"  ADMIT {f['name']}: IC={s1.get('ic_mean',0):.4f}, OOS={s3.get('ic_mean_oos','?')}")
+        logger.info(f"  录取 {f['name']}: IC={s1.get('ic_mean',0):.4f}, OOS={s3.get('ic_mean_oos','?')}")
     for f in result.rejected:
         s1 = f.get('stage1', {})
-        logger.info(f"  REJECT {f['name']}: IC={s1.get('ic_mean','?')}")
+        logger.info(f"  淘汰 {f['name']}: IC={s1.get('ic_mean','?')}")
 
-    # Save results
+    # 保存结果（过滤掉 DataFrame 对象，避免 YAML 序列化错误）
     output = {
         'batch_id': batch['batch_id'],
         'timestamp': datetime.now().isoformat(),
@@ -205,16 +205,16 @@ if __name__ == '__main__':
     main()
 ```
 
-Then run: `python3 run_batch_XXX.py`
+然后运行：`python3 run_batch_XXX.py`
 
-Clean up the script after use: `rm run_batch_XXX.py`
+用完后清理脚本：`rm run_batch_XXX.py`
 
-## Step 5: Library Update
+## 第5步：更新因子库
 
-For each admitted factor:
+对每个录取的因子：
 
-1. Verify the factor is NOT a pipeline loophole (check n_days > 100, quantile returns not NaN)
-2. Add to library:
+1. 验证因子不是管道漏洞（检查 n_days > 100，分位数收益不是 NaN）
+2. 添加到因子库：
 ```python
 from mining.library import FactorLibrary
 from mining.config import MiningConfig
@@ -222,41 +222,43 @@ from mining.config import MiningConfig
 lib = FactorLibrary(MiningConfig())
 lib.admit(factor_dict)
 ```
-3. Manually fix `ic_mean` in `library.yaml` if null (known bug: evaluator stores IC under `full_ic.ic_mean`)
-4. Write detailed `mining/library/factors/factor_XXX.yaml` with full metrics
+3. 如果 `library.yaml` 中 `ic_mean` 为 null，手动修复（已知 bug：评估器将 IC 存储在 `full_ic.ic_mean` 下）
+4. 写入详细的 `mining/library/factors/factor_XXX.yaml`，包含完整指标
 
-For replacements, use `lib.replace(old_id, new_factor_dict)`.
+对于替换，使用 `lib.replace(old_id, new_factor_dict)`。
 
-## Step 6: Memory Update (MANDATORY — DO NOT SKIP)
+**重要**：`evaluate_batch()` 不会自动持久化到 `library.yaml` — 必须对每个录取因子单独调用 `lib.admit()`。
 
-After evaluation, update ALL memory files. This is how the next iteration learns from this one.
+## 第6步：更新记忆（强制 — 不得跳过）
 
-### 6a. Update `mining/memory/patterns.yaml`
-- Admitted factors → add to `recommended_directions` with success_rate and example_factors
-- Rejected (high corr) → add to `forbidden_regions` with correlation value and correlated factor
-- Rejected (low IC) → add to `forbidden_regions` with IC value and reason
-- Rejected (operator error) → note in existing pattern entries
+评估后，更新所有记忆文件。这是下一轮迭代从本轮学习的方式。
 
-### 6b. Update `mining/memory/insights.yaml`
-- New empirical findings (e.g., "X operator not registered", "Y factor type always correlates with Z")
-- Updated confidence levels based on repeated evidence
-- Remove or downgrade insights proven wrong
+### 6a. 更新 `mining/memory/patterns.yaml`
+- 录取因子 → 添加到 `recommended_directions`，包含成功率和示例因子
+- 淘汰（高相关性）→ 添加到 `forbidden_regions`，包含相关性值和冲突因子
+- 淘汰（低 IC）→ 添加到 `forbidden_regions`，包含 IC 值和原因
+- 淘汰（算子错误）→ 在现有模式条目中注明
 
-### 6c. Update `mining/memory/state.yaml`
-- Library size, avg_ic, domain saturation counts
-- Mining stats: total_batches, total_candidates, yield_rate
+### 6b. 更新 `mining/memory/insights.yaml`
+- 新的实证发现（如"X 算子未注册"、"Y 类因子总是与 Z 相关"）
+- 根据重复证据更新置信度
+- 删除或降级已证明错误的洞察
 
-### 6d. Save batch history to `mining/memory/history/batch_XXX.yaml`
-Include: all candidates, admitted/rejected with reasons, key_learnings, engineering_findings
+### 6c. 更新 `mining/memory/state.yaml`
+- 因子库规模、平均 IC、各领域饱和度
+- 挖掘统计：总批次数、总候选数、录取率
 
-### 6e. Update exploration memory (if new engineering findings)
+### 6d. 保存批次历史到 `mining/memory/history/batch_XXX.yaml`
+包含：所有候选因子、录取/淘汰及原因、关键教训、工程发现
+
+### 6e. 更新挖掘经验教训（如有新工程发现）
 ```
-~/.claude/projects/-Users-xinzhan--openclaw-workspace-quant-factor-system/memory/mining-exploration.md
+mining/memory/mining-lessons.md
 ```
-Add any new operator discoveries, runtime errors, workarounds, pipeline bugs.
+添加任何新的算子发现、运行时错误、变通方法、管道 bug、市场洞察。
 
-### 6f. Verification
-After updating, re-read `patterns.yaml` and confirm:
-- No duplicate forbidden regions
-- All new findings are captured
-- Recommended directions reflect current evidence
+### 6f. 验证
+更新后，重新读取 `patterns.yaml` 并确认：
+- 没有重复的禁区
+- 所有新发现已被记录
+- 推荐方向反映当前证据

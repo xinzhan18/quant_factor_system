@@ -57,9 +57,11 @@ class FactorLibrary:
         detail_path = self._factors_dir / f"factor_{factor_id}.yaml"
         with open(detail_path, "w", encoding="utf-8") as f:
             yaml.dump(record, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        metrics = record["metrics"]
+        ic_mean = metrics.get("ic_mean") or metrics.get("ic_mean_is")
         index.setdefault("factors", []).append({
             "id": factor_id, "name": record["name"], "expression": record["expression"],
-            "category": record["category"], "ic_mean": record["metrics"].get("ic_mean"),
+            "category": record["category"], "ic_mean": ic_mean,
         })
         self._write_index(index)
         logger.info("Admitted factor %s: %s", factor_id, record["name"])

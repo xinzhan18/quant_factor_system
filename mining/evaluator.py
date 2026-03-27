@@ -13,6 +13,7 @@ from scipy.stats import spearmanr
 
 from .config import MiningConfig
 from .expression import ExpressionValidator
+from .operators import register_custom_operators
 from .preprocessing import FactorPreprocessor
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,13 @@ class FactorMiningEvaluator:
         self._preprocessor = FactorPreprocessor(config)
         self._aux_cache: Dict[str, Dict[str, pd.DataFrame]] = {}
         self._ensure_qlib_initialized()
+        try:
+            register_custom_operators()
+            # Force single-threaded to ensure custom operators available in workers
+            from qlib.config import C
+            C.kernels = 1
+        except Exception as e:
+            logger.warning("Failed to register custom operators: %s", e)
 
     def _ensure_qlib_initialized(self) -> None:
         """Initialize Qlib idempotently."""
@@ -166,16 +174,20 @@ class FactorMiningEvaluator:
                 corrs.append(rho)
         return float(np.mean(corrs)) if corrs else 0.0
 
+    def _resolve_universe(self):
+        """Return instrument specifier usable by D.features().
+
+        If custom_universe is set, returns the list of codes directly.
+        Otherwise returns the dict from D.instruments() which D.features() can resolve.
+        """
+        if self.config.custom_universe:
+            return self.config.custom_universe
+        from qlib.data import D
+        return D.instruments(self.config.universe)
+
     def _get_fast_screening_universe(self) -> list:
         """Select top-N stocks by average daily volume from configured universe."""
-        if self.config.custom_universe:
-            universe = self.config.custom_universe
-        else:
-            from qlib.data import D
-            universe = list(D.instruments(self.config.universe))
-
-        if len(universe) <= self.config.fast_screening_universe_size:
-            return universe
+        universe = self._resolve_universe()
 
         # Sort by average daily volume (liquidity proxy) and take top-N
         try:
@@ -190,17 +202,23 @@ class FactorMiningEvaluator:
             top_symbols = avg_vol.nlargest(self.config.fast_screening_universe_size).index.tolist()
             return top_symbols
         except Exception as e:
-            logger.warning(
-                "Failed to sort universe by liquidity (%s), falling back to first %d symbols",
-                e, self.config.fast_screening_universe_size,
-            )
-            return universe[:self.config.fast_screening_universe_size]
+            logger.warning("Failed to sort universe by liquidity: %s", e)
+            return self._get_full_universe()[:self.config.fast_screening_universe_size]
 
     def _get_full_universe(self) -> list:
-        if self.config.custom_universe:
-            return self.config.custom_universe
+        """Return list of all instrument codes in the universe."""
+        universe = self._resolve_universe()
+        if isinstance(universe, list):
+            return universe
+        # Resolve dict to actual instrument codes via D.features
         from qlib.data import D
-        return list(D.instruments(self.config.universe))
+        vol_data = D.features(
+            instruments=universe,
+            fields=["$volume"],
+            start_time=self.config.train_start,
+            end_time=self.config.train_end,
+        )
+        return vol_data.index.get_level_values("instrument").unique().tolist()
 
     def _fast_ic_screening(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Stage 1: Calculate IC on fast-screening subset universe."""

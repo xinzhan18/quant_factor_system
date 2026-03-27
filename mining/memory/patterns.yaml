@@ -3,25 +3,55 @@ recommended_directions:
     description: "Use current vs historical volatility as IfElse condition to switch between ASYMMETRIC payloads (not x vs -x)"
     success_rate: high
     example_factors: ["factor_003"]
-    note: "Batch 002: IC=-0.044, OOS=-0.056. MUST use asymmetric payloads — symmetric IfElse(cond, x, Mul(x,-1)) always produces same values regardless of condition."
+    note: "Batch 002: IC=-0.044, OOS=-0.056. MUST use asymmetric payloads."
 
   - pattern: "Volume Volatility"
     description: "Std($volume, N) captures speculative activity and event-driven trading"
     success_rate: high
     example_factors: ["factor_004"]
-    note: "Batch 006: IC=-0.039, perfect monotonicity -1.0, low corr with price-vol (0.36). Truly orthogonal to volatility dimension."
+    note: "Batch 006: IC=-0.039, perfect monotonicity -1.0, low corr with price-vol (0.36)."
+
+  - pattern: "Intraday Range Patterns"
+    description: "Mean((H-L)/C, N) and close position Div(C-L, H-L) have strong IC"
+    success_rate: high
+    example_factors: []
+    note: "Baseline: avg_range_5d IC=-0.064, close_position IC=-0.053, upper_shadow IC=0.053. Williams %R variant IC=0.067."
+
+  - pattern: "PV Correlation Regime"
+    description: "Use PV corr sign to switch between different range windows"
+    success_rate: high
+    example_factors: []
+    note: "Baseline: pv_corr_regime_range IC=-0.062 — switches short vs long range based on PV correlation."
+
+  - pattern: "Distribution Tails"
+    description: "Quantile and IQR of returns capture tail risk"
+    success_rate: high
+    example_factors: []
+    note: "Baseline: IQR IC=-0.058, Q90 IC=-0.056, Q10 IC=0.044. Strong negative IC = stocks with wider distribution underperform."
+
+  - pattern: "Custom Volatility Measures"
+    description: "MAD, RealizedVol, AmihudIlliq all capture vol anomaly differently"
+    success_rate: high
+    example_factors: []
+    note: "Baseline: MAD IC=-0.058, RealizedVol IC=-0.055, AmihudIlliq IC=-0.057. Likely correlated with Std(ret,20) — need correlation check."
+
+  - pattern: "Signed Nonlinear Returns"
+    description: "SignedPower(ret, 0.5) compresses outliers while preserving sign"
+    success_rate: high
+    example_factors: []
+    note: "Baseline: IC=-0.057. Strong but may be correlated with raw returns."
 
   - pattern: "Regression Residual"
-    description: "Resi($close, N) as mean-reversion signal — captures price deviation from linear trend"
+    description: "Resi($close, N) as mean-reversion signal"
+    success_rate: high
+    example_factors: []
+    note: "Baseline: Resi(close,5) IC=-0.041, normalized_residual IC=-0.035. Short windows stronger."
+
+  - pattern: "Regime-Conditional Signals"
+    description: "vol_regime_resi_vs_slope: high vol → residual, low vol → slope"
     success_rate: medium
     example_factors: []
-    note: "Batch 005: Resi($close,20) IC=-0.036 passed Stage 1 but corr=0.65 with factor_003. Try Resi on different features (not $close) or combine with other signals."
-
-  - pattern: "PV Corr Interaction"
-    description: "Price-volume coordination and divergence signals"
-    success_rate: low
-    example_factors: []
-    note: "Batch 002: Rank divergence IC=0.013. Batch 005: volume-return sync IC=-0.024. Both too weak. Need deeper constructions."
+    note: "Baseline: IC=-0.040. Only regime factor beyond PV corr regime that passes threshold."
 
   - pattern: "Robust Efficiency"
     description: "Use median and other robust statistics to smooth amount efficiency"
@@ -35,81 +65,120 @@ recommended_directions:
     example_factors: []
     note: "BLOCKED: Need minute-data sync."
 
+  - pattern: "Alpha101 Composites"
+    description: "Multi-signal interaction formulas from WorldQuant Alpha101 paper"
+    success_rate: high
+    example_factors: ["factor_013", "factor_014", "factor_016", "factor_017", "factor_018", "factor_021"]
+    note: "21.7% yield rate. Best: alpha024 IC=+0.049. Cross-sectional rank→Rank(x,60)."
+
+  - pattern: "ATR-like Volatility"
+    description: "Average True Range using nested If/Greater for max(H-L, |H-prevC|, |L-prevC|)"
+    success_rate: high
+    example_factors: ["factor_024"]
+    note: "atr_like_14 IC=-0.044. Independent from Std(ret,20) at corr<0.7."
+
+  - pattern: "Intraday vs Overnight Decomposition"
+    description: "Separate intraday return (C-O)/O from overnight gap (O-prevC)/prevC"
+    success_rate: high
+    example_factors: ["factor_020"]
+    note: "IC=-0.038. Captures different dynamics of intraday vs overnight."
+
+  - pattern: "Range Compression"
+    description: "Today's normalized range vs 60d average range ratio"
+    success_rate: high
+    example_factors: ["factor_022"]
+    note: "IC=-0.042. Measures volatility regime relative to recent history."
+
 forbidden_regions:
   # Operator errors
   - direction: "Expressions using Neg, TsRank, TsMax, TsMin, SMA, Correlation"
-    reason: "These operators are NOT registered in pyqlib 0.9.7"
+    reason: "These operators are NOT registered in pyqlib 0.9.7. Use alternatives: Mul(x,-1) for Neg, Rank(x,N) for TsRank."
     correlated_factors: []
     correlation: "N/A"
 
   # Saturated dimensions
   - direction: "Volatility Window Variants (Std of returns at any window)"
-    reason: "Batch 002/003: 10d/20d/60d all corr>0.78 with each other and >0.80 with factor_001. Also intraday range (H-L)/C corr=0.91."
+    reason: "All volatility measures (Std, MAD, RealizedVol, AmihudIlliq, IQR, Q90) are likely correlated. Library factor_001 Std(ret,20) IC=-0.058 already captures this."
     correlated_factors: ["factor_001"]
-    correlation: "> 0.78"
+    correlation: "> 0.70"
 
   - direction: "Symmetric IfElse (x vs Mul(x,-1) or x vs Sub(0,x))"
-    reason: "Batch 003/004: Produces IDENTICAL factor values regardless of condition (corr=1.0). Must use asymmetric payloads."
+    reason: "Produces IDENTICAL factor values regardless of condition."
     correlated_factors: ["factor_003"]
     correlation: "1.0"
 
   # Weak signal families (IC < 0.03)
-  - direction: "Simple Linear Trend (Slope/Rsquare alone)"
-    reason: "Batch 001: Slope IC=-0.0004, Rsquare IC=-0.007"
+  - direction: "Simple Slope/Rsquare alone"
+    reason: "Baseline: Slope IC=-0.003, Rsquare IC=-0.005"
     correlated_factors: []
     correlation: "N/A"
 
-  - direction: "Raw Kurtosis/Skewness (standalone or as IfElse condition)"
-    reason: "Batch 001-002: IC < 0.02 standalone, IC=0.010 as IfElse condition"
+  - direction: "Raw Kurtosis standalone"
+    reason: "Baseline: Kurt IC=0.006"
     correlated_factors: []
     correlation: "N/A"
 
-  - direction: "Rsquare as IfElse condition for Slope"
-    reason: "Batch 002: IC=-0.008. R² too noisy as regime indicator."
+  - direction: "Momentum beyond 20d (60d return, quarterly momentum)"
+    reason: "Baseline: return_60d IC=-0.009, ts_momentum_60 IC=-0.011, EMA ratio IC=-0.008"
     correlated_factors: []
     correlation: "N/A"
 
-  - direction: "Simple Risk-Adjusted Momentum (return/vol)"
-    reason: "Batch 002: IC=-0.010. Sharpe-like construction weak in A-shares."
+  - direction: "Momentum Acceleration (short - long return)"
+    reason: "Baseline: IC=-0.001"
     correlated_factors: []
     correlation: "N/A"
 
-  - direction: "Volume Median Ratio (short/long)"
-    reason: "Batch 002: IC=-0.007. Batch 006: log version IC=-0.019."
+  - direction: "PV Correlation Term Structure (short PV corr - long PV corr)"
+    reason: "Baseline: IC=-0.002"
     correlated_factors: []
     correlation: "N/A"
 
-  - direction: "EMA crossover / EMA-SMA spread"
-    reason: "Batch 003: EMA crossover IC=-0.007. Batch 006: SMA not registered."
+  - direction: "Vol Term Structure (short vol - long vol)"
+    reason: "Baseline: IC=-0.002"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "IdxMax/IdxMin standalone timing"
+    reason: "Baseline: IdxMax IC=-0.009, IdxMin IC=0.002, timing gap IC=-0.004, relative_idx_max IC=-0.002"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Price Position Regime (near high → reversal)"
+    reason: "Baseline: IC=-0.001"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Return Autocorrelation / TsAutoCorr"
+    reason: "Baseline: IC=-0.004"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Entropy of Returns"
+    reason: "Baseline: IC=0.001"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Volume median/mean ratios"
+    reason: "Baseline: volume_ratio_5_60 IC=-0.021, volume_acceleration IC=-0.015, ts_decay_volume IC=-0.028"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "Signed Volume Change"
+    reason: "Baseline: IC=-0.012"
+    correlated_factors: []
+    correlation: "N/A"
+
+  - direction: "EMA Crossover / EMA Momentum"
+    reason: "Baseline: ema_momentum IC=-0.011, ema_ratio IC=-0.008"
     correlated_factors: []
     correlation: "N/A"
 
   - direction: "Candlestick Patterns (upper shadow, close position, open-close gap)"
-    reason: "Batch 003: All IC < 0.005. No predictive power."
-    correlated_factors: []
-    correlation: "N/A"
-
-  - direction: "Gap Momentum (open vs prev close)"
-    reason: "Batch 003: IC=0.011. Overnight gaps too weak."
-    correlated_factors: []
-    correlation: "N/A"
-
-  - direction: "Return Autocorrelation Proxy"
-    reason: "Batch 005: IC=0.006. Near zero."
-    correlated_factors: []
-    correlation: "N/A"
-
-  - direction: "Bollinger Band Z-score (close - MA) / Std"
-    reason: "Batch 004: IC=-0.020."
-    correlated_factors: []
-    correlation: "N/A"
-
-  - direction: "Volume-Weighted Return"
-    reason: "Batch 004: IC=-0.023."
+    reason: "Exception: avg_range_5d and close_position ARE strong. But individual bar patterns (gap, shadow alone) are weak."
     correlated_factors: []
     correlation: "N/A"
 
   - direction: "Conditional expressions producing mostly zeros on 50-stock sample"
-    reason: "Batch 004-005: If(..., value, 0) patterns produce NaN IC or pass on tiny samples (n_days=5). Avoid on small universes."
+    reason: "Batch 004-005: If(..., value, 0) patterns produce NaN IC."
     correlated_factors: []
     correlation: "N/A"

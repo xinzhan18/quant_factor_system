@@ -1,36 +1,37 @@
 ---
 name: memory-review
-description: Review and optionally adjust the Experience Memory
+description: 回顾和调整挖掘经验记忆
 user_invocable: true
 ---
 
-# Memory Review
+# 记忆回顾
 
-Review the current state of Experience Memory and suggest adjustments.
+回顾经验记忆的当前状态并建议调整。
 
-## Steps
+## 步骤
 
-1. Read all memory files
-2. Summarize current state
-3. Identify potential improvements
-4. Ask user before making changes
+1. 读取所有记忆文件
+2. 总结当前状态
+3. 识别可改进之处
+4. 修改前征求用户意见
 
-Read the following files:
+读取以下文件：
+- `mining/memory/mining-lessons.md`
 - `mining/memory/state.yaml`
 - `mining/memory/patterns.yaml`
 - `mining/memory/insights.yaml`
 
-List recent batch history from `mining/memory/history/`.
+列出 `mining/memory/history/` 中的最近批次历史。
 
-Present a summary to the user showing:
-- Library size and target
-- Domain saturation across categories
-- Number of recommended directions vs forbidden regions
-- Mining yield rate trends
-- Key insights
+向用户展示摘要，包含：
+- 因子库规模和目标
+- 各类别领域饱和度
+- 推荐方向数 vs 禁区数
+- 挖掘录取率趋势
+- 关键洞察
 
-Ask the user if they want to:
-- Add/remove recommended directions
-- Add/remove forbidden regions
-- Update insights
-- Adjust domain saturation assessments
+询问用户是否需要：
+- 添加/移除推荐方向
+- 添加/移除禁区
+- 更新洞察
+- 调整领域饱和度评估

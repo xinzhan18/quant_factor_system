@@ -1,0 +1,499 @@
+batch_id: baseline_B
+timestamp: '2026-03-24T09:34:49.600519'
+mode: full_pipeline
+summary:
+  admitted: 2
+  rejected: 23
+  replacements: 0
+admitted:
+- name: vol_regime_resi_vs_slope
+  expression: If(Greater(Std($close/Ref($close,1)-1,10), Std($close/Ref($close,1)-1,60)),
+    Resi($close,10), Slope($close,10))
+  category: regime
+  rationale: High vol regime → residual; low vol → slope
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.04029153897272535
+    ic_std: 0.2449878386093408
+    ic_ir: -0.16446342480278991
+    ic_win_rate: 0.435177539223782
+    n_days: 1211
+  stage1:
+    ic_mean: -0.04029153897272535
+    ic_std: 0.2449878386093408
+    ic_ir: -0.16446342480278991
+    ic_win_rate: 0.435177539223782
+    n_days: 1211
+  full_ic:
+    ic_mean: -0.019496378540082827
+    ic_std: 0.14343051647069763
+    ic_ir: -0.13592908273509474
+    ic_win_rate: 0.4426094137076796
+    n_days: 1211
+  stage2:
+    max_corr: 0.4465845319847621
+    max_corr_factor: '006'
+    passed: true
+  stage3:
+    ic_mean_is: -0.019496378540082827
+    ic_ir_is: -0.13592908273509474
+    ic_mean_oos: .nan
+    ic_ir_oos: .nan
+    ic_win_rate: 0.4426094137076796
+    quantile_returns:
+      q1: -0.00044344033813104033
+      q2: 0.00050311628729105
+      q3: 0.0008236783323809505
+      q4: 0.0008218325092457235
+      q5: 0.0006100136088207364
+    ls_return: 0.0010534539469517767
+    monotonicity: 0.6
+- name: ret_vol_cov_20
+  expression: Cov($close/Ref($close,1)-1, $volume, 20)
+  category: volume
+  rationale: Return-volume covariance — unsigned PV interaction
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.032372711396938376
+    ic_std: 0.22053042337943707
+    ic_ir: -0.14679476373760458
+    ic_win_rate: 0.4360033030553262
+    n_days: 1211
+  stage1:
+    ic_mean: -0.032372711396938376
+    ic_std: 0.22053042337943707
+    ic_ir: -0.14679476373760458
+    ic_win_rate: 0.4360033030553262
+    n_days: 1211
+  full_ic:
+    ic_mean: -0.03726607395011181
+    ic_std: 0.09468718875746555
+    ic_ir: -0.3935703915084668
+    ic_win_rate: 0.32452518579686207
+    n_days: 1211
+  stage2:
+    max_corr: 0.4495046048708567
+    max_corr_factor: '004'
+    passed: true
+  stage3:
+    ic_mean_is: -0.03726607395011181
+    ic_ir_is: -0.3935703915084668
+    ic_mean_oos: .nan
+    ic_ir_oos: .nan
+    ic_win_rate: 0.32452518579686207
+    quantile_returns:
+      q1: 0.0003978389431722462
+      q2: 0.0009086653590202332
+      q3: 0.0006379703409038484
+      q4: 0.00045527401380240917
+      q5: -9.537151345284656e-05
+    ls_return: -0.0004932104566250928
+    monotonicity: -0.39999999999999997
+rejected:
+- name: pv_corr_10
+  expression: Corr($close, $volume, 10)
+  category: volume
+  rationale: Short-term price-volume correlation
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.022957893998224267
+    ic_std: 0.2036628658922166
+    ic_ir: -0.11272498743278095
+    ic_win_rate: 0.4599504541701073
+    n_days: 1211
+  stage1:
+    ic_mean: -0.022957893998224267
+    ic_std: 0.2036628658922166
+    ic_ir: -0.11272498743278095
+    ic_win_rate: 0.4599504541701073
+    n_days: 1211
+- name: pv_corr_60
+  expression: Corr($close, $volume, 60)
+  category: volume
+  rationale: Long-term price-volume correlation
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.010029461545453346
+    ic_std: 0.22709654806823348
+    ic_ir: -0.044163866121117314
+    ic_win_rate: 0.500412881915772
+    n_days: 1211
+  stage1:
+    ic_mean: -0.010029461545453346
+    ic_std: 0.22709654806823348
+    ic_ir: -0.044163866121117314
+    ic_win_rate: 0.500412881915772
+    n_days: 1211
+- name: pv_corr_change
+  expression: Sub(Corr($close, $volume, 5), Corr($close, $volume, 60))
+  category: volume
+  rationale: PV correlation short vs long — coordination change
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.010668652460084587
+    ic_std: 0.19012684830825893
+    ic_ir: -0.05611333988341904
+    ic_win_rate: 0.47233691164327
+    n_days: 1211
+  stage1:
+    ic_mean: -0.010668652460084587
+    ic_std: 0.19012684830825893
+    ic_ir: -0.05611333988341904
+    ic_win_rate: 0.47233691164327
+    n_days: 1211
+- name: signed_volume_change
+  expression: Mul(Sign($close/Ref($close,1)-1), Log(Div($volume, Ref($volume,1))))
+  category: volume
+  rationale: Return sign * log volume change — directional volume
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.011696946371395163
+    ic_std: 0.18437084553877311
+    ic_ir: -0.06344249459405608
+    ic_win_rate: 0.4669421487603306
+    n_days: 1210
+  stage1:
+    ic_mean: -0.011696946371395163
+    ic_std: 0.18437084553877311
+    ic_ir: -0.06344249459405608
+    ic_win_rate: 0.4669421487603306
+    n_days: 1210
+- name: idx_max_20
+  expression: IdxMax($close, 20)
+  category: momentum
+  rationale: Days since 20-day high
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.009321784601976935
+    ic_std: 0.2337055505265859
+    ic_ir: -0.03988687723065656
+    ic_win_rate: 0.48070469798657717
+    n_days: 1192
+  stage1:
+    ic_mean: -0.009321784601976935
+    ic_std: 0.2337055505265859
+    ic_ir: -0.03988687723065656
+    ic_win_rate: 0.48070469798657717
+    n_days: 1192
+- name: idx_min_20
+  expression: IdxMin($close, 20)
+  category: momentum
+  rationale: Days since 20-day low
+  batch: baseline_B
+  ic_stats:
+    ic_mean: 0.0019214230435065723
+    ic_std: 0.22813849332934114
+    ic_ir: 0.008422178193018933
+    ic_win_rate: 0.49370277078085645
+    n_days: 1191
+  stage1:
+    ic_mean: 0.0019214230435065723
+    ic_std: 0.22813849332934114
+    ic_ir: 0.008422178193018933
+    ic_win_rate: 0.49370277078085645
+    n_days: 1191
+- name: high_low_timing_gap
+  expression: Sub(IdxMax($close, 20), IdxMin($close, 20))
+  category: momentum
+  rationale: Gap between high/low timing — trend shape
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.004255035673109583
+    ic_std: 0.23989779994019234
+    ic_ir: -0.017736868258776795
+    ic_win_rate: 0.4974832214765101
+    n_days: 1192
+  stage1:
+    ic_mean: -0.004255035673109583
+    ic_std: 0.23989779994019234
+    ic_ir: -0.017736868258776795
+    ic_win_rate: 0.4974832214765101
+    n_days: 1192
+- name: position_in_60d_range
+  expression: Div(Sub(Max($close,60), $close), Sub(Max($close,60), Min($close,60)))
+  category: momentum
+  rationale: Position within 60-day price range
+  batch: baseline_B
+  ic_stats:
+    ic_mean: 0.013577619773065971
+    ic_std: 0.26715228817912573
+    ic_ir: 0.05082352041829479
+    ic_win_rate: 0.5152766308835673
+    n_days: 1211
+  stage1:
+    ic_mean: 0.013577619773065971
+    ic_std: 0.26715228817912573
+    ic_ir: 0.05082352041829479
+    ic_win_rate: 0.5152766308835673
+    n_days: 1211
+- name: dist_from_low_over_vol
+  expression: Div(Sub($close, Min($close, 20)), Std($close, 20))
+  category: volatility
+  rationale: Distance from 20d low normalized by vol
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.017228876889363295
+    ic_std: 0.24825782843505678
+    ic_ir: -0.06939912830934271
+    ic_win_rate: 0.46198347107438015
+    n_days: 1210
+  stage1:
+    ic_mean: -0.017228876889363295
+    ic_std: 0.24825782843505678
+    ic_ir: -0.06939912830934271
+    ic_win_rate: 0.46198347107438015
+    n_days: 1210
+- name: skew_returns_60
+  expression: Skew($close/Ref($close,1)-1, 60)
+  category: distribution
+  rationale: 60-day return skewness
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.018194972215489002
+    ic_std: 0.19814091027148636
+    ic_ir: -0.09182844769693867
+    ic_win_rate: 0.4640792733278282
+    n_days: 1211
+  stage1:
+    ic_mean: -0.018194972215489002
+    ic_std: 0.19814091027148636
+    ic_ir: -0.09182844769693867
+    ic_win_rate: 0.4640792733278282
+    n_days: 1211
+- name: kurt_returns_60
+  expression: Kurt($close/Ref($close,1)-1, 60)
+  category: distribution
+  rationale: 60-day return kurtosis — tail risk
+  batch: baseline_B
+  ic_stats:
+    ic_mean: 0.0057793048160535735
+    ic_std: 0.19130771504753527
+    ic_ir: 0.030209470719032728
+    ic_win_rate: 0.5152766308835673
+    n_days: 1211
+  stage1:
+    ic_mean: 0.0057793048160535735
+    ic_std: 0.19130771504753527
+    ic_ir: 0.030209470719032728
+    ic_win_rate: 0.5152766308835673
+    n_days: 1211
+- name: momentum_acceleration
+  expression: Sub($close/Ref($close,5)-1, $close/Ref($close,20)-1)
+  category: momentum
+  rationale: 5d minus 20d return — momentum acceleration
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.0008793056733857604
+    ic_std: 0.2625404847922721
+    ic_ir: -0.003349219355946138
+    ic_win_rate: 0.49296939619520264
+    n_days: 1209
+  stage1:
+    ic_mean: -0.0008793056733857604
+    ic_std: 0.2625404847922721
+    ic_ir: -0.003349219355946138
+    ic_win_rate: 0.49296939619520264
+    n_days: 1209
+- name: vol_term_structure
+  expression: Sub(Std($close/Ref($close,1)-1, 5), Std($close/Ref($close,1)-1, 60))
+  category: volatility
+  rationale: Short minus long volatility — vol term structure
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.001765705710319628
+    ic_std: 0.22029588139358772
+    ic_ir: -0.008015155340852521
+    ic_win_rate: 0.49710982658959535
+    n_days: 1211
+  stage1:
+    ic_mean: -0.001765705710319628
+    ic_std: 0.22029588139358772
+    ic_ir: -0.008015155340852521
+    ic_win_rate: 0.49710982658959535
+    n_days: 1211
+- name: volume_acceleration
+  expression: Div(Mean($volume, 5), Mean($volume, 20))
+  category: volume
+  rationale: 5d/20d volume ratio — volume acceleration
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.014791706873328281
+    ic_std: 0.21572738059499807
+    ic_ir: -0.06856666424322795
+    ic_win_rate: 0.46160198183319573
+    n_days: 1211
+  stage1:
+    ic_mean: -0.014791706873328281
+    ic_std: 0.21572738059499807
+    ic_ir: -0.06856666424322795
+    ic_win_rate: 0.46160198183319573
+    n_days: 1211
+- name: pv_corr_term_structure
+  expression: Sub(Corr($close,$volume,5), Corr($close,$volume,20))
+  category: volume
+  rationale: PV correlation term structure
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.001562604233617504
+    ic_std: 0.1807135733214876
+    ic_ir: -0.008646855932828284
+    ic_win_rate: 0.4888521882741536
+    n_days: 1211
+  stage1:
+    ic_mean: -0.001562604233617504
+    ic_std: 0.1807135733214876
+    ic_ir: -0.008646855932828284
+    ic_win_rate: 0.4888521882741536
+    n_days: 1211
+- name: ema_ratio_5_60
+  expression: Div(EMA($close, 5), EMA($close, 60))
+  category: momentum
+  rationale: EMA(5)/EMA(60) — medium-term momentum
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.008053812527770998
+    ic_std: 0.29122329096490546
+    ic_ir: -0.0276551113102473
+    ic_win_rate: 0.4921552436003303
+    n_days: 1211
+  stage1:
+    ic_mean: -0.008053812527770998
+    ic_std: 0.29122329096490546
+    ic_ir: -0.0276551113102473
+    ic_win_rate: 0.4921552436003303
+    n_days: 1211
+- name: pv_corr_regime_switch
+  expression: If(Greater(Corr($close,$volume,20), 0), $close/Ref($close,5)-1, Mul($close/Ref($close,5)-1,
+    -1))
+  category: regime
+  rationale: Positive PV corr → momentum; negative → reversal
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.02932193135582316
+    ic_std: 0.2326018981097228
+    ic_ir: -0.12606058503439832
+    ic_win_rate: 0.43471074380165287
+    n_days: 1210
+  stage1:
+    ic_mean: -0.02932193135582316
+    ic_std: 0.2326018981097228
+    ic_ir: -0.12606058503439832
+    ic_win_rate: 0.43471074380165287
+    n_days: 1210
+- name: volume_regime_pv_corr
+  expression: If(Greater(Mean($volume,5), Mean($volume,20)), Corr($close,$volume,10),
+    Mul(Corr($close,$volume,10), -1))
+  category: regime
+  rationale: High volume regime → PV corr; low → flipped PV corr
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.022957893998224267
+    ic_std: 0.2036628658922166
+    ic_ir: -0.11272498743278095
+    ic_win_rate: 0.4599504541701073
+    n_days: 1211
+  stage1:
+    ic_mean: -0.022957893998224267
+    ic_std: 0.2036628658922166
+    ic_ir: -0.11272498743278095
+    ic_win_rate: 0.4599504541701073
+    n_days: 1211
+- name: price_position_regime
+  expression: If(Gt(Div(Sub($close, Min($close,20)), Sub(Max($close,20), Min($close,20))),
+    0.8), Mul($close/Ref($close,5)-1, -1), $close/Ref($close,5)-1)
+  category: regime
+  rationale: Near 20d high → reversal; otherwise momentum
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.0007024690955646032
+    ic_std: 0.23225051685778736
+    ic_ir: -0.0030246180076091804
+    ic_win_rate: 0.5049586776859504
+    n_days: 1210
+  stage1:
+    ic_mean: -0.0007024690955646032
+    ic_std: 0.23225051685778736
+    ic_ir: -0.0030246180076091804
+    ic_win_rate: 0.5049586776859504
+    n_days: 1210
+- name: quantile_90_ret_20
+  expression: Quantile($close/Ref($close,1)-1, 20, 0.9)
+  category: distribution
+  rationale: 90th percentile of 20-day returns
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.055838384607845126
+    ic_std: 0.2641643797155581
+    ic_ir: -0.21137741836340584
+    ic_win_rate: 0.41783649876135426
+    n_days: 1211
+  stage1:
+    ic_mean: -0.055838384607845126
+    ic_std: 0.2641643797155581
+    ic_ir: -0.21137741836340584
+    ic_win_rate: 0.41783649876135426
+    n_days: 1211
+- name: quantile_10_ret_20
+  expression: Quantile($close/Ref($close,1)-1, 20, 0.1)
+  category: distribution
+  rationale: 10th percentile of 20-day returns
+  batch: baseline_B
+  ic_stats:
+    ic_mean: 0.0444707898016202
+    ic_std: 0.2952368310672814
+    ic_ir: 0.15062751365017113
+    ic_win_rate: 0.5631709331131296
+    n_days: 1211
+  stage1:
+    ic_mean: 0.0444707898016202
+    ic_std: 0.2952368310672814
+    ic_ir: 0.15062751365017113
+    ic_win_rate: 0.5631709331131296
+    n_days: 1211
+- name: interquantile_range_20
+  expression: Sub(Quantile($close/Ref($close,1)-1, 20, 0.9), Quantile($close/Ref($close,1)-1,
+    20, 0.1))
+  category: distribution
+  rationale: IQR of 20-day returns — robust dispersion
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.057949839462577646
+    ic_std: 0.2893196928904256
+    ic_ir: -0.2002969064553966
+    ic_win_rate: 0.4384805945499587
+    n_days: 1211
+  stage1:
+    ic_mean: -0.057949839462577646
+    ic_std: 0.2893196928904256
+    ic_ir: -0.2002969064553966
+    ic_win_rate: 0.4384805945499587
+    n_days: 1211
+- name: pv_corr_regime_range
+  expression: If(Greater(Corr($close,$volume,20), 0), Mean(Div(Sub($high,$low),$close),5),
+    Mean(Div(Sub($high,$low),$close),60))
+  category: regime
+  rationale: PV coordination → short-term range; divergence → long-term range
+  batch: baseline_B
+  ic_stats:
+    ic_mean: -0.061663897917305706
+    ic_std: 0.28009587992327223
+    ic_ir: -0.22015282029209976
+    ic_win_rate: 0.4112303881090008
+    n_days: 1211
+  stage1:
+    ic_mean: -0.061663897917305706
+    ic_std: 0.28009587992327223
+    ic_ir: -0.22015282029209976
+    ic_win_rate: 0.4112303881090008
+    n_days: 1211
+  full_ic:
+    ic_mean: -0.06862818095110017
+    ic_std: 0.17846516480666721
+    ic_ir: -0.38454664822373397
+    ic_win_rate: 0.3476465730800991
+    n_days: 1211
+  stage2:
+    max_corr: 0.7684559542661025
+    max_corr_factor: '001'
+    passed: false
+replacements: []

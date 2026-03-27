@@ -1,24 +1,24 @@
 ---
 name: factor-evaluate
-description: Evaluate a single Qlib factor expression through the full pipeline
+description: 对单个 Qlib 因子表达式进行完整管道评估
 user_invocable: true
 ---
 
-# Factor Evaluation
+# 因子评估
 
-Evaluate a factor expression passed as argument.
+评估作为参数传入的因子表达式。
 
-## Usage
+## 用法
 
 ```
 /factor-evaluate Neg(Rank(Div(Sub($close, $vwap), $vwap)))
 ```
 
-## Steps
+## 步骤
 
-1. Validate the expression using ExpressionValidator
-2. Run it through the full evaluation pipeline
-3. Display results: IC, ICIR, quantile returns, correlation with library
+1. 使用 ExpressionValidator 验证表达式
+2. 通过完整评估管道运行
+3. 展示结果：IC、ICIR、分位数收益、与因子库的相关性
 
 ```bash
 cd /Users/xinzhan/.openclaw/workspace/quant_factor_system
@@ -34,12 +34,12 @@ candidates = [{'name': 'user_factor', 'expression': expression, 'category': 'oth
 result = evaluator.evaluate_batch(candidates)
 
 for c in result.admitted + result.rejected:
-    print(f'Expression: {c[\"expression\"]}')
+    print(f'表达式: {c[\"expression\"]}')
     if 'stage1' in c:
-        print(f'Stage 1 IC: {c[\"stage1\"].get(\"ic_mean\", \"N/A\")}')
+        print(f'第1阶段 IC: {c[\"stage1\"].get(\"ic_mean\", \"N/A\")}')
     if 'full_ic' in c:
-        print(f'Full IC: {c[\"full_ic\"].get(\"ic_mean\", \"N/A\")}')
+        print(f'全量 IC: {c[\"full_ic\"].get(\"ic_mean\", \"N/A\")}')
     if 'stage3' in c:
-        print(f'Stage 3: {json.dumps(c[\"stage3\"], indent=2, default=str)}')
+        print(f'第3阶段: {json.dumps(c[\"stage3\"], indent=2, default=str)}')
 "
 ```

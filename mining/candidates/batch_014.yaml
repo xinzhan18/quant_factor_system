@@ -1,0 +1,59 @@
+batch_id: "batch_014"
+timestamp: "2026-03-24T10:30:00"
+description: "Event frequency, underused operations, different field correlations"
+candidates:
+  # === Event frequency (Count with novel conditions) ===
+  - name: "above_ma20_fraction"
+    expression: "Div(Count(Greater($close, Mean($close, 20)), 20), 20)"
+    category: "trend"
+    rationale: "Fraction of days above 20-day MA — trend persistence measure"
+
+  - name: "narrow_range_fraction"
+    expression: "Div(Count(Less(Div(Sub($high,$low),$close), 0.02), 20), 20)"
+    category: "candlestick"
+    rationale: "Fraction of days with range < 2% — calm/compression days"
+
+  - name: "volume_surge_freq_60"
+    expression: "Div(Count(Greater($volume, Mul(Mean($volume, 60), 2)), 60), 60)"
+    category: "volume"
+    rationale: "Fraction of 2x volume days over 60d — how often do spikes happen?"
+
+  # === Different field correlations ===
+  - name: "high_volume_corr_20"
+    expression: "Corr($high, $volume, 20)"
+    category: "volume"
+    rationale: "High price vs volume correlation — different from close-volume"
+
+  - name: "range_volume_corr_20"
+    expression: "Corr(Div(Sub($high,$low),$close), $volume, 20)"
+    category: "volume"
+    rationale: "Range-volume correlation — does activity predict range?"
+
+  # === Underused operations on novel inputs ===
+  - name: "median_return_20"
+    expression: "Med($close/Ref($close,1)-1, 20)"
+    category: "momentum"
+    rationale: "Median daily return — robust central tendency, different from Mean"
+
+  - name: "delta_high_10"
+    expression: "Div(Delta($high, 10), $high)"
+    category: "momentum"
+    rationale: "How much has the high price changed in 10 days? Normalized."
+
+  # === Novel body patterns ===
+  - name: "body_up_count_20"
+    expression: "Div(Count(Greater($close, $open), 20), 20)"
+    category: "candlestick"
+    rationale: "Fraction of up-body (close>open) days — different from close>prev_close"
+
+  # === Decay-weighted range (custom op on range) ===
+  - name: "decay_range_20"
+    expression: "TsDecay(Div(Sub($high,$low),$close), 20)"
+    category: "candlestick"
+    rationale: "Recent-weighted average range — differs from Mean by weighting recent more"
+
+  # === Cross-field regression ===
+  - name: "volume_resi_20"
+    expression: "Div(Resi($volume, 20), Mean($volume, 20))"
+    category: "volume"
+    rationale: "Normalized volume regression residual — is current volume above/below trend?"

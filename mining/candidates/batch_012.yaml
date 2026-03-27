@@ -1,0 +1,61 @@
+batch_id: "batch_012"
+timestamp: "2026-03-24T10:20:00"
+description: "Max/min returns, rank interactions, volume shape, frog-in-the-pan"
+candidates:
+  # === Extreme return measures (never tested) ===
+  - name: "max_daily_return_20"
+    expression: "Max($close/Ref($close,1)-1, 20)"
+    category: "distribution"
+    rationale: "Single largest daily return in 20 days — captures lottery-like behavior"
+
+  - name: "min_daily_return_20"
+    expression: "Min($close/Ref($close,1)-1, 20)"
+    category: "distribution"
+    rationale: "Single worst daily return in 20 days — captures crash risk"
+
+  # === Frog-in-the-pan: small vs big moves ===
+  - name: "small_move_fraction"
+    expression: "Div(Count(Less(Abs($close/Ref($close,1)-1), 0.02), 20), 20)"
+    category: "distribution"
+    rationale: "Fraction of days with |return| < 2% — price stickiness/quiet days"
+
+  # === Rank interactions (decorrelate via uniform transform) ===
+  - name: "rank_vol_times_rank_range"
+    expression: "Mul(Rank(Std($close/Ref($close,1)-1, 20), 60), Rank(Mean(Div(Sub($high,$low),$close),5), 60))"
+    category: "volatility"
+    rationale: "Rank(vol) * Rank(range) — interaction of uniformized volatility measures"
+
+  - name: "rank_volume_std"
+    expression: "Rank(Std($volume, 20), 60)"
+    category: "volume"
+    rationale: "Cross-sectional rank of volume volatility — relative, not absolute"
+
+  # === Volume shape (median vs mean) ===
+  - name: "volume_median_mean_ratio"
+    expression: "Div(Med($volume, 20), Mean($volume, 20))"
+    category: "volume"
+    rationale: "Median/Mean < 1 = right-skewed volume (few big days). Different from Std."
+
+  # === Log-volume patterns ===
+  - name: "log_volume_slope_20"
+    expression: "Slope(Log($volume), 20)"
+    category: "volume"
+    rationale: "Log-volume trend — captures geometric volume growth/decline"
+
+  # === Novel conditional: large return days ===
+  - name: "large_move_vol_ratio"
+    expression: "Div(Mean(If(Greater(Abs($close/Ref($close,1)-1), 0.03), $volume, Mean($volume,20)), 20), Mean($volume, 20))"
+    category: "volume"
+    rationale: "Average volume on big-move days / normal volume — smart money presence"
+
+  # === Intraday reversal ===
+  - name: "intraday_reversal_10"
+    expression: "Mean(Div(Sub($close, $high), Sub($high, $low)), 10)"
+    category: "candlestick"
+    rationale: "How far does price fall from high to close — intraday reversal"
+
+  # === Cross-field: close vs volume trend alignment ===
+  - name: "slope_close_volume_diff"
+    expression: "Sub(Div(Slope($close, 20), Std($close, 20)), Div(Slope($volume, 20), Std($volume, 20)))"
+    category: "trend"
+    rationale: "Normalized price slope minus normalized volume slope — divergence"

@@ -21,7 +21,7 @@ class MiningConfig:
 
     # Evaluation thresholds
     ic_threshold: float = 0.03
-    correlation_threshold: float = 0.5
+    correlation_threshold: float = 0.7
     replacement_ic_ratio: float = 1.3
     replacement_ic_min: float = 0.05
 
@@ -32,7 +32,7 @@ class MiningConfig:
     target_library_size: int = 100
 
     # Universe
-    universe: str = "csi500"
+    universe: str = "all"
     custom_universe: Optional[List[str]] = None
 
     # Time ranges

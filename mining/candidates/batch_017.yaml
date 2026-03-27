@@ -1,0 +1,62 @@
+batch_id: "batch_017"
+timestamp: "2026-03-24T10:45:00"
+description: "Exotic: vol-of-vol, extreme windows, nested operations, H/L divergence"
+candidates:
+  # === Vol of vol (2nd derivative) ===
+  - name: "vol_of_vol"
+    expression: "Std(Std($close/Ref($close,1)-1, 5), 20)"
+    category: "volatility"
+    rationale: "Volatility of volatility — 2nd order. How much does vol itself fluctuate?"
+
+  # === Extreme time windows ===
+  - name: "std_returns_120"
+    expression: "Std($close/Ref($close,1)-1, 120)"
+    category: "volatility"
+    rationale: "Very long window vol — structural vol vs. recent vol. May decorrelate."
+
+  - name: "resi_close_60"
+    expression: "Resi($close, 60)"
+    category: "trend"
+    rationale: "60d regression residual — very different from 5d (factor 006)"
+
+  # === High/Low trend divergence ===
+  - name: "hl_slope_divergence"
+    expression: "Sub(Slope($high, 20), Slope($low, 20))"
+    category: "trend"
+    rationale: "High trend minus low trend — are the bounds expanding or contracting?"
+
+  # === Nested: mean of range residual ===
+  - name: "range_resi"
+    expression: "Resi(Div(Sub($high,$low),$close), 20)"
+    category: "candlestick"
+    rationale: "Regression residual of daily range — is today's range above/below trend?"
+
+  # === Volume autocorrelation proxy ===
+  - name: "vol_mean_dev_ratio"
+    expression: "Div(Mean(Abs(Sub($volume, Mean($volume,20))), 20), Mean($volume, 20))"
+    category: "volume"
+    rationale: "Mean absolute deviation of volume / mean volume — normalized vol variability"
+
+  # === Interaction: Resi * Corr (trend * PV) ===
+  - name: "resi_pv_corr_interaction"
+    expression: "Mul(Resi($close, 10), Corr($close, $volume, 10))"
+    category: "trend"
+    rationale: "Trend deviation * PV correlation — novel interaction of trend and volume alignment"
+
+  # === Return at extreme volume ===
+  - name: "return_when_vol_high"
+    expression: "Mean(Mul(If(Greater($volume, Mean($volume,20)), 1, 0), $close/Ref($close,1)-1), 20)"
+    category: "volume"
+    rationale: "Average return on high-volume days only — smart money direction"
+
+  # === Smoothed volatility change ===
+  - name: "vol_change_smoothed"
+    expression: "Sub(Mean(Std($close/Ref($close,1)-1, 5), 5), Mean(Std($close/Ref($close,1)-1, 5), 20))"
+    category: "volatility"
+    rationale: "Smoothed short vol minus smoothed medium vol — vol trend"
+
+  # === Open/close body direction consistency ===
+  - name: "body_direction_corr"
+    expression: "Corr(Sub($close, $open), Ref(Sub($close, $open), 1), 20)"
+    category: "candlestick"
+    rationale: "Autocorrelation of candle body — does body direction persist?"
