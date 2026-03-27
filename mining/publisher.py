@@ -223,8 +223,8 @@ class FactorPublisher:
         Returns the path to the saved report, or empty string if generation fails.
         Failure is logged but not re-raised — report generation is non-transactional.
         """
-        from mining.report.builder import ReportDataBuilder
-        from mining.report.renderer import ReportRenderer
+        from report.builder import ReportDataBuilder
+        from report.renderer import ReportRenderer
 
         report_dir = os.path.join(os.path.dirname(self.config.library_dir), "reports")
 

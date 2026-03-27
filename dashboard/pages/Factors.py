@@ -16,7 +16,7 @@ from quant_factor_system.data.loaders import (
     get_factor_metrics,
     get_price_data,
 )
-from quant_factor_system.visualization import ICAnalyzer
+from report.analytics.ic import ICAnalyzer
 
 
 def generate_ic_chart(rolling_ic_df: pd.DataFrame, split_date: dt, factor_name: str) -> go.Figure:

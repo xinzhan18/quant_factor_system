@@ -9,7 +9,7 @@ Quant Factor System - 量化因子研究平台
 使用:
     from quant_factor_system.data import TimescaleDB
     from quant_factor_system.mining import FactorMiningEvaluator, FactorLibrary
-    from quant_factor_system.visualization import ICAnalyzer
+    from report.analytics.ic import ICAnalyzer
 """
 
 __version__ = "4.1.0"

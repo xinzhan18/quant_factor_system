@@ -1,6 +1,6 @@
 """Tests for CompositeScorer."""
 import pytest
-from mining.report.scorer import CompositeScorer
+from report.scorer import CompositeScorer
 
 
 class TestScoreToGrade:

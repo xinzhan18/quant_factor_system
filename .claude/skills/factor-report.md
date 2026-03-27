@@ -20,7 +20,7 @@ user_invocable: true
 
 ```bash
 cd /Users/xinzhan/.openclaw/workspace/quant_factor_system
-python3 -m mining.report.builder --factor-id FACTOR_ID --output-dir /tmp/factor_report_FACTOR_ID
+python3 -m report.builder --factor-id FACTOR_ID --output-dir /tmp/factor_report_FACTOR_ID
 ```
 
 计算所有指标（IC、分布、五分位、衰减、综合评分）并生成 Plotly 图表。
@@ -90,7 +90,7 @@ python3 -m mining.report.builder --factor-id FACTOR_ID --output-dir /tmp/factor_
 ### 第3阶段：渲染 HTML（Python）
 
 ```bash
-python3 -m mining.report.renderer --input-dir /tmp/factor_report_FACTOR_ID --output-dir mining/reports/
+python3 -m report.renderer --input-dir /tmp/factor_report_FACTOR_ID --output-dir mining/reports/
 ```
 
 ### 第4阶段：在浏览器中打开

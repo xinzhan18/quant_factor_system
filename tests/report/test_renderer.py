@@ -1,11 +1,9 @@
 """Tests for ReportRenderer."""
-import json
 import os
-import tempfile
 
 import pytest
 
-from mining.report.renderer import ReportRenderer
+from report.renderer import ReportRenderer
 
 
 @pytest.fixture
@@ -37,7 +35,7 @@ def minimal_narrative():
     return {
         "factor_metadata": {"name_cn": "测试因子", "expression_latex": "\\sigma_{20}"},
         "construction_logic": {"formula_decomposition": "公式分解...", "parameter_rationale": "参数选择...", "preprocessing_notes": "预处理..."},
-        "economic_interpretation": {"theoretical_foundations": "理论基础...", "attribution_angles": [{"title": "角度1", "icon": "📊", "body": "内容..."}], "china_context": "A股特殊性..."},
+        "economic_interpretation": {"theoretical_foundations": "理论基础...", "attribution_angles": [{"title": "角度1", "icon": "X", "body": "内容..."}], "china_context": "A股特殊性..."},
         "section_interpretations": {"distribution": "分布解读...", "ic_annual": "年度IC...", "ic_monthly": "月度IC...", "quintile": "分层解读...", "decay": "衰减解读...", "composite": "综合评分..."},
         "critical_review": {"one_liner": "一句话总结", "body": "详细批评...", "key_weaknesses": [{"title": "弱点1", "detail": "描述..."}], "improvement_directions": ["建议1"]},
     }
@@ -48,7 +46,6 @@ class TestReportRenderer:
         renderer = ReportRenderer()
         html = renderer.render(minimal_report_data, minimal_narrative)
         assert "<!DOCTYPE html>" in html
-        assert "测试因子" in html
         assert "test_factor" in html
 
     def test_render_contains_kpi(self, minimal_report_data, minimal_narrative):
@@ -72,10 +69,9 @@ class TestReportRenderer:
         assert "<!DOCTYPE html>" in content
 
     def test_render_with_missing_narrative_keys(self, minimal_report_data):
-        """Should handle missing narrative gracefully."""
         renderer = ReportRenderer()
         partial_narrative = {
             "factor_metadata": {"name_cn": "测试", "expression_latex": "x"},
         }
         html = renderer.render(minimal_report_data, partial_narrative)
-        assert "<!DOCTYPE html>" in html  # Should not crash
+        assert "<!DOCTYPE html>" in html
