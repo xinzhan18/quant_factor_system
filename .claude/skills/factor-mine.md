@@ -189,14 +189,10 @@ def main():
         s1 = f.get('stage1', {})
         logger.info(f"  淘汰 {f['name']}: IC={s1.get('ic_mean','?')}")
 
-    # 保存结果（过滤掉 DataFrame 对象，避免 YAML 序列化错误）
-    output = {
-        'batch_id': batch['batch_id'],
-        'timestamp': datetime.now().isoformat(),
-        'admitted': [{k: v for k, v in f.items() if not k.startswith('_')} for f in result.admitted],
-        'rejected': [{k: v for k, v in f.items() if not k.startswith('_')} for f in result.rejected],
-        'replacements': [{k: v for k, v in f.items() if not k.startswith('_')} for f in result.replacements],
-    }
+    # 保存结果（使用白名单方式，只保留必要字段，自动过滤 DataFrame 等大对象）
+    output = result.to_dict()
+    output['batch_id'] = batch['batch_id']
+    output['timestamp'] = datetime.now().isoformat()
     with open('mining/candidates/batch_XXX_result.yaml', 'w') as fp:
         yaml.dump(output, fp, default_flow_style=False, allow_unicode=True)
 

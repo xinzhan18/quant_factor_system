@@ -132,26 +132,14 @@ def save_ic_results(results: List[Dict[str, Any]], batch_key: str) -> Path:
 def save_full_results(result: BatchResult, batch_key: str) -> Path:
     """Save full pipeline results to YAML."""
     out_path = CANDIDATES_DIR / f"baseline_{batch_key}_result.yaml"
-
-    def _clean(c: Dict[str, Any]) -> Dict[str, Any]:
-        """Remove transient DataFrame values for YAML serialization."""
-        return {k: v for k, v in c.items() if not k.startswith("_")}
-
-    output = {
-        "batch_id": f"baseline_{batch_key}",
-        "timestamp": datetime.now().isoformat(),
-        "mode": "full_pipeline",
-        "summary": {
-            "admitted": len(result.admitted),
-            "rejected": len(result.rejected),
-            "replacements": len(result.replacements),
-        },
-        "admitted": [_clean(c) for c in result.admitted],
-        "rejected": [_clean(c) for c in result.rejected],
-        "replacements": [
-            {"new_factor": _clean(r["new_factor"]), "replaces": r["replaces"]}
-            for r in result.replacements
-        ],
+    output = result.to_dict()
+    output["batch_id"] = f"baseline_{batch_key}"
+    output["timestamp"] = datetime.now().isoformat()
+    output["mode"] = "full_pipeline"
+    output["summary"] = {
+        "admitted": len(result.admitted),
+        "rejected": len(result.rejected),
+        "replacements": len(result.replacements),
     }
     with open(out_path, "w", encoding="utf-8") as f:
         yaml.dump(output, f, default_flow_style=False, allow_unicode=True, sort_keys=False)

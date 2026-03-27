@@ -25,12 +25,47 @@ except ImportError:
     D = None  # type: ignore[assignment]
 
 
+def _clean_factor_dict(c: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract only serializable fields from a factor dict (whitelist approach).
+
+    This prevents pandas DataFrames or other large objects from
+    leaking into YAML result files.
+    """
+    ALLOWED_KEYS = {
+        "name", "expression", "category", "rationale", "batch",
+        "stage1", "stage2", "stage3", "full_ic",
+        "validation_error", "reject_reason",
+    }
+    return {k: v for k, v in c.items() if k in ALLOWED_KEYS}
+
+
 @dataclass
 class BatchResult:
     """Result of a batch evaluation."""
     admitted: List[Dict[str, Any]] = field(default_factory=list)
     rejected: List[Dict[str, Any]] = field(default_factory=list)
     replacements: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a clean, serializable dict for YAML/JSON export.
+
+        Only whitelisted scalar fields are included — all DataFrames
+        and internal caches are stripped.
+        """
+        clean_replacements = []
+        for r in self.replacements:
+            if isinstance(r, dict) and "new_factor" in r:
+                clean_replacements.append({
+                    "new_factor": _clean_factor_dict(r["new_factor"]),
+                    "replaces": r.get("replaces"),
+                })
+            else:
+                clean_replacements.append(_clean_factor_dict(r))
+        return {
+            "admitted": [_clean_factor_dict(c) for c in self.admitted],
+            "rejected": [_clean_factor_dict(c) for c in self.rejected],
+            "replacements": clean_replacements,
+        }
 
 
 class FactorMiningEvaluator:
