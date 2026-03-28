@@ -169,3 +169,20 @@ class MiningConfig:
 
     # Neutralization (optional, requires $market_cap / $industry_code synced)
     neutralize_mode: str = "market_cap"  # "none", "market_cap", "industry", "both"
+
+    # Optuna parameter optimization
+    optuna_trials: int = 30
+    optuna_timeout: int = 600  # seconds per factor
+
+    # Sandbox execution
+    sandbox_timeout: int = 60  # seconds per factor
+    sandbox_memory_limit_gb: int = 4
+
+    # Evolution engine
+    max_mutations_per_factor: int = 5
+    ast_similarity_threshold: float = 0.8
+
+    # New storage paths
+    logic_dir: str = "storage/logic"
+    python_factors_dir: str = "storage/python_factors"
+    forbidden_file: str = "storage/memory/forbidden.yaml"
