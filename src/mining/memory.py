@@ -18,6 +18,7 @@ class ExperienceMemory:
     """Read/write YAML-based Experience Memory."""
 
     def __init__(self, config: MiningConfig):
+        self._config = config  # stored for logic_dir and other path references
         self._dir = Path(config.memory_dir)
         self._history_dir = self._dir / "history"
         self._history_dir.mkdir(parents=True, exist_ok=True)
@@ -47,22 +48,30 @@ class ExperienceMemory:
         return sorted(p.stem for p in self._history_dir.glob("batch_*.yaml"))
 
     def compose_search_context(self) -> str:
-        """Compose memory into a prompt-ready string."""
-        parts = []
+        """Compose memory into a prompt-ready string.
 
-        # Global state
+        Returns a multi-section string covering:
+        1. Current library state and next-round hint
+        2. Direction statuses
+        3. Taxonomy coverage map (from Logic Library)
+        4. Forbidden regions
+        5. Active logic evidence
+        """
+        sections: List[str] = []
+
+        # --- Section 1: Current library state ---
         state = self.read_state()
         lib = state.get("library", {})
-        parts.append("## Current Mining State")
-        parts.append(f"Library size: {lib.get('size', 0)}")
+        state_lines = ["## Current Mining State", f"Library size: {lib.get('size', 0)}"]
         hint = state.get("next_round_hint")
         if hint:
-            parts.append(f"\nLast round hint: {hint}")
+            state_lines.append(f"\nLast round hint: {hint}")
+        sections.append("\n".join(state_lines))
 
-        # Direction statuses
+        # --- Section 2: Direction statuses ---
         directions = self.list_directions()
         if directions:
-            parts.append("\n## Direction Statuses")
+            dir_lines = ["## Direction Statuses"]
             by_status: Dict[str, list] = {}
             for d in directions:
                 by_status.setdefault(d["status"], []).append(d)
@@ -72,9 +81,54 @@ class ExperienceMemory:
                         f"{d['name']} (IC={d['best_ic']})" if d.get("best_ic") else d["name"]
                         for d in by_status[status]
                     ]
-                    parts.append(f"- **{status}**: {', '.join(names)}")
+                    dir_lines.append(f"- **{status}**: {', '.join(names)}")
+            sections.append("\n".join(dir_lines))
 
-        return "\n".join(parts)
+        # --- Section 3: Taxonomy coverage map (Logic Library) ---
+        logic_lib = None
+        try:
+            from mining.logic_library import MarketLogicLibrary
+
+            logic_lib = MarketLogicLibrary(self._config.logic_dir)
+            coverage = logic_lib.coverage_map()
+            if coverage:
+                cov_lines = ["## Taxonomy Coverage"]
+                for cat, count in sorted(coverage.items()):
+                    cov_lines.append(f"  {cat}: {count} active logics")
+                sections.append("\n".join(cov_lines))
+        except Exception:
+            pass  # Logic library may not exist yet
+
+        # --- Section 4: Forbidden regions ---
+        forbidden = self.read_forbidden()
+        if forbidden:
+            forb_lines = ["## Forbidden Regions (DO NOT explore these)"]
+            for r in forbidden:
+                forb_lines.append(f"  - {r['pattern']} \u2014 {r['reason']}")
+            sections.append("\n".join(forb_lines))
+
+        # --- Section 5: Active logic evidence ---
+        try:
+            if logic_lib is None:
+                from mining.logic_library import MarketLogicLibrary
+
+                logic_lib = MarketLogicLibrary(self._config.logic_dir)
+            active = logic_lib.list_logics(status="active")
+            if active:
+                logic_lines = ["## Active Market Logics"]
+                for logic in active:
+                    s = logic.get("stats", {})
+                    logic_lines.append(
+                        f"  {logic['id']} {logic['name']} "
+                        f"[gen={s.get('factors_generated', 0)}, "
+                        f"adm={s.get('factors_admitted', 0)}, "
+                        f"best_ic={s.get('best_ic', 0):.3f}]"
+                    )
+                sections.append("\n".join(logic_lines))
+        except Exception:
+            pass
+
+        return "\n\n".join(s for s in sections if s)
 
     def list_directions(self) -> List[Dict[str, Any]]:
         """Read directions.yaml index. Rebuilds from files if index missing."""
