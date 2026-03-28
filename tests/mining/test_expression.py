@@ -87,3 +87,44 @@ class TestSafeWrap:
         wrapped = validator.safe_wrap(expr)
         # Both Divs should be wrapped
         assert wrapped.count("If(Greater(Abs(") == 2
+
+
+class TestPythonValidation:
+    def test_valid_python_code(self, validator):
+        code = "result = ops.Mean(data, 20)"
+        result = validator.validate_python(code)
+        assert result.valid
+        assert result.errors == []
+
+    def test_syntax_error(self, validator):
+        code = "def foo(:\n    pass"
+        result = validator.validate_python(code)
+        assert not result.valid
+        assert any("SyntaxError" in e for e in result.errors)
+
+    def test_forbidden_import(self, validator):
+        code = "import os\nresult = os.getcwd()"
+        result = validator.validate_python(code)
+        assert not result.valid
+        assert any("import" in e.lower() for e in result.errors)
+
+    def test_forbidden_import_from(self, validator):
+        code = "from subprocess import run\nrun(['ls'])"
+        result = validator.validate_python(code)
+        assert not result.valid
+        assert any("import" in e.lower() for e in result.errors)
+
+    def test_empty_code(self, validator):
+        result = validator.validate_python("")
+        assert not result.valid
+
+    def test_extract_ops_calls(self, validator):
+        code = "result = ops.Mean(ops.Std(data, 5), 20)"
+        names = validator.extract_ops_calls(code)
+        assert "Mean" in names
+        assert "Std" in names
+
+    def test_extract_ops_calls_no_ops(self, validator):
+        code = "result = some_other_obj.Mean(data, 20)"
+        names = validator.extract_ops_calls(code)
+        assert names == []
