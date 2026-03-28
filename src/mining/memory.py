@@ -47,27 +47,33 @@ class ExperienceMemory:
         return sorted(p.stem for p in self._history_dir.glob("batch_*.yaml"))
 
     def compose_search_context(self) -> str:
-        """Compose Memory into a prompt-ready string for Claude."""
+        """Compose memory into a prompt-ready string."""
         parts = []
+
+        # Global state
         state = self.read_state()
+        lib = state.get("library", {})
         parts.append("## Current Mining State")
-        parts.append(f"Library size: {state.get('library', {}).get('size', 0)}")
-        sat = state.get("domain_saturation", {})
-        if sat:
-            sat_lines = [f"  - {k}: {v.get('count', 0)} factors ({v.get('saturation', 'low')})" for k, v in sat.items()]
-            parts.append("Domain saturation:\n" + "\n".join(sat_lines))
-        patterns = self.read_patterns()
-        rec = patterns.get("recommended_directions", [])
-        if rec:
-            parts.append("\n## Recommended Directions")
-            for p in rec:
-                parts.append(f"- **{p['pattern']}** ({p.get('success_rate', 'unknown')}): {p['description']}")
-        forbidden = patterns.get("forbidden_regions", [])
-        if forbidden:
-            parts.append("\n## Forbidden Regions (AVOID)")
-            for f in forbidden:
-                parts.append(f"- {f['direction']}: {f['reason']}")
-        # 挖掘经验教训从 mining-lessons.md 加载（叙事性内容，由 skill 直接读取）
+        parts.append(f"Library size: {lib.get('size', 0)}")
+        hint = state.get("next_round_hint")
+        if hint:
+            parts.append(f"\nLast round hint: {hint}")
+
+        # Direction statuses
+        directions = self.list_directions()
+        if directions:
+            parts.append("\n## Direction Statuses")
+            by_status: Dict[str, list] = {}
+            for d in directions:
+                by_status.setdefault(d["status"], []).append(d)
+            for status in ["active", "new", "probing", "exhausted", "blocked", "dead"]:
+                if status in by_status:
+                    names = [
+                        f"{d['name']} (IC={d['best_ic']})" if d.get("best_ic") else d["name"]
+                        for d in by_status[status]
+                    ]
+                    parts.append(f"- **{status}**: {', '.join(names)}")
+
         return "\n".join(parts)
 
     def list_directions(self) -> List[Dict[str, Any]]:
