@@ -6,7 +6,7 @@ Unified Data Manager
 1. TimescaleDB (主数据源)
 
 使用方式:
-    from quant_factor_system.data import DataManager
+    from data import DataManager
     
     # 初始化
     dm = DataManager()

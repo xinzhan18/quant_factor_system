@@ -25,7 +25,7 @@ import yaml
 multiprocessing.set_start_method("fork", force=True)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from mining.config import MiningConfig
 from mining.evaluator import FactorMiningEvaluator, BatchResult
@@ -37,8 +37,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("baseline_eval")
 
-CANDIDATES_DIR = PROJECT_ROOT / "mining" / "candidates"
-MEMORY_DIR = PROJECT_ROOT / "mining" / "memory"
+CANDIDATES_DIR = PROJECT_ROOT / "storage" / "candidates"
+MEMORY_DIR = PROJECT_ROOT / "storage" / "memory"
 
 BATCH_FILES = {
     "A": CANDIDATES_DIR / "baseline_A.yaml",

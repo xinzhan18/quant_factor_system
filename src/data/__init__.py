@@ -11,7 +11,7 @@ Data Module
       timescale/timescaledb:latest-pg14
 
 使用:
-    from quant_factor_system.data import TimescaleDB, QuantDataManager
+    from data import TimescaleDB, QuantDataManager
     
     # 初始化
     manager = QuantDataManager()

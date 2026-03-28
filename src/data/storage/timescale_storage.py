@@ -819,7 +819,7 @@ class QuantDataManager:
         Returns:
             更新统计
         """
-        from quant_factor_system.data.ricequant_source import RiceQuantSource
+        from data.ricequant_source import RiceQuantSource
         
         source = RiceQuantSource()
         
@@ -872,7 +872,7 @@ class QuantDataManager:
             end_date: 结束日期
             frequency: 频率 (1min/5min/15min)
         """
-        from quant_factor_system.data.ricequant_source import RiceQuantSource
+        from data.ricequant_source import RiceQuantSource
         
         source = RiceQuantSource()
         
@@ -962,7 +962,7 @@ class QuantDataManager:
         Returns:
             更新统计
         """
-        from quant_factor_system.data.industry_source import IndustrySource
+        from data.industry_source import IndustrySource
         
         source = IndustrySource()
         
@@ -1011,7 +1011,7 @@ class QuantDataManager:
         Returns:
             更新统计
         """
-        from quant_factor_system.data.industry_source import IndustrySource
+        from data.industry_source import IndustrySource
         
         source = IndustrySource()
         

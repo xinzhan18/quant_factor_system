@@ -9,7 +9,7 @@ RiceQuant Data Source Adapter
 - 增量更新
 
 使用:
-    from quant_factor_system.data import RiceQuantSource
+    from data import RiceQuantSource
     
     source = RiceQuantSource()
     

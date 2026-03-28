@@ -10,8 +10,7 @@ from pathlib import Path
 
 import yaml
 
-from .config import MiningConfig
-from core.config import SystemConfig
+from .config import MiningConfig, SystemConfig
 from data.qlib_sync import DataSynchronizer
 from .evaluator import FactorMiningEvaluator
 from .library import FactorLibrary
@@ -222,11 +221,11 @@ def main():
 
     # library
     p_lib = sub.add_parser("library", help="查看因子库状态")
-    p_lib.add_argument("--library-dir", default="mining/library")
+    p_lib.add_argument("--library-dir", default="storage/library")
 
     # memory
     p_mem = sub.add_parser("memory", help="查看挖掘记忆上下文")
-    p_mem.add_argument("--memory-dir", default="mining/memory")
+    p_mem.add_argument("--memory-dir", default="storage/memory")
 
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(name)s - %(message)s')

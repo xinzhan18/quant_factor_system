@@ -5,7 +5,8 @@ setup(
     version="4.1.0",
     description="Quantitative Factor Mining and Research Platform",
     author="QuantFactorSystem",
-    packages=find_packages(exclude=["_archive", "_archive.*", "examples", "examples.*"]),
+    package_dir={"": "src"},
+    packages=find_packages(where="src", exclude=["_archive", "_archive.*", "examples", "examples.*"]),
     python_requires=">=3.8",
     install_requires=[
         "pandas>=1.5.0",
@@ -31,7 +32,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "quant-mining=quant_factor_system.mining.cli:main",
+            "quant-mining=mining.cli:main",
         ],
     },
 )

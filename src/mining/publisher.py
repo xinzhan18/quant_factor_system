@@ -226,7 +226,7 @@ class FactorPublisher:
         from report.builder import ReportDataBuilder
         from report.renderer import ReportRenderer
 
-        report_dir = "reports"
+        report_dir = self.config.report_dir
 
         try:
             builder = ReportDataBuilder(factor_id, self.config)

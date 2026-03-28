@@ -8,7 +8,7 @@ Dashboard Components
 - tables: 表格组件
 
 使用示例:
-    from quant_factor_system.dashboard.components import (
+    from dashboard.components import (
         create_line_chart,
         backtest_config_form,
         render_dataframe

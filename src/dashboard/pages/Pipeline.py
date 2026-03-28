@@ -7,7 +7,7 @@ import pandas as pd
 
 # 包已通过 pip 安装到 conda 环境中
 
-from quant_factor_system.data import (
+from data import (
     DataManager,
     TimescaleDB,
 )

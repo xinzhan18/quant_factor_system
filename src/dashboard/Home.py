@@ -7,9 +7,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-from quant_factor_system import __version__
-from quant_factor_system.data import TimescaleDB
-from quant_factor_system.mining import FactorLibrary, MiningConfig
+from mining import __version__, FactorLibrary, MiningConfig
+from data import TimescaleDB
 
 
 def get_db_stats(db: TimescaleDB) -> dict:

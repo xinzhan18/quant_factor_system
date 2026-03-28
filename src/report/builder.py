@@ -174,8 +174,7 @@ class ReportDataBuilder:
     def _load_factor_metadata(self) -> dict:
         import yaml
         path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "mining", "library", "factors", f"factor_{self.factor_id}.yaml",
+            self.config.library_dir, "factors", f"factor_{self.factor_id}.yaml",
         )
         with open(path) as f:
             meta = yaml.safe_load(f)
@@ -226,8 +225,7 @@ class ReportDataBuilder:
     def _get_max_library_correlation(self) -> float:
         import yaml
         lib_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "mining", "library", "library.yaml",
+            self.config.library_dir, "library.yaml",
         )
         with open(lib_path) as f:
             lib = yaml.safe_load(f)

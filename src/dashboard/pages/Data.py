@@ -6,7 +6,7 @@
 import streamlit as st
 from datetime import datetime, timedelta
 
-from quant_factor_system.data import TimescaleDB
+from data import TimescaleDB
 
 
 def main():

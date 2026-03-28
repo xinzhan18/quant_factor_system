@@ -10,7 +10,7 @@ user_invocable: true
 
 ## 第1步：查找待评估批次
 
-扫描 `mining/candidates/` 目录：
+扫描 `storage/candidates/` 目录：
 - 找编号最大的 `batch_XXX.yaml`，且不存在对应的 `batch_XXX_result.yaml`
 - 如果所有批次都已评估 → 提示用户："没有待评估的批次。请先运行 `/idea` 生成候选。"
 
@@ -19,7 +19,7 @@ user_invocable: true
 执行 CLI 命令（**注意：不加 `--admit`**）：
 
 ```bash
-python3 -m mining batch mining/candidates/batch_XXX.yaml
+PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml
 ```
 
 **参数说明：**
@@ -37,7 +37,7 @@ python3 -m mining batch mining/candidates/batch_XXX.yaml
 
 ## 第3步：验证结果
 
-检查 `mining/candidates/batch_XXX_result.yaml` 已生成。
+检查 `storage/candidates/batch_XXX_result.yaml` 已生成。
 
 ## 第4步：打印摘要
 
@@ -46,7 +46,7 @@ python3 -m mining batch mining/candidates/batch_XXX.yaml
 筛选通过: N 个
 淘汰: M 个
 替换候选: K 个
-结果文件: mining/candidates/batch_XXX_result.yaml
+结果文件: storage/candidates/batch_XXX_result.yaml
 ```
 
 提示用户：

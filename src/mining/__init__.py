@@ -1,5 +1,7 @@
 """FactorMiner: Automated factor mining with Experience Memory."""
 
+__version__ = "4.1.0"
+
 from .config import MiningConfig
 from .expression import ExpressionValidator, ValidationResult
 from .evaluator import FactorMiningEvaluator, BatchResult

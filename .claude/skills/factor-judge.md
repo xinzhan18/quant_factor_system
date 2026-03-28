@@ -10,7 +10,7 @@ user_invocable: true
 
 ## 第1步：查找待审判结果
 
-扫描 `mining/candidates/` 目录：
+扫描 `storage/candidates/` 目录：
 - 找编号最大的 `batch_XXX_result.yaml`
 - 如果没有结果文件 → 提示用户："没有待审判的结果。请先运行 `/execute` 评估候选。"
 
@@ -85,22 +85,22 @@ lib.replace(old_id, new_factor)
 
 ## 第4步：更新记忆（强制 — 不得跳过）
 
-### 4a. 更新 `mining/memory/patterns.yaml`
+### 4a. 更新 `storage/memory/patterns.yaml`
 - 录取因子 → 添加到 `recommended_directions`，包含成功率和示例因子
 - 淘汰（高相关性）→ 添加到 `forbidden_regions`，包含相关性值和冲突因子
 - 淘汰（低 IC）→ 添加到 `forbidden_regions`，包含 IC 值和原因
 - 淘汰（算子错误）→ 在现有模式条目中注明
 
-### 4b. 更新 `mining/memory/state.yaml`
+### 4b. 更新 `storage/memory/state.yaml`
 - 因子库规模、平均 IC、各领域饱和度
 - 挖掘统计：总批次数、总候选数、录取率
 
-### 4c. 保存批次历史到 `mining/memory/history/batch_XXX.yaml`
+### 4c. 保存批次历史到 `storage/memory/history/batch_XXX.yaml`
 包含：所有候选因子、录取/淘汰及原因、关键教训、工程发现
 
 ### 4d. 更新挖掘经验教训（如有新工程发现）
 ```
-mining/memory/mining-lessons.md
+storage/memory/mining-lessons.md
 ```
 添加任何新的算子发现、运行时错误、变通方法、管道 bug、市场洞察。
 

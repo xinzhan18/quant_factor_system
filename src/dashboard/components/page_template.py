@@ -84,7 +84,7 @@ def render_factor_selector(key: str = "factor"):
     渲染因子选择器（从 mining library 读取）
     """
     try:
-        from quant_factor_system.mining import FactorLibrary, MiningConfig
+        from mining import FactorLibrary, MiningConfig
         lib = FactorLibrary(MiningConfig())
         factors = lib.list_factors()
         factor_names = [f['name'] for f in factors] if factors else []

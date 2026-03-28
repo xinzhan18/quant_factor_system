@@ -8,7 +8,7 @@ RiceQuant Industry Data Adapter
 - 计算行业因子
 
 使用:
-    from quant_factor_system.data import IndustrySource
+    from data import IndustrySource
     
     source = IndustrySource()
     

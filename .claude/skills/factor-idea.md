@@ -10,7 +10,7 @@ user_invocable: true
 
 ## 第1步：确定批次编号
 
-扫描 `mining/candidates/` 目录，找到现有 `batch_XXX.yaml` 中最大的编号，+1 作为本批次编号。如果目录为空，从 `batch_001` 开始。
+扫描 `storage/candidates/` 目录，找到现有 `batch_XXX.yaml` 中最大的编号，+1 作为本批次编号。如果目录为空，从 `batch_001` 开始。
 
 ## 第2步：加载全部记忆（强制 — 不得跳过）
 
@@ -18,24 +18,24 @@ user_invocable: true
 
 ### 2a. 挖掘经验教训
 ```
-mining/memory/mining-lessons.md
+storage/memory/mining-lessons.md
 ```
 
 ### 2b. 经验记忆
 ```
-mining/memory/state.yaml
-mining/memory/patterns.yaml
+storage/memory/state.yaml
+storage/memory/patterns.yaml
 ```
 
 ### 2c. 最近批次历史（最近3个批次）
 ```
-ls mining/memory/history/
+ls storage/memory/history/
 ```
 读取最近3个批次历史文件，了解已尝试过什么、失败了什么。
 
 ### 2d. 当前因子库
 ```
-mining/library/library.yaml
+storage/library/library.yaml
 ```
 
 ## 第3步：上下文摘要（强制 — 生成候选前必须打印）
@@ -106,7 +106,7 @@ mining/library/library.yaml
 
 ## 第5步：写入候选文件
 
-将候选写入 `mining/candidates/batch_XXX.yaml`：
+将候选写入 `storage/candidates/batch_XXX.yaml`：
 
 ```yaml
 batch_id: "batch_XXX"
@@ -122,7 +122,7 @@ candidates:
 
 打印候选摘要，然后提示用户：
 
-> 候选已生成：`mining/candidates/batch_XXX.yaml`（8 个候选）
+> 候选已生成：`storage/candidates/batch_XXX.yaml`（8 个候选）
 > 运行 `/execute` 开始评估，或 `/mine` 继续完整流程。
 
 ---

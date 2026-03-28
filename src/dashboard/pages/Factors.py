@@ -9,8 +9,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime as dt
 
-from quant_factor_system.data import TimescaleDB
-from quant_factor_system.data.loaders import (
+from data import TimescaleDB
+from data.loaders import (
     get_available_factors,
     get_factor_data,
     get_factor_metrics,

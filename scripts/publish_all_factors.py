@@ -80,7 +80,7 @@ def main():
             logger.info("  IS: %d rows, OOS: %d rows", len(vals_is), len(vals_oos))
 
             # Load factor YAML for full metadata
-            factor_yaml_path = f"mining/library/factors/factor_{fid}.yaml"
+            factor_yaml_path = os.path.join(config.library_dir, "factors", f"factor_{fid}.yaml")
             with open(factor_yaml_path) as f:
                 factor_meta = yaml.safe_load(f)
 

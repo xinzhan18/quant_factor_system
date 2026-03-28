@@ -16,7 +16,7 @@ CONDA_BASE="/Users/xinzhan/miniconda3"
 CONDA_ENV="quantfactor"
 
 # 设置Python路径
-export PYTHONPATH="/Users/xinzhan/.openclaw/workspace:$PYTHONPATH"
+export PYTHONPATH="/Users/xinzhan/.openclaw/workspace/quant_factor_system/src:$PYTHONPATH"
 
 # 使用conda环境中的Python
 PYTHON="$CONDA_BASE/envs/$CONDA_ENV/bin/python"
@@ -49,7 +49,7 @@ case "${1:-help}" in
         echo ""
         cd $PROJECT_DIR
         $PYTHON -c "
-from quant_factor_system.data import DataManager
+from data import DataManager
 dm = DataManager()
 dm.import_csv('$2', symbol_col='symbol', date_col='date', price_col='close')
 print('✅ 导入完成')

@@ -5,7 +5,7 @@
 import streamlit as st
 from datetime import datetime, timedelta
 
-from quant_factor_system.mining import FactorLibrary, MiningConfig
+from mining import FactorLibrary, MiningConfig
 
 
 def get_available_factors():
