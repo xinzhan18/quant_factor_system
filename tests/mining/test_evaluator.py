@@ -304,6 +304,65 @@ class TestTransientKeys:
         assert isinstance(c["report_card"], dict)
 
 
+class TestOptunaOptimization:
+    def test_optimize_params_no_param_space(self, evaluator):
+        """Candidates without param_space pass through unchanged (same object returned)."""
+        c = {"name": "test", "type": "dsl", "expression": "Std($close, 20)", "category": "vol"}
+        result = evaluator._optimize_params(c)
+        assert result is c  # Same object, unchanged
+
+    def test_optimize_params_method_exists(self):
+        """Method exists on FactorMiningEvaluator."""
+        from mining.evaluator import FactorMiningEvaluator
+        assert hasattr(FactorMiningEvaluator, "_optimize_params")
+
+    def test_optimize_params_returns_dict_with_params(self, evaluator):
+        """When param_space present, _optimize_params returns a dict with 'params' key."""
+        candidate = {
+            "name": "py_opt",
+            "source": "python",
+            "code": "return df['close'].rolling(params['window']).std()",
+            "category": "volatility",
+            "param_space": {"window": [5, 30]},
+        }
+        # Mock the underlying computation so we don't need Qlib data
+        import optuna
+
+        def fake_objective(trial):
+            trial.suggest_int("window", 5, 30)
+            return 0.05
+
+        with patch.object(evaluator, "_get_fast_screening_universe", return_value=["SH600000"]):
+            with patch("optuna.create_study") as mock_study_fn:
+                mock_study = MagicMock()
+                mock_study.best_value = 0.05
+                mock_study.best_params = {"window": 20}
+                mock_study_fn.return_value = mock_study
+                result = evaluator._optimize_params(candidate)
+
+        assert "params" in result
+        assert result["params"]["window"] == 20
+
+    def test_optimize_params_returns_original_on_zero_best_value(self, evaluator):
+        """If all Optuna trials return 0, original candidate is returned unchanged."""
+        candidate = {
+            "name": "py_noop",
+            "source": "python",
+            "code": "return df['close']",
+            "category": "momentum",
+            "param_space": {"window": [5, 20]},
+        }
+        with patch.object(evaluator, "_get_fast_screening_universe", return_value=["SH600000"]):
+            with patch("optuna.create_study") as mock_study_fn:
+                mock_study = MagicMock()
+                mock_study.best_value = 0.0
+                mock_study_fn.return_value = mock_study
+                result = evaluator._optimize_params(candidate)
+
+        # best_value == 0.0 → original candidate returned
+        assert result is candidate
+
+
 class TestPythonFactorDispatch:
     """Tests for dual-dispatch: DSL vs Python factor evaluation paths."""
 
@@ -454,6 +513,45 @@ class TestPythonFactorDispatch:
             # py_bad should be rejected at validation; dsl_ok and py_ok should pass
             rejected_names = [c["name"] for c in result.rejected if "validation_error" in c]
             assert "py_bad" in rejected_names
+
+    def test_optimize_params_wired_into_evaluate_batch(self, evaluator):
+        """evaluate_batch calls _optimize_params for Python candidates with param_space."""
+        candidate = {
+            "name": "py_opt",
+            "source": "python",
+            "code": "return df['close'].rolling(params['window']).std()",
+            "category": "volatility",
+            "param_space": {"window": [5, 30]},
+        }
+        optimized = {**candidate, "params": {"window": 20}}
+
+        with patch.object(evaluator, "_optimize_params", return_value=optimized) as mock_opt, \
+             patch.object(evaluator, "_fast_ic_screening", return_value=[optimized]), \
+             patch.object(evaluator, "_batch_dedup", return_value=[optimized]), \
+             patch.object(evaluator, "_correlation_check", return_value=([optimized], [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=([optimized], [])):
+            result = evaluator.evaluate_batch([candidate])
+            mock_opt.assert_called_once()
+            assert result.screened[0].get("params", {}).get("window") == 20
+
+    def test_optimize_params_skipped_for_dsl(self, evaluator):
+        """evaluate_batch does NOT call _optimize_params for DSL candidates."""
+        candidate = {
+            "name": "dsl_f",
+            "expression": "Rank($close)",
+            "category": "momentum",
+            "param_space": {"window": [5, 30]},  # param_space present but DSL
+        }
+
+        with patch.object(evaluator, "_optimize_params") as mock_opt, \
+             patch.object(evaluator, "_fast_ic_screening", return_value=[candidate]), \
+             patch.object(evaluator, "_batch_dedup", return_value=[candidate]), \
+             patch.object(evaluator, "_correlation_check", return_value=([candidate], [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=([candidate], [])):
+            evaluator.evaluate_batch([candidate])
+            mock_opt.assert_not_called()
 
     def test_stage1_uses_compute_factor_for_python(self, evaluator):
         """Stage 1 calls _compute_factor (not _compute_factor_qlib) for Python candidates."""

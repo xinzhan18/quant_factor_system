@@ -636,6 +636,54 @@ class FactorMiningEvaluator:
         )
         return q_rets
 
+    # ──────────────────── Optuna Parameter Optimization ────────────────────
+
+    def _optimize_params(self, candidate: dict) -> dict:
+        """Use Optuna to search param_space for best Rank IC. Returns candidate with optimized params."""
+        import optuna
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+        param_space = candidate.get("param_space")
+        if not param_space:
+            return candidate
+
+        # Use fast screening instruments and train period
+        instruments = self._get_fast_screening_universe()
+        start = self.config.train_start
+        end = self.config.train_end
+
+        def objective(trial):
+            params = {}
+            for name, bounds in param_space.items():
+                if isinstance(bounds, (list, tuple)) and len(bounds) == 2:
+                    if isinstance(bounds[0], int) and isinstance(bounds[1], int):
+                        params[name] = trial.suggest_int(name, bounds[0], bounds[1])
+                    else:
+                        params[name] = trial.suggest_float(name, float(bounds[0]), float(bounds[1]))
+                else:
+                    params[name] = bounds  # Fixed value
+            test_candidate = {**candidate, "params": params}
+            try:
+                factor_values = self._compute_factor(test_candidate, instruments, start, end)
+                # Compute rank IC against forward returns
+                returns = self._get_returns_qlib(instruments, start, end)
+                merged = factor_values.join(returns, how="inner").dropna()
+                if len(merged) < 50:
+                    return 0.0
+                ic = merged.iloc[:, 0].corr(merged.iloc[:, 1], method="spearman")
+                return abs(ic) if not pd.isna(ic) else 0.0
+            except Exception:
+                return 0.0
+
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=self.config.optuna_trials,
+                       timeout=self.config.optuna_timeout, show_progress_bar=False)
+
+        if study.best_value > 0:
+            result = {**candidate, "params": study.best_params}
+            return result
+        return candidate
+
     # ──────────────────── Probe: Lightweight Single-Expression IC ────────────────────
 
     def probe_single(self, expression: str, start: str = "2024-01-01",
@@ -705,6 +753,17 @@ class FactorMiningEvaluator:
 
         if not valid:
             return BatchResult(screened=[], rejected=invalid, replacements=[])
+
+        # Optimize params for Python factors with param_space
+        optimized_valid = []
+        for candidate in valid:
+            if candidate.get("param_space") and _is_python_candidate(candidate):
+                try:
+                    candidate = self._optimize_params(candidate)
+                except Exception as e:
+                    logger.warning("Optuna optimization failed for %s: %s", candidate["name"], e)
+            optimized_valid.append(candidate)
+        valid = optimized_valid
 
         if skip_stage1:
             stage2_input = valid
