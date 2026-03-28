@@ -157,6 +157,22 @@ def cmd_batch(args):
         s1 = f.get('stage1', {})
         logger.info("  淘汰 %s: IC=%s", f['name'], s1.get('ic_mean', '?'))
 
+    # 保存 screened 因子的值为 pickle 缓存（供 judge admit 时加载写入 DB）
+    if result.screened:
+        import pickle
+        values_cache = {}
+        for f in result.screened:
+            if "_factor_values" in f and "_factor_values_oos" in f:
+                values_cache[f["name"]] = {
+                    "is": f["_factor_values"],
+                    "oos": f["_factor_values_oos"],
+                }
+        if values_cache:
+            cache_path = batch_path.parent / f"{batch_path.stem}_values.pkl"
+            with open(cache_path, "wb") as fp:
+                pickle.dump(values_cache, fp)
+            logger.info("因子值缓存已保存: %s (%d 个因子)", cache_path, len(values_cache))
+
     # 保存结果（白名单序列化）
     result_path = batch_path.parent / f"{batch_path.stem}_result.yaml"
     output = result.to_dict()

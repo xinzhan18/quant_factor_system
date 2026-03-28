@@ -65,19 +65,25 @@ class FactorLibrary:
         })
         self._write_index(index)
         logger.info("Admitted factor %s: %s", factor_id, record["name"])
-        # Publish to DB if transient values are present
-        if "_factor_values" in factor:
+        # Publish to DB — try transient values first, then pickle cache
+        factor_values_is = factor.get("_factor_values")
+        factor_values_oos = factor.get("_factor_values_oos")
+        if factor_values_is is None:
+            factor_values_is, factor_values_oos = self._load_values_cache(factor.get("name"))
+        if factor_values_is is not None:
             try:
                 from .publisher import FactorPublisher
                 with FactorPublisher(self._config) as publisher:
                     publisher.publish(
                         factor_id=factor_id,
                         factor_dict=factor,
-                        factor_values_is=factor["_factor_values"],
-                        factor_values_oos=factor["_factor_values_oos"],
+                        factor_values_is=factor_values_is,
+                        factor_values_oos=factor_values_oos,
                     )
             except Exception as e:
                 logger.warning("Failed to publish factor %s: %s", factor_id, e)
+        else:
+            logger.warning("No factor values for %s — skipping DB publish", factor_id)
         return factor_id
 
     def replace(self, old_id: str, new_factor: Dict[str, Any]) -> str:
@@ -103,20 +109,42 @@ class FactorLibrary:
         })
         self._write_index(index)
         logger.info("Replaced factor %s with %s", old_id, record["name"])
-        # Publish to DB if transient values are present
-        if "_factor_values" in new_factor:
+        # Publish to DB — try transient values first, then pickle cache
+        factor_values_is = new_factor.get("_factor_values")
+        factor_values_oos = new_factor.get("_factor_values_oos")
+        if factor_values_is is None:
+            factor_values_is, factor_values_oos = self._load_values_cache(new_factor.get("name"))
+        if factor_values_is is not None:
             try:
                 from .publisher import FactorPublisher
                 with FactorPublisher(self._config) as publisher:
                     publisher.publish(
                         factor_id=old_id,
                         factor_dict=new_factor,
-                        factor_values_is=new_factor["_factor_values"],
-                        factor_values_oos=new_factor["_factor_values_oos"],
+                        factor_values_is=factor_values_is,
+                        factor_values_oos=factor_values_oos,
                     )
             except Exception as e:
                 logger.warning("Failed to publish factor %s: %s", old_id, e)
+        else:
+            logger.warning("No factor values for %s — skipping DB publish", old_id)
         return old_id
+
+    def _load_values_cache(self, factor_name: str):
+        """Try to load factor values from pickle cache (saved by evaluate step)."""
+        import glob
+        import pickle
+        candidates_dir = Path("storage/candidates")
+        for pkl in sorted(candidates_dir.glob("*_values.pkl"), reverse=True):
+            try:
+                with open(pkl, "rb") as f:
+                    cache = pickle.load(f)
+                if factor_name in cache:
+                    logger.info("Loaded factor values from cache: %s", pkl)
+                    return cache[factor_name]["is"], cache[factor_name]["oos"]
+            except Exception:
+                continue
+        return None, None
 
     def list_factors(self) -> List[Dict[str, Any]]:
         return self._read_index().get("factors", [])

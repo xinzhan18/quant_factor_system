@@ -316,19 +316,56 @@ class FactorMiningEvaluator:
         from .library import FactorLibrary
         return FactorLibrary(self.config)
 
+    def _load_lib_values_from_db(self, lib_factors: List[Dict[str, Any]],
+                                full_universe: list) -> Dict[str, pd.DataFrame]:
+        """Try to load library factor values from DB. Returns {factor_id: DataFrame}."""
+        result = {}
+        try:
+            import psycopg2
+            conn = psycopg2.connect(self.config.system.database.connection_string)
+            with conn.cursor() as cur:
+                for lf in lib_factors:
+                    factor_name = f"factor_{lf['id']}"
+                    cur.execute(
+                        "SELECT time, symbol, value FROM factor_values WHERE factor_name = %s",
+                        (factor_name,),
+                    )
+                    rows = cur.fetchall()
+                    if not rows:
+                        continue
+                    df = pd.DataFrame(rows, columns=["datetime", "instrument", factor_name])
+                    df["datetime"] = pd.to_datetime(df["datetime"])
+                    df = df.set_index(["datetime", "instrument"]).sort_index()
+                    result[lf["id"]] = df
+            conn.close()
+        except Exception as e:
+            logger.debug("Could not load library factors from DB: %s", e)
+        return result
+
     def _correlation_check(self, candidates: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         library = self._load_library()
         lib_factors = library.list_factors()
         full_universe = self._get_full_universe()
         passed, rejected = [], []
-        lib_values: Dict[str, pd.DataFrame] = {}
+
+        # Try loading library factor values from DB first (fast path)
+        lib_values = self._load_lib_values_from_db(lib_factors, full_universe)
+        db_loaded = len(lib_values)
+
+        # Fallback: compute missing library factors via Qlib
         for lf in lib_factors:
+            if lf["id"] in lib_values:
+                continue
             try:
                 vals = self._compute_factor_qlib(lf["expression"], full_universe,
                                                   self.config.train_start, self.config.train_end)
                 lib_values[lf["id"]] = vals
             except Exception as e:
                 logger.warning("Failed to compute library factor %s: %s", lf["id"], e)
+
+        if db_loaded:
+            logger.info("Library factors: %d from DB, %d computed via Qlib",
+                       db_loaded, len(lib_values) - db_loaded)
         # Cache for Stage 3 (incremental IC computation)
         self._lib_values_cache = lib_values
         returns = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
