@@ -132,9 +132,7 @@ class ReportDataBuilder:
         ]
         for chart_dict in chart_groups:
             for chart_name, fig in chart_dict.items():
-                all_charts[chart_name] = (
-                    self._export_fig(fig, chart_name) if vault_dir else chart_name
-                )
+                all_charts[chart_name] = self._export_fig(fig, chart_name)
 
         # ---- Assemble report_data (new schema) ----
         return {
@@ -262,7 +260,11 @@ class ReportDataBuilder:
             return {}
 
         import psycopg2
-        conn = psycopg2.connect(self.config.system.database.connection_string)
+        try:
+            conn = psycopg2.connect(self.config.system.database.connection_string)
+        except psycopg2.Error as exc:
+            logger.warning("Failed to load library factors: %s", exc)
+            return {}
         try:
             result = {}
             for fid in other_ids:
