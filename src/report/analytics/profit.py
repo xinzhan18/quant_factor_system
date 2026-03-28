@@ -10,6 +10,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.stats import spearmanr, page_trend_test
 
+from core.factor_stats import monotonicity as _shared_monotonicity
+
 from core.metrics import (
     annualize_return,
     annualize_volatility,
@@ -52,10 +54,10 @@ class ProfitAnalyzer:
         # -- 2. Per-group stats --
         stats = self._compute_group_stats(pivot)
 
-        # -- 3. Monotonicity --
-        mean_rets = [pivot[q].mean() for q in GROUPS]
-        mono_corr, _ = spearmanr(range(1, 6), mean_rets)
-        monotonicity = round(float(mono_corr), 4) if not np.isnan(mono_corr) else 0.0
+        # -- 3. Monotonicity (via shared function) --
+        q_rets_dict = {q.lower(): float(pivot[q].mean()) for q in GROUPS}
+        mono_val = _shared_monotonicity(q_rets_dict)
+        monotonicity = round(float(mono_val), 4) if not np.isnan(mono_val) else 0.0
 
         # -- 4. L/S portfolio (auto-detect direction) --
         if monotonicity >= 0:
@@ -252,9 +254,9 @@ class ProfitAnalyzer:
                 continue
             pivot = self._build_group_pivot(sub_df)
             stats = self._compute_group_stats(pivot)
-            mean_rets = [pivot[q].mean() for q in GROUPS]
-            corr, _ = spearmanr(range(1, 6), mean_rets)
-            mono = round(float(corr), 4) if not np.isnan(corr) else 0.0
+            q_rets_dict = {q.lower(): float(pivot[q].mean()) for q in GROUPS}
+            mono_val = _shared_monotonicity(q_rets_dict)
+            mono = round(float(mono_val), 4) if not np.isnan(mono_val) else 0.0
             result[label] = {"stats": stats, "monotonicity": mono}
         return result
 

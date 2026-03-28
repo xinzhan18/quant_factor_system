@@ -179,31 +179,16 @@ def dim2_robustness(daily_ics_is: pd.Series, daily_ics_oos: pd.Series) -> Dict[s
 def _quantile_returns(
     factor_values: pd.DataFrame, returns: pd.DataFrame, n_quantiles: int = 5,
 ) -> Tuple[Dict[str, float], List[float]]:
-    """Compute quintile returns and daily long-short returns."""
-    factor_col = factor_values.columns[0]
-    returns_col = returns.columns[0]
-    merged = factor_values.join(returns, how="inner").dropna()
-    if merged.empty:
-        return {f"q{i + 1}": NaN for i in range(n_quantiles)}, []
+    """Compute quintile returns and daily long-short returns.
 
-    daily_qs: Dict[str, List[float]] = {}
-    daily_ls: List[float] = []
-
-    for _, group in merged.groupby(level="datetime"):
-        if len(group) < n_quantiles:
-            continue
-        g = group.copy()
-        g["quantile"] = pd.qcut(g[factor_col], n_quantiles, labels=False, duplicates="drop")
-        for q in range(n_quantiles):
-            q_ret = g.loc[g["quantile"] == q, returns_col].mean()
-            daily_qs.setdefault(f"q{q + 1}", []).append(q_ret)
-        q_top = g.loc[g["quantile"] == n_quantiles - 1, returns_col].mean()
-        q_bot = g.loc[g["quantile"] == 0, returns_col].mean()
-        if not np.isnan(q_top) and not np.isnan(q_bot):
-            daily_ls.append(q_top - q_bot)
-
-    avg_qs = {k: float(np.nanmean(v)) if v else NaN for k, v in daily_qs.items()}
-    return avg_qs, daily_ls
+    Delegates to core.factor_stats.quintile_returns after converting
+    MultiIndex DataFrames to flat format.
+    """
+    flat_factor = multiindex_to_flat(factor_values)
+    flat_returns = multiindex_to_flat(returns)
+    return _shared_quintile_returns(
+        flat_factor, flat_returns, n_quantiles=n_quantiles, min_obs=n_quantiles,
+    )
 
 
 def _monotonicity(quantile_returns: Dict[str, float]) -> float:
@@ -281,7 +266,12 @@ def dim4_decay_turnover(
 
 
 def dim5_distribution(factor_vals: pd.DataFrame) -> Dict[str, Any]:
-    """Compute coverage and distribution metrics from raw factor values."""
+    """Compute coverage and distribution metrics from raw factor values.
+
+    Delegates cross-sectional skew/kurt to core.factor_stats but keeps
+    mining-specific coverage/zero_ratio/extreme_ratio logic (which uses
+    MultiIndex grouped by datetime).
+    """
     factor_col = factor_vals.columns[0]
     vals = factor_vals[factor_col]
     total = len(vals)
@@ -292,18 +282,13 @@ def dim5_distribution(factor_vals: pd.DataFrame) -> Dict[str, Any]:
     coverage = float(1 - vals.isna().sum() / total)
     zero_ratio = float((vals == 0).sum() / total)
 
-    # Cross-sectional skew / kurt (averaged across days)
-    skews, kurts = [], []
-    for _, group in factor_vals.groupby(level="datetime"):
-        g = group[factor_col].dropna()
-        if len(g) < 5:
-            continue
-        skews.append(float(g.skew()))
-        kurts.append(float(g.kurt()))
-    factor_skew = float(np.nanmean(skews)) if skews else NaN
-    factor_kurt = float(np.nanmean(kurts)) if kurts else NaN
+    # Cross-sectional skew / kurt via shared function
+    flat = multiindex_to_flat(factor_vals)
+    dist = _shared_distribution_stats(flat)
+    factor_skew = dist["skew"] if dist["coverage"] > 0 else NaN
+    factor_kurt = dist["kurtosis"] if dist["coverage"] > 0 else NaN
 
-    # Extreme ratio (|z| > 3)
+    # Extreme ratio (|z| > 3) — mining-specific metric
     extreme_ratio = NaN
     non_nan = vals.dropna()
     if len(non_nan) > 10:
@@ -326,43 +311,23 @@ def _compute_incremental_ic(
     factor_vals: pd.DataFrame, returns: pd.DataFrame,
     lib_values: Dict[str, pd.DataFrame],
 ) -> float:
-    """IC of factor residuals after regressing out library factors."""
+    """IC of factor residuals after regressing out library factors.
+
+    Delegates to core.factor_stats.incremental_ic after converting
+    MultiIndex DataFrames to flat format.
+    """
     if not lib_values:
         return NaN
 
-    factor_col = factor_vals.columns[0]
-    returns_col = returns.columns[0]
+    flat_factor = multiindex_to_flat(factor_vals)
+    flat_returns = multiindex_to_flat(returns)
+    flat_lib = {lid: multiindex_to_flat(lv) for lid, lv in lib_values.items()}
 
-    merged = factor_vals.copy()
-    lib_cols = []
-    for lid, lvals in lib_values.items():
-        col = f"lib_{lid}"
-        lib_cols.append(col)
-        merged = merged.join(
-            lvals.rename(columns={lvals.columns[0]: col}), how="inner",
-        )
-    merged = merged.join(returns, how="inner")
-
-    daily_ics = []
-    min_obs = max(10, len(lib_cols) + 2)
-    for _, group in merged.groupby(level="datetime"):
-        g = group.dropna()
-        if len(g) < min_obs:
-            continue
-        y = g[factor_col].values
-        X = np.column_stack([np.ones(len(y)), g[lib_cols].values])
-        try:
-            beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-            resid = y - X @ beta
-        except np.linalg.LinAlgError:
-            continue
-        if np.std(resid) < 1e-10 or np.std(g[returns_col].values) < 1e-10:
-            continue
-        ic, _ = spearmanr(resid, g[returns_col].values)
-        if not np.isnan(ic):
-            daily_ics.append(ic)
-
-    return float(np.mean(daily_ics)) if daily_ics else NaN
+    min_obs = max(10, len(lib_values) + 2)
+    result_ic, _ = _shared_incremental_ic(
+        flat_factor, flat_returns, flat_lib, min_obs=min_obs,
+    )
+    return result_ic if result_ic is not None else NaN
 
 
 def dim6_uniqueness(
