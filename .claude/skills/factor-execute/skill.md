@@ -50,6 +50,8 @@ PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-
 结果文件: storage/candidates/batch_XXX_result.yaml
 ```
 
+**注意**：评估同时会生成 `batch_XXX_values.pkl` 缓存文件，存储 screened 因子的完整因子值。此缓存供 `/judge` 录取时写入 DB，judge 完成后会自动删除。
+
 提示用户：
 
 > 评估完成。运行 `/judge` 进行 LLM 审判，或 `/mine` 继续完整流程。

@@ -76,12 +76,14 @@ factor['metrics'] = {
     'monotonicity': report_card['monotonicity_is'],
 }
 lib.admit(factor)
+# admit() 会自动从 pickle 缓存加载因子值并写入 DB，不需要手动传 _factor_values
 ```
 
 对判定**替换**的因子：
 
 ```python
 lib.replace(old_id, new_factor)
+# replace() 同样自动从 pickle 缓存加载因子值
 ```
 
 ## 第4步：Direction Feedback（强制 — 不得跳过）
