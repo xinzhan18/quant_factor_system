@@ -3,51 +3,39 @@ library:
   target_size: 100
   avg_ic: 0.0365
   correlation_max: 0.7
-
-domain_saturation:
-  vwap: {count: 0, saturation: blocked, note: "$amount field is zero"}
-  momentum: {count: 5, saturation: medium, note: "alpha023, alpha010, alpha017, alpha024, intraday_vs_overnight, signed_sqrt_return, up_day_count_20"}
-  volatility: {count: 3, saturation: saturated, note: "std_returns_20, alpha034, atr_like_14. All vol variants (MAD, IQR, RealizedVol) corr > 0.8 with 001"}
-  volume: {count: 5, saturation: saturated, note: "delta_volume_5, ret_vol_cov_20, pv_corr_times_vol, hhi_volume_20, rank_ret_times_rank_vol"}
-  regime: {count: 2, saturation: saturated, note: "vol_regime_reversal, vol_regime_resi_vs_slope"}
-  efficiency: {count: 0, saturation: blocked, note: "$amount field is zero"}
-  distribution: {count: 0, saturation: exhausted, note: "All distribution measures corr > 0.7 with vol (001)"}
-  trend: {count: 1, saturation: medium, note: "resi_close_5. Other Resi windows weaker."}
-  candlestick: {count: 4, saturation: saturated, note: "williams_r_variant (IC=0.070), upper_shadow_ratio, alpha038, alpha053, range_compression_60"}
-  intraday_agg: {count: 0, saturation: blocked, note: "Need minute-level data"}
-
 mining:
-  total_batches: 23  # 18 blind + 5 alpha101
-  total_candidates: 270  # 210 blind + 60 alpha101
+  total_batches: 23
+  total_candidates: 270
   total_admitted: 24
   total_rejected: 246
-  yield_rate_blind: 0.057  # 12/210
-  yield_rate_alpha101: 0.217  # 13/60 (12 admitted + 1 replacement)
-  yield_rate_overall: 0.089  # 24/270
-  last_batch_time: "2026-03-28T17:00:00"
-
+  yield_rate_blind: 0.057
+  yield_rate_alpha101: 0.217
+  yield_rate_overall: 0.089
+  last_batch_time: '2026-03-28T17:00:00'
 baseline_evaluation:
   completed: true
   total_screened: 76
   passed_ic_threshold: 26
   admitted_via_pipeline: 10
-
 alpha101_evaluation:
   completed: true
   translatable: 45
-  not_translatable: 55  # need $vwap, industry, market cap
+  not_translatable: 55
   candidates_submitted: 60
   admitted: 12
-  replacements: 1  # williams_r_variant replaced range_volume_interaction
-  strongest: {name: williams_r_variant, ic: 0.070}
-
+  replacements: 1
+  strongest:
+    name: williams_r_variant
+    ic: 0.07
 signal_space_analysis:
-  exhaustion_status: "OHLCV daily signal space near exhaustion at corr < 0.7"
-  bottleneck: "Factor 001 (std_returns_20 IC=-0.058) correlates 0.6-0.9 with ALL strong signals"
+  exhaustion_status: OHLCV daily signal space near exhaustion at corr < 0.7
+  bottleneck: Factor 001 (std_returns_20 IC=-0.058) correlates 0.6-0.9 with ALL strong
+    signals
   paths_forward:
-    - "Add turnover/shares outstanding data → liquidity factors"
-    - "Add minute-level data → intraday aggregation factors"
-    - "Add fundamental data → P/E, P/B, earnings factors"
-    - "Add $vwap data → unlock 35+ Alpha101 factors"
-    - "Add industry classification → unlock 18+ Alpha101 factors"
-    - "Lower ic_min from 0.03 to 0.02 → more factors, lower quality"
+  - Add turnover/shares outstanding data → liquidity factors
+  - Add minute-level data → intraday aggregation factors
+  - Add fundamental data → P/E, P/B, earnings factors
+  - Add $vwap data → unlock 35+ Alpha101 factors
+  - Add industry classification → unlock 18+ Alpha101 factors
+  - Lower ic_min from 0.03 to 0.02 → more factors, lower quality
+next_round_hint: null
