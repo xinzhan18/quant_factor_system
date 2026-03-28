@@ -24,10 +24,6 @@ Data Module
     df = manager.get_price(symbols=['SH600000'], frequency='daily')
 """
 
-from .ricequant_source import (
-    RiceQuantSource,
-)
-
 from .storage import (
     TimescaleDB,
     QuantDataManager,
@@ -107,9 +103,6 @@ __all__ = [
     'DataManager',
     'create_data_manager',
     
-    # 数据源
-    'RiceQuantSource',
-    
     # 数据加载
     'get_factor_data',
     'get_factor_metrics',
@@ -144,3 +137,5 @@ __all__ = [
     # Qlib 同步
     'DataSynchronizer',
 ]
+
+

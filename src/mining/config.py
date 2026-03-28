@@ -168,4 +168,4 @@ class MiningConfig:
     standardize_method: str = "zscore"  # "zscore" or "rank"
 
     # Neutralization (optional, requires $market_cap / $industry_code synced)
-    neutralize_mode: str = "none"  # "none", "market_cap", "industry", "both"
+    neutralize_mode: str = "market_cap"  # "none", "market_cap", "industry", "both"

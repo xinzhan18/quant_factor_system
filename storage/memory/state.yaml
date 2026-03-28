@@ -1,17 +1,17 @@
 library:
-  size: 24
+  size: 26
   target_size: 100
-  avg_ic: 0.0365
+  avg_ic: 0.0363
   correlation_max: 0.7
 mining:
-  total_batches: 23
-  total_candidates: 270
-  total_admitted: 24
-  total_rejected: 246
+  total_batches: 24
+  total_candidates: 278
+  total_admitted: 26
+  total_rejected: 252
   yield_rate_blind: 0.057
   yield_rate_alpha101: 0.217
-  yield_rate_overall: 0.089
-  last_batch_time: '2026-03-28T17:00:00'
+  yield_rate_overall: 0.094
+  last_batch_time: '2026-03-29T00:40:00'
 baseline_evaluation:
   completed: true
   total_screened: 76
@@ -22,7 +22,7 @@ alpha101_evaluation:
   translatable: 45
   not_translatable: 55
   candidates_submitted: 60
-  admitted: 12
+  admitted: 13
   replacements: 1
   strongest:
     name: williams_r_variant
@@ -38,4 +38,10 @@ signal_space_analysis:
   - Add $vwap data → unlock 35+ Alpha101 factors
   - Add industry classification → unlock 18+ Alpha101 factors
   - Lower ic_min from 0.03 to 0.02 → more factors, lower quality
-next_round_hint: null
+  new_finding: Volume-confirmed reversal (Alpha012) is a genuinely new signal dimension — sign(ΔVol)×(-ΔClose) with ICIR=0.50
+next_round_hint: >
+  Alpha012 family (volume-confirmed reversals) is the last productive OHLCV signal.
+  Williams %R smoothing failed (corr > 0.7 with F011). Range-volume cross failed (corr > 0.7 with F022).
+  Remaining active directions: signed_nonlinear_returns, regression_residual, alpha101_composites, intraday_vs_overnight.
+  Next round should focus on combining alpha012 signal with existing building blocks,
+  or explore the remaining untested active directions.
