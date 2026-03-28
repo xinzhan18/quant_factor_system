@@ -85,6 +85,7 @@ class FactorReportCard:
 
     # --- Safety ---
     lookahead_warning: bool = False
+    ast_similarity_score: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         """Serializable dict for YAML/JSON. NaN -> None."""
