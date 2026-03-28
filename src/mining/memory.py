@@ -145,6 +145,41 @@ class ExperienceMemory:
                 })
         return index
 
+    # ------------------------------------------------------------------
+    # Forbidden regions
+    # ------------------------------------------------------------------
+
+    def read_forbidden(self) -> list[dict]:
+        """Read all forbidden regions from forbidden.yaml."""
+        data = self._read_yaml(self._dir / "forbidden.yaml")
+        return data.get("forbidden_regions", [])
+
+    def add_forbidden(self, pattern: str, reason: str) -> None:
+        """Add a new forbidden region pattern."""
+        from datetime import date
+
+        regions = self.read_forbidden()
+        regions.append({
+            "pattern": pattern,
+            "reason": reason,
+            "added": str(date.today()),
+        })
+        self._write_yaml(self._dir / "forbidden.yaml", {"forbidden_regions": regions})
+
+    def check_forbidden(self, expression: str) -> str | None:
+        """Check if expression matches any forbidden region.
+
+        Returns the reason string if matched, or None if the expression is
+        not forbidden.  Pattern syntax: ``*`` matches ``[\\w.]+``.
+        """
+        for entry in self.read_forbidden():
+            raw = entry.get("pattern", "")
+            # Escape the pattern except for our wildcard placeholder
+            escaped = re.escape(raw).replace(r"\*", r"[\w.]+")
+            if re.search(escaped, expression):
+                return entry.get("reason", "")
+        return None
+
     def _read_yaml(self, path: Path) -> Dict[str, Any]:
         if not path.exists():
             logger.warning("Memory file not found: %s", path)
