@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from core.metrics import ic_summary_from_series
 from .config import MiningConfig
 from .expression import ExpressionValidator
 from .metrics import FactorReportCard, compute_report_card
@@ -183,13 +184,9 @@ class FactorMiningEvaluator:
         if daily_ics.empty:
             return {"ic_mean": np.nan, "ic_std": np.nan, "ic_ir": np.nan,
                     "ic_win_rate": np.nan, "n_days": 0}
-        arr = daily_ics.values
-        ic_mean = float(arr.mean())
-        ic_std = float(arr.std()) if len(arr) > 1 else np.nan
-        ic_ir = float(ic_mean / ic_std) if ic_std and ic_std != 0 else np.nan
-        ic_win_rate = float((arr > 0).sum() / len(arr))
-        return {"ic_mean": ic_mean, "ic_std": ic_std, "ic_ir": ic_ir,
-                "ic_win_rate": ic_win_rate, "n_days": len(arr)}
+        summary = ic_summary_from_series(daily_ics)
+        summary["n_days"] = len(daily_ics)
+        return summary
 
     # ──────────────────── Correlation ────────────────────
 
@@ -517,6 +514,44 @@ class FactorMiningEvaluator:
                 q_ret = group.loc[group["quantile"] == q, returns_col].mean()
                 result.setdefault(f"q{q + 1}", []).append(q_ret)
         return {k: float(np.nanmean(v)) if v else np.nan for k, v in result.items()}
+
+    # ──────────────────── Probe: Lightweight Single-Expression IC ────────────────────
+
+    def probe_single(self, expression: str, start: str = "2024-01-01",
+                     end: str = "2024-12-31") -> dict:
+        """Lightweight probe: compute IC for a single expression over full universe.
+
+        Uses all stocks (no subset), specified date range, returns IC stats only.
+        No correlation check, no report card.
+
+        Args:
+            expression: Qlib alpha expression string
+            start: Start date for IC computation
+            end: End date for IC computation
+
+        Returns:
+            Dict with ic_mean, ic_std, ic_ir, ic_win_rate, n_days.
+            On error, returns {"error": str}.
+        """
+        try:
+            # Validate expression first
+            validator = ExpressionValidator(self.config)
+            result = validator.validate(expression)
+            if not result.valid:
+                return {"error": f"Invalid expression: {result.errors}"}
+
+            # Use full universe
+            universe = self.config.custom_universe
+            if not universe:
+                universe = self._get_full_universe()
+
+            returns = self._get_returns_qlib(universe, start, end)
+            aux = self._load_aux_data(universe, start, end)
+            values = self._compute_factor_qlib(expression, universe, start, end)
+            ic_stats = self._compute_ic_from_frames(values, returns, aux_data=aux)
+            return ic_stats
+        except Exception as e:
+            return {"error": str(e)}
 
     # ──────────────────── Main Entry Point ────────────────────
 

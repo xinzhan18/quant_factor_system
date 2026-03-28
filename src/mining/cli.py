@@ -118,8 +118,9 @@ def cmd_batch(args):
 
     # 初始化 Qlib
     import qlib
-    from qlib.config import REG_CN
+    from qlib.config import REG_CN, C
     qlib.init(provider_uri=args.qlib_dir, region=REG_CN)
+    C.kernels = 1
     from qlib.data import D
 
     # 解析股票池
@@ -182,6 +183,43 @@ def cmd_batch(args):
             logger.info("已替换: factor_%s → %s", r['replaces'], new_f['name'])
 
 
+def cmd_probe(args):
+    """Probe a single expression with lightweight IC evaluation."""
+    import warnings
+    warnings.filterwarnings('ignore')
+
+    import qlib
+    from qlib.config import REG_CN, C
+    qlib.init(provider_uri=args.qlib_dir, region=REG_CN)
+    C.kernels = 1
+    from qlib.data import D
+
+    # Get full universe
+    inst_dict = D.instruments('all')
+    df_temp = D.features(
+        instruments=inst_dict, fields=['$close'],
+        start_time='2024-06-01', end_time='2024-06-30',
+    )
+    all_instruments = df_temp.index.get_level_values('instrument').unique().tolist()
+
+    config = MiningConfig(custom_universe=all_instruments)
+    evaluator = FactorMiningEvaluator(config)
+    result = evaluator.probe_single(
+        expression=args.expression,
+        start=args.start,
+        end=args.end,
+    )
+
+    if "error" in result:
+        print(f"ERROR: {result['error']}")
+        sys.exit(1)
+    else:
+        ic = result.get("ic_mean", 0)
+        print(f"IC={ic:.4f}  ICIR={result.get('ic_ir', 0):.3f}  "
+              f"WinRate={result.get('ic_win_rate', 0):.1%}  "
+              f"Days={result.get('n_days', 0)}")
+
+
 def cmd_memory(args):
     """Show Experience Memory status."""
     config = MiningConfig(memory_dir=args.memory_dir)
@@ -223,6 +261,13 @@ def main():
     p_lib = sub.add_parser("library", help="查看因子库状态")
     p_lib.add_argument("--library-dir", default="storage/library")
 
+    # probe
+    p_probe = sub.add_parser("probe", help="Probe a single expression (lightweight IC only)")
+    p_probe.add_argument("expression", help="Qlib expression")
+    p_probe.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
+    p_probe.add_argument("--start", default="2024-01-01")
+    p_probe.add_argument("--end", default="2024-12-31")
+
     # memory
     p_mem = sub.add_parser("memory", help="查看挖掘记忆上下文")
     p_mem.add_argument("--memory-dir", default="storage/memory")
@@ -240,6 +285,8 @@ def main():
         cmd_library(args)
     elif args.command == "memory":
         cmd_memory(args)
+    elif args.command == "probe":
+        cmd_probe(args)
     else:
         parser.print_help()
 
