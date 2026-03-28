@@ -28,6 +28,19 @@ from .preprocessing import FactorPreprocessor
 logger = logging.getLogger(__name__)
 
 
+def compute_structural_similarity(code1: str, code2: str) -> float:
+    """Jaccard similarity of ops call signatures between two Python factors."""
+    from mining.expression import ExpressionValidator
+    validator = ExpressionValidator()
+    ops1 = set(validator.extract_ops_calls(code1))
+    ops2 = set(validator.extract_ops_calls(code2))
+    if not ops1 and not ops2:
+        return 0.0
+    if not ops1 or not ops2:
+        return 0.0
+    return len(ops1 & ops2) / len(ops1 | ops2)
+
+
 def check_lookahead_bias(code: str) -> bool:
     """Static analysis for common lookahead patterns in Python factor code.
 
