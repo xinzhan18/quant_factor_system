@@ -127,6 +127,13 @@ class FactorMiningEvaluator:
                 aux[col.replace("$", "")] = limit_df[[col]]
         except Exception:
             logger.debug("limit_up/limit_down not available")
+        if self.config.neutralize_mode != "none":
+            try:
+                mcap_df = D.features(instruments=instruments, fields=["$market_cap"],
+                                     start_time=start_time, end_time=end_time)
+                aux["market_cap"] = mcap_df[["$market_cap"]]
+            except Exception:
+                logger.debug("market_cap not available for neutralization")
         self._aux_cache[cache_key] = aux
         return aux
 
@@ -555,8 +562,16 @@ class FactorMiningEvaluator:
 
     # ──────────────────── Main Entry Point ────────────────────
 
-    def evaluate_batch(self, candidates: List[Dict[str, Any]]) -> BatchResult:
-        """Run multi-stage pipeline on a batch of candidate factors."""
+    def evaluate_batch(self, candidates: List[Dict[str, Any]],
+                       skip_stage1: bool = False) -> BatchResult:
+        """Run multi-stage pipeline on a batch of candidate factors.
+
+        Args:
+            candidates: List of candidate factor dicts.
+            skip_stage1: If True, skip Stage 1 (fast IC screening) and Stage 1.5
+                (batch dedup). Use when candidates have already been validated by
+                the Probe phase. Goes directly to Stage 2 (correlation check).
+        """
         self._factor_cache.clear()
         self._subset_factor_cache = {}
         self._lib_values_cache = {}
@@ -574,14 +589,20 @@ class FactorMiningEvaluator:
         if not valid:
             return BatchResult(screened=[], rejected=invalid, replacements=[])
 
-        stage1_passed = self._fast_ic_screening(valid)
-        stage1_deduped = self._batch_dedup(stage1_passed)
-        stage2_passed, stage2_rejected = self._correlation_check(stage1_deduped)
+        if skip_stage1:
+            stage2_input = valid
+        else:
+            stage1_passed = self._fast_ic_screening(valid)
+            stage2_input = self._batch_dedup(stage1_passed)
+
+        stage2_passed, stage2_rejected = self._correlation_check(stage2_input)
         replacements = self._replacement_check(stage2_rejected)
         screened, stage3_errors = self._compute_report_cards(stage2_passed)
 
-        all_rejected = invalid + [c for c in valid if c not in stage1_passed]
-        all_rejected += [c for c in stage1_passed if c not in stage1_deduped]
+        all_rejected = list(invalid)
+        if not skip_stage1:
+            all_rejected += [c for c in valid if c not in stage1_passed]
+            all_rejected += [c for c in stage1_passed if c not in stage2_input]
         all_rejected += stage2_rejected
         all_rejected += stage3_errors
 

@@ -139,7 +139,7 @@ def cmd_batch(args):
         fast_screening_universe_size=args.screening_size,
     )
     evaluator = FactorMiningEvaluator(config)
-    result = evaluator.evaluate_batch(candidates)
+    result = evaluator.evaluate_batch(candidates, skip_stage1=args.skip_stage1)
 
     # 打印结果
     logger.info("筛选通过: %d, 淘汰: %d, 替换候选: %d",
@@ -255,6 +255,8 @@ def main():
     p_batch.add_argument("--train-end", default="2024-12-31")
     p_batch.add_argument("--test-start", default="2024-07-01")
     p_batch.add_argument("--screening-size", type=int, default=50)
+    p_batch.add_argument("--skip-stage1", action="store_true",
+                         help="跳过 Stage 1 快筛（候选已通过 Probe 验证时使用）")
     p_batch.add_argument("--admit", action="store_true", help="自动将录取因子加入因子库")
 
     # library
