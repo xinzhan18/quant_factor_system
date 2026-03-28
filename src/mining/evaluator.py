@@ -27,6 +27,41 @@ from .preprocessing import FactorPreprocessor
 
 logger = logging.getLogger(__name__)
 
+
+def check_lookahead_bias(code: str) -> bool:
+    """Static analysis for common lookahead patterns in Python factor code.
+
+    Checks for the most frequent lookahead anti-pattern: calling .shift() with
+    a negative argument, which would pull future data into the current row.
+
+    Args:
+        code: Python source code string to analyse.
+
+    Returns:
+        True if a potential lookahead pattern is detected, False otherwise.
+        Also returns False when ``code`` cannot be parsed (syntax error).
+    """
+    import ast
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return False
+
+    for node in ast.walk(tree):
+        # shift with negative values: df['close'].shift(-5)
+        if (isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "shift"):
+            for arg in node.args:
+                if isinstance(arg, ast.UnaryOp) and isinstance(arg.op, ast.USub):
+                    return True
+                if (isinstance(arg, ast.Constant)
+                        and isinstance(arg.value, (int, float))
+                        and arg.value < 0):
+                    return True
+    return False
+
+
 # Optional Qlib import — patched in tests via `mining.evaluator.D`
 try:
     from qlib.data import D
