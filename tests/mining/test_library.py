@@ -112,3 +112,102 @@ class TestPublisherIntegration:
             }
             library.replace("001", new_factor)
             mock_instance.publish.assert_called_once()
+
+
+class TestPythonFactorAdmission:
+    """Tests for admitting Python-source factors."""
+
+    _PYTHON_CODE = "return df['close'].rolling(params['window']).std()"
+
+    def _make_python_factor(self, **overrides):
+        base = {
+            "name": "rolling_std_python",
+            "source": "python",
+            "expression": None,
+            "code": self._PYTHON_CODE,
+            "category": "volatility",
+            "batch": "batch_019",
+            "logic_id": "logic_042",
+            "lineage": {"parent": "std_returns_20", "mutation": "param_change"},
+            "params": {"window": 20},
+            "param_space": {"window": [5, 10, 20, 40]},
+            "metrics": {"ic_mean": 0.048, "ic_std": 0.062, "ic_ir": 0.77},
+        }
+        base.update(overrides)
+        return base
+
+    def test_admit_python_factor(self, library, tmp_mining_dir):
+        """Python factor is admitted and gets an ID."""
+        factor = self._make_python_factor()
+        factor_id = library.admit(factor)
+        assert factor_id == "001"
+        index = library.list_factors()
+        assert len(index) == 1
+        assert index[0]["id"] == "001"
+        assert index[0]["source"] == "python"
+
+    def test_python_factor_file_persisted(self, library, tmp_mining_dir):
+        """A .py file is written to storage/python_factors/ after admission."""
+        factor = self._make_python_factor()
+        # Point the python_factors_dir to a temp subdir
+        python_factors_dir = tmp_mining_dir / "python_factors"
+        library._config.python_factors_dir = str(python_factors_dir)
+
+        factor_id = library.admit(factor)
+
+        py_path = python_factors_dir / f"F{factor_id}_rolling_std_python.py"
+        assert py_path.exists(), f"Expected .py file at {py_path}"
+        content = py_path.read_text()
+        assert "rolling_std_python" in content
+        assert self._PYTHON_CODE in content
+        assert "META" in content
+        assert "def compute" in content
+
+    def test_python_factor_file_code_path_stored(self, library, tmp_mining_dir):
+        """Detail YAML for Python factor stores code_path, source, logic_id, lineage."""
+        factor = self._make_python_factor()
+        python_factors_dir = tmp_mining_dir / "python_factors"
+        library._config.python_factors_dir = str(python_factors_dir)
+
+        factor_id = library.admit(factor)
+
+        detail = library.load_factor(factor_id)
+        assert detail["source"] == "python"
+        assert detail["code_path"] is not None
+        assert detail["logic_id"] == "logic_042"
+        assert detail["lineage"]["parent"] == "std_returns_20"
+        assert detail["expression"] is None
+
+    def test_dsl_factor_still_works(self, library, tmp_mining_dir):
+        """Existing DSL admission is unchanged — no regression."""
+        dsl_factor = {
+            "name": "rank_close",
+            "expression": "Rank($close)",
+            "category": "momentum",
+            "batch": "b1",
+            "metrics": {"ic_mean": 0.04},
+        }
+        factor_id = library.admit(dsl_factor)
+        assert factor_id == "001"
+        detail = library.load_factor("001")
+        assert detail["expression"] == "Rank($close)"
+        assert detail.get("source", "dsl") == "dsl"
+
+    def test_list_includes_source(self, library, tmp_mining_dir):
+        """list_factors() returns source field for both DSL and Python factors."""
+        library.admit({
+            "name": "dsl_factor",
+            "expression": "Rank($close)",
+            "category": "momentum",
+            "batch": "b1",
+            "metrics": {"ic_mean": 0.04},
+        })
+        python_factors_dir = tmp_mining_dir / "python_factors"
+        library._config.python_factors_dir = str(python_factors_dir)
+        library.admit(self._make_python_factor())
+
+        factors = library.list_factors()
+        assert len(factors) == 2
+        sources = {f["name"]: f.get("source", "dsl") for f in factors}
+        assert sources["dsl_factor"] == "dsl"
+        assert sources["rolling_std_python"] == "python"

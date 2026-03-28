@@ -41,27 +41,74 @@ class FactorLibrary:
         max_id = max(int(f["id"]) for f in factors)
         return f"{max_id + 1:03d}"
 
+    def _persist_python_factor(self, factor_id: str, factor: Dict[str, Any]) -> str:
+        """Write the Python factor .py file and return the path."""
+        python_factors_dir = Path(self._config.python_factors_dir)
+        python_factors_dir.mkdir(parents=True, exist_ok=True)
+        name = factor.get("name", f"factor_{factor_id}")
+        filename = f"F{factor_id}_{name}.py"
+        file_path = python_factors_dir / filename
+        code = factor.get("code", "pass")
+        meta = {
+            "name": name,
+            "logic_id": factor.get("logic_id"),
+            "params": factor.get("params", {}),
+            "param_space": factor.get("param_space", {}),
+            "lineage": factor.get("lineage", {}),
+        }
+        content = (
+            f'"""Auto-generated Python factor: {name}"""\n'
+            f"META = {meta!r}\n"
+            f"\n"
+            f"def compute(df, params, ops):\n"
+        )
+        for line in code.splitlines():
+            content += f"    {line}\n"
+        file_path.write_text(content, encoding="utf-8")
+        return str(file_path)
+
     def admit(self, factor: Dict[str, Any]) -> str:
         """Admit a new factor to the library. Returns assigned ID."""
         index = self._read_index()
         factor_id = self._next_id(index)
+        source = factor.get("source", "dsl")
+        name = factor.get("name", f"factor_{factor_id}")
+
+        # Persist Python factor .py file before building the record
+        code_path: Optional[str] = None
+        if source == "python":
+            code_path = self._persist_python_factor(factor_id, factor)
+
         record = {
             "id": factor_id,
-            "name": factor.get("name", f"factor_{factor_id}"),
-            "expression": factor["expression"],
+            "name": name,
+            "expression": factor.get("expression") if source == "dsl" else None,
+            "source": source,
+            "code_path": code_path,
+            "logic_id": factor.get("logic_id"),
+            "lineage": factor.get("lineage"),
             "category": factor.get("category", "other"),
             "batch": factor.get("batch", "unknown"),
             "admitted_at": str(date.today()),
             "metrics": factor.get("metrics", {}),
         }
+        # For DSL factors keep backward-compat: don't pollute record with None-valued new fields
+        if source == "dsl":
+            record = {k: v for k, v in record.items()
+                      if k not in ("code_path", "logic_id", "lineage") or v is not None}
+
         detail_path = self._factors_dir / f"factor_{factor_id}.yaml"
         with open(detail_path, "w", encoding="utf-8") as f:
             yaml.dump(record, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         metrics = record["metrics"]
         ic_mean = metrics.get("ic_mean") or metrics.get("ic_mean_is")
         index.setdefault("factors", []).append({
-            "id": factor_id, "name": record["name"], "expression": record["expression"],
-            "category": record["category"], "ic_mean": ic_mean,
+            "id": factor_id,
+            "name": record["name"],
+            "expression": record.get("expression"),
+            "category": record["category"],
+            "ic_mean": ic_mean,
+            "source": source,
         })
         self._write_index(index)
         logger.info("Admitted factor %s: %s", factor_id, record["name"])
