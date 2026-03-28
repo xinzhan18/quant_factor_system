@@ -1,7 +1,12 @@
-"""ReportDataBuilder — thin orchestrator for factor report generation.
+"""ReportDataBuilder -- thin orchestrator for factor report generation.
 
-Loads data from DB/YAML, delegates computation to analytics layer,
-assembles the final report_data dict, and renders charts to HTML.
+Loads data from DB/YAML, delegates computation to the 6-analyzer pipeline,
+assembles the final report_data dict, and exports charts as PNG (vault mode)
+or HTML fragments (legacy mode).
+
+New schema (v2):
+    factor, predictive_power, profitability, risk_attribution,
+    conditional, decay_tradability, uniqueness, composite
 """
 from __future__ import annotations
 
@@ -17,10 +22,13 @@ import plotly.io as pio
 
 from mining.config import MiningConfig
 from report.analytics.ic import ICAnalyzer
-from report.analytics.groups import GroupReturnsAnalyzer
+from report.analytics.profit import ProfitAnalyzer
+from report.analytics.conditional import ConditionalAnalyzer
 from report.analytics.decay import DecayAnalyzer
-from report.analytics.distribution import DistributionAnalyzer
+from report.analytics.uniqueness import UniquenessAnalyzer
 from report.scorer import CompositeScorer
+from report.data_prep import merge_factor_price
+from report.charts.theme import PNG_WIDTH, PNG_HEIGHT, PNG_SCALE
 
 logger = logging.getLogger(__name__)
 
@@ -30,144 +38,148 @@ class ReportDataBuilder:
 
     Usage:
         builder = ReportDataBuilder(factor_id="001", config=MiningConfig())
-        data = builder.build()  # returns dict matching report_data.json schema
+        data = builder.build()  # returns dict matching new report_data schema
     """
 
     def __init__(self, factor_id: str, config: MiningConfig | None = None):
         self.factor_id = factor_id
         self.config = config or MiningConfig()
+        self._vault_assets_dir: str | None = None
 
-    def build(self) -> dict:
-        """Run full computation pipeline, return report_data dict."""
-        factor_meta = self._load_factor_metadata()
-        factor_values, price_df = self._load_data_from_db()
+    def build(self, vault_dir: str | None = None) -> dict:
+        """Run full 6-analyzer computation pipeline, return report_data dict.
+
+        Args:
+            vault_dir: If set, export charts as PNG into vault_dir/assets/FXXX/.
+                       Charts dict values become relative paths (for Obsidian embeds).
+                       If None, charts are inline HTML (legacy mode).
+        """
+        if vault_dir:
+            self._vault_assets_dir = os.path.join(vault_dir, "assets", f"F{self.factor_id}")
+            os.makedirs(self._vault_assets_dir, exist_ok=True)
+
+        # ---- Load data ----
+        meta = self._load_factor_metadata()
+        factor_df, price_df = self._load_data_from_db()
+        library_factors = self._load_library_factors()
+
         split_date = pd.Timestamp(self.config.test_start)
-        name = factor_meta["name"]
+        name = meta.get("name", "")
 
-        # Split IS / OOS
-        fv_is = factor_values[factor_values.index.get_level_values("datetime") < split_date]
-        fv_oos = factor_values[factor_values.index.get_level_values("datetime") >= split_date]
+        # ---- Merge factor + price ----
+        merged = merge_factor_price(factor_df, price_df)
 
-        # Flatten for analyzer compatibility
-        flat_factor = self._to_flat_df(factor_values)
-        flat_is = self._to_flat_df(fv_is) if len(fv_is) > 0 else pd.DataFrame()
-        flat_oos = self._to_flat_df(fv_oos) if len(fv_oos) > 0 else pd.DataFrame()
+        # ---- Ch1: Predictive Power (ICAnalyzer) ----
+        ic_analyzer = ICAnalyzer(name)
+        ic_result = ic_analyzer.compute(merged, split_date)
+        ic_charts = ic_analyzer.generate_charts(ic_result)
 
-        # --- Analytics ---
-        ic = ICAnalyzer(name)
-        gr = GroupReturnsAnalyzer(name)
-        decay = DecayAnalyzer(name)
-        dist = DistributionAnalyzer(name)
+        # ---- Ch2: Profitability (ProfitAnalyzer) ----
+        profit_analyzer = ProfitAnalyzer()
+        profit_result = profit_analyzer.compute(merged, split_date)
+        profit_charts = profit_analyzer.generate_charts(profit_result)
 
-        # IC analysis
-        try:
-            ic_result = ic.compute_ic(flat_factor, price_df, split_date)
-        except Exception as exc:
-            logger.warning("IC analysis failed, using empty defaults: %s", exc)
-            ic_result = {}
-        daily_ic = ic_result.get("rolling_ic", pd.DataFrame())
+        # ---- Ch3: Risk Attribution (null at L0 -- requires industry/market cap) ----
+        risk_result = None
 
-        # IC summary, annual, monthly
-        if len(daily_ic) > 0:
-            ic_summary_is, ic_summary_oos = ic.compute_ic_summary(daily_ic, split_date)
-            annual = ic.compute_annual_breakdown(daily_ic)
-            monthly = ic.compute_monthly_heatmap_data(daily_ic)
-        else:
-            empty = {"ic_mean": 0, "ic_std": 0, "ic_ir": 0, "win_rate": 0, "ic_significant_rate": 0, "n_days": 0}
-            ic_summary_is, ic_summary_oos = empty, empty.copy()
-            annual, monthly = [], []
+        # ---- Ch4: Conditional (ConditionalAnalyzer) ----
+        cond_analyzer = ConditionalAnalyzer()
+        cond_result = cond_analyzer.compute(merged, price_df)
+        cond_charts = cond_analyzer.generate_charts(cond_result)
 
-        # Distribution stats
-        dist_is = dist.compute_stats(fv_is)
-        dist_oos = dist.compute_stats(fv_oos) if len(fv_oos) > 100 else None
+        # ---- Ch5: Decay & Tradability (DecayAnalyzer) ----
+        decay_analyzer = DecayAnalyzer()
+        decay_result = decay_analyzer.compute(factor_df, price_df, split_date)
+        decay_charts = decay_analyzer.generate_charts(decay_result, name=name)
 
-        # Quintile analysis
-        try:
-            gr_result = gr.compute_group_returns(flat_factor, price_df, n_groups=5, split_date=split_date)
-        except Exception as exc:
-            logger.warning("Quintile analysis failed, using empty defaults: %s", exc)
-            gr_result = {}
+        # ---- Ch6: Uniqueness (UniquenessAnalyzer) ----
+        uniq_analyzer = UniquenessAnalyzer()
+        uniq_result = uniq_analyzer.compute(factor_df, library_factors, merged)
+        uniq_charts = uniq_analyzer.generate_charts(uniq_result)
 
-        quintile_stats = gr.compute_quintile_detailed_stats(gr_result)
-        monotonicity = gr.compute_monotonicity(gr_result)
+        # ---- Merge regime labels into IC annual entries ----
+        regime_map = {
+            a["year"]: a["regime"]
+            for a in cond_result.get("annual_ic", [])
+            if "regime" in a
+        }
+        for entry in ic_result.get("annual", []):
+            entry["regime"] = regime_map.get(entry["year"], "unknown")
 
-        # IS vs OOS quintile
-        try:
-            gr_is = gr.compute_group_returns(flat_is, price_df, n_groups=5) if len(flat_is) > 100 else {}
-        except Exception as exc:
-            logger.warning("IS quintile analysis failed: %s", exc)
-            gr_is = {}
-        try:
-            gr_oos = gr.compute_group_returns(flat_oos, price_df, n_groups=5) if len(flat_oos) > 100 else {}
-        except Exception as exc:
-            logger.warning("OOS quintile analysis failed: %s", exc)
-            gr_oos = {}
-
-        # Decay analysis
-        decay_result = decay.compute_decay(flat_factor, price_df)
-        autocorr = decay.compute_autocorrelation(factor_values)
-
-        # Composite score
-        ic_1d = decay_result["ic_by_period"][0]["ic"] if decay_result["ic_by_period"] else 0
-        ic_20d_entry = next((d for d in decay_result["ic_by_period"] if d["period"] == 20), None)
-        ic_20d = ic_20d_entry["ic"] if ic_20d_entry else ic_1d
-
+        # ---- Ch7: Composite Score ----
         scorer = CompositeScorer()
-        scores = scorer.compute(
-            ic_mean=ic_result.get("ic_all", 0),
-            monotonicity=monotonicity,
-            ic_is=ic_result.get("ic_train", ic_result.get("ic_all", 0)),
-            ic_oos=ic_result.get("ic_test", ic_result.get("ic_all", 0)),
+        ic_1d = self._get_ic_at_period(decay_result, 1)
+        ic_20d = self._get_ic_at_period(decay_result, 20)
+
+        composite = scorer.compute(
+            rank_ic_oos=ic_result["summary"]["oos"]["rank_ic_mean"],
+            icir_oos=ic_result["summary"]["oos"]["icir"],
+            ls_sharpe=profit_result["ls_stats"].get("sharpe"),
+            monotonicity=profit_result["monotonicity"],
+            ic_is=ic_result["summary"]["is"]["rank_ic_mean"],
+            ic_oos=ic_result["summary"]["oos"]["rank_ic_mean"],
+            max_corr=uniq_result["max_corr"] if uniq_result["max_corr"] > 0 else None,
             ic_1d=ic_1d,
             ic_20d=ic_20d,
-            coverage=dist_is.get("coverage", 0.9),
-            max_library_corr=self._get_max_library_correlation(),
         )
+        score_charts = scorer.generate_charts(composite)
 
-        # --- Charts ---
-        charts_ic = self._generate_ic_charts(ic, ic_result, daily_ic, split_date, monthly)
-        charts_quintile = self._generate_quintile_charts(gr, gr_result, gr_is, gr_oos)
-        charts_dist = self._generate_dist_charts(dist, fv_is, fv_oos, name)
-        charts_decay = self._generate_decay_charts(decay, decay_result, autocorr, name)
-        charts_score = self._generate_score_chart(scores, name)
+        # ---- Export charts ----
+        all_charts = {}
+        chart_groups = [
+            ic_charts, profit_charts, cond_charts,
+            decay_charts, uniq_charts, score_charts,
+        ]
+        for chart_dict in chart_groups:
+            for chart_name, fig in chart_dict.items():
+                all_charts[chart_name] = (
+                    self._export_fig(fig, chart_name) if vault_dir else chart_name
+                )
 
-        # --- Assemble ---
+        # ---- Assemble report_data (new schema) ----
         return {
-            "factor": factor_meta,
-            "preprocessing": {
-                "filter_suspend": self.config.filter_suspend,
-                "filter_limit": self.config.filter_limit,
-                "winsorize_method": self.config.winsorize_method,
-                "winsorize_n": self.config.winsorize_n,
-                "standardize_method": self.config.standardize_method,
-                "neutralize_mode": self.config.neutralize_mode,
+            "factor": {**meta, "data_level": "L0"},
+            "predictive_power": {
+                **self._strip_internal(ic_result),
+                "charts": {k: all_charts[k] for k in ic_charts},
             },
-            "kpi": {
-                "ic_mean_is": ic_summary_is["ic_mean"],
-                "ic_mean_oos": ic_summary_oos["ic_mean"],
-                "ic_ir": ic_summary_is["ic_ir"],
-                "ic_win_rate": ic_summary_is["win_rate"],
-                "monotonicity": monotonicity,
-                "ls_return": (gr_result.get("mean_returns", pd.Series()).get("Q1", 0)
-                              - gr_result.get("mean_returns", pd.Series()).get("Q5", 0)) * 252,
-                "composite_grade": scores["composite"]["grade"],
+            "profitability": {
+                **self._strip_internal(profit_result),
+                "charts": {k: all_charts[k] for k in profit_charts},
             },
-            "distribution": {"stats_is": dist_is, "stats_oos": dist_oos, "charts": charts_dist},
-            "ic_analysis": {
-                "summary": {"is": ic_summary_is, "oos": ic_summary_oos},
-                "annual": annual,
-                "monthly_heatmap_data": monthly,
-                "charts": charts_ic,
+            "risk_attribution": risk_result,
+            "conditional": {
+                **self._strip_internal(cond_result),
+                "charts": {k: all_charts[k] for k in cond_charts},
             },
-            "quintile": {"stats": quintile_stats["quintiles"], "ls_stats": quintile_stats["ls"], "charts": charts_quintile},
-            "decay": {
-                "ic_by_period": decay_result["ic_by_period"],
-                "autocorrelation": autocorr,
-                "half_life_days": decay_result.get("half_life_days"),
-                "charts": charts_decay,
+            "decay_tradability": {
+                **self._strip_internal(decay_result),
+                "charts": {k: all_charts[k] for k in decay_charts},
             },
-            "scores": {**scores, "charts": charts_score},
+            "uniqueness": {
+                **self._strip_internal(uniq_result),
+                "charts": {k: all_charts[k] for k in uniq_charts},
+            },
+            "composite": {
+                **composite,
+                "charts": {k: all_charts[k] for k in score_charts},
+            },
         }
+
+    # ---- Helpers ----
+
+    @staticmethod
+    def _get_ic_at_period(decay_result: dict, period: int):
+        """Extract IC value for a given holding period from decay result."""
+        for entry in decay_result.get("ic_by_period", []):
+            if entry["days"] == period:
+                return entry["ic"]
+        return None
+
+    @staticmethod
+    def _strip_internal(result: dict) -> dict:
+        """Remove keys starting with '_' (internal data not for serialization)."""
+        return {k: v for k, v in result.items() if not k.startswith("_")}
 
     # ---- Data Loading (IO boundary) ----
 
@@ -188,130 +200,115 @@ class ReportDataBuilder:
         }
 
     def _load_data_from_db(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Load factor values and price data from DB as flat DataFrames.
+
+        Returns:
+            Tuple of (factor_df[time, symbol, value], price_df[time, symbol, close]).
+        """
         import psycopg2
         try:
             conn = psycopg2.connect(self.config.system.database.connection_string)
         except psycopg2.Error as exc:
             raise RuntimeError(f"Failed to connect to database: {exc}") from exc
         try:
-            fv_sql = "SELECT symbol, trade_date, value FROM mining_factor_values WHERE factor_id = %s ORDER BY trade_date, symbol"
-            fv = pd.read_sql(fv_sql, conn, params=[self.factor_id])
-            if fv.empty:
-                raise ValueError(f"No factor data found in DB for factor_id={self.factor_id!r}")
-            fv["trade_date"] = pd.to_datetime(fv["trade_date"])
-            fv = fv.set_index(["trade_date", "symbol"]).rename(columns={"value": "factor"})
-            fv.index.names = ["datetime", "instrument"]
+            fv_sql = (
+                "SELECT symbol, trade_date AS time, value "
+                "FROM mining_factor_values "
+                "WHERE factor_id = %s ORDER BY trade_date, symbol"
+            )
+            factor_df = pd.read_sql(fv_sql, conn, params=[self.factor_id])
+            if factor_df.empty:
+                raise ValueError(
+                    f"No factor data found in DB for factor_id={self.factor_id!r}"
+                )
+            factor_df["time"] = pd.to_datetime(factor_df["time"])
 
-            symbols = fv.index.get_level_values("instrument").unique().tolist()
-            start = fv.index.get_level_values("datetime").min()
-            end = fv.index.get_level_values("datetime").max()
-            price_sql = "SELECT symbol, time, close FROM price_daily WHERE symbol = ANY(%s) AND time BETWEEN %s AND %s"
+            symbols = factor_df["symbol"].unique().tolist()
+            start = factor_df["time"].min()
+            end = factor_df["time"].max()
+            price_sql = (
+                "SELECT symbol, time, close FROM market_daily "
+                "WHERE symbol = ANY(%s) AND time BETWEEN %s AND %s"
+            )
             price_df = pd.read_sql(price_sql, conn, params=[symbols, start, end])
             if price_df.empty:
                 raise ValueError(
                     f"No price data found in DB for factor_id={self.factor_id!r} "
-                    f"(symbols={len(symbols)}, {start} – {end})"
+                    f"(symbols={len(symbols)}, {start} - {end})"
                 )
-            return fv, price_df
+            price_df["time"] = pd.to_datetime(price_df["time"])
+            return factor_df, price_df
         finally:
             conn.close()
 
-    @staticmethod
-    def _to_flat_df(qlib_df: pd.DataFrame) -> pd.DataFrame:
-        df = qlib_df.iloc[:, [0]].reset_index()
-        df.columns = ["time", "symbol", "value"]
-        return df
+    def _load_library_factors(self) -> dict[str, pd.DataFrame]:
+        """Load factor values for all library members (except self) from DB.
 
-    def _get_max_library_correlation(self) -> float:
+        Returns:
+            Dict mapping factor_id -> DataFrame[time, symbol, value].
+        """
         import yaml
-        lib_path = os.path.join(
-            self.config.library_dir, "library.yaml",
-        )
-        with open(lib_path) as f:
-            lib = yaml.safe_load(f)
+        lib_path = os.path.join(self.config.library_dir, "library.yaml")
+        try:
+            with open(lib_path) as f:
+                lib = yaml.safe_load(f)
+        except FileNotFoundError:
+            return {}
+        if lib is None:
+            return {}
         factors = lib.get("factors", [])
-        if len(factors) <= 1:
-            return 0.0
-        return 0.0
+        other_ids = [f["id"] for f in factors if f["id"] != self.factor_id]
+        if not other_ids:
+            return {}
 
-    # ---- Chart assembly (delegates to analyzers, converts to HTML) ----
-
-    @staticmethod
-    def _fig_to_html(fig: go.Figure) -> str:
-        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
-
-    def _generate_ic_charts(self, ic: ICAnalyzer, ic_result, daily_ic, split_date, monthly) -> dict:
-        charts = {}
+        import psycopg2
+        conn = psycopg2.connect(self.config.system.database.connection_string)
         try:
-            if "rolling_ic" in ic_result:
-                charts["ic_timeseries"] = self._fig_to_html(ic.plot_ic_timeseries(ic_result["rolling_ic"], split_date))
-                charts["ic_distribution"] = self._fig_to_html(ic.plot_ic_distribution(ic_result["rolling_ic"]))
-            if len(daily_ic) > 0 and "date" in daily_ic.columns:
-                charts["rolling_ic"] = self._fig_to_html(ic.plot_rolling_ic_comparison(daily_ic.set_index("date")["IC"]))
-                charts["cumulative_ic"] = self._fig_to_html(ic.plot_cumulative_ic(daily_ic))
-            if monthly:
-                charts["monthly_heatmap"] = self._fig_to_html(ic.plot_monthly_heatmap(monthly))
-        except Exception as e:
-            logger.warning("IC chart generation error: %s", e)
-        return charts
+            result = {}
+            for fid in other_ids:
+                sql = (
+                    "SELECT symbol, trade_date AS time, value "
+                    "FROM mining_factor_values "
+                    "WHERE factor_id = %s ORDER BY trade_date, symbol"
+                )
+                df = pd.read_sql(sql, conn, params=[fid])
+                if not df.empty:
+                    df["time"] = pd.to_datetime(df["time"])
+                    result[fid] = df
+            return result
+        finally:
+            conn.close()
 
-    def _generate_quintile_charts(self, gr: GroupReturnsAnalyzer, gr_result, gr_is, gr_oos) -> dict:
-        charts = {}
-        try:
-            if "mean_returns" in gr_result:
-                charts["quintile_bar"] = self._fig_to_html(gr.plot_group_returns_bar(gr_result["mean_returns"]))
-            if "cumulative_returns" in gr_result:
-                charts["cumulative_returns"] = self._fig_to_html(gr.plot_cumulative_returns(gr_result["cumulative_returns"]))
-                if "Q5" in gr_result["cumulative_returns"].columns and "Q1" in gr_result["cumulative_returns"].columns:
-                    charts["long_short_curve"] = self._fig_to_html(gr.plot_long_short(gr_result["cumulative_returns"]))
-            if "mean_returns" in gr_is and "mean_returns" in gr_oos:
-                charts["is_vs_oos_bar"] = self._fig_to_html(gr.plot_is_vs_oos_bar(gr_is, gr_oos))
-        except Exception as e:
-            logger.warning("Quintile chart generation error: %s", e)
-        return charts
+    # ---- Chart output (PNG for vault, HTML for legacy) ----
 
-    def _generate_dist_charts(self, dist: DistributionAnalyzer, fv_is, fv_oos, name) -> dict:
-        charts = {}
-        try:
-            charts["distribution_overlay"] = self._fig_to_html(dist.plot_distribution(fv_is, fv_oos, name))
-            fv_all = pd.concat([fv_is, fv_oos]) if len(fv_oos) > 0 else fv_is
-            charts["coverage_timeseries"] = self._fig_to_html(dist.plot_coverage(fv_all))
-        except Exception as e:
-            logger.warning("Distribution chart error: %s", e)
-        return charts
+    def _export_fig(
+        self, fig: go.Figure, chart_name: str, height: int | None = None
+    ) -> str:
+        """Export a Plotly figure as PNG (vault mode) or HTML fragment (legacy).
 
-    def _generate_decay_charts(self, decay_analyzer: DecayAnalyzer, decay_result, autocorr, name) -> dict:
-        charts = {}
-        try:
-            if decay_result["ic_by_period"]:
-                charts["ic_decay_bar"] = self._fig_to_html(decay_analyzer.plot_ic_decay(decay_result, name))
-            if autocorr:
-                charts["autocorrelation"] = self._fig_to_html(decay_analyzer.plot_autocorrelation(autocorr, name))
-        except Exception as e:
-            logger.warning("Decay chart error: %s", e)
-        return charts
+        Returns:
+            Vault mode: relative path like "F001/ic_timeseries.png"
+            Legacy mode: HTML string
+        """
+        if height:
+            fig.update_layout(height=height)
 
-    @staticmethod
-    def _generate_score_chart(scores, name) -> dict:
-        charts = {}
-        try:
-            dims = scores["dimensions"]
-            names = [d["name"] for d in dims]
-            values = [d["score"] for d in dims]
-            fig = go.Figure(data=go.Scatterpolar(
-                r=values + [values[0]], theta=names + [names[0]], fill="toself",
-            ))
-            fig.update_layout(
-                title=f"{name} Composite Score", template="plotly_white", height=400,
-                polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+        if self._vault_assets_dir:
+            png_path = os.path.join(self._vault_assets_dir, f"{chart_name}.png")
+            fig.write_image(
+                png_path,
+                width=PNG_WIDTH,
+                height=height or PNG_HEIGHT,
+                scale=PNG_SCALE,
             )
-            charts["radar"] = pio.to_html(fig, full_html=False, include_plotlyjs=False)
-        except Exception as e:
-            logger.warning("Score chart error: %s", e)
-        return charts
+            return f"F{self.factor_id}/{chart_name}.png"
+        else:
+            return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    # ---- Save methods ----
 
     def save(self, output_dir: str) -> str:
-        """Build report data and save to JSON."""
+        """Build report data and save to JSON (legacy mode)."""
         os.makedirs(output_dir, exist_ok=True)
         data = self.build()
         path = os.path.join(output_dir, "report_data.json")
@@ -320,15 +317,41 @@ class ReportDataBuilder:
         logger.info("Report data saved to %s", path)
         return path
 
+    def save_for_vault(self, vault_dir: str = "storage/vault") -> str:
+        """Build report data with PNG charts and save JSON for skill consumption.
+
+        Args:
+            vault_dir: Path to the Obsidian vault root.
+
+        Returns:
+            Path to the report_data.json file.
+        """
+        data = self.build(vault_dir=vault_dir)
+        json_dir = os.path.join(vault_dir, "assets", f"F{self.factor_id}")
+        os.makedirs(json_dir, exist_ok=True)
+        json_path = os.path.join(json_dir, "report_data.json")
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+        logger.info("Vault report data saved to %s (PNGs in same dir)", json_path)
+        return json_path
+
 
 def main():
     parser = argparse.ArgumentParser(description="Build factor report data")
     parser.add_argument("--factor-id", required=True)
-    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--output-dir", default=None, help="Legacy HTML mode output dir")
+    parser.add_argument("--vault", action="store_true", help="Vault mode: export PNGs + JSON")
+    parser.add_argument("--vault-dir", default="storage/vault", help="Vault root directory")
     args = parser.parse_args()
 
     builder = ReportDataBuilder(args.factor_id)
-    builder.save(args.output_dir)
+    if args.vault:
+        path = builder.save_for_vault(args.vault_dir)
+    else:
+        if not args.output_dir:
+            parser.error("--output-dir is required in legacy mode")
+        path = builder.save(args.output_dir)
+    print(f"Report data: {path}")
 
 
 if __name__ == "__main__":

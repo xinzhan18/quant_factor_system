@@ -110,7 +110,7 @@ class ExperienceMemory:
         if not match:
             return {}, text
         fm = yaml.safe_load(match.group(1)) or {}
-        body = match.group(2)
+        body = match.group(2).lstrip('\n')  # strip separator artifact
         return fm, body
 
     def _render_frontmatter(self, meta: Dict[str, Any], body: str) -> str:

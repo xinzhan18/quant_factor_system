@@ -1,10 +1,6 @@
 """Tests for direction file management in ExperienceMemory."""
 
-import tempfile
-from pathlib import Path
-
 import pytest
-import yaml
 
 
 def _make_memory(tmp_path):

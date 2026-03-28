@@ -53,16 +53,16 @@ TIMESCALE_CONFIG = {
 
 # 分区配置
 CHUNK_CONFIG = {
-    'price_1min': '1 week',      # 1分钟数据按周分区
-    'price_5min': '1 month',     # 5分钟数据按月分区
-    'price_daily': '1 year',     # 日线数据按年分区
+    'market_1min': '1 week',      # 1分钟数据按周分区
+    'market_5min': '1 month',     # 5分钟数据按月分区
+    'market_daily': '1 year',     # 日线数据按年分区
 }
 
 # 压缩策略 (多少天前的数据自动压缩)
 COMPRESSION_POLICY = {
-    'price_1min': '7 days',      # 1分钟数据: 7天后压缩
-    'price_5min': '1 month',     # 5分钟数据: 1月后压缩
-    'price_daily': '1 year',     # 日线数据: 1年后压缩
+    'market_1min': '7 days',      # 1分钟数据: 7天后压缩
+    'market_5min': '1 month',     # 5分钟数据: 1月后压缩
+    'market_daily': '1 year',     # 日线数据: 1年后压缩
 }
 
 
@@ -80,11 +80,11 @@ class TimescaleDB:
             symbols=['SH600000'],
             start_date='2024-01-01',
             end_date='2024-01-31',
-            table='price_1min'
+            table='market_1min'
         )
         
         # 插入
-        db.insert_price(df, table='price_1min')
+        db.insert_price(df, table='market_1min')
     """
     
     def __init__(self, config: Dict = None):
@@ -241,7 +241,7 @@ class TimescaleDB:
     
     def create_all_tables(self):
         """创建所有表"""
-        tables = ['price_1min', 'price_5min', 'price_daily']
+        tables = ['market_1min', 'market_5min', 'market_daily']
         
         for table in tables:
             self.create_hypertable(table)
@@ -251,7 +251,7 @@ class TimescaleDB:
     def insert_price(
         self,
         df: pd.DataFrame,
-        table: str = 'price_1min',
+        table: str = 'market_1min',
         if_exists: str = 'append'
     ) -> int:
         """
@@ -330,7 +330,7 @@ class TimescaleDB:
         symbols: List[str] = None,
         start_time: str = None,
         end_time: str = None,
-        table: str = 'price_1min',
+        table: str = 'market_1min',
         columns: List[str] = None
     ) -> pd.DataFrame:
         """
@@ -387,7 +387,7 @@ class TimescaleDB:
         symbols: List[str] = None,
         start_date: str = None,
         end_date: str = None,
-        table: str = 'price_daily'
+        table: str = 'market_daily'
     ) -> pd.DataFrame:
         """
         查询日线数据
@@ -797,7 +797,7 @@ class QuantDataManager:
         logger.info("🔧 初始化数据库表...")
         
         # 创建价格表
-        for table in ['price_1min', 'price_5min', 'price_daily']:
+        for table in ['market_1min', 'market_5min', 'market_daily']:
             self.db.create_hypertable(table)
         
         logger.info("✅ 数据库初始化完成")
@@ -847,7 +847,7 @@ class QuantDataManager:
             return {'status': 'no_data'}
         
         # 保存
-        count = self.db.insert_price(data, table='price_daily')
+        count = self.db.insert_price(data, table='market_daily')
         
         return {
             'status': 'success',
@@ -887,9 +887,9 @@ class QuantDataManager:
         logger.info(f"📥 获取{frequency}数据: {len(symbols)} 只股票")
         
         table_map = {
-            '1min': 'price_1min',
-            '5min': 'price_5min',
-            '15min': 'price_5min'
+            '1min': 'market_1min',
+            '5min': 'market_5min',
+            '15min': 'market_5min'
         }
         
         data = source.get_minute_data(
@@ -902,7 +902,7 @@ class QuantDataManager:
         if data.empty:
             return {'status': 'no_data'}
         
-        count = self.db.insert_price(data, table=table_map.get(frequency, 'price_1min'))
+        count = self.db.insert_price(data, table=table_map.get(frequency, 'market_1min'))
         
         return {
             'status': 'success',
@@ -919,16 +919,16 @@ class QuantDataManager:
     ) -> pd.DataFrame:
         """获取价格数据"""
         table_map = {
-            'daily': 'price_daily',
-            '1min': 'price_1min',
-            '5min': 'price_5min'
+            'daily': 'market_daily',
+            '1min': 'market_1min',
+            '5min': 'market_5min'
         }
         
         return self.db.query_daily(
             symbols=symbols,
             start_date=start_date,
             end_date=end_date,
-            table=table_map.get(frequency, 'price_daily')
+            table=table_map.get(frequency, 'market_daily')
         )
     
     def run_full_update(self):

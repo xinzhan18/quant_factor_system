@@ -1,15 +1,13 @@
 from .ic import ICAnalyzer
-from .groups import GroupReturnsAnalyzer
-from .decay import DecayAnalyzer
-from .distribution import DistributionAnalyzer
+from .profit import ProfitAnalyzer
 from .conditional import ConditionalAnalyzer
+from .decay import DecayAnalyzer
 from .uniqueness import UniquenessAnalyzer
 
 __all__ = [
     "ICAnalyzer",
-    "GroupReturnsAnalyzer",
-    "DecayAnalyzer",
-    "DistributionAnalyzer",
+    "ProfitAnalyzer",
     "ConditionalAnalyzer",
+    "DecayAnalyzer",
     "UniquenessAnalyzer",
 ]

@@ -40,7 +40,7 @@ class DataSynchronizer:
         start: str = "2015-01-01",
         end: Optional[str] = None,
     ) -> None:
-        """Export TimescaleDB price_daily to Qlib directory format."""
+        """Export TimescaleDB market_daily to Qlib directory format."""
         if end is None:
             end = str(datetime.now().date())
 
@@ -133,9 +133,18 @@ class DataSynchronizer:
                     val = float("nan")
                 values.append(val)
 
-            # Write as Qlib binary format (array of float32)
+            # Write as Qlib binary format:
+            #   header: start_index as float32 (first non-NaN calendar index)
+            #   data:   float32 values for each calendar day
+            start_idx = 0
+            for i, v in enumerate(values):
+                if not np.isnan(v):
+                    start_idx = i
+                    break
+
             bin_path = sym_dir / f"{field}.day.bin"
             with open(bin_path, "wb") as f:
+                f.write(struct.pack("<f", float(start_idx)))
                 for v in values:
                     f.write(struct.pack("<f", v))
 

@@ -351,6 +351,88 @@ class TsEntropyOp(Rolling):
         return series.rolling(self.N, min_periods=2).apply(_apply, raw=True)
 
 
+# --- Rolling extremes & statistics ---
+
+class TsMaxOp(Rolling):
+    """``TsMax($close, 20)`` — rolling maximum over N periods"""
+
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_max")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        return series.rolling(self.N, min_periods=1).max()
+
+
+class TsMinOp(Rolling):
+    """``TsMin($close, 20)`` — rolling minimum over N periods"""
+
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_min")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        return series.rolling(self.N, min_periods=1).min()
+
+
+class TsRankOp(Rolling):
+    """``TsRank($close, 20)`` — time-series percentile rank (0-1) over N periods"""
+
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_rank")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+
+        def _apply(arr):
+            n = len(arr)
+            if n < 2:
+                return 0.5
+            # Rank of last value among window values
+            return float((arr < arr[-1]).sum()) / (n - 1)
+
+        return series.rolling(self.N, min_periods=2).apply(_apply, raw=True)
+
+
+class TsSkewOp(Rolling):
+    """``TsSkew($close, 20)`` — rolling skewness over N periods"""
+
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_skew")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        return series.rolling(self.N, min_periods=3).skew()
+
+
+class TsKurtOp(Rolling):
+    """``TsKurt($close, 20)`` — rolling excess kurtosis over N periods"""
+
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "ts_kurt")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        return series.rolling(self.N, min_periods=4).kurt()
+
+
+class WMAOp(Rolling):
+    """``WMA($close, 20)`` — linearly weighted moving average (same as TsDecay but clearer name)"""
+
+    def __init__(self, feature, N):
+        super().__init__(feature, N, "wma")
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+
+        def _apply(arr):
+            n = len(arr)
+            w = np.arange(1, n + 1, dtype=float)
+            return np.dot(arr, w) / w.sum()
+
+        return series.rolling(self.N, min_periods=1).apply(_apply, raw=True)
+
+
 # --- Microstructure ---
 
 
@@ -388,6 +470,99 @@ class HHIOp(Rolling):
         return series.rolling(self.N, min_periods=1).apply(_apply, raw=True)
 
 
+# --- Cross-sectional operators ---
+# These load ALL instruments' data to compute cross-sectional statistics.
+# First call per expression is slow (builds cache), subsequent calls are instant.
+
+# Shared cache and calendar for all cross-sectional operators
+_CS_CACHE: Dict[str, Dict[str, Dict[int, float]]] = {}
+_CAL_MAP: Dict = None
+
+
+def _get_cal_map():
+    global _CAL_MAP
+    if _CAL_MAP is None:
+        from qlib.data import D
+        cal = D.calendar(start_time='2015-01-01', end_time='2026-12-31')
+        _CAL_MAP = {d: i for i, d in enumerate(cal)}
+    return _CAL_MAP
+
+
+def _build_cs_cache(expr_key: str, agg_func: str) -> Dict[str, Dict[int, float]]:
+    """Build cross-sectional cache: {instrument: {cal_idx: value}}"""
+    cache_key = f"{agg_func}:{expr_key}"
+    if cache_key in _CS_CACHE:
+        return _CS_CACHE[cache_key]
+
+    from qlib.data import D
+    cal_map = _get_cal_map()
+
+    inst_dict = D.instruments('all')
+    all_df = D.features(inst_dict, fields=[expr_key],
+                        start_time='2015-01-01', end_time='2026-12-31')
+    flat = all_df.reset_index()
+    flat.columns = ['instrument', 'datetime', 'value']
+
+    if agg_func == 'rank':
+        flat['result'] = flat.groupby('datetime')['value'].rank(pct=True)
+    elif agg_func == 'zscore':
+        g = flat.groupby('datetime')['value']
+        flat['result'] = (flat['value'] - g.transform('mean')) / g.transform('std')
+    elif agg_func == 'demean':
+        flat['result'] = flat['value'] - flat.groupby('datetime')['value'].transform('mean')
+    else:
+        flat['result'] = flat['value']
+
+    cache = {}
+    for inst, grp in flat.groupby('instrument'):
+        idx_val = {}
+        for dt, val in zip(grp['datetime'], grp['result']):
+            cal_idx = cal_map.get(dt)
+            if cal_idx is not None and not np.isnan(val):
+                idx_val[cal_idx] = val
+        cache[inst] = idx_val
+
+    _CS_CACHE[cache_key] = cache
+    return cache
+
+
+def _extract_from_cache(cache, instrument, series):
+    """Extract cached values for a specific instrument, aligned to series index."""
+    inst_data = cache.get(instrument, {})
+    result = pd.Series(np.nan, index=series.index)
+    for idx in series.index:
+        if idx in inst_data:
+            result[idx] = inst_data[idx]
+    return result
+
+
+class CsRankOp(ElemOperator):
+    """``CsRank($pe_ratio)`` — cross-sectional percentile rank (0-1) among all stocks per day."""
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        cache = _build_cs_cache(str(self.feature), 'rank')
+        return _extract_from_cache(cache, instrument, series)
+
+
+class CsZscoreOp(ElemOperator):
+    """``CsZscore($pe_ratio)`` — cross-sectional z-score: (x - mean) / std per day."""
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        cache = _build_cs_cache(str(self.feature), 'zscore')
+        return _extract_from_cache(cache, instrument, series)
+
+
+class CsDemeanOp(ElemOperator):
+    """``CsDemean($pe_ratio)`` — cross-sectional de-mean: x - mean per day."""
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        series = self.feature.load(instrument, start_index, end_index, *args)
+        cache = _build_cs_cache(str(self.feature), 'demean')
+        return _extract_from_cache(cache, instrument, series)
+
+
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
@@ -410,9 +585,20 @@ _CUSTOM_OPS: Dict[str, type] = {
     "TsAutoCorr": TsAutoCorrelation,
     "RealizedVol": RealizedVolOp,
     "TsEntropy": TsEntropyOp,
+    # Rolling extremes & statistics
+    "TsMax": TsMaxOp,
+    "TsMin": TsMinOp,
+    "TsRank": TsRankOp,
+    "TsSkew": TsSkewOp,
+    "TsKurt": TsKurtOp,
+    "WMA": WMAOp,
     # Microstructure
     "AmihudIlliq": AmihudIlliqOp,
     "HHI": HHIOp,
+    # Cross-sectional
+    "CsRank": CsRankOp,
+    "CsZscore": CsZscoreOp,
+    "CsDemean": CsDemeanOp,
 }
 
 

@@ -1,110 +1,117 @@
-# tests/report/test_scorer.py
-"""Tests for 7-dimension S-curve CompositeScorer."""
-import math
+"""Tests for CompositeScorer."""
 import pytest
-from report.scorer import CompositeScorer, s_curve_score, robustness_score
+from report.scorer import CompositeScorer
 
 
-class TestSCurveScore:
-    def test_midpoint_gives_50(self):
-        assert abs(s_curve_score(0.03, midpoint=0.03, k=92) - 50) < 1
+class TestScoreToGrade:
+    def test_grade_a(self):
+        assert CompositeScorer.score_to_grade(95) == "A"
 
-    def test_high_value_near_100(self):
-        score = s_curve_score(0.08, midpoint=0.03, k=92)
-        assert score > 98
+    def test_grade_a_minus(self):
+        assert CompositeScorer.score_to_grade(85) == "A-"
 
-    def test_zero_value_near_0(self):
-        score = s_curve_score(0.0, midpoint=0.03, k=92)
-        assert score < 10
+    def test_grade_b_plus(self):
+        assert CompositeScorer.score_to_grade(77) == "B+"
 
-    def test_negative_input(self):
-        score = s_curve_score(-0.05, midpoint=0.03, k=92)
-        assert score < 1
+    def test_grade_b(self):
+        assert CompositeScorer.score_to_grade(70) == "B"
 
+    def test_grade_c(self):
+        assert CompositeScorer.score_to_grade(50) == "C"
 
-class TestRobustnessScore:
-    def test_no_drift(self):
-        assert robustness_score(0.05, 0.05) == 100.0
+    def test_grade_d(self):
+        assert CompositeScorer.score_to_grade(20) == "D"
 
-    def test_50_percent_drift(self):
-        score = robustness_score(0.06, 0.03)
-        assert abs(score - 50) < 1
+    def test_grade_boundary_90(self):
+        assert CompositeScorer.score_to_grade(90) == "A"
 
-    def test_100_percent_drift(self):
-        score = robustness_score(0.05, 0.0)
-        assert score == 0
-
-    def test_ic_is_near_zero_returns_neutral(self):
-        score = robustness_score(0.005, 0.03)
-        assert score == 50.0  # |IC_IS| < 0.01 -> neutral
+    def test_grade_boundary_0(self):
+        assert CompositeScorer.score_to_grade(0) == "D"
 
 
-class TestCompositeScorer:
-    def test_seven_dimensions(self):
-        scorer = CompositeScorer()
-        result = scorer.compute(
-            rank_ic_oos=0.05,
-            icir_oos=0.4,
-            ls_sharpe=0.8,
-            monotonicity=0.8,
-            ic_is=0.05,
-            ic_oos=0.04,
-            max_corr=0.3,
-            ic_1d=0.05,
-            ic_20d=0.04,
+class TestDimensionScoring:
+    def test_predictive_power_high_ic(self):
+        s = CompositeScorer()
+        score = s._score_predictive_power(0.10)
+        assert score >= 80  # A range
+
+    def test_predictive_power_low_ic(self):
+        s = CompositeScorer()
+        score = s._score_predictive_power(0.02)
+        assert score < 35  # D range
+
+    def test_predictive_power_medium_ic(self):
+        s = CompositeScorer()
+        score = s._score_predictive_power(0.058)
+        assert 55 <= score <= 79  # B range
+
+    def test_monotonicity_strong(self):
+        s = CompositeScorer()
+        score = s._score_monotonicity(-0.9)
+        assert score >= 80  # A range
+
+    def test_stability_consistent(self):
+        s = CompositeScorer()
+        score = s._score_stability(ic_is=-0.058, ic_oos=-0.057)
+        assert score >= 80  # A range (delta < 10%)
+
+    def test_stability_divergent(self):
+        s = CompositeScorer()
+        score = s._score_stability(ic_is=-0.058, ic_oos=-0.01)
+        assert score < 35  # D range (delta > 50%)
+
+    def test_decay_resistance_good(self):
+        s = CompositeScorer()
+        score = s._score_decay_resistance(ic_1d=-0.058, ic_20d=-0.045)
+        assert score >= 80  # A range (ratio ~0.776, which is >= 0.7 threshold)
+
+    def test_capacity_high(self):
+        s = CompositeScorer()
+        score = s._score_capacity(0.97)
+        assert score >= 80  # A range
+
+    def test_uniqueness_low_corr(self):
+        s = CompositeScorer()
+        score = s._score_uniqueness(0.2)
+        assert score >= 80  # A range
+
+    def test_uniqueness_high_corr(self):
+        s = CompositeScorer()
+        score = s._score_uniqueness(0.8)
+        assert score < 35  # D range
+
+
+class TestCompositeScore:
+    def test_compute_returns_all_dimensions(self):
+        s = CompositeScorer()
+        result = s.compute(
+            ic_mean=0.058,
+            monotonicity=-0.9,
+            ic_is=-0.058,
+            ic_oos=-0.057,
+            ic_1d=-0.058,
+            ic_20d=-0.031,
+            coverage=0.962,
+            max_library_corr=0.0,
         )
-        assert len(result["dimensions"]) == 7
-        assert "composite_score" in result
-        assert "composite_grade" in result
+        assert "dimensions" in result
+        assert "composite" in result
+        assert len(result["dimensions"]) == 6
+        assert "score" in result["composite"]
+        assert "grade" in result["composite"]
 
-    def test_grade_scale(self):
-        scorer = CompositeScorer()
-        assert scorer.score_to_grade(95) == "S"
-        assert scorer.score_to_grade(80) == "A"
-        assert scorer.score_to_grade(65) == "B"
-        assert scorer.score_to_grade(50) == "C"
-        assert scorer.score_to_grade(30) == "D"
-
-    def test_missing_data_uses_neutral(self):
-        scorer = CompositeScorer()
-        result = scorer.compute(
-            rank_ic_oos=0.05,
-            icir_oos=0.4,
-            ls_sharpe=0.8,
-            monotonicity=0.8,
-            ic_is=0.05,
-            ic_oos=0.04,
-            max_corr=None,  # data missing
-            ic_1d=0.05,
-            ic_20d=0.04,
+    def test_composite_is_average(self):
+        s = CompositeScorer()
+        result = s.compute(
+            ic_mean=0.058,
+            monotonicity=-0.9,
+            ic_is=-0.058,
+            ic_oos=-0.057,
+            ic_1d=-0.058,
+            ic_20d=-0.031,
+            coverage=0.962,
+            max_library_corr=0.0,
         )
-        # Uniqueness dimension should use score 50
-        uniqueness_dim = [d for d in result["dimensions"] if d["name"] == "Uniqueness"][0]
-        assert uniqueness_dim["score"] == 50
-        assert uniqueness_dim["data_available"] is False
-
-    def test_radar_chart(self):
-        scorer = CompositeScorer()
-        result = scorer.compute(
-            rank_ic_oos=0.05, icir_oos=0.4, ls_sharpe=0.8,
-            monotonicity=0.8, ic_is=0.05, ic_oos=0.04,
-            max_corr=0.3, ic_1d=0.05, ic_20d=0.04,
-        )
-        charts = scorer.generate_charts(result)
-        assert "radar" in charts
-
-    def test_weights_sum_to_1(self):
-        scorer = CompositeScorer()
-        total = sum(w for _, w in scorer.WEIGHTS)
-        assert abs(total - 1.0) < 0.001
-
-    def test_all_none_returns_neutral(self):
-        scorer = CompositeScorer()
-        result = scorer.compute(
-            rank_ic_oos=None, icir_oos=None, ls_sharpe=None,
-            monotonicity=None, ic_is=None, ic_oos=None,
-            max_corr=None, ic_1d=None, ic_20d=None,
-        )
-        assert all(d["score"] == 50 for d in result["dimensions"])
-        assert result["composite_score"] == 50.0
-        assert result["composite_grade"] == "C"
+        dim_scores = [d["score"] for d in result["dimensions"]]
+        expected_avg = sum(dim_scores) / len(dim_scores)
+        assert result["composite"]["score"] == pytest.approx(expected_avg, abs=0.5)

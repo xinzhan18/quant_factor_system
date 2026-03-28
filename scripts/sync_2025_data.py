@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sync 2025 data: rqdatac → TimescaleDB (price_daily) → Qlib binary format.
+Sync 2025 data: rqdatac → TimescaleDB (market_daily) → Qlib binary format.
 
 Usage:
     # From project root with conda env:
@@ -9,7 +9,7 @@ Usage:
 
 Steps:
     1. Fetch all A-share daily data for 2025 from rqdatac (batched)
-    2. Insert into TimescaleDB price_daily table
+    2. Insert into TimescaleDB market_daily table
     3. Re-sync full date range (2015-2025) to Qlib binary format
 """
 
@@ -131,7 +131,7 @@ def _to_internal_symbol(order_book_id: str) -> str:
 # ── Step 2: Insert into TimescaleDB ────���────────────────────────────
 
 def insert_to_db(df: pd.DataFrame) -> int:
-    """Insert into price_daily table via psycopg2."""
+    """Insert into market_daily table via psycopg2."""
     import psycopg2
     from psycopg2.extras import execute_values
 
@@ -165,10 +165,10 @@ def insert_to_db(df: pd.DataFrame) -> int:
         for _, row in df.iterrows()
     ]
 
-    logger.info(f"Inserting {len(records)} rows into price_daily...")
+    logger.info(f"Inserting {len(records)} rows into market_daily...")
 
     sql = """
-        INSERT INTO price_daily (time, symbol, open, high, low, close, volume, amount, vwap, limit_up, limit_down)
+        INSERT INTO market_daily (time, symbol, open, high, low, close, volume, amount, vwap, limit_up, limit_down)
         VALUES %s
         ON CONFLICT (time, symbol) DO UPDATE SET
             open = EXCLUDED.open,
@@ -201,21 +201,21 @@ def insert_to_db(df: pd.DataFrame) -> int:
 # ── Step 3: Re-sync to Qlib binary ───────���──────────────────────────
 
 def sync_to_qlib():
-    """Read full price_daily (2015-2025) and rebuild Qlib binary files."""
+    """Read full market_daily (2015-2025) and rebuild Qlib binary files."""
     import psycopg2
 
     conn = psycopg2.connect(**DB_CONFIG)
-    logger.info("Reading full price_daily from DB for Qlib sync...")
+    logger.info("Reading full market_daily from DB for Qlib sync...")
 
     df = pd.read_sql(
         "SELECT time, symbol, open, high, low, close, volume, amount, vwap, "
-        "limit_up, limit_down FROM price_daily ORDER BY symbol, time",
+        "limit_up, limit_down FROM market_daily ORDER BY symbol, time",
         conn,
     )
     conn.close()
 
     if df.empty:
-        logger.error("No data in price_daily!")
+        logger.error("No data in market_daily!")
         return
 
     logger.info(f"Loaded {len(df)} rows, {df['symbol'].nunique()} symbols, "
@@ -300,7 +300,7 @@ def main():
     df = fetch_2025_daily()
 
     # Step 2
-    logger.info("\n[Step 2/3] Inserting into TimescaleDB price_daily...")
+    logger.info("\n[Step 2/3] Inserting into TimescaleDB market_daily...")
     insert_to_db(df)
 
     # Step 3

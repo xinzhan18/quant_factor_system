@@ -66,7 +66,7 @@ def get_price_data(
     start_date: str,
     end_date: str,
     connection,
-    table_name: str = 'price_daily'
+    table_name: str = 'market_daily'
 ) -> Optional[pd.DataFrame]:
     """从数据库获取价格数据"""
     if not symbols:

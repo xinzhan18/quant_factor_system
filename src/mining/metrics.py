@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from core.metrics import ic_summary_from_series, max_drawdown as compute_max_drawdown
+
 logger = logging.getLogger(__name__)
 
 NaN = float("nan")
@@ -101,17 +103,12 @@ def dim1_predictive_power(daily_ics: pd.Series) -> Dict[str, Any]:
         return {"ic_mean": NaN, "ic_std": NaN, "ic_ir": NaN, "ic_win_rate": NaN,
                 "ic_by_year": {}, "ic_by_month": {}}
 
-    arr = daily_ics.values.astype(float)
-    ic_mean = float(np.nanmean(arr))
-    ic_std = float(np.nanstd(arr)) if len(arr) > 1 else NaN
-    ic_ir = float(ic_mean / ic_std) if ic_std and ic_std > 0 else NaN
-    ic_win_rate = float(np.nansum(arr > 0) / np.sum(~np.isnan(arr)))
+    summary = ic_summary_from_series(daily_ics)
 
     ic_by_year = {int(y): float(g.mean()) for y, g in daily_ics.groupby(daily_ics.index.year)}
     ic_by_month = {int(m): float(g.mean()) for m, g in daily_ics.groupby(daily_ics.index.month)}
 
-    return {"ic_mean": ic_mean, "ic_std": ic_std, "ic_ir": ic_ir,
-            "ic_win_rate": ic_win_rate, "ic_by_year": ic_by_year, "ic_by_month": ic_by_month}
+    return {**summary, "ic_by_year": ic_by_year, "ic_by_month": ic_by_month}
 
 
 # ──────────────────── Dimension 2: Robustness ────────────────────
@@ -146,9 +143,7 @@ def dim2_robustness(daily_ics_is: pd.Series, daily_ics_oos: pd.Series) -> Dict[s
     # IC max drawdown (cumulative IC)
     ic_max_drawdown = NaN
     if not daily_ics_is.empty:
-        cum_ic = daily_ics_is.cumsum()
-        drawdown = cum_ic - cum_ic.cummax()
-        ic_max_drawdown = float(drawdown.min())
+        ic_max_drawdown = compute_max_drawdown(daily_ics_is.cumsum())
 
     # Best / worst quarter
     worst_quarter_ic = NaN
