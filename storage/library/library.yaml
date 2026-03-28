@@ -137,3 +137,13 @@ factors:
   expression: Div(Sub(Mul(2, $close), $low), Sub($high, $low))
   category: candlestick
   ic_mean: 0.06952
+- id: '025'
+  name: vol_confirmed_reversal_5
+  expression: Mean(Mul(Sign(Delta($volume, 1)), Mul(Delta($close, 1), -1)), 5)
+  category: volume
+  ic_mean: 0.0363
+- id: '026'
+  name: pv_corr_times_vol_5
+  expression: Mul(Corr($close, $volume, 5), Std($close/Ref($close,1)-1, 5))
+  category: volume
+  ic_mean: -0.0388

@@ -15,6 +15,15 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from core.metrics import ic_summary_from_series, max_drawdown as compute_max_drawdown
+from core.factor_stats import (
+    distribution_stats as _shared_distribution_stats,
+    estimate_half_life as _shared_estimate_half_life,
+    factor_autocorrelation as _shared_factor_autocorrelation,
+    incremental_ic as _shared_incremental_ic,
+    monotonicity as _shared_monotonicity,
+    multiindex_to_flat,
+    quintile_returns as _shared_quintile_returns,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -198,13 +207,7 @@ def _quantile_returns(
 
 
 def _monotonicity(quantile_returns: Dict[str, float]) -> float:
-    q_keys = sorted(quantile_returns.keys())
-    q_vals = [quantile_returns[k] for k in q_keys
-              if not np.isnan(quantile_returns.get(k, NaN))]
-    if len(q_vals) < 3:
-        return NaN
-    rho, _ = spearmanr(range(len(q_vals)), q_vals)
-    return float(rho) if not np.isnan(rho) else NaN
+    return _shared_monotonicity(quantile_returns)
 
 
 def dim3_economic_coherence(
@@ -245,27 +248,7 @@ def dim3_economic_coherence(
 
 
 def _estimate_half_life(ic_decay: Dict[int, float]) -> float:
-    sorted_h = sorted(ic_decay.keys())
-    if len(sorted_h) < 2:
-        return NaN
-    ic_1d = ic_decay.get(sorted_h[0], NaN)
-    if np.isnan(ic_1d) or abs(ic_1d) < 1e-8:
-        return NaN
-    target = abs(ic_1d) / 2.0
-    for i in range(1, len(sorted_h)):
-        h = sorted_h[i]
-        ic_h = abs(ic_decay.get(h, NaN))
-        if np.isnan(ic_h):
-            continue
-        if ic_h <= target:
-            h_prev = sorted_h[i - 1]
-            ic_prev = abs(ic_decay[h_prev])
-            denom = ic_prev - ic_h
-            if abs(denom) < 1e-10:
-                return float(h)
-            frac = (ic_prev - target) / denom
-            return float(h_prev + frac * (h - h_prev))
-    return NaN
+    return _shared_estimate_half_life(ic_decay)
 
 
 def dim4_decay_turnover(
@@ -278,29 +261,16 @@ def dim4_decay_turnover(
         ic_decay[h] = float(ics.mean()) if not ics.empty else NaN
     half_life = _estimate_half_life(ic_decay)
 
-    # Factor turnover / autocorrelation
+    # Factor turnover / autocorrelation via shared function
     factor_turnover = NaN
     factor_autocorr = NaN
     if not factor_vals.empty:
-        factor_col = factor_vals.columns[0]
-        dates = factor_vals.index.get_level_values("datetime").unique().sort_values()
-        rank_corrs = []
-        for i in range(1, len(dates)):
-            try:
-                prev = factor_vals.loc[dates[i - 1]]
-                curr = factor_vals.loc[dates[i]]
-            except KeyError:
-                continue
-            common = prev.index.intersection(curr.index)
-            if len(common) < 5:
-                continue
-            rho, _ = spearmanr(
-                prev.loc[common, factor_col], curr.loc[common, factor_col],
-            )
-            if not np.isnan(rho):
-                rank_corrs.append(rho)
-        if rank_corrs:
-            factor_autocorr = float(np.mean(rank_corrs))
+        flat = multiindex_to_flat(factor_vals)
+        ac_result = _shared_factor_autocorrelation(
+            flat, lags=[1], min_obs=5, max_dates=9999,
+        )
+        if ac_result:
+            factor_autocorr = ac_result[0]["corr"]
             factor_turnover = 1.0 - factor_autocorr
 
     return {"ic_decay": ic_decay, "half_life_days": half_life,

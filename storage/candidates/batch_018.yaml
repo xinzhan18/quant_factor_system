@@ -1,0 +1,42 @@
+batch_id: "batch_018"
+timestamp: "2026-03-28T17:00:00"
+candidates:
+  - name: "path_efficiency_20"
+    expression: "Div(Abs(Sub($close, Ref($close, 20))), Sum(Abs(Sub($close, Ref($close, 1))), 20))"
+    category: "trend"
+    rationale: "价格路径效率 = 净位移/总路径长度。接近1=趋势明确，接近0=随机游走。衡量趋势质量而非方向，与Slope/Resi完全不同的构造。"
+
+  - name: "rsi_like_14"
+    expression: "Div(Sum(If(Greater($close, Ref($close, 1)), Sub($close, Ref($close, 1)), 0), 14), Sum(Abs(Sub($close, Ref($close, 1))), 14))"
+    category: "momentum"
+    rationale: "经典RSI的Qlib表达式翻译。上涨幅度占总波动的比例。与up_day_count_20不同：后者只计数日数，不考虑幅度。经典技术指标在A股的有效性尚未测试。"
+
+  - name: "volume_acceleration_10"
+    expression: "Div(Sub(Mean($volume, 5), Mean(Ref($volume, 5), 5)), Mean($volume, 20))"
+    category: "volume"
+    rationale: "成交量加速度：近5日均量与前5日均量之差，标准化。捕捉成交量拐点（放量加速/缩量加速），而非水平（Std）或一阶变化（Delta）。"
+
+  - name: "lead_lag_pv_corr_20"
+    expression: "Corr(Sub($close, Ref($close, 1)), Ref(Sub($volume, Ref($volume, 1)), 1), 20)"
+    category: "volume"
+    rationale: "今日收益率与昨日成交量变化的20日相关性。正值=成交量领先价格（机构建仓），负值=成交量滞后（散户追涨）。与pv_corr_times_vol的同期相关性构造不同。"
+
+  - name: "range_trend_20"
+    expression: "Slope(Div(Sub($high, $low), $close), 20)"
+    category: "volatility"
+    rationale: "标准化日内振幅的趋势。波动率在扩张还是收缩？与Std(ret)不同：Std衡量水平，这里衡量方向变化。与range_compression_60不同：后者是今日/均值比率，这里是斜率。"
+
+  - name: "gap_return_corr_10"
+    expression: "Corr(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close, $open), $open), 10)"
+    category: "momentum"
+    rationale: "隔夜缺口与日内回报的10日相关性。正值=gap follow-through（趋势延续），负值=gap reversal（均值回归）。描述市场微观行为模式。"
+
+  - name: "pv_rank_divergence"
+    expression: "Sub(Rank(Sub($close, Ref($close, 10)), 60), Rank(Sub(Mean($volume, 5), Mean($volume, 20)), 60))"
+    category: "other"
+    rationale: "10日价格变化排名与成交量变化排名的背离。价涨量缩（高rank-低rank）=虚假突破；价跌量增=恐慌抛售。经典价量背离的量化表达。"
+
+  - name: "close_position_std_20"
+    expression: "Std(Div(Sub($close, $low), Sub($high, $low)), 20)"
+    category: "candlestick"
+    rationale: "收盘价在日内区间中位置的20日标准差。Williams %R变体(011)衡量当日位置水平，这里衡量位置的波动性/一致性。高Std=K线形态混乱，低Std=持续收在固定位置（如上/下影线模式稳定）。"
