@@ -7,7 +7,7 @@
 
 ## 1. 问题陈述
 
-当前系统（Ralph Loop）已录取 24/100 个因子，最近一批候选（batch_018）录取率为 0。`mining-lessons.md` 结论：OHLCV 日频信号空间在 corr<0.7 下接近枯竭。
+当前系统（Ralph Loop）已录取 26/100 个因子，信号空间日益收窄。`mining-lessons.md` 结论：OHLCV 日频信号空间在 corr<0.7 下接近枯竭。
 
 根本原因不是数据不够，而是**架构能力不足**：
 - 因子只能用 Qlib DSL 一行表达式，无法表达条件逻辑、多状态切换
@@ -93,14 +93,52 @@ Python 因子签名：接收 DataFrame（OHLCV） + params dict + ops 对象，�
 ### 4.3 AST 结构去重（来自 AlphaAgent）
 
 在现有 IC 相关性去重之外，新增一层：
-- DSL 因子：解析 AST，计算子树编辑距离
-- Python 因子：提取 `ops.*` 调用图签名
+- DSL 因子：利用 Qlib 内部的 `Expression.load()` 获取表达式树（返回 `ExpressionOps` 对象），递归遍历子节点计算子树编辑距离。不自建 parser，复用 Qlib 已有能力。
+- Python 因子：提取 `ops.*` 调用序列作为签名（如 `[cs_rank, realized_vol, ts_decay]`），计算 Jaccard 相似度。
 
 两个因子如果结构高度相似但 IC 相关性恰好低于阈值，标记"结构冗余"供 Judge 参考（不自动拒绝，留给 LLM 判断）。
 
 ## 5. L2 因子层（Factor Runtime）
 
-### 5.1 Python 因子运行时
+### 5.1 OpsAdapter 接口
+
+`OpsAdapter` 是 Python 因子调用算子的统一接口，封装所有已注册的 Qlib 算子：
+
+```python
+class OpsAdapter:
+    """将 Qlib 算子暴露为 Python callable。
+
+    所有方法接收 pd.Series 或 pd.DataFrame 列，返回 pd.Series。
+    面板语义：输入已按 (date, symbol) 索引对齐，截面算子自动按 date 分组。
+    """
+    # 时序算子（单股票维度，沿时间轴计算）
+    def std(self, series: Series, window: int) -> Series: ...
+    def mean(self, series: Series, window: int) -> Series: ...
+    def ts_decay(self, series: Series, window: int) -> Series: ...
+    def ts_auto_corr(self, series: Series, window: int, lag: int) -> Series: ...
+    def realized_vol(self, series: Series, window: int) -> Series: ...
+    def ewm(self, series: Series, span: int) -> Series: ...
+    def hhi(self, series: Series, window: int) -> Series: ...
+    def delta(self, series: Series, period: int) -> Series: ...
+    def ts_argmax(self, series: Series, window: int) -> Series: ...
+    def ts_argmin(self, series: Series, window: int) -> Series: ...
+    def ts_corr(self, x: Series, y: Series, window: int) -> Series: ...
+    def ts_cov(self, x: Series, y: Series, window: int) -> Series: ...
+
+    # 截面算子（同一天跨所有股票计算，自动 groupby date）
+    def cs_rank(self, series: Series) -> Series: ...
+    def cs_zscore(self, series: Series) -> Series: ...
+
+    # 变换算子（逐元素）
+    def signed_power(self, series: Series, exp: float) -> Series: ...
+    def tanh(self, series: Series) -> Series: ...
+    def safe_div(self, x: Series, y: Series) -> Series: ...
+    def log1p_abs(self, series: Series) -> Series: ...
+```
+
+实现方式：每个方法内部调用对应的 Qlib `Operators._ops` 注册的算子类，处理好 NaN 和边界。截面算子自动按 MultiIndex 的 date 层 groupby。
+
+### 5.2 Python 因子运行时
 
 Python 因子以代码片段形式存在于候选批次 YAML 中，录取后持久化为独立 `.py` 文件。
 
@@ -130,10 +168,10 @@ candidates:
 
 **三分离原则**：
 - LLM 只写 `code` 片段和 `param_space`，不写具体参数值
-- 参数由 Optuna 在 `param_space` 范围内搜索最优值
-- 计算全部本地执行，Python 因子在子进程沙箱中运行
+- 参数由 Optuna 在 `param_space` 范围内搜索最优值（见 5.4 参数优化）
+- 计算全部本地执行，Python 因子在子进程沙箱中运行（见 5.3 沙箱执行）
 
-**算子复用**：`compute()` 函数接收 `ops` 对象，封装所有 23 个已注册 Qlib 算子为 Python callable。LLM 被 prompt 引导使用 `ops.*` 而非手写 pandas rolling 等低级操作。算子是积木块，Python 是胶水 + 控制流。
+**算子复用**：`compute()` 函数接收 `OpsAdapter` 实例（见 5.1）。LLM 被 prompt 引导使用 `ops.*` 而非手写 pandas rolling 等低级操作。算子是积木块，Python 是胶水 + 控制流。
 
 **录取后持久化**（`storage/factors/FXXX_name.py`）：
 
@@ -155,7 +193,50 @@ def compute(df, params, ops):
     return result
 ```
 
-### 5.2 禁区记忆（来自 FactorMiner）
+### 5.3 沙箱执行
+
+Python 因子在隔离环境中运行，防止 LLM 生成的代码影响主进程：
+
+- **机制**：`multiprocessing.Process` + `pickle` 管道通信。主进程将 DataFrame 序列化发送，子进程执行 `compute()`，返回 Series 结果。
+- **限制**：子进程中 `restricted_globals` 只暴露 `pd`, `np`, `ops`, `params`。无网络、无文件系统写入、无 `import`。
+- **超时**：单因子计算 60 秒，超时自动 kill 并标记 `reject_reason: timeout`。
+- **内存**：通过 `resource.setrlimit` 限制 4GB，超限 kill。
+- **错误处理**：异常、超时、内存溢出统一返回 `FactorResult(status="error", reason=...)`，评估管道跳过该因子继续处理批次中其他因子。
+
+### 5.4 参数优化（Optuna 集成）
+
+对有 `param_space` 的 Python 因子，在进入 L1 评估管道之前自动搜参数：
+
+- **目标函数**：训练期 Rank IC（与现有 Stage 1 一致）
+- **搜索范围**：从候选 YAML 的 `param_space` 字段读取
+- **试验次数**：30 次（`MiningConfig.optuna_trials`，可配置）
+- **流程**：候选生成 → **Optuna 搜参** → 最优参数写回候选 dict → 进入现有 6 阶段评估
+- **DSL 因子不受影响**：无 `param_space` 字段的因子跳过此步骤
+- **资源控制**：每次试验复用同一份 DataFrame（内存中缓存），总超时 10 分钟/因子
+
+### 5.5 因子库 schema 扩展
+
+现有 `library.yaml` 和 `FactorLibrary.admit()` 只处理 `expression` 字段。扩展：
+
+```yaml
+# storage/library/library.yaml 中的一条记录
+- factor_id: "025"
+  name: "conditional_vol_trend"
+  source: python               # 新增：dsl | python
+  expression: null              # DSL 因子填表达式，Python 因子为 null
+  code_path: "storage/factors/F025_conditional_vol_trend.py"  # 新增：Python 因子文件路径
+  logic_id: "L003"             # 新增：所属市场逻辑
+  category: "volume_price"
+  ic: -0.041
+  status: active
+```
+
+`FactorLibrary.admit()` 修改：
+- `source` 字段决定录取路径：`dsl` 走现有逻辑存 `expression`，`python` 走新路径存 `code_path` 并持久化 `.py` 文件
+- `_clean_factor_dict` 白名单增加 `source`, `code_path`, `logic_id`, `lineage` 字段
+- `FactorPublisher` 对 Python 因子将 `code` 内容写入 `factor_meta.expression` 字段（兼容报告系统展示）
+
+### 5.6 禁区记忆（来自 FactorMiner）
 
 ```yaml
 # storage/memory/forbidden.yaml
@@ -173,17 +254,19 @@ forbidden_regions:
 - `/judge` 拒绝因子时，同一模式被拒 3 次以上自动写入禁区
 - 禁区有过期机制：当因子库发生替换（库结构变化），相关禁区可重新开放
 
-### 5.3 因子谱系追踪（来自 FactorEngine CoE）
+### 5.7 因子谱系追踪（来自 FactorEngine CoE）
 
 每个因子记录血统：
 
 ```yaml
 lineage:
-  parent: F011
-  mutation_type: macro      # macro(LLM改结构) / micro(调参数) / crossover(交叉)
+  parents: [F011]           # 列表：变异为单亲，交叉为双亲 [F001, F011]
+  mutation_type: macro      # genesis(全新) / macro(LLM改结构) / micro(调参数) / crossover(交叉)
   logic_id: L003
   generation: 3
 ```
+
+交叉因子的 `parents` 为双亲列表。变异计数按每个亲本独立统计（交叉算作两个亲本各一次衍生）。禁区归属跟随主亲本（`parents[0]`）的逻辑方向。
 
 形成因子森林，LLM 在变异时能看到哪些路径已经走过。
 
@@ -267,6 +350,8 @@ categories:
   multi_scale:       "多周期共振、分形、跨频率信号"
 ```
 
+**与现有 category 系统的关系**：现有 `MiningConfig.categories`（momentum, volatility, volume, regime, candlestick 等 11 个）是因子级别的标签，保留不变。新 taxonomy 是逻辑级别的分类，用于覆盖追踪。两者独立：一个 `volume_price` 逻辑下可以产出 `candlestick` 或 `volume` category 的因子。
+
 LLM 在外循环生成新逻辑时，系统提示哪些 category 覆盖不足，引导系统性探索。
 
 ### 7.3 内外双循环（来自 AlphaLogics）
@@ -282,7 +367,7 @@ L4 的核心不是算法，是**给 LLM 组装高质量的 prompt context**。LL
 2. **禁区列表**：哪些模式别再试（← FactorMiner）
 3. **各逻辑的内循环证据**：什么有效什么无效（← AlphaLogics）
 4. **谱系图**：哪些变异路径走过了（← FactorEngine）
-5. **因子库当前状态**：24 个因子的分布
+5. **因子库当前状态**：26 个因子的分布
 
 信息越结构化越完整，LLM 输出越受控。这与现有 skill prompt 设计思路一脉相承。
 
@@ -300,10 +385,12 @@ potential:
   +2  最近一轮有录取（热方向）
   +1  最佳 IC 高于库平均（天花板高）
 
-fatigue:
-  -N  连续 N 轮无录取
-  -1  禁区数量多（剩余空间小）
-  -2  已生成 / 已录取 > 10（转化率低）
+fatigue（上限 -5，防止永远无法恢复）:
+  -N  连续 N 轮无录取（N capped at 5）
+  -1  禁区数量 > 3（剩余空间小）
+  -2  已生成 > 10 且录取 == 0（转化率为零）
+
+新逻辑默认分: +3（鼓励探索新方向）
 ```
 
 选得分最高的 1-2 个逻辑进入本轮内循环。全部负分 → 触发外循环。
@@ -317,14 +404,10 @@ fatigue:
 4. 执行一轮 → judge → report
 5. 等待用户下次触发
 
-**全自动**（未来）：
-1. 用户执行 `/ralph-loop start --rounds 20 --budget 50`
-2. 调度器自动选逻辑和模式
-3. 循环执行 idea → execute → judge → report
-4. 停止条件：跑完 N 轮 / 连续 5 轮 0 录取 / token 到预算 / 里程碑暂停 review
-5. 输出总结报告
-
 两种模式共享同一套调度逻辑，区别仅在于谁触发下一轮。
+
+> **Future Work: 全自动模式**
+> 半自动模式验证 L1-L4 后，可扩展为全自动循环（`/ralph-loop start --rounds N`），增加停止条件（连续 N 轮 0 录取 / token 预算 / 里程碑暂停）。核心调度逻辑相同，仅需加循环壳和预算控制。不在本次实现范围内。
 
 ### 8.3 Skill 映射
 
@@ -345,10 +428,10 @@ fatigue:
 
 ## 9. 现有资产保护
 
-- 24 个已录取因子不动，继续走 Qlib DSL 路径
+- 26 个已录取因子不动，继续走 Qlib DSL 路径，`logic_id` 补为 `legacy`
 - 现有评估管道（6 阶段）完整保留，Python 因子走新执行路径但共享后续阶段
-- `storage/memory/` 目录结构保留，`directions/` 逐步迁移为 `logic/`
-- `storage/library/` 不变
+- `storage/memory/directions/` 保留不动，作为历史记录。新逻辑写入 `storage/logic/`，两套并存，不做迁移。`/idea` skill 优先读 `storage/logic/`，降级读 `directions/` 作为上下文参考
+- `storage/library/` schema 扩展（见 5.5），向后兼容
 - 报告系统不变
 - 所有现有 test 保持通过
 
