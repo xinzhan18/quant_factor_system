@@ -302,3 +302,180 @@ class TestTransientKeys:
         assert isinstance(c["_factor_values_oos"], pd.DataFrame)
         assert "report_card" in c
         assert isinstance(c["report_card"], dict)
+
+
+class TestPythonFactorDispatch:
+    """Tests for dual-dispatch: DSL vs Python factor evaluation paths."""
+
+    def test_clean_factor_dict_allows_new_keys(self):
+        """New Python/logic-guided keys survive _clean_factor_dict."""
+        from mining.evaluator import _clean_factor_dict
+        candidate = {
+            "name": "test",
+            "expression": "Rank($close)",
+            "category": "momentum",
+            "source": "python",
+            "code": "return df['close'].rank()",
+            "code_path": "storage/python_factors/logic_001/v1.py",
+            "type": "python",
+            "params": {"window": 20},
+            "param_space": {"window": [10, 20, 30]},
+            "logic_id": "logic_001",
+            "lineage": ["logic_001_v0", "logic_001_v1"],
+            # These should be stripped
+            "_factor_values": "should_be_removed",
+            "_lib_correlations": "should_be_removed",
+        }
+        cleaned = _clean_factor_dict(candidate)
+        # All new keys present
+        for key in ["source", "code", "code_path", "type", "params",
+                     "param_space", "logic_id", "lineage"]:
+            assert key in cleaned, f"Key '{key}' missing from cleaned dict"
+        # Internal keys stripped
+        assert "_factor_values" not in cleaned
+        assert "_lib_correlations" not in cleaned
+
+    def test_is_python_candidate_source(self):
+        """_is_python_candidate detects source='python'."""
+        from mining.evaluator import _is_python_candidate
+        assert _is_python_candidate({"source": "python", "code": "x"}) is True
+        assert _is_python_candidate({"source": "dsl", "expression": "X"}) is False
+
+    def test_is_python_candidate_type(self):
+        """_is_python_candidate detects type='python'."""
+        from mining.evaluator import _is_python_candidate
+        assert _is_python_candidate({"type": "python", "code": "x"}) is True
+        assert _is_python_candidate({"type": "dsl", "expression": "X"}) is False
+
+    def test_is_python_candidate_dsl_default(self):
+        """DSL candidates (no source/type) are not Python."""
+        from mining.evaluator import _is_python_candidate
+        assert _is_python_candidate({"expression": "Rank($close)"}) is False
+
+    def test_candidate_cache_key_dsl(self):
+        """DSL candidates use expression as cache key."""
+        from mining.evaluator import _candidate_cache_key
+        c = {"expression": "Rank($close)", "name": "test"}
+        assert _candidate_cache_key(c) == "Rank($close)"
+
+    def test_candidate_cache_key_python(self):
+        """Python candidates use first 100 chars of code as cache key."""
+        from mining.evaluator import _candidate_cache_key
+        code = "return df['close'].rolling(20).std()"
+        c = {"source": "python", "code": code, "name": "test"}
+        assert _candidate_cache_key(c) == code
+
+    def test_candidate_cache_key_python_long_code(self):
+        """Long Python code is truncated to 100 chars for cache key."""
+        from mining.evaluator import _candidate_cache_key
+        code = "x" * 200
+        c = {"source": "python", "code": code, "name": "test"}
+        assert len(_candidate_cache_key(c)) == 100
+
+    def test_python_candidate_validation_valid(self, evaluator):
+        """Python candidate with valid code passes validation in evaluate_batch."""
+        candidates = [{
+            "name": "py_factor",
+            "source": "python",
+            "code": "return df['close'].rolling(20).std()",
+            "category": "volatility",
+        }]
+        # Mock all pipeline stages since we only test validation dispatch
+        with patch.object(evaluator, "_fast_ic_screening", return_value=candidates) as mock_s1, \
+             patch.object(evaluator, "_batch_dedup", return_value=candidates), \
+             patch.object(evaluator, "_correlation_check", return_value=(candidates, [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=(candidates, [])):
+            result = evaluator.evaluate_batch(candidates)
+            # Should pass validation (not rejected as invalid)
+            assert len(result.screened) == 1
+            assert result.screened[0]["name"] == "py_factor"
+
+    def test_python_candidate_validation_syntax_error(self, evaluator):
+        """Python candidate with syntax error fails validation."""
+        candidates = [{
+            "name": "bad_py",
+            "source": "python",
+            "code": "def broken(:\n  return x",
+            "category": "other",
+        }]
+        result = evaluator.evaluate_batch(candidates)
+        # Should be rejected with validation_error
+        assert len(result.rejected) == 1
+        assert "validation_error" in result.rejected[0]
+
+    def test_python_candidate_validation_forbidden_import(self, evaluator):
+        """Python candidate with forbidden import fails validation."""
+        candidates = [{
+            "name": "unsafe_py",
+            "source": "python",
+            "code": "import os\nreturn df['close']",
+            "category": "other",
+        }]
+        result = evaluator.evaluate_batch(candidates)
+        assert len(result.rejected) == 1
+        assert "validation_error" in result.rejected[0]
+
+    def test_compute_factor_dispatches_to_qlib(self, evaluator):
+        """_compute_factor routes DSL candidates to _compute_factor_qlib."""
+        candidate = {"name": "F1", "expression": "Rank($close)", "category": "momentum"}
+        mock_df = pd.DataFrame({"factor": [1, 2, 3]})
+        with patch.object(evaluator, "_compute_factor_qlib", return_value=mock_df) as mock_qlib:
+            result = evaluator._compute_factor(candidate, ["SH600000"], "2023-01-01", "2023-12-31")
+            mock_qlib.assert_called_once_with("Rank($close)", ["SH600000"], "2023-01-01", "2023-12-31")
+            assert result is mock_df
+
+    def test_compute_factor_dispatches_to_python(self, evaluator):
+        """_compute_factor routes Python candidates to _compute_factor_python."""
+        candidate = {
+            "name": "F1", "source": "python",
+            "code": "return df['close']", "category": "momentum",
+        }
+        mock_df = pd.DataFrame({"factor": [1, 2, 3]})
+        with patch.object(evaluator, "_compute_factor_python", return_value=mock_df) as mock_py:
+            result = evaluator._compute_factor(candidate, ["SH600000"], "2023-01-01", "2023-12-31")
+            mock_py.assert_called_once_with(candidate, ["SH600000"], "2023-01-01", "2023-12-31")
+            assert result is mock_df
+
+    def test_mixed_batch_validation(self, evaluator):
+        """Batch with both DSL and Python candidates validates each correctly."""
+        candidates = [
+            {"name": "dsl_ok", "expression": "Rank($close)", "category": "momentum"},
+            {"name": "py_ok", "source": "python", "code": "return df['close']", "category": "momentum"},
+            {"name": "py_bad", "source": "python", "code": "def bad(:", "category": "other"},
+        ]
+        # Mock pipeline stages for candidates that pass validation
+        with patch.object(evaluator, "_fast_ic_screening", side_effect=lambda c: c), \
+             patch.object(evaluator, "_batch_dedup", side_effect=lambda c: c), \
+             patch.object(evaluator, "_correlation_check", return_value=([], [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=([], [])):
+            result = evaluator.evaluate_batch(candidates)
+            # py_bad should be rejected at validation; dsl_ok and py_ok should pass
+            rejected_names = [c["name"] for c in result.rejected if "validation_error" in c]
+            assert "py_bad" in rejected_names
+
+    def test_stage1_uses_compute_factor_for_python(self, evaluator):
+        """Stage 1 calls _compute_factor (not _compute_factor_qlib) for Python candidates."""
+        dates = pd.bdate_range("2023-01-02", periods=20)
+        instruments = [f"SH60000{i}" for i in range(5)]
+        idx = pd.MultiIndex.from_product([dates, instruments], names=["datetime", "instrument"])
+        np.random.seed(42)
+        signal = np.random.randn(len(idx))
+
+        candidates = [{
+            "name": "py_f", "source": "python",
+            "code": "return df['close']", "category": "momentum",
+        }]
+
+        with patch.object(evaluator, "_compute_factor") as mock_cf, \
+             patch.object(evaluator, "_get_returns_qlib") as mock_ret, \
+             patch.object(evaluator, "_get_fast_screening_universe", return_value=instruments):
+            mock_cf.return_value = pd.DataFrame({"factor": signal}, index=idx)
+            mock_ret.return_value = pd.DataFrame(
+                {"$returns_1d": signal + np.random.randn(len(idx)) * 0.2}, index=idx)
+            evaluator._fast_ic_screening(candidates)
+            # Verify _compute_factor was called with the full candidate dict
+            mock_cf.assert_called_once()
+            call_args = mock_cf.call_args
+            assert call_args[0][0] is candidates[0]  # candidate dict

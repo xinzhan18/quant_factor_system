@@ -82,12 +82,28 @@ except ImportError:
     D = None  # type: ignore[assignment]
 
 
+def _candidate_cache_key(c: Dict[str, Any]) -> str:
+    """Derive a stable cache key for a candidate (DSL expression or Python code hash)."""
+    if c.get("expression"):
+        return c["expression"]
+    # Python factors: use first 100 chars of code as cache key
+    return c.get("code", "")[:100]
+
+
+def _is_python_candidate(c: Dict[str, Any]) -> bool:
+    """Return True if the candidate represents a Python factor (not a DSL expression)."""
+    return c.get("source") == "python" or c.get("type") == "python"
+
+
 def _clean_factor_dict(c: Dict[str, Any]) -> Dict[str, Any]:
     """Extract only serializable fields from a factor dict (whitelist approach)."""
     ALLOWED_KEYS = {
         "name", "expression", "category", "rationale", "batch",
         "stage1", "stage2", "stage3", "full_ic", "report_card",
         "validation_error", "reject_reason",
+        # Python factor / logic-guided evolution keys
+        "source", "code", "code_path", "type", "params", "param_space",
+        "logic_id", "lineage",
     }
     return {k: v for k, v in c.items() if k in ALLOWED_KEYS}
 
@@ -204,6 +220,41 @@ class FactorMiningEvaluator:
         return D.features(instruments=instruments, fields=["$returns_1d"],
                           start_time=start_time, end_time=end_time)
 
+    def _load_ohlcv_panel(self, instruments: list,
+                          start_time: str, end_time: str) -> pd.DataFrame:
+        """Load OHLCV data as (datetime, instrument) MultiIndex DataFrame.
+
+        Returns columns: open, high, low, close, volume.
+        Used by ``_compute_factor_python`` to feed panel data into sandbox.
+        """
+        from qlib.data import D
+        fields = ["$open", "$high", "$low", "$close", "$volume"]
+        df = D.features(instruments, fields, start_time=start_time, end_time=end_time)
+        df.columns = ["open", "high", "low", "close", "volume"]
+        return df
+
+    def _compute_factor_python(self, candidate: Dict[str, Any], instruments: list,
+                               start_time: str, end_time: str) -> pd.DataFrame:
+        """Execute Python factor in sandbox, return DataFrame matching Qlib output format.
+
+        The sandbox receives the OHLCV panel and returns a pd.Series with the
+        same (datetime, instrument) MultiIndex.  We wrap it as a single-column
+        DataFrame to match ``_compute_factor_qlib`` output.
+        """
+        from mining.sandbox import run_factor_in_sandbox
+        df = self._load_ohlcv_panel(instruments, start_time, end_time)
+        code = candidate["code"]
+        params = candidate.get("params", {})
+        series = run_factor_in_sandbox(code, df, params, timeout=self.config.sandbox_timeout)
+        return series.to_frame(name="factor")
+
+    def _compute_factor(self, candidate: Dict[str, Any], instruments: list,
+                        start_time: str, end_time: str) -> pd.DataFrame:
+        """Unified dispatcher: route to DSL (Qlib) or Python (sandbox) execution path."""
+        if _is_python_candidate(candidate):
+            return self._compute_factor_python(candidate, instruments, start_time, end_time)
+        return self._compute_factor_qlib(candidate["expression"], instruments, start_time, end_time)
+
     # ──────────────────── IC Computation ────────────────────
 
     def _compute_daily_ics(
@@ -289,9 +340,9 @@ class FactorMiningEvaluator:
         results = []
         for c in candidates:
             try:
-                values = self._compute_factor_qlib(c["expression"], subset,
-                                                    self.config.train_start, self.config.train_end)
-                self._subset_factor_cache[c["expression"]] = values
+                values = self._compute_factor(c, subset,
+                                              self.config.train_start, self.config.train_end)
+                self._subset_factor_cache[_candidate_cache_key(c)] = values
                 ic_stats = self._compute_ic_from_frames(values, returns, aux_data=aux)
                 c["stage1"] = ic_stats
                 if abs(ic_stats.get("ic_mean", 0)) >= self.config.ic_threshold:
@@ -310,29 +361,30 @@ class FactorMiningEvaluator:
             return list(candidates)
         values_map: Dict[str, pd.DataFrame] = {}
         for c in candidates:
-            cached = self._subset_factor_cache.get(c["expression"])
+            ckey = _candidate_cache_key(c)
+            cached = self._subset_factor_cache.get(ckey)
             if cached is not None:
-                values_map[c["expression"]] = cached
+                values_map[ckey] = cached
             else:
                 try:
                     subset = self._get_fast_screening_universe()
-                    vals = self._compute_factor_qlib(c["expression"], subset,
-                                                      self.config.train_start, self.config.train_end)
-                    values_map[c["expression"]] = vals
+                    vals = self._compute_factor(c, subset,
+                                                self.config.train_start, self.config.train_end)
+                    values_map[ckey] = vals
                 except Exception:
-                    values_map[c["expression"]] = pd.DataFrame()
+                    values_map[ckey] = pd.DataFrame()
         sorted_candidates = sorted(candidates,
                                     key=lambda c: abs(c.get("stage1", {}).get("ic_mean", 0)),
                                     reverse=True)
         kept = []
         for c in sorted_candidates:
-            c_vals = values_map.get(c["expression"])
+            c_vals = values_map.get(_candidate_cache_key(c))
             if c_vals is None or c_vals.empty:
                 kept.append(c)
                 continue
             is_dup = False
             for k in kept:
-                k_vals = values_map.get(k["expression"])
+                k_vals = values_map.get(_candidate_cache_key(k))
                 if k_vals is None or k_vals.empty:
                     continue
                 corr = self._pairwise_correlation(c_vals, k_vals)
@@ -406,9 +458,9 @@ class FactorMiningEvaluator:
         aux = self._load_aux_data(full_universe, self.config.train_start, self.config.train_end)
         for c in candidates:
             try:
-                factor_vals = self._compute_factor_qlib(c["expression"], full_universe,
-                                                         self.config.train_start, self.config.train_end)
-                self._factor_cache[c["expression"]] = factor_vals
+                factor_vals = self._compute_factor(c, full_universe,
+                                                   self.config.train_start, self.config.train_end)
+                self._factor_cache[_candidate_cache_key(c)] = factor_vals
                 full_ic = self._compute_ic_from_frames(factor_vals, returns, aux_data=aux)
                 c["full_ic"] = full_ic
                 max_corr, max_corr_factor = 0.0, None
@@ -502,16 +554,17 @@ class FactorMiningEvaluator:
         for c in candidates:
             try:
                 # IS factor values (from Stage 2 cache or fresh)
-                factor_vals_is = self._factor_cache.get(c["expression"])
+                ckey = _candidate_cache_key(c)
+                factor_vals_is = self._factor_cache.get(ckey)
                 if factor_vals_is is None:
-                    factor_vals_is = self._compute_factor_qlib(
-                        c["expression"], full_universe,
+                    factor_vals_is = self._compute_factor(
+                        c, full_universe,
                         self.config.train_start, self.config.train_end,
                     )
 
                 # OOS factor values
-                factor_vals_oos = self._compute_factor_qlib(
-                    c["expression"], full_universe, self.config.test_start, test_end,
+                factor_vals_oos = self._compute_factor(
+                    c, full_universe, self.config.test_start, test_end,
                 )
 
                 # Daily IC series
@@ -537,7 +590,7 @@ class FactorMiningEvaluator:
                     lib_values=self._lib_values_cache,
                     lib_corr_profile=c.get("_lib_correlations", {}),
                     stage2_info=c.get("stage2", {}),
-                    expression_depth=self._max_expression_depth(c["expression"]),
+                    expression_depth=self._max_expression_depth(c.get("expression", "")),
                 )
 
                 c["report_card"] = rc.to_dict()
@@ -640,7 +693,10 @@ class FactorMiningEvaluator:
         validator = ExpressionValidator(self.config)
         valid, invalid = [], []
         for c in candidates:
-            result = validator.validate(c["expression"])
+            if _is_python_candidate(c):
+                result = validator.validate_python(c.get("code", ""))
+            else:
+                result = validator.validate(c["expression"])
             if result.valid:
                 valid.append(c)
             else:
