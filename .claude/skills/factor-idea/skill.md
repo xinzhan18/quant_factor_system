@@ -117,13 +117,18 @@ storage/memory/mining-lessons.md
 
 ## 第4步：Probe — 探针验证
 
-对每个候选方向的探针表达式，运行轻量评估（全量股票，2024年数据，只算IC）：
+对所有候选方向的探针表达式**并行运行**轻量评估（全量股票，2024年数据，只算IC）：
 
 ```bash
-PYTHONPATH=src python3 -m mining probe "探针表达式" --start 2024-01-01 --end 2024-12-31
+# 并行运行所有探针，每个约15秒，总共约15-20秒
+PYTHONPATH=src python3 -m mining probe "探针表达式1" --start 2024-01-01 --end 2024-12-31 &
+PYTHONPATH=src python3 -m mining probe "探针表达式2" --start 2024-01-01 --end 2024-12-31 &
+PYTHONPATH=src python3 -m mining probe "探针表达式3" --start 2024-01-01 --end 2024-12-31 &
+# ... 所有探针
+wait
 ```
 
-逐个运行，每个约10-20秒。
+**并行说明**：每个探针是独立进程，读取相同的 Qlib 数据但互不干扰。用 `&` 后台运行 + `wait` 等待全部完成。
 
 打印探针结果：
 ```
