@@ -97,3 +97,14 @@ class TestCompositeScorer:
         scorer = CompositeScorer()
         total = sum(w for _, w in scorer.WEIGHTS)
         assert abs(total - 1.0) < 0.001
+
+    def test_all_none_returns_neutral(self):
+        scorer = CompositeScorer()
+        result = scorer.compute(
+            rank_ic_oos=None, icir_oos=None, ls_sharpe=None,
+            monotonicity=None, ic_is=None, ic_oos=None,
+            max_corr=None, ic_1d=None, ic_20d=None,
+        )
+        assert all(d["score"] == 50 for d in result["dimensions"])
+        assert result["composite_score"] == 50.0
+        assert result["composite_grade"] == "C"

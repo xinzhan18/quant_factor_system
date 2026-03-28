@@ -44,13 +44,13 @@ class CompositeScorer:
         dimensions = []
 
         # 1. Predictive Power
-        dimensions.append(self._dim("Predictive Power",
-            s_curve_score(abs(rank_ic_oos), midpoint=0.03, k=92),
+        pp = s_curve_score(abs(rank_ic_oos), midpoint=0.03, k=92) if rank_ic_oos is not None else 50
+        dimensions.append(self._dim("Predictive Power", pp,
             data_available=rank_ic_oos is not None))
 
         # 2. Signal Stability
-        dimensions.append(self._dim("Signal Stability",
-            s_curve_score(abs(icir_oos), midpoint=0.3, k=9.2),
+        ss = s_curve_score(abs(icir_oos), midpoint=0.3, k=9.2) if icir_oos is not None else 50
+        dimensions.append(self._dim("Signal Stability", ss,
             data_available=icir_oos is not None))
 
         # 3. Profitability
