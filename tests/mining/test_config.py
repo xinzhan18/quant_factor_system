@@ -6,10 +6,10 @@ from mining.config import MiningConfig
 def test_default_config():
     cfg = MiningConfig()
     assert cfg.ic_threshold == 0.03
-    assert cfg.correlation_threshold == 0.5
+    assert cfg.correlation_threshold == 0.7
     assert cfg.replacement_ic_ratio == 1.3
     assert cfg.candidates_per_batch == 8
-    assert cfg.universe == "csi500"
+    assert cfg.universe == "all"
     assert cfg.custom_universe is None
     assert cfg.max_expression_depth == 10
 

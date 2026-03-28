@@ -18,9 +18,6 @@ def memory(tmp_mining_dir, config):
         "recommended_directions": [{"pattern": "Test Pattern", "description": "desc", "success_rate": "high", "example_factors": []}],
         "forbidden_regions": [],
     }))
-    (mem_dir / "insights.yaml").write_text(yaml.dump({
-        "insights": [{"insight": "Test insight", "confidence": "high", "source": "test"}],
-    }))
     return ExperienceMemory(config)
 
 
@@ -33,10 +30,6 @@ class TestReadState:
         patterns = memory.read_patterns()
         assert len(patterns["recommended_directions"]) == 1
         assert patterns["recommended_directions"][0]["pattern"] == "Test Pattern"
-
-    def test_read_insights(self, memory):
-        insights = memory.read_insights()
-        assert len(insights["insights"]) == 1
 
 
 class TestWriteState:
@@ -81,4 +74,3 @@ class TestContextPrompt:
         context = memory.compose_search_context()
         assert isinstance(context, str)
         assert "Test Pattern" in context
-        assert "Test insight" in context

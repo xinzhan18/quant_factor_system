@@ -27,17 +27,11 @@ class ExperienceMemory:
     def read_patterns(self) -> Dict[str, Any]:
         return self._read_yaml(self._dir / "patterns.yaml")
 
-    def read_insights(self) -> Dict[str, Any]:
-        return self._read_yaml(self._dir / "insights.yaml")
-
     def write_state(self, data: Dict[str, Any]) -> None:
         self._write_yaml(self._dir / "state.yaml", data)
 
     def write_patterns(self, data: Dict[str, Any]) -> None:
         self._write_yaml(self._dir / "patterns.yaml", data)
-
-    def write_insights(self, data: Dict[str, Any]) -> None:
-        self._write_yaml(self._dir / "insights.yaml", data)
 
     def save_batch_history(self, batch_id: str, data: Dict[str, Any]) -> None:
         self._write_yaml(self._history_dir / f"{batch_id}.yaml", data)
@@ -69,12 +63,7 @@ class ExperienceMemory:
             parts.append("\n## Forbidden Regions (AVOID)")
             for f in forbidden:
                 parts.append(f"- {f['direction']}: {f['reason']}")
-        insights = self.read_insights()
-        ins_list = insights.get("insights", [])
-        if ins_list:
-            parts.append("\n## Strategic Insights")
-            for i in ins_list:
-                parts.append(f"- [{i.get('confidence', '?')}] {i['insight']}")
+        # 挖掘经验教训从 mining-lessons.md 加载（叙事性内容，由 skill 直接读取）
         return "\n".join(parts)
 
     def _read_yaml(self, path: Path) -> Dict[str, Any]:

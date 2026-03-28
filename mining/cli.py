@@ -69,6 +69,120 @@ def cmd_library(args):
         print(f"  [{f['id']}] {f['name']}: IC={f.get('ic_mean', 'N/A')}")
 
 
+def _normalize_metrics(stage3: dict, full_ic: dict) -> dict:
+    """Normalize stage3/full_ic keys to standard metric names for library storage.
+
+    stage3 uses ic_mean_is/ic_ir_is, but library expects ic_mean/ic_ir.
+    """
+    return {
+        "ic_mean": stage3.get("ic_mean_is") or full_ic.get("ic_mean"),
+        "ic_std": full_ic.get("ic_std"),
+        "ic_ir": stage3.get("ic_ir_is") or full_ic.get("ic_ir"),
+        "ic_win_rate": stage3.get("ic_win_rate") or full_ic.get("ic_win_rate"),
+        "ic_mean_oos": stage3.get("ic_mean_oos"),
+        "ic_ir_oos": stage3.get("ic_ir_oos"),
+        "quantile_returns": stage3.get("quantile_returns"),
+        "ls_return": stage3.get("ls_return"),
+        "monotonicity": stage3.get("monotonicity"),
+    }
+
+
+def cmd_batch(args):
+    """Evaluate a batch of candidate factors from a YAML file."""
+    import warnings
+    warnings.filterwarnings('ignore')
+    import os
+    os.environ['JOBLIB_START_METHOD'] = 'fork'
+    import multiprocessing
+    try:
+        multiprocessing.set_start_method('fork', force=True)
+    except RuntimeError:
+        pass
+
+    from datetime import datetime
+
+    batch_path = Path(args.batch_file)
+    if not batch_path.exists():
+        print(f"错误：批次文件不存在: {batch_path}")
+        sys.exit(1)
+
+    with open(batch_path, 'r', encoding='utf-8') as f:
+        batch = yaml.safe_load(f)
+
+    candidates = batch.get('candidates', [])
+    batch_id = batch.get('batch_id', batch_path.stem)
+    if not candidates:
+        print("错误：批次文件中没有候选因子")
+        sys.exit(1)
+
+    logger.info("批次 %s: %d 个候选因子", batch_id, len(candidates))
+
+    # 初始化 Qlib
+    import qlib
+    from qlib.config import REG_CN
+    qlib.init(provider_uri=args.qlib_dir, region=REG_CN)
+    from qlib.data import D
+
+    # 解析股票池
+    inst_dict = D.instruments('all')
+    df_temp = D.features(
+        instruments=inst_dict, fields=['$close'],
+        start_time='2024-06-01', end_time='2024-06-30',
+    )
+    all_instruments = df_temp.index.get_level_values('instrument').unique().tolist()
+
+    config = MiningConfig(
+        custom_universe=all_instruments,
+        train_start=args.train_start,
+        train_end=args.train_end,
+        test_start=args.test_start,
+        fast_screening_universe_size=args.screening_size,
+    )
+    evaluator = FactorMiningEvaluator(config)
+    result = evaluator.evaluate_batch(candidates)
+
+    # 打印结果
+    logger.info("筛选通过: %d, 淘汰: %d, 替换候选: %d",
+                len(result.screened), len(result.rejected), len(result.replacements))
+    for f in result.screened:
+        s3 = f.get('stage3', {})
+        rc = f.get('report_card', {})
+        logger.info("  通过 %s: IC=%.4f, OOS=%.4f, ICIR=%.2f, 单调性=%.2f",
+                     f['name'],
+                     s3.get('ic_mean_is', 0) or 0,
+                     s3.get('ic_mean_oos', 0) or 0,
+                     rc.get('ic_ir', 0) or 0,
+                     rc.get('monotonicity_is', 0) or 0)
+    for f in result.rejected:
+        s1 = f.get('stage1', {})
+        logger.info("  淘汰 %s: IC=%s", f['name'], s1.get('ic_mean', '?'))
+
+    # 保存结果（白名单序列化）
+    result_path = batch_path.parent / f"{batch_path.stem}_result.yaml"
+    output = result.to_dict()
+    output['batch_id'] = batch_id
+    output['timestamp'] = datetime.now().isoformat()
+    with open(result_path, 'w', encoding='utf-8') as fp:
+        yaml.dump(output, fp, default_flow_style=False, allow_unicode=True)
+    logger.info("结果已保存: %s", result_path)
+
+    # 自动录取（--admit 跳过 LLM 审判，直接录取所有筛选通过的因子）
+    if result.screened and args.admit:
+        lib = FactorLibrary(config)
+        for f in result.screened:
+            f['metrics'] = _normalize_metrics(f.get('stage3', {}), f.get('full_ic', {}))
+            fid = lib.admit(f)
+            logger.info("已录取到因子库: %s → factor_%s", f['name'], fid)
+
+    if result.replacements and args.admit:
+        lib = FactorLibrary(config)
+        for r in result.replacements:
+            new_f = r['new_factor']
+            new_f['metrics'] = _normalize_metrics(new_f.get('stage3', {}), new_f.get('full_ic', {}))
+            lib.replace(r['replaces'], new_f)
+            logger.info("已替换: factor_%s → %s", r['replaces'], new_f['name'])
+
+
 def cmd_memory(args):
     """Show Experience Memory status."""
     config = MiningConfig(memory_dir=args.memory_dir)
@@ -82,35 +196,47 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     # sync
-    p_sync = sub.add_parser("sync", help="Sync data to Qlib format")
+    p_sync = sub.add_parser("sync", help="同步数据到 Qlib 格式")
     p_sync.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
     p_sync.add_argument("--start", default="2015-01-01")
     p_sync.add_argument("--end", default=None)
 
     # evaluate
-    p_eval = sub.add_parser("evaluate", help="Evaluate a factor expression")
-    p_eval.add_argument("expression", help="Qlib expression, e.g. Rank($close)")
+    p_eval = sub.add_parser("evaluate", help="评估单个因子表达式")
+    p_eval.add_argument("expression", help="Qlib 表达式, 如 Rank($close)")
     p_eval.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
     p_eval.add_argument("--train-start", default="2020-01-01")
     p_eval.add_argument("--train-end", default="2024-12-31")
     p_eval.add_argument("--test-start", default="2025-01-01")
     p_eval.add_argument("--test-end", default=None)
 
+    # batch
+    p_batch = sub.add_parser("batch", help="评估一个批次的候选因子")
+    p_batch.add_argument("batch_file", help="批次 YAML 文件路径")
+    p_batch.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
+    p_batch.add_argument("--train-start", default="2020-01-01")
+    p_batch.add_argument("--train-end", default="2024-12-31")
+    p_batch.add_argument("--test-start", default="2024-07-01")
+    p_batch.add_argument("--screening-size", type=int, default=50)
+    p_batch.add_argument("--admit", action="store_true", help="自动将录取因子加入因子库")
+
     # library
-    p_lib = sub.add_parser("library", help="Show library status")
+    p_lib = sub.add_parser("library", help="查看因子库状态")
     p_lib.add_argument("--library-dir", default="mining/library")
 
     # memory
-    p_mem = sub.add_parser("memory", help="Show memory context")
+    p_mem = sub.add_parser("memory", help="查看挖掘记忆上下文")
     p_mem.add_argument("--memory-dir", default="mining/memory")
 
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format='%(name)s - %(message)s')
 
     if args.command == "sync":
         cmd_sync(args)
     elif args.command == "evaluate":
         cmd_evaluate(args)
+    elif args.command == "batch":
+        cmd_batch(args)
     elif args.command == "library":
         cmd_library(args)
     elif args.command == "memory":

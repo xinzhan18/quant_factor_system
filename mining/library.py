@@ -134,7 +134,8 @@ class FactorLibrary:
     def get_factor_ic(self, factor_id: str) -> Optional[float]:
         try:
             detail = self.load_factor(factor_id)
-            return detail.get("metrics", {}).get("ic_mean")
+            m = detail.get("metrics", {})
+            return m.get("ic_mean") or m.get("ic_mean_is")
         except FileNotFoundError:
             return None
 

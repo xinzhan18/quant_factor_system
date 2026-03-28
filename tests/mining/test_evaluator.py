@@ -23,8 +23,21 @@ def evaluator(config):
 
 class TestBatchResult:
     def test_dataclass(self):
-        r = BatchResult(admitted=[], rejected=[], replacements=[])
-        assert r.admitted == []
+        r = BatchResult(screened=[], rejected=[], replacements=[])
+        assert r.screened == []
+        assert r.admitted == []  # backward-compat alias
+
+    def test_admitted_alias(self):
+        data = [{"name": "F1"}]
+        r = BatchResult(screened=data, rejected=[], replacements=[])
+        assert r.admitted is r.screened
+
+    def test_to_dict_uses_screened_key(self):
+        r = BatchResult(screened=[{"name": "F1", "expression": "X", "category": "other"}],
+                        rejected=[], replacements=[])
+        d = r.to_dict()
+        assert "screened" in d
+        assert len(d["screened"]) == 1
 
 
 class TestComputeIC:
@@ -192,23 +205,42 @@ class TestStage3FullValidation:
         signal_oos = np.random.randn(len(idx_oos))
         candidate = {"name": "F1", "expression": "Rank($close)", "stage1": {"ic_mean": 0.05}}
         evaluator._factor_cache["Rank($close)"] = pd.DataFrame({"factor": signal_is}, index=idx_is)
+        evaluator._lib_values_cache = {}
+
+        returns_is = pd.DataFrame({"$returns_1d": signal_is * 0.5 + np.random.randn(len(idx_is)) * 0.1}, index=idx_is)
+        returns_oos = pd.DataFrame({"$returns_1d": signal_oos * 0.5 + np.random.randn(len(idx_oos)) * 0.1}, index=idx_oos)
+
+        def mock_factor_side_effect(expr, instruments, start, end):
+            """Return OOS factor values or multi-horizon returns."""
+            if "Ref($close" in expr:
+                return returns_is  # multi-horizon returns (approximate)
+            return pd.DataFrame({"factor": signal_oos}, index=idx_oos)
+
         with patch.object(evaluator, "_get_returns_qlib") as mock_returns, \
-             patch.object(evaluator, "_compute_factor_qlib") as mock_factor, \
+             patch.object(evaluator, "_compute_factor_qlib", side_effect=mock_factor_side_effect), \
+             patch.object(evaluator, "_load_aux_data", return_value={}), \
              patch.object(evaluator, "_get_full_universe", return_value=instruments):
-            mock_returns.side_effect = [
-                pd.DataFrame({"$returns_1d": signal_is * 0.5 + np.random.randn(len(idx_is)) * 0.1}, index=idx_is),
-                pd.DataFrame({"$returns_1d": signal_oos * 0.5 + np.random.randn(len(idx_oos)) * 0.1}, index=idx_oos),
-            ]
-            mock_factor.return_value = pd.DataFrame({"factor": signal_oos}, index=idx_oos)
-            validated, errors = evaluator._full_validation([candidate])
+            mock_returns.side_effect = [returns_is, returns_oos]
+            validated, errors = evaluator._compute_report_cards([candidate])
             assert len(validated) == 1
             assert len(errors) == 0
+
+            # Check backward-compatible stage3 keys
             s3 = validated[0]["stage3"]
             assert "ic_mean_is" in s3
             assert "ic_mean_oos" in s3
             assert "quantile_returns" in s3
             assert "ls_return" in s3
             assert "monotonicity" in s3
+
+            # Check new report_card key
+            rc = validated[0]["report_card"]
+            assert isinstance(rc, dict)
+            assert "ic_mean" in rc
+            assert "ic_ir" in rc
+            assert "oos_decay_ratio" in rc
+            assert "coverage" in rc
+            assert "expression_depth" in rc
 
 
 class TestEvaluateBatch:
@@ -247,13 +279,20 @@ class TestTransientKeys:
         evaluator._factor_cache = {"Rank($close)": sample_factor_values}
         evaluator._subset_factor_cache = {}
         evaluator._aux_cache = {}
+        evaluator._lib_values_cache = {}
         evaluator._preprocessor = MagicMock()
+
+        def mock_compute(expr, instruments, start, end):
+            if "Ref($close" in expr:
+                return sample_returns.rename(columns={sample_returns.columns[0]: expr})
+            return sample_factor_values
 
         with patch.object(evaluator, '_get_full_universe', return_value=["SH600000"]):
             with patch.object(evaluator, '_get_returns_qlib', return_value=sample_returns):
-                with patch.object(evaluator, '_compute_factor_qlib', return_value=sample_factor_values):
-                    candidates = [{"name": "Test", "expression": "Rank($close)", "category": "momentum"}]
-                    validated, errors = evaluator._full_validation(candidates)
+                with patch.object(evaluator, '_compute_factor_qlib', side_effect=mock_compute):
+                    with patch.object(evaluator, '_load_aux_data', return_value={}):
+                        candidates = [{"name": "Test", "expression": "Rank($close)", "category": "momentum"}]
+                        validated, errors = evaluator._compute_report_cards(candidates)
 
         assert len(validated) == 1
         c = validated[0]
@@ -261,3 +300,5 @@ class TestTransientKeys:
         assert "_factor_values_oos" in c
         assert isinstance(c["_factor_values"], pd.DataFrame)
         assert isinstance(c["_factor_values_oos"], pd.DataFrame)
+        assert "report_card" in c
+        assert isinstance(c["report_card"], dict)

@@ -47,6 +47,9 @@ class MiningConfig:
     # Expression limits
     max_expression_depth: int = 10
 
+    # IC decay horizons (days) for multi-horizon analysis
+    decay_horizons: List[int] = field(default_factory=lambda: [1, 5, 10, 20])
+
     # Paths (relative to project root)
     memory_dir: str = "mining/memory"
     library_dir: str = "mining/library"
