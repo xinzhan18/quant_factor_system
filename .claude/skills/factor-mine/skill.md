@@ -68,11 +68,13 @@ user_invocable: true
 
 按 `factor-report` skill 为每个**本轮新录取**的因子生成报告：
 
-1. 对每个新录取的 factor_id，运行：
-   ```bash
-   PYTHONPATH=src python3 -m report.builder --factor-id {id} --vault
+1. **并行生成报告数据**：对所有新录取因子同时启动 report builder（使用 `run_in_background`）：
    ```
-2. 读取 `storage/vault/assets/F{id}/report_data.json`
+   Bash(command="PYTHONPATH=src python3 -m report.builder --factor-id {id1} --vault", run_in_background=true)
+   Bash(command="PYTHONPATH=src python3 -m report.builder --factor-id {id2} --vault", run_in_background=true)
+   ... 同时启动所有
+   ```
+2. 收集所有完成通知后，逐个读取 `storage/vault/assets/F{id}/report_data.json`
 3. 用 Write 工具生成 Obsidian Markdown 报告到 `storage/vault/factors/`
 4. 更新总览页 `storage/vault/Factor Library.md`
 

@@ -101,9 +101,11 @@ class FactorPublisher:
 
     @staticmethod
     def _to_flat_df(qlib_df: pd.DataFrame) -> pd.DataFrame:
-        """Convert Qlib MultiIndex (datetime, instrument) DataFrame to flat (time, symbol, value)."""
+        """Convert Qlib MultiIndex (instrument, datetime) DataFrame to flat (time, symbol, value)."""
         df = qlib_df.iloc[:, [0]].reset_index()
-        df.columns = ["time", "symbol", "value"]
+        # Qlib MultiIndex order is (instrument, datetime), so after reset_index:
+        # columns = [instrument, datetime, value_col]
+        df.columns = ["symbol", "time", "value"]
         return df
 
     def _save_metrics(self, conn, factor_id: str, factor_dict: dict) -> None:

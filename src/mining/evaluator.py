@@ -356,30 +356,42 @@ class FactorMiningEvaluator:
         self._lib_values_cache = lib_values
         returns = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
         aux = self._load_aux_data(full_universe, self.config.train_start, self.config.train_end)
-        for c in candidates:
-            try:
-                factor_vals = self._compute_factor_qlib(c["expression"], full_universe,
-                                                         self.config.train_start, self.config.train_end)
-                self._factor_cache[c["expression"]] = factor_vals
-                full_ic = self._compute_ic_from_frames(factor_vals, returns, aux_data=aux)
-                c["full_ic"] = full_ic
-                max_corr, max_corr_factor = 0.0, None
-                all_corrs: Dict[str, float] = {}
-                for lid, lvals in lib_values.items():
-                    corr = abs(self._pairwise_correlation(factor_vals, lvals))
-                    all_corrs[lid] = corr
-                    if corr > max_corr:
-                        max_corr, max_corr_factor = corr, lid
-                c["_lib_correlations"] = all_corrs
-                if max_corr < self.config.correlation_threshold:
-                    c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": True}
-                    passed.append(c)
-                else:
-                    c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": False}
+
+        # Parallel: compute all candidate factor values concurrently
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _compute_candidate(c):
+            """Compute factor values + IC + correlations for one candidate."""
+            factor_vals = self._compute_factor_qlib(c["expression"], full_universe,
+                                                     self.config.train_start, self.config.train_end)
+            full_ic = self._compute_ic_from_frames(factor_vals, returns, aux_data=aux)
+            max_corr, max_corr_factor = 0.0, None
+            all_corrs = {}
+            for lid, lvals in lib_values.items():
+                corr = abs(self._pairwise_correlation(factor_vals, lvals))
+                all_corrs[lid] = corr
+                if corr > max_corr:
+                    max_corr, max_corr_factor = corr, lid
+            return factor_vals, full_ic, all_corrs, max_corr, max_corr_factor
+
+        with ThreadPoolExecutor(max_workers=min(4, len(candidates))) as pool:
+            futures = {pool.submit(_compute_candidate, c): c for c in candidates}
+            for future in as_completed(futures):
+                c = futures[future]
+                try:
+                    factor_vals, full_ic, all_corrs, max_corr, max_corr_factor = future.result()
+                    self._factor_cache[c["expression"]] = factor_vals
+                    c["full_ic"] = full_ic
+                    c["_lib_correlations"] = all_corrs
+                    if max_corr < self.config.correlation_threshold:
+                        c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": True}
+                        passed.append(c)
+                    else:
+                        c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": False}
+                        rejected.append(c)
+                except Exception as e:
+                    c["stage2"] = {"error": str(e), "passed": False}
                     rejected.append(c)
-            except Exception as e:
-                c["stage2"] = {"error": str(e), "passed": False}
-                rejected.append(c)
         return passed, rejected
 
     # ──────────────────── Stage 2.5: Replacement Check ────────────────────
@@ -436,86 +448,104 @@ class FactorMiningEvaluator:
         returns_is = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
         returns_oos = self._get_returns_qlib(full_universe, self.config.test_start, test_end)
 
-        # Multi-horizon returns for IC decay
+        # Multi-horizon returns for IC decay — compute in parallel
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         returns_multi: Dict[int, pd.DataFrame] = {}
-        for h in self.config.decay_horizons:
-            if h == 1:
-                returns_multi[h] = returns_is
-            else:
+
+        def _compute_horizon_returns(h):
+            expr = f"Ref($close, -{h}) / $close - 1"
+            return h, self._compute_factor_qlib(
+                expr, full_universe, self.config.train_start, self.config.train_end,
+            )
+
+        horizons_to_compute = [h for h in self.config.decay_horizons if h != 1]
+        with ThreadPoolExecutor(max_workers=min(4, len(horizons_to_compute) or 1)) as pool:
+            futures = [pool.submit(_compute_horizon_returns, h) for h in horizons_to_compute]
+            for future in as_completed(futures):
                 try:
-                    expr = f"Ref($close, -{h}) / $close - 1"
-                    returns_multi[h] = self._compute_factor_qlib(
-                        expr, full_universe, self.config.train_start, self.config.train_end,
-                    )
+                    h, ret_df = future.result()
+                    returns_multi[h] = ret_df
                 except Exception as e:
-                    logger.warning("Failed to compute %d-day forward returns: %s", h, e)
+                    logger.warning("Failed to compute horizon returns: %s", e)
+        if 1 in self.config.decay_horizons:
+            returns_multi[1] = returns_is
+
+        # Stage 3: compute report cards for each candidate in parallel
+        def _compute_one_report_card(c):
+            # IS factor values (from Stage 2 cache or fresh)
+            factor_vals_is = self._factor_cache.get(c["expression"])
+            if factor_vals_is is None:
+                factor_vals_is = self._compute_factor_qlib(
+                    c["expression"], full_universe,
+                    self.config.train_start, self.config.train_end,
+                )
+
+            # OOS factor values
+            factor_vals_oos = self._compute_factor_qlib(
+                c["expression"], full_universe, self.config.test_start, test_end,
+            )
+
+            # Daily IC series
+            daily_ics_is = self._compute_daily_ics(factor_vals_is, returns_is, aux_data=aux_is)
+            daily_ics_oos = self._compute_daily_ics(factor_vals_oos, returns_oos, aux_data=aux_oos)
+
+            # Multi-horizon daily ICs for decay — parallel within candidate
+            daily_ics_by_horizon: Dict[int, pd.Series] = {}
+            for h, ret_h in returns_multi.items():
+                daily_ics_by_horizon[h] = self._compute_daily_ics(
+                    factor_vals_is, ret_h, aux_data=aux_is,
+                )
+
+            return factor_vals_is, factor_vals_oos, daily_ics_is, daily_ics_oos, daily_ics_by_horizon
 
         screened, errors = [], []
-        for c in candidates:
-            try:
-                # IS factor values (from Stage 2 cache or fresh)
-                factor_vals_is = self._factor_cache.get(c["expression"])
-                if factor_vals_is is None:
-                    factor_vals_is = self._compute_factor_qlib(
-                        c["expression"], full_universe,
-                        self.config.train_start, self.config.train_end,
+        with ThreadPoolExecutor(max_workers=min(4, len(candidates) or 1)) as pool:
+            futures = {pool.submit(_compute_one_report_card, c): c for c in candidates}
+            for future in as_completed(futures):
+                c = futures[future]
+                try:
+                    factor_vals_is, factor_vals_oos, daily_ics_is, daily_ics_oos, daily_ics_by_horizon = future.result()
+
+                    # Build report card
+                    rc = compute_report_card(
+                        daily_ics_is=daily_ics_is,
+                        daily_ics_oos=daily_ics_oos,
+                        factor_vals_is=factor_vals_is,
+                        factor_vals_oos=factor_vals_oos,
+                        returns_is=returns_is,
+                        returns_oos=returns_oos,
+                        daily_ics_by_horizon=daily_ics_by_horizon,
+                        lib_values=self._lib_values_cache,
+                        lib_corr_profile=c.get("_lib_correlations", {}),
+                        stage2_info=c.get("stage2", {}),
+                        expression_depth=self._max_expression_depth(c["expression"]),
                     )
 
-                # OOS factor values
-                factor_vals_oos = self._compute_factor_qlib(
-                    c["expression"], full_universe, self.config.test_start, test_end,
-                )
+                    c["report_card"] = rc.to_dict()
 
-                # Daily IC series
-                daily_ics_is = self._compute_daily_ics(factor_vals_is, returns_is, aux_data=aux_is)
-                daily_ics_oos = self._compute_daily_ics(factor_vals_oos, returns_oos, aux_data=aux_oos)
+                    # Backward-compatible stage3 dict
+                    c["stage3"] = {
+                        "ic_mean_is": rc.ic_mean,
+                        "ic_ir_is": rc.ic_ir,
+                        "ic_mean_oos": rc.ic_mean_oos,
+                        "ic_ir_oos": rc.ic_ir_oos,
+                        "ic_win_rate": rc.ic_win_rate,
+                        "quantile_returns": rc.quantile_returns_is,
+                        "ls_return": rc.ls_return,
+                        "monotonicity": rc.monotonicity_is,
+                    }
 
-                # Multi-horizon daily ICs for decay
-                daily_ics_by_horizon: Dict[int, pd.Series] = {}
-                for h, ret_h in returns_multi.items():
-                    daily_ics_by_horizon[h] = self._compute_daily_ics(
-                        factor_vals_is, ret_h, aux_data=aux_is,
-                    )
+                    # Transient values for publisher (not saved to YAML)
+                    c["_factor_values"] = factor_vals_is
+                    c["_factor_values_oos"] = factor_vals_oos
 
-                # Build report card
-                rc = compute_report_card(
-                    daily_ics_is=daily_ics_is,
-                    daily_ics_oos=daily_ics_oos,
-                    factor_vals_is=factor_vals_is,
-                    factor_vals_oos=factor_vals_oos,
-                    returns_is=returns_is,
-                    returns_oos=returns_oos,
-                    daily_ics_by_horizon=daily_ics_by_horizon,
-                    lib_values=self._lib_values_cache,
-                    lib_corr_profile=c.get("_lib_correlations", {}),
-                    stage2_info=c.get("stage2", {}),
-                    expression_depth=self._max_expression_depth(c["expression"]),
-                )
-
-                c["report_card"] = rc.to_dict()
-
-                # Backward-compatible stage3 dict
-                c["stage3"] = {
-                    "ic_mean_is": rc.ic_mean,
-                    "ic_ir_is": rc.ic_ir,
-                    "ic_mean_oos": rc.ic_mean_oos,
-                    "ic_ir_oos": rc.ic_ir_oos,
-                    "ic_win_rate": rc.ic_win_rate,
-                    "quantile_returns": rc.quantile_returns_is,
-                    "ls_return": rc.ls_return,
-                    "monotonicity": rc.monotonicity_is,
-                }
-
-                # Transient values for publisher (not saved to YAML)
-                c["_factor_values"] = factor_vals_is
-                c["_factor_values_oos"] = factor_vals_oos
-
-                screened.append(c)
-            except Exception as e:
-                c["stage3"] = {"error": str(e)}
-                c["report_card"] = {"error": str(e)}
-                errors.append(c)
-                logger.warning("Stage 3 error for %s: %s", c.get("name"), e)
+                    screened.append(c)
+                except Exception as e:
+                    c["stage3"] = {"error": str(e)}
+                    c["report_card"] = {"error": str(e)}
+                    errors.append(c)
+                    logger.warning("Stage 3 error for %s: %s", c.get("name"), e)
 
         return screened, errors
 

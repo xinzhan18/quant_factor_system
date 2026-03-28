@@ -41,7 +41,10 @@ def main():
     from qlib.data import D
     from mining.config import MiningConfig, SystemConfig
     from mining.library import FactorLibrary
+    from mining.operators import register_custom_operators
     from mining.publisher import FactorPublisher
+
+    register_custom_operators()
 
     system = SystemConfig(qlib_data_dir=args.qlib_dir)
     config = MiningConfig(
