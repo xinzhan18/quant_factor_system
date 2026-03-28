@@ -7,7 +7,7 @@ parent_factor: null
 attempts: 0
 best_ic: null
 last_batch: null
-priority: high
+priority: none
 created: '2026-03-28'
 ---
 
