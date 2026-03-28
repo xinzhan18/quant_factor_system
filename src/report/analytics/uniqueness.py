@@ -12,6 +12,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.stats import spearmanr
 
+from core.factor_stats import (
+    incremental_ic as _shared_incremental_ic,
+    pairwise_cross_sectional_corr as _shared_pairwise_corr,
+)
 from report.charts.theme import apply_theme, COLORS
 
 
@@ -91,22 +95,9 @@ class UniquenessAnalyzer:
     def _cross_sectional_corr(self, df_a: pd.DataFrame, df_b: pd.DataFrame) -> float | None:
         """Average cross-sectional Spearman rank correlation between two factor DFs.
 
-        Args:
-            df_a: Factor A with columns [time, symbol, value].
-            df_b: Factor B with columns [time, symbol, value].
-
-        Returns:
-            Mean daily cross-sectional Spearman correlation, or None if insufficient data.
+        Delegates to core.factor_stats.pairwise_cross_sectional_corr.
         """
-        merged = df_a.merge(df_b, on=["time", "symbol"], suffixes=("_a", "_b"))
-        if len(merged) < 100:
-            return None
-        daily_corrs = []
-        for _, group in merged.groupby("time"):
-            if len(group) >= 30:
-                corr, _ = spearmanr(group["value_a"], group["value_b"])
-                daily_corrs.append(corr)
-        return float(np.mean(daily_corrs)) if daily_corrs else None
+        return _shared_pairwise_corr(df_a, df_b, min_obs=30)
 
     def _compute_incremental_ic(
         self,
@@ -116,65 +107,14 @@ class UniquenessAnalyzer:
     ) -> tuple[float | None, float | None]:
         """Compute IC of residuals after removing library factor exposures.
 
-        For each date, regress target factor values on all library factor values
-        (cross-sectional OLS via np.linalg.lstsq), then compute Spearman correlation
-        of residuals vs future_return.
-
-        Args:
-            target_df: Target factor [time, symbol, value].
-            library_factors: Library factor DataFrames.
-            merged_df: DataFrame with [time, symbol, future_return].
-
-        Returns:
-            Tuple of (incremental_ic_mean, incremental_icir), or (None, None).
+        Delegates to core.factor_stats.incremental_ic.
         """
-        target = target_df.rename(columns={"value": "target"})
-        daily_residual_ics = []
-
-        for date, group in merged_df.groupby("time"):
-            date_target = target[target["time"] == date][["symbol", "target"]]
-            lib_vals = date_target[["symbol"]].copy()
-
-            for fid, fdf in library_factors.items():
-                fdate = fdf[fdf["time"] == date][["symbol", "value"]].rename(
-                    columns={"value": fid}
-                )
-                lib_vals = lib_vals.merge(fdate, on="symbol", how="inner")
-
-            if len(lib_vals) < 30:
-                continue
-
-            lib_cols = [c for c in lib_vals.columns if c != "symbol"]
-            if not lib_cols:
-                continue
-
-            date_merged = date_target.merge(lib_vals, on="symbol")
-            date_merged = date_merged.merge(
-                group[["symbol", "future_return"]].drop_duplicates(), on="symbol"
-            )
-
-            if len(date_merged) < 30:
-                continue
-
-            X = date_merged[lib_cols].values
-            y = date_merged["target"].values
-
-            try:
-                coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-                residual = y - X @ coeffs
-                corr, _ = spearmanr(residual, date_merged["future_return"].values)
-                daily_residual_ics.append(corr)
-            except (np.linalg.LinAlgError, ValueError):
-                continue
-
-        if not daily_residual_ics:
-            return None, None
-
-        ics = np.array(daily_residual_ics)
-        ic_mean = float(np.mean(ics))
-        ic_std = float(np.std(ics))
-        icir = float(ic_mean / ic_std) if ic_std > 0 else 0.0
-        return ic_mean, icir
+        returns_df = merged_df[["time", "symbol", "future_return"]].rename(
+            columns={"future_return": "value"},
+        ).drop_duplicates()
+        return _shared_incremental_ic(
+            target_df, returns_df, library_factors, min_obs=30,
+        )
 
     # ------------------------------------------------------------------
     # Chart generation

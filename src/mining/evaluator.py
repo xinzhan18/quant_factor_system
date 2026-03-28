@@ -12,6 +12,13 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from core.metrics import ic_summary_from_series
+from core.factor_stats import (
+    daily_cross_sectional_ic as _shared_daily_ic,
+    ic_summary as _shared_ic_summary,
+    multiindex_to_flat,
+    pairwise_cross_sectional_corr as _shared_pairwise_corr,
+    quintile_returns as _shared_quintile_returns,
+)
 from .config import MiningConfig
 from .expression import ExpressionValidator
 from .metrics import FactorReportCard, compute_report_card
@@ -158,62 +165,41 @@ class FactorMiningEvaluator:
         """Compute daily cross-sectional Spearman IC.
 
         Returns a pd.Series with DatetimeIndex for easy groupby year/month/quarter.
+        Delegates to core.factor_stats.daily_cross_sectional_ic after converting
+        MultiIndex DataFrames to flat format.
         """
         if aux_data:
             factor_values, returns = self._preprocessor.preprocess_for_ic(
                 factor=factor_values, returns=returns, **aux_data,
             )
-        factor_col = factor_values.columns[0]
-        returns_col = returns.columns[0]
-        merged = factor_values.join(returns, how="inner").dropna()
-        if merged.empty:
-            return pd.Series(dtype=float)
-        records = []
-        for dt, group in merged.groupby(level="datetime"):
-            if len(group) < 3:
-                continue
-            if group[factor_col].nunique() < 2 or group[returns_col].nunique() < 2:
-                continue
-            ic, _ = spearmanr(group[factor_col], group[returns_col])
-            if not np.isnan(ic):
-                records.append((dt, float(ic)))
-        if not records:
-            return pd.Series(dtype=float)
-        dates, ics = zip(*records)
-        return pd.Series(ics, index=pd.DatetimeIndex(dates), dtype=float)
+        flat_factor = multiindex_to_flat(factor_values)
+        flat_returns = multiindex_to_flat(returns)
+        return _shared_daily_ic(flat_factor, flat_returns, method="spearman", min_obs=3)
 
     def _compute_ic_from_frames(
         self, factor_values: pd.DataFrame, returns: pd.DataFrame,
         aux_data: Optional[Dict[str, pd.DataFrame]] = None,
     ) -> Dict[str, Any]:
-        """Compute IC summary stats. Backward-compatible wrapper around _compute_daily_ics."""
+        """Compute IC summary stats. Delegates to shared functions."""
         daily_ics = self._compute_daily_ics(factor_values, returns, aux_data)
         if daily_ics.empty:
             return {"ic_mean": np.nan, "ic_std": np.nan, "ic_ir": np.nan,
                     "ic_win_rate": np.nan, "n_days": 0}
-        summary = ic_summary_from_series(daily_ics)
+        summary = _shared_ic_summary(daily_ics)
         summary["n_days"] = len(daily_ics)
         return summary
 
     # ──────────────────── Correlation ────────────────────
 
     def _pairwise_correlation(self, a: pd.DataFrame, b: pd.DataFrame) -> float:
-        a_col, b_col = a.columns[0], b.columns[0]
-        merged = a.join(b, how="inner", lsuffix="_a", rsuffix="_b").dropna()
-        if merged.empty:
-            return 0.0
-        if a_col == b_col:
-            col_a, col_b = f"{a_col}_a", f"{b_col}_b"
-        else:
-            col_a, col_b = a_col, b_col
-        corrs = []
-        for _, group in merged.groupby(level="datetime"):
-            if len(group) < 3:
-                continue
-            rho, _ = spearmanr(group[col_a], group[col_b])
-            if not np.isnan(rho):
-                corrs.append(rho)
-        return float(np.mean(corrs)) if corrs else 0.0
+        """Average daily cross-sectional Spearman correlation.
+
+        Delegates to core.factor_stats.pairwise_cross_sectional_corr.
+        """
+        flat_a = multiindex_to_flat(a)
+        flat_b = multiindex_to_flat(b)
+        result = _shared_pairwise_corr(flat_a, flat_b, min_obs=3)
+        return result if result is not None else 0.0
 
     # ──────────────────── Universe ────────────────────
 
@@ -541,23 +527,13 @@ class FactorMiningEvaluator:
     def _compute_quantile_returns(self, factor_values: pd.DataFrame,
                                    returns: pd.DataFrame,
                                    n_quantiles: int = 5) -> Dict[str, float]:
-        """Legacy quantile returns (used by external callers if any)."""
-        factor_col = factor_values.columns[0]
-        returns_col = returns.columns[0]
-        merged = factor_values.join(returns, how="inner").dropna()
-        if merged.empty:
-            return {f"q{i + 1}": np.nan for i in range(n_quantiles)}
-        result = {}
-        for _, group in merged.groupby(level="datetime"):
-            if len(group) < n_quantiles:
-                continue
-            group = group.copy()
-            group["quantile"] = pd.qcut(group[factor_col], n_quantiles,
-                                         labels=False, duplicates="drop")
-            for q in range(n_quantiles):
-                q_ret = group.loc[group["quantile"] == q, returns_col].mean()
-                result.setdefault(f"q{q + 1}", []).append(q_ret)
-        return {k: float(np.nanmean(v)) if v else np.nan for k, v in result.items()}
+        """Legacy quantile returns. Delegates to core.factor_stats."""
+        flat_factor = multiindex_to_flat(factor_values)
+        flat_returns = multiindex_to_flat(returns)
+        q_rets, _ = _shared_quintile_returns(
+            flat_factor, flat_returns, n_quantiles=n_quantiles, min_obs=n_quantiles,
+        )
+        return q_rets
 
     # ──────────────────── Probe: Lightweight Single-Expression IC ────────────────────
 

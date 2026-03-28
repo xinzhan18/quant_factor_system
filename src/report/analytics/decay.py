@@ -14,6 +14,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.stats import spearmanr, skew, kurtosis
 
+from core.factor_stats import (
+    distribution_stats as _shared_distribution_stats,
+    factor_autocorrelation as _shared_factor_autocorrelation,
+)
 from report.charts.theme import COLORS, apply_theme
 
 
@@ -128,7 +132,12 @@ class DecayAnalyzer:
 
     @staticmethod
     def _compute_half_life(ic_by_period: list[dict]) -> int | None:
-        """First period where ratio <= 0.5, or None."""
+        """First period where ratio <= 0.5, or None.
+
+        Note: This uses ratio-based half-life (report-specific), distinct from
+        the interpolation-based estimate_half_life in core.factor_stats which
+        is used by mining/metrics.py.
+        """
         for entry in ic_by_period:
             if entry["ratio"] <= 0.5:
                 return entry["days"]
@@ -153,57 +162,16 @@ class DecayAnalyzer:
     # ------------------------------------------------------------------
 
     def _compute_autocorrelation(self, factor_df: pd.DataFrame) -> list[dict]:
-        """Cross-sectional Spearman correlation between factor at t and t-lag."""
-        # Use sorted list of Timestamps for consistent type matching
-        unique_dates = sorted(factor_df["time"].unique())
-        # Build a date-indexed dict for fast lookup (keys are Timestamps)
-        date_groups = {
-            pd.Timestamp(d): g
-            for d, g in factor_df.groupby("time")
-        }
+        """Cross-sectional Spearman correlation between factor at t and t-lag.
 
-        result = []
-        for lag in self.AUTOCORR_LAGS:
-            if lag >= len(unique_dates):
-                continue
-
-            eligible_indices = list(range(lag, len(unique_dates)))
-            # Sample up to MAX_AUTOCORR_DATES
-            if len(eligible_indices) > self.MAX_AUTOCORR_DATES:
-                rng = np.random.RandomState(42)
-                eligible_indices = list(
-                    rng.choice(
-                        eligible_indices,
-                        self.MAX_AUTOCORR_DATES,
-                        replace=False,
-                    )
-                )
-
-            corrs = []
-            for idx in eligible_indices:
-                date = pd.Timestamp(unique_dates[idx])
-                prev_date = pd.Timestamp(unique_dates[idx - lag])
-
-                curr_group = date_groups.get(date)
-                prev_group = date_groups.get(prev_date)
-                if curr_group is None or prev_group is None:
-                    continue
-
-                curr = curr_group.set_index("symbol")["value"]
-                prev = prev_group.set_index("symbol")["value"]
-                common = curr.index.intersection(prev.index)
-                if len(common) > 10:
-                    c = _spearman_corr(curr[common], prev[common])
-                    if not np.isnan(c):
-                        corrs.append(c)
-
-            if corrs:
-                result.append({
-                    "lag": lag,
-                    "corr": round(float(np.mean(corrs)), 4),
-                })
-
-        return result
+        Delegates to core.factor_stats.factor_autocorrelation.
+        """
+        return _shared_factor_autocorrelation(
+            factor_df,
+            lags=list(self.AUTOCORR_LAGS),
+            min_obs=10,
+            max_dates=self.MAX_AUTOCORR_DATES,
+        )
 
     # ------------------------------------------------------------------
     # Distribution (absorbed from DistributionAnalyzer)
@@ -225,30 +193,11 @@ class DecayAnalyzer:
 
     @staticmethod
     def _dist_stats(df: pd.DataFrame) -> dict:
-        """Compute mean, std, skew, kurtosis, coverage, nan_ratio."""
-        vals = df["value"]
-        total = len(vals)
-        non_nan = vals.dropna()
+        """Compute mean, std, skew, kurtosis, coverage, nan_ratio.
 
-        if len(non_nan) < 10:
-            return {
-                "mean": 0.0,
-                "std": 0.0,
-                "skew": 0.0,
-                "kurtosis": 0.0,
-                "coverage": 0.0,
-                "nan_ratio": 1.0,
-            }
-
-        nan_ratio = 1 - len(non_nan) / total if total > 0 else 1.0
-        return {
-            "mean": round(float(non_nan.mean()), 6),
-            "std": round(float(non_nan.std()), 6),
-            "skew": round(float(skew(non_nan)), 4),
-            "kurtosis": round(float(kurtosis(non_nan)), 4),
-            "coverage": round(1 - nan_ratio, 4),
-            "nan_ratio": round(nan_ratio, 4),
-        }
+        Delegates to core.factor_stats.distribution_stats.
+        """
+        return _shared_distribution_stats(df)
 
     # ------------------------------------------------------------------
     # Chart Generation

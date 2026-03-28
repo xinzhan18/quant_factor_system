@@ -15,6 +15,11 @@ from plotly.subplots import make_subplots
 from scipy.stats import spearmanr, pearsonr, ttest_1samp
 from typing import Dict, List
 
+from core.factor_stats import (
+    daily_cross_sectional_ic as _shared_daily_ic,
+    ic_by_year as _shared_ic_by_year,
+    ic_summary as _shared_ic_summary,
+)
 from report.charts.theme import apply_theme, COLORS
 
 
@@ -90,6 +95,8 @@ class ICAnalyzer:
     def _compute_daily_ic(self, grouped, method: str = "spearman") -> pd.Series:
         """Compute daily cross-sectional IC (Spearman or Pearson).
 
+        Delegates to core.factor_stats.daily_cross_sectional_ic.
+
         Args:
             grouped: merged_df.groupby("time")
             method: "spearman" or "pearson"
@@ -97,23 +104,19 @@ class ICAnalyzer:
         Returns:
             pd.Series with date index and IC values.
         """
-        results = []
-        for date, group in grouped:
-            if len(group) < 30:
-                continue
-            if method == "spearman":
-                corr, _ = spearmanr(group["value"], group["future_return"])
-            else:
-                corr, _ = pearsonr(group["value"], group["future_return"])
-            results.append({"date": date, "ic": corr})
-        if not results:
-            return pd.Series(dtype=float, name="ic")
-        df = pd.DataFrame(results).set_index("date")["ic"]
-        df.index = pd.to_datetime(df.index)
-        return df
+        # Reconstruct the merged_df from the groupby object
+        merged_df = grouped.obj
+        factor_df = merged_df[["time", "symbol", "value"]].copy()
+        returns_df = merged_df[["time", "symbol", "future_return"]].rename(
+            columns={"future_return": "value"},
+        ).copy()
+        return _shared_daily_ic(factor_df, returns_df, method=method, min_obs=30)
 
     def _compute_summary(self, daily_ic_series: pd.Series, prefix: str = "rank_ic") -> dict:
         """Compute summary statistics for a daily IC series.
+
+        Delegates core stats to core.factor_stats.ic_summary, then adds
+        report-specific fields (significant_rate, t_stat, p_value).
 
         Args:
             daily_ic_series: Series of daily IC values.
@@ -123,15 +126,23 @@ class ICAnalyzer:
             dict with summary statistics.
         """
         ic = daily_ic_series.dropna()
+        shared = _shared_ic_summary(ic)
+
         if len(ic) > 1:
             t_stat, p_value = ttest_1samp(ic, 0)
         else:
             t_stat, p_value = 0.0, 1.0
+
+        ic_mean = shared["ic_mean"] if not np.isnan(shared["ic_mean"]) else 0.0
+        ic_std = shared["ic_std"] if not np.isnan(shared["ic_std"]) else 0.0
+        icir = shared["ic_ir"] if not np.isnan(shared.get("ic_ir", np.nan)) else 0.0
+        win_rate = shared["ic_win_rate"] if not np.isnan(shared["ic_win_rate"]) else 0.0
+
         return {
-            f"{prefix}_mean": float(ic.mean()) if len(ic) > 0 else 0.0,
-            f"{prefix}_std": float(ic.std()) if len(ic) > 0 else 0.0,
-            "icir": float(ic.mean() / ic.std()) if len(ic) > 0 and ic.std() > 0 else 0.0,
-            "win_rate": float((ic > 0).mean()) if len(ic) > 0 else 0.0,
+            f"{prefix}_mean": float(ic_mean),
+            f"{prefix}_std": float(ic_std),
+            "icir": float(icir),
+            "win_rate": float(win_rate),
             "significant_rate": float((ic.abs() > 0.02).mean()) if len(ic) > 0 else 0.0,
             "t_stat": float(t_stat),
             "p_value": float(p_value),
@@ -140,6 +151,9 @@ class ICAnalyzer:
 
     def _compute_annual(self, daily_ic: pd.Series) -> list:
         """Compute annual IC breakdown.
+
+        Uses core.factor_stats.ic_by_year for the per-year means, then
+        adds icir and win_rate per year.
 
         Args:
             daily_ic: Date-indexed Series of daily rank IC.

@@ -10,6 +10,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.stats import spearmanr
 
+from core.factor_stats import (
+    daily_cross_sectional_ic as _shared_daily_ic,
+    ic_summary as _shared_ic_summary,
+)
 from report.charts.theme import apply_theme, COLORS
 
 
@@ -120,35 +124,30 @@ class ConditionalAnalyzer:
     def _compute_daily_ic(self, merged_df: pd.DataFrame) -> pd.Series:
         """Compute daily cross-sectional Spearman IC.
 
+        Delegates to core.factor_stats.daily_cross_sectional_ic.
+
         Returns:
             pd.Series with date index and IC values.
         """
-        results = []
-        for date, group in merged_df.groupby("time"):
-            if len(group) < 30:
-                continue
-            corr, _ = spearmanr(group["value"], group["future_return"])
-            if np.isfinite(corr):
-                results.append({"date": date, "ic": corr})
-        if not results:
-            return pd.Series(dtype=float, name="ic")
-        df = pd.DataFrame(results).set_index("date")["ic"]
-        df.index = pd.to_datetime(df.index)
-        return df
+        factor_df = merged_df[["time", "symbol", "value"]].copy()
+        returns_df = merged_df[["time", "symbol", "future_return"]].rename(
+            columns={"future_return": "value"},
+        ).copy()
+        return _shared_daily_ic(factor_df, returns_df, method="spearman", min_obs=30)
 
     @staticmethod
     def _summarize_ic(ic_series: pd.Series) -> dict:
-        """Summarize an IC series into {ic, icir, n_days}."""
-        ic = ic_series.dropna()
-        n = len(ic)
-        if n == 0:
-            return {"ic": 0.0, "icir": 0.0, "n_days": 0}
-        mean_ic = float(ic.mean())
-        std_ic = float(ic.std()) if n > 1 else 0.0
-        icir = mean_ic / std_ic if std_ic > 0 else 0.0
+        """Summarize an IC series into {ic, icir, n_days}.
+
+        Delegates core computation to core.factor_stats.ic_summary.
+        """
+        shared = _shared_ic_summary(ic_series)
+        ic_mean = shared["ic_mean"] if not np.isnan(shared["ic_mean"]) else 0.0
+        icir = shared["ic_ir"] if not np.isnan(shared.get("ic_ir", np.nan)) else 0.0
+        n = len(ic_series.dropna())
         return {
-            "ic": round(mean_ic, 6),
-            "icir": round(icir, 4),
+            "ic": round(float(ic_mean), 6),
+            "icir": round(float(icir), 4),
             "n_days": n,
         }
 
