@@ -3,6 +3,7 @@ from .groups import GroupReturnsAnalyzer
 from .decay import DecayAnalyzer
 from .distribution import DistributionAnalyzer
 from .conditional import ConditionalAnalyzer
+from .uniqueness import UniquenessAnalyzer
 
 __all__ = [
     "ICAnalyzer",
@@ -10,4 +11,5 @@ __all__ = [
     "DecayAnalyzer",
     "DistributionAnalyzer",
     "ConditionalAnalyzer",
+    "UniquenessAnalyzer",
 ]
