@@ -117,18 +117,18 @@ storage/memory/mining-lessons.md
 
 ## 第4步：Probe — 探针验证
 
-对所有候选方向的探针表达式**并行运行**轻量评估（全量股票，2024年数据，只算IC）：
+对所有候选方向的探针表达式**并行运行**轻量评估（全量股票，2024年数据，只算IC）。
 
-```bash
-# 并行运行所有探针，每个约15秒，总共约15-20秒
-PYTHONPATH=src python3 -m mining probe "探针表达式1" --start 2024-01-01 --end 2024-12-31 &
-PYTHONPATH=src python3 -m mining probe "探针表达式2" --start 2024-01-01 --end 2024-12-31 &
-PYTHONPATH=src python3 -m mining probe "探针表达式3" --start 2024-01-01 --end 2024-12-31 &
-# ... 所有探针
-wait
+**执行方式**：使用 Bash 工具的 `run_in_background` 参数，同时启动所有探针���在一条消息中发出所有 Bash 调用：
+
+```
+Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式1' --start 2024-01-01 --end 2024-12-31", run_in_background=true)
+Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式2' --start 2024-01-01 --end 2024-12-31", run_in_background=true)
+Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式3' --start 2024-01-01 --end 2024-12-31", run_in_background=true)
+... 所有探针同时启动
 ```
 
-**并行说明**：每个探针是独立进程，读取相同的 Qlib 数据但互不干扰。用 `&` 后台运行 + `wait` 等待全部完成。
+每个探针约 15 秒，全��并行总共约 15-20 秒。完成后系统会自动通知结果。收集所有结果后继续下一���。
 
 打印探针结果：
 ```
