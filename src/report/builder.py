@@ -60,7 +60,7 @@ class ReportDataBuilder:
 
         # ---- Load data ----
         meta = self._load_factor_metadata()
-        factor_df, price_df = self._load_data_from_db()
+        factor_df, price_df = self._load_data_from_db(meta["expression"])
         library_factors = self._load_library_factors()
 
         split_date = pd.Timestamp(self.config.test_start)
@@ -179,51 +179,93 @@ class ReportDataBuilder:
         """Remove keys starting with '_' (internal data not for serialization)."""
         return {k: v for k, v in result.items() if not k.startswith("_")}
 
+    # ---- Qlib Initialization ----
+
+    def _ensure_qlib_initialized(self):
+        """Initialize Qlib and register custom operators if not already done."""
+        import qlib
+        if not getattr(qlib, "_is_initialized", False):
+            qlib.init(provider_uri=os.path.expanduser(self.config.qlib_data_dir))
+        from qlib.config import C
+        C.kernels = 1
+        try:
+            from mining.operators import register_custom_operators
+            register_custom_operators()
+        except ImportError:
+            pass
+
     # ---- Data Loading (IO boundary) ----
 
     def _load_factor_metadata(self) -> dict:
-        import yaml
-        path = os.path.join(
-            self.config.library_dir, "factors", f"factor_{self.factor_id}.yaml",
-        )
-        with open(path) as f:
-            meta = yaml.safe_load(f)
-        return {
-            "id": meta["id"],
-            "name": meta["name"],
-            "expression": meta["expression"],
-            "category": meta.get("category", "other"),
-            "batch": meta.get("batch", ""),
-            "admitted_at": str(meta.get("admitted_at", "")),
-        }
-
-    def _load_data_from_db(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Load factor values and price data from DB as flat DataFrames.
-
-        Returns:
-            Tuple of (factor_df[time, symbol, value], price_df[time, symbol, close]).
-        """
+        """Load factor metadata from factor_meta DB table."""
         import psycopg2
         try:
             conn = psycopg2.connect(self.config.system.database.connection_string)
         except psycopg2.Error as exc:
             raise RuntimeError(f"Failed to connect to database: {exc}") from exc
         try:
-            fv_sql = (
-                "SELECT symbol, trade_date AS time, value "
-                "FROM mining_factor_values "
-                "WHERE factor_id = %s ORDER BY trade_date, symbol"
+            sql = (
+                "SELECT factor_id, name, expression, category, batch_id, admitted_at "
+                "FROM factor_meta WHERE factor_id = %s"
             )
-            factor_df = pd.read_sql(fv_sql, conn, params=[self.factor_id])
-            if factor_df.empty:
+            with conn.cursor() as cur:
+                cur.execute(sql, (self.factor_id,))
+                row = cur.fetchone()
+            if row is None:
                 raise ValueError(
-                    f"No factor data found in DB for factor_id={self.factor_id!r}"
+                    f"Factor {self.factor_id!r} not found in factor_meta table"
                 )
-            factor_df["time"] = pd.to_datetime(factor_df["time"])
+            return {
+                "id": row[0],
+                "name": row[1],
+                "expression": row[2],
+                "category": row[3] or "other",
+                "batch": row[4] or "",
+                "admitted_at": str(row[5] or ""),
+            }
+        finally:
+            conn.close()
 
+    def _load_data_from_db(self, expression: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Compute factor values via Qlib and load price data from DB.
+
+        Args:
+            expression: Qlib expression string for the factor.
+
+        Returns:
+            Tuple of (factor_df[time, symbol, value], price_df[time, symbol, close]).
+        """
+        self._ensure_qlib_initialized()
+        from qlib.data import D
+
+        instruments = D.instruments("all")
+        start = self.config.train_start
+        end = self.config.test_end
+
+        factor_qlib = D.features(
+            instruments=instruments,
+            fields=[expression],
+            start_time=start,
+            end_time=end,
+        )
+        if factor_qlib.empty:
+            raise ValueError(f"Qlib returned no data for expression={expression!r}")
+
+        # Flatten MultiIndex (instrument, datetime) -> [time, symbol, value]
+        factor_df = factor_qlib.iloc[:, [0]].reset_index()
+        factor_df.columns = ["symbol", "time", "value"]
+        factor_df = factor_df[["time", "symbol", "value"]]
+        factor_df["time"] = pd.to_datetime(factor_df["time"])
+        factor_df = factor_df.dropna(subset=["value"])
+
+        # Load price data from market_daily
+        import psycopg2
+        try:
+            conn = psycopg2.connect(self.config.system.database.connection_string)
+        except psycopg2.Error as exc:
+            raise RuntimeError(f"Failed to connect to database: {exc}") from exc
+        try:
             symbols = factor_df["symbol"].unique().tolist()
-            start = factor_df["time"].min()
-            end = factor_df["time"].max()
             price_sql = (
                 "SELECT symbol, time, close FROM market_daily "
                 "WHERE symbol = ANY(%s) AND time BETWEEN %s AND %s"
@@ -231,8 +273,7 @@ class ReportDataBuilder:
             price_df = pd.read_sql(price_sql, conn, params=[symbols, start, end])
             if price_df.empty:
                 raise ValueError(
-                    f"No price data found in DB for factor_id={self.factor_id!r} "
-                    f"(symbols={len(symbols)}, {start} - {end})"
+                    f"No price data for {len(symbols)} symbols in {start}..{end}"
                 )
             price_df["time"] = pd.to_datetime(price_df["time"])
             return factor_df, price_df
@@ -240,46 +281,59 @@ class ReportDataBuilder:
             conn.close()
 
     def _load_library_factors(self) -> dict[str, pd.DataFrame]:
-        """Load factor values for all library members (except self) from DB.
+        """Load factor values for admitted library members (except self) via Qlib.
 
         Returns:
             Dict mapping factor_id -> DataFrame[time, symbol, value].
         """
-        import yaml
-        lib_path = os.path.join(self.config.library_dir, "library.yaml")
-        try:
-            with open(lib_path) as f:
-                lib = yaml.safe_load(f)
-        except FileNotFoundError:
-            return {}
-        if lib is None:
-            return {}
-        factors = lib.get("factors", [])
-        other_ids = [f["id"] for f in factors if f["id"] != self.factor_id]
-        if not other_ids:
-            return {}
-
         import psycopg2
         try:
             conn = psycopg2.connect(self.config.system.database.connection_string)
         except psycopg2.Error as exc:
-            logger.warning("Failed to load library factors: %s", exc)
+            logger.warning("Failed to connect to DB for library factors: %s", exc)
             return {}
         try:
-            result = {}
-            for fid in other_ids:
-                sql = (
-                    "SELECT symbol, trade_date AS time, value "
-                    "FROM mining_factor_values "
-                    "WHERE factor_id = %s ORDER BY trade_date, symbol"
-                )
-                df = pd.read_sql(sql, conn, params=[fid])
-                if not df.empty:
-                    df["time"] = pd.to_datetime(df["time"])
-                    result[fid] = df
-            return result
+            sql = (
+                "SELECT factor_id, expression FROM factor_meta "
+                "WHERE factor_id != %s AND status = 'admitted'"
+            )
+            with conn.cursor() as cur:
+                cur.execute(sql, (self.factor_id,))
+                rows = cur.fetchall()
+        except Exception as exc:
+            logger.warning("Failed to query library factors: %s", exc)
+            return {}
         finally:
             conn.close()
+
+        if not rows:
+            return {}
+
+        self._ensure_qlib_initialized()
+        from qlib.data import D
+
+        instruments = D.instruments("all")
+        start = self.config.train_start
+        end = self.config.test_end
+        result = {}
+        for fid, expr in rows:
+            try:
+                qlib_df = D.features(
+                    instruments=instruments,
+                    fields=[expr],
+                    start_time=start,
+                    end_time=end,
+                )
+                if not qlib_df.empty:
+                    df = qlib_df.iloc[:, [0]].reset_index()
+                    df.columns = ["symbol", "time", "value"]
+                    df = df[["time", "symbol", "value"]]
+                    df["time"] = pd.to_datetime(df["time"])
+                    df = df.dropna(subset=["value"])
+                    result[fid] = df
+            except Exception as exc:
+                logger.warning("Failed to compute library factor %s: %s", fid, exc)
+        return result
 
     # ---- Chart output (PNG for vault, HTML for legacy) ----
 
@@ -341,12 +395,17 @@ class ReportDataBuilder:
 def main():
     parser = argparse.ArgumentParser(description="Build factor report data")
     parser.add_argument("--factor-id", required=True)
+    parser.add_argument("--qlib-dir", default=None, help="Qlib data directory")
     parser.add_argument("--output-dir", default=None, help="Legacy HTML mode output dir")
     parser.add_argument("--vault", action="store_true", help="Vault mode: export PNGs + JSON")
     parser.add_argument("--vault-dir", default="storage/vault", help="Vault root directory")
     args = parser.parse_args()
 
-    builder = ReportDataBuilder(args.factor_id)
+    config = MiningConfig()
+    if args.qlib_dir:
+        config.system.qlib_data_dir = args.qlib_dir
+
+    builder = ReportDataBuilder(args.factor_id, config=config)
     if args.vault:
         path = builder.save_for_vault(args.vault_dir)
     else:
