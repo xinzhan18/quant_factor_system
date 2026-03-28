@@ -1,16 +1,16 @@
 ---
 name: factor-mine
-description: 执行一轮完整的挖掘迭代（Strategy → Probe → Decide → Execute → Judge）
+description: 执行一轮完整的挖掘迭代（Strategy → Probe → Decide → Execute → Judge → Report）
 user_invocable: true
 ---
 
 # 因子挖掘 — Ralph Loop
 
-执行一轮完整的挖掘迭代：**创意 → 评估 → 审判**。每一步都是强制性的，不得跳过。
+执行一轮完整的挖掘迭代：**创意 → 评估 → 审判 → 报告**。每一步都是强制性的，不得跳过。
 
 可选参数：`/mine [探索方向]` — 指定方向时，Strategy 阶段优先围绕该方向发散。
 
-三个阶段也可独立调用：`/idea`、`/execute`、`/judge`。
+四个阶段也可独立调用：`/idea`、`/execute`、`/judge`、`/factor-report`。
 
 ---
 
@@ -39,9 +39,9 @@ user_invocable: true
 按 `factor-execute` skill 执行全部步骤：
 
 1. 找到刚生成的 `batch_XXX.yaml`
-2. 运行评估管道（**不加 `--admit`**）：
+2. 运行评估管道（**加 `--skip-stage1`，不加 `--admit`**）：
    ```bash
-   PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml
+   PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
    ```
 3. 等待完成，确认 `batch_XXX_result.yaml` 已生成
 4. 打印评估摘要
@@ -62,6 +62,20 @@ user_invocable: true
 6. 保存批次历史
 7. 验证记忆更新正确性
 
+## 阶段四：报告生成（/factor-report）
+
+**仅在本轮有因子被录取时执行。** 如果本轮 0 录取，跳过此阶段。
+
+按 `factor-report` skill 为每个**本轮新录取**的因子生成报告：
+
+1. 对每个新录取的 factor_id，运行：
+   ```bash
+   PYTHONPATH=src python3 -m report.builder --factor-id {id} --vault
+   ```
+2. 读取 `storage/vault/assets/F{id}/report_data.json`
+3. 用 Write 工具生成 Obsidian Markdown 报告到 `storage/vault/factors/`
+4. 更新总览页 `storage/vault/Factor Library.md`
+
 ---
 
 ## CLI 快速参考
@@ -79,9 +93,17 @@ PYTHONPATH=src python3 -m mining library
 # 查看挖掘记忆上下文
 PYTHONPATH=src python3 -m mining memory
 
-# 批次评估（不录取）
-PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml
+# 批次评估（跳过Stage1，不录取）
+PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
 
 # 批次评估 + 自动录取
-PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --admit
+PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1 --admit
+
+# 生成单因子报告
+PYTHONPATH=src python3 -m report.builder --factor-id 025 --vault
+
+# 生成所有因子报告
+for id in $(ls storage/library/factors/factor_*.yaml | sed 's/.*factor_//;s/.yaml//'); do
+  PYTHONPATH=src python3 -m report.builder --factor-id "$id" --vault
+done
 ```
