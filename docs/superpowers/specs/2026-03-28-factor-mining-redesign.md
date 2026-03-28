@@ -205,10 +205,19 @@ new → probing → active → exhausted → dead
 ```
 
 - `new` — just discovered from search/analysis, not yet validated
-- `probing` — probe is running
-- `active` — probe showed signal, worth continuing
+- `probing` — probe is running this round
+- `active` — probe showed signal (|IC| > 0.01), worth continuing
 - `exhausted` — paused after consecutive failures
 - `dead` — definitively no potential
+
+**Transition rules:**
+- `new` → `probing`: selected for probe in current round
+- `probing` → `active`: probe |IC| > 0.01
+- `probing` → `dead`: probe |IC| <= 0.01 (no signal at all)
+- `active` → `exhausted`: 2 consecutive rounds with 0 admissions and best IC < 0.02
+- `active` → `active`: any admission, or best IC > 0.02
+- `exhausted` → `dead`: 3 cumulative rounds with 0 admissions
+- `exhausted` → `active`: revival when new data source or fundamentally different approach is available
 
 ### directions.yaml (Index)
 
@@ -261,6 +270,8 @@ Domain saturation info removed — now tracked per-direction in direction files.
 - Direction-specific bans (e.g., "RSI-like constructions") → written into corresponding direction file body, status=dead
 - Generic engineering constraints (e.g., "unavailable operators") → stay in `mining-lessons.md`
 
+**Migration execution:** One-time manual script run before the first `/mine` invocation under the new system. Not automatic.
+
 **Deleted after migration:** `patterns.yaml`
 
 ## Skill Changes
@@ -278,7 +289,7 @@ Becomes Strategy + Probe + Decide. Steps:
 
 ### `/execute` (minimal change)
 
-No changes to the evaluation pipeline itself. Minor: add a lightweight "probe mode" to the CLI or evaluator that runs Stage 1 only with configurable universe/period, for the Probe phase to call.
+No changes to the evaluation pipeline itself. Add a `probe` CLI subcommand that runs Stage 1 only with configurable universe/period, for the Probe phase to call. This is simpler than truncating the evaluator internals — one process per probe expression, no new code path in the evaluator.
 
 ### `/judge` (moderate enhancement)
 
