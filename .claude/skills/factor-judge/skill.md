@@ -193,7 +193,15 @@ key_learnings:
 storage/memory/mining-lessons.md
 ```
 
-### 4h. 验证
+### 4h. 清理缓存
+
+删除 evaluate 阶段生成的 pickle 缓存文件（因子值已写入 DB，不再需要）：
+
+```bash
+rm -f storage/candidates/batch_XXX_values.pkl
+```
+
+### 4i. 验证
 
 更新后，重新读取 `directions.yaml` 并确认：
 - 状态流转正确
