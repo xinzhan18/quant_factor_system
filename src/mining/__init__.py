@@ -9,6 +9,11 @@ from .library import FactorLibrary
 from .memory import ExperienceMemory
 from .preprocessing import FactorPreprocessor
 from data.qlib_sync import DataSynchronizer
+from .ops_adapter import OpsAdapter
+from .sandbox import run_factor_in_sandbox, SandboxError
+from .evolution import EvolutionEngine
+from .scheduler import Scheduler
+from .logic_library import MarketLogicLibrary
 
 __all__ = [
     "MiningConfig",
@@ -20,4 +25,10 @@ __all__ = [
     "ExperienceMemory",
     "FactorPreprocessor",
     "DataSynchronizer",
+    "OpsAdapter",
+    "run_factor_in_sandbox",
+    "SandboxError",
+    "EvolutionEngine",
+    "Scheduler",
+    "MarketLogicLibrary",
 ]
