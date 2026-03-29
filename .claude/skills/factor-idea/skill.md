@@ -12,6 +12,25 @@ user_invocable: true
 
 扫描 `storage/candidates/` 目录，找到现有 `batch_XXX.yaml` 中最大的编号，+1 作为本批次编号。如果目录为空，从 `batch_001` 开始。
 
+## 第1.5步：Scheduler & Mode Selection
+
+在探索方向之前，先检查调度器和进化引擎的建议：
+
+```bash
+PYTHONPATH=src python3 -m mining logic schedule
+PYTHONPATH=src python3 -m mining logic coverage
+```
+
+如果调度器返回 "all scores non-positive"，说明所有逻辑已饱和，应运行 `/logic new`（外循环）而非继续内循环。
+
+基于因子库规模，决定生成模式配比：
+- 因子库 < 30: 60% genesis（从逻辑新生成），30% mutate，10% crossover
+- 因子库 30-60: 40% genesis，40% mutate，20% crossover
+- 因子库 60+: 20% genesis，50% mutate，30% crossover
+
+对 **mutate** 候选：从库中选高 IC 因子，修改其结构（替换算子、添加条件、改变组合方式）
+对 **crossover** 候选：选两个低相关、来自不同类别的因子，合并其信号逻辑
+
 ## 第2步：Strategy — 发散候选方向
 
 从三个知识通道收集候选方向。
@@ -51,6 +70,16 @@ storage/memory/mining-lessons.md
 - 哪些方向是 `exhausted` 或 `dead`（避开）
 - 因子库的覆盖空白（哪些类别因子少）
 - 上轮建议（next_round_hint）
+
+#### 扩展上下文（5 层提示组装）
+
+读取以下额外上下文源：
+1. **覆盖地图**: `PYTHONPATH=src python3 -m mining logic coverage` — 哪些类别探索不足
+2. **禁区**: `cat storage/memory/forbidden.yaml` — 应避免的模式
+3. **活跃逻辑**: `PYTHONPATH=src python3 -m mining logic list --status active` — 当前假设及其统计
+4. **谱系**: 检查哪些因子已被变异及结果
+
+综合所有 5 层信息决定下一步探索方向。
 
 ### 2b. 通道2：Web 搜索（可选）
 
@@ -182,6 +211,36 @@ candidates:
 ```
 
 注意新增 `direction` 字段 — 标记每个候选来自哪个方向，供 judge 阶段按方向聚合。
+
+每个候选**必须**包含 `logic_id` 字段，关联到 `storage/logic/` 中的市场逻辑。如果没有对应的逻辑，使用 `logic_id: legacy`。
+
+#### Python 因子候选
+
+对于需要条件逻辑、多状态或算法组合的复杂因子，使用 `type: python`：
+
+```yaml
+- name: conditional_vol_trend
+  type: python
+  source: python
+  logic_id: L003
+  params: {window: 20, vol_thresh: 0.8}
+  param_space: {window: [5, 60], vol_thresh: [0.5, 0.95]}
+  code: |
+    vol_regime = ops.cs_rank(ops.realized_vol(df["close"], params["window"]))
+    trend = ops.ts_decay(df["close"].pct_change(), 10)
+    high_vol = vol_regime > params["vol_thresh"]
+    result = trend.copy()
+    result[~high_vol] = -result[~high_vol]
+    return result
+  category: volatility
+  rationale: "High vol → trend following, low vol → mean reversion"
+```
+
+**Python 因子规则：**
+- 使用 `ops.*` 进行所有计算（ops.std, ops.cs_rank 等）— 不要使用原始 pandas rolling/groupby
+- `params` 字典声明参数值；`param_space` 声明 Optuna 搜索范围
+- LLM 只写代码体和 param_space — Optuna 优化实际参数值
+- 简单因子仍应使用 `type: dsl` — Python 仅用于需要 if/else、循环或多状态逻辑的情况
 
 ## 第7步：更新方向状态
 
