@@ -73,7 +73,9 @@ class TestContextPrompt:
     def test_compose_context(self, memory):
         context = memory.compose_search_context()
         assert isinstance(context, str)
-        assert "Test Pattern" in context
+        # compose_search_context no longer exposes patterns.yaml recommended_directions;
+        # it always includes the mining state section.
+        assert "## Current Mining State" in context
 
 
 class TestContextPromptExpanded:
@@ -163,3 +165,10 @@ class TestContextPromptExpanded:
         result = memory.compose_search_context()
         assert isinstance(result, str)
         assert "## Current Mining State" in result
+
+
+class TestGetLineageSummary:
+    def test_get_lineage_summary_empty(self, memory):
+        """With no library factors, returns empty string."""
+        result = memory.get_lineage_summary()
+        assert result == ""

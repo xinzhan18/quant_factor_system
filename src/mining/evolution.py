@@ -208,3 +208,29 @@ class EvolutionEngine:
                 lines.append(_label(fid))
 
         return "\n".join(lines) if lines else "(no factors)"
+
+    # ------------------------------------------------------------------
+    # Lineage statistics
+    # ------------------------------------------------------------------
+
+    def compute_lineage_stats(self, factors: list[dict]) -> dict[str, dict]:
+        """Compute per-factor mutation counts from lineage data.
+
+        Returns: {factor_id: {"mutation_count": N, "admitted": M}}
+        """
+        stats = {}
+        for f in factors:
+            fid = f.get("id", "")
+            stats[fid] = {"mutation_count": 0, "admitted": 0}
+
+        for f in factors:
+            lineage = f.get("lineage") or {}
+            parents = lineage.get("parents", [])
+            for pid in parents:
+                if pid in stats:
+                    stats[pid]["mutation_count"] += 1
+                    # If this child was admitted, count it
+                    if f.get("status", "active") == "active":
+                        stats[pid]["admitted"] += 1
+
+        return stats

@@ -128,7 +128,31 @@ class ExperienceMemory:
         except Exception:
             pass
 
+        # --- Section 6: Lineage summary ---
+        lineage_text = self.get_lineage_summary()
+        if lineage_text:
+            sections.append(f"## Factor Lineage Tree\n{lineage_text}")
+
         return "\n\n".join(s for s in sections if s)
+
+    def get_lineage_summary(self) -> str:
+        """Format lineage information from library for prompt context."""
+        try:
+            from mining.library import FactorLibrary
+            lib = FactorLibrary(self._config)
+            factors = lib.list_factors()
+
+            # Count factors with lineage
+            with_lineage = [f for f in factors if f.get("lineage")]
+            if not with_lineage:
+                return ""
+
+            from mining.evolution import EvolutionEngine
+            from mining.config import MiningConfig
+            engine = EvolutionEngine(MiningConfig())
+            return engine.format_lineage_tree(factors)
+        except Exception:
+            return ""
 
     def list_directions(self) -> List[Dict[str, Any]]:
         """Read directions.yaml index. Rebuilds from files if index missing."""
