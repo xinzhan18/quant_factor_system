@@ -14,6 +14,20 @@ user_invocable: true
 
 ---
 
+## 阶段零：Scheduler Pre-flight
+
+在启动挖掘循环之前，检查调度器是否建议执行外循环：
+
+```bash
+PYTHONPATH=src python3 -m mining logic schedule
+```
+
+如果**所有**逻辑分数为非正：
+- 告诉用户："所有市场逻辑已饱和。建议运行 `/logic new` 生成新的假设。"
+- 如果用户同意，运行 `/logic new` 代替 `/idea`
+
+如果存在正分数的逻辑，按正常流程继续 `/idea`。
+
 ## 阶段一：创意生成（/idea）
 
 按 `factor-idea` skill 执行全部步骤：
@@ -98,6 +112,11 @@ PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-
 
 # 批次评估 + 自动录取
 PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1 --admit
+
+# 市场逻辑管理（外循环）
+PYTHONPATH=src python3 -m mining logic list          # 列出所有逻辑
+PYTHONPATH=src python3 -m mining logic coverage       # 查看类别覆盖地图
+PYTHONPATH=src python3 -m mining logic schedule       # 调度器建议下一步
 
 # 生成单因子报告
 PYTHONPATH=src python3 -m report.builder --factor-id 025 --vault
