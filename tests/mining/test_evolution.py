@@ -247,3 +247,38 @@ class TestFormatLineageTree:
         assert len(lines) == 2
         for line in lines:
             assert not line.startswith(" "), f"Expected no indent for root, got: {line!r}"
+
+
+# ---------------------------------------------------------------------------
+# compute_lineage_stats
+# ---------------------------------------------------------------------------
+
+
+class TestLineageStats:
+    def test_empty_factors(self, engine):
+        stats = engine.compute_lineage_stats([])
+        assert stats == {}
+
+    def test_no_lineage(self, engine):
+        factors = [{"id": "001", "name": "f1"}]
+        stats = engine.compute_lineage_stats(factors)
+        assert stats["001"]["mutation_count"] == 0
+
+    def test_counts_children(self, engine):
+        factors = [
+            {"id": "001", "name": "f1"},
+            {"id": "002", "name": "f2", "lineage": {"parents": ["001"], "mutation_type": "macro"}},
+            {"id": "003", "name": "f3", "lineage": {"parents": ["001"], "mutation_type": "macro"}},
+        ]
+        stats = engine.compute_lineage_stats(factors)
+        assert stats["001"]["mutation_count"] == 2
+
+    def test_crossover_counts_both_parents(self, engine):
+        factors = [
+            {"id": "001", "name": "f1"},
+            {"id": "002", "name": "f2"},
+            {"id": "003", "name": "f3", "lineage": {"parents": ["001", "002"], "mutation_type": "crossover"}},
+        ]
+        stats = engine.compute_lineage_stats(factors)
+        assert stats["001"]["mutation_count"] == 1
+        assert stats["002"]["mutation_count"] == 1
