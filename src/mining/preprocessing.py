@@ -78,8 +78,8 @@ class FactorPreprocessor:
 
         return mask
 
-    def clean_factor_values(self, factor: pd.DataFrame) -> pd.DataFrame:
-        """Clean raw factor values: inf->NaN, winsorize, standardize.
+    def _clean_factor_values_legacy(self, factor: pd.DataFrame) -> pd.DataFrame:
+        """Legacy Python-callback implementation. Kept for equivalence testing.
 
         All operations are applied cross-sectionally (per date).
 
@@ -140,6 +140,56 @@ class FactorPreprocessor:
             return vals
 
         result[col] = result.groupby(level="datetime")[col].transform(_process_group)
+        return result
+
+    def clean_factor_values(self, factor: pd.DataFrame) -> pd.DataFrame:
+        """Clean raw factor values: inf->NaN, winsorize, standardize.
+
+        Vectorized via pandas groupby chains (no Python callback).
+        Falls back to legacy for standardize_method='rank' (non-default).
+        Dates with fewer than 3 valid values are left unchanged.
+
+        Parameters
+        ----------
+        factor : DataFrame with (datetime, instrument) MultiIndex, single factor column.
+
+        Returns
+        -------
+        Cleaned DataFrame with the same shape and index.
+        """
+        result = factor.copy()
+        col = result.columns[0]
+
+        if self.config.standardize_method == "rank":
+            return self._clean_factor_values_legacy(factor)
+
+        # Step 1: inf → NaN
+        result[col] = result[col].replace([np.inf, -np.inf], np.nan)
+
+        # Per-date valid count — guard for sparse dates
+        n_valid = result.groupby(level="datetime")[col].transform("count")
+
+        if self.config.winsorize_method == "mad":
+            med = result.groupby(level="datetime")[col].transform("median")
+            mad = (result[col] - med).abs().groupby(level="datetime").transform("median") * 1.4826
+            mad = mad.replace(0, np.nan)
+            lo = med - self.config.winsorize_n * mad
+            hi = med + self.config.winsorize_n * mad
+            clipped = result[col].clip(lo, hi)
+            result[col] = result[col].where(n_valid < 3, clipped)
+        else:  # sigma
+            mean_w = result.groupby(level="datetime")[col].transform("mean")
+            std_w = result.groupby(level="datetime")[col].transform("std").replace(0, np.nan)
+            lo = mean_w - self.config.winsorize_n * std_w
+            hi = mean_w + self.config.winsorize_n * std_w
+            clipped = result[col].clip(lo, hi)
+            result[col] = result[col].where(n_valid < 3, clipped)
+
+        # zscore standardize — vectorized
+        mean_z = result.groupby(level="datetime")[col].transform("mean")
+        std_z = result.groupby(level="datetime")[col].transform("std").replace(0, np.nan)
+        zscored = (result[col] - mean_z) / std_z
+        result[col] = result[col].where(n_valid < 3, zscored)
         return result
 
     def mask_returns(
