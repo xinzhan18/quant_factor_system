@@ -12,7 +12,7 @@ Quant Data Storage with TimescaleDB
     # 方式1: Docker (推荐)
     docker run -d --name timescaledb \
       -p 5432:5432 \
-      -e POSTGRES_PASSWORD=quant123 \
+      -e POSTGRES_PASSWORD=postgres \
       timescale/timescaledb:latest-pg14
     
     # 方式2: 本地安装
@@ -48,7 +48,7 @@ TIMESCALE_CONFIG = {
     'port': int(os.environ.get('TIMESCALE_PORT', 5432)),
     'database': os.environ.get('TIMESCALE_DB', 'quant_data'),
     'user': os.environ.get('TIMESCALE_USER', 'postgres'),
-    'password': os.environ.get('TIMESCALE_PASSWORD', ''),
+    'password': os.environ.get('TIMESCALE_PASSWORD', 'postgres'),
 }
 
 # 分区配置

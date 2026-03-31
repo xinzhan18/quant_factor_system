@@ -1,0 +1,30 @@
+id: L012
+name: 波动率尾部风险溢价
+status: active
+category: tail_risk
+created: '2026-03-31'
+hypothesis:
+  condition: 历史最大回撤/最大单日跌幅较大的股票
+  behavior: 投资者要求更高风险溢价，但行为偏差可能导致高尾部风险股票被高估
+  timeframe: 60-120 日历史窗口
+  direction: 反向：高尾部风险股票做空（跌出溢价后回归）
+constraints:
+  required_fields:
+  - close
+  - high
+  - low
+  suggested_ops:
+  - Min
+  - Max
+  - Ref
+  - Div
+  - CsRank
+  - Std
+  window_range:
+  - 20
+  - 120
+stats:
+  factors_generated: 0
+  factors_admitted: 0
+  best_ic: 0.0
+  rounds_without_admit: 0

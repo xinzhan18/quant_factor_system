@@ -73,4 +73,102 @@ class TestContextPrompt:
     def test_compose_context(self, memory):
         context = memory.compose_search_context()
         assert isinstance(context, str)
-        assert "Test Pattern" in context
+        # compose_search_context no longer exposes patterns.yaml recommended_directions;
+        # it always includes the mining state section.
+        assert "## Current Mining State" in context
+
+
+class TestContextPromptExpanded:
+    """Tests for expanded compose_search_context() sections."""
+
+    def test_returns_string(self, memory):
+        """compose_search_context always returns a string."""
+        result = memory.compose_search_context()
+        assert isinstance(result, str)
+
+    def test_contains_mining_state_header(self, memory):
+        """Output includes the mining state section header."""
+        result = memory.compose_search_context()
+        assert "## Current Mining State" in result
+
+    def test_contains_library_size(self, memory):
+        """Output includes the library size from state.yaml."""
+        result = memory.compose_search_context()
+        assert "Library size: 0" in result
+
+    def test_includes_next_round_hint(self, memory):
+        """next_round_hint from state.yaml appears in output when present."""
+        from pathlib import Path
+        import yaml
+        state_path = Path(memory._dir) / "state.yaml"
+        state = yaml.safe_load(state_path.read_text())
+        state["next_round_hint"] = "Try momentum reversals"
+        state_path.write_text(yaml.dump(state))
+
+        result = memory.compose_search_context()
+        assert "Try momentum reversals" in result
+
+    def test_direction_statuses_section(self, memory):
+        """Directions written to memory appear in output under Direction Statuses."""
+        memory.write_direction("test_dir", {
+            "name": "test_dir",
+            "status": "active",
+            "priority": "high",
+            "category": "momentum",
+        })
+        result = memory.compose_search_context()
+        assert "## Direction Statuses" in result
+        assert "test_dir" in result
+
+    def test_forbidden_regions_section(self, memory):
+        """Forbidden regions added via add_forbidden appear in output."""
+        memory.add_forbidden("Corr(*,*)", "highly correlated family")
+        result = memory.compose_search_context()
+        assert "## Forbidden Regions" in result
+        assert "Corr(*,*)" in result
+        assert "highly correlated family" in result
+
+    def test_coverage_map_section_with_logic_lib(self, memory, tmp_path):
+        """Taxonomy Coverage section appears when logic library has active entries."""
+        from mining.logic_library import MarketLogicLibrary
+
+        logic_dir = tmp_path / "logic"
+        logic_dir.mkdir()
+        lib = MarketLogicLibrary(str(logic_dir))
+        lib.create("Momentum Reversal", "momentum", {"core_idea": "test"})
+
+        # Override the config's logic_dir to point to tmp logic dir
+        memory._config.logic_dir = str(logic_dir)
+        result = memory.compose_search_context()
+        assert "## Taxonomy Coverage" in result
+        assert "momentum" in result
+
+    def test_active_logics_section_with_logic_lib(self, memory, tmp_path):
+        """Active Market Logics section appears when there are active logics."""
+        from mining.logic_library import MarketLogicLibrary
+
+        logic_dir = tmp_path / "logic2"
+        logic_dir.mkdir()
+        lib = MarketLogicLibrary(str(logic_dir))
+        lib.create("Mean Reversion Signal", "reversal", {"core_idea": "test"})
+        lib.update_stats("L001", factors_generated=3, factors_admitted=1, best_ic=0.042)
+
+        memory._config.logic_dir = str(logic_dir)
+        result = memory.compose_search_context()
+        assert "## Active Market Logics" in result
+        assert "Mean Reversion Signal" in result
+        assert "best_ic=0.042" in result
+
+    def test_graceful_when_logic_dir_missing(self, memory):
+        """compose_search_context does not raise when logic_dir does not exist."""
+        memory._config.logic_dir = "/nonexistent/path/logic"
+        result = memory.compose_search_context()
+        assert isinstance(result, str)
+        assert "## Current Mining State" in result
+
+
+class TestGetLineageSummary:
+    def test_get_lineage_summary_empty(self, memory):
+        """With no library factors, returns empty string."""
+        result = memory.get_lineage_summary()
+        assert result == ""

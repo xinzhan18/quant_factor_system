@@ -86,6 +86,16 @@ lib.replace(old_id, new_factor)
 # replace() 同样自动从 pickle 缓存加载因子值
 ```
 
+#### Python 因子录取
+
+对 `source: python` 的因子，向 `lib.admit()` 传递以下额外字段：
+- `source`: "python"
+- `code`: 因子代码体
+- `logic_id`: 市场逻辑 ID
+- `lineage`: `{"parents": [...], "mutation_type": "genesis|macro|crossover", "generation": N}`
+- `params`: 优化后的参数值
+- `param_space`: 参数搜索范围
+
 ## 第4步：Direction Feedback（强制 — 不得跳过）
 
 ### 4a. 按方向聚合结果
@@ -194,6 +204,39 @@ key_learnings:
 ```
 storage/memory/mining-lessons.md
 ```
+
+### 4j. Logic Feedback
+
+审判完所有因子后，更新市场逻辑统计：
+```python
+from mining.logic_library import MarketLogicLibrary
+logic_lib = MarketLogicLibrary("storage/logic")
+# 对本批次中的每个 logic_id：
+logic_lib.update_stats(logic_id,
+    factors_generated=N_generated,
+    factors_admitted=N_admitted,
+    best_ic=max_ic,
+    rounds_without_admit=0 if N_admitted > 0 else current+1)
+# 如果 rounds_without_admit >= 3：标记为 saturated
+if rounds_without_admit >= 3:
+    logic_lib.update_status(logic_id, "saturated")
+```
+
+### 4k. Forbidden Region 自动检测
+
+如果相同的表达式模式在多个批次中被拒绝 3 次以上，将其加入禁区：
+```python
+from mining.memory import ExperienceMemory
+mem = ExperienceMemory(config)
+mem.add_forbidden(pattern, reason)
+```
+
+### 4l. 谱系记录
+
+对每个候选（录取或淘汰），记录其谱系：
+- Genesis 因子：`parents: [], mutation_type: "genesis"`
+- 变异因子：`parents: [parent_id], mutation_type: "macro"`
+- 交叉因子：`parents: [id1, id2], mutation_type: "crossover"`
 
 ### 4h. 清理缓存
 

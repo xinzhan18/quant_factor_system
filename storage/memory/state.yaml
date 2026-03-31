@@ -1,17 +1,18 @@
 library:
-  size: 26
+  size: 36
   target_size: 100
-  avg_ic: 0.0363
+  avg_ic: 0.0368
   correlation_max: 0.7
 mining:
-  total_batches: 24
-  total_candidates: 278
-  total_admitted: 26
-  total_rejected: 252
+  total_batches: 27
+  total_candidates: 302
+  total_admitted: 36
+  total_rejected: 266
   yield_rate_blind: 0.057
   yield_rate_alpha101: 0.217
-  yield_rate_overall: 0.094
-  last_batch_time: '2026-03-29T00:40:00'
+  yield_rate_fundamental: 1.0
+  yield_rate_overall: 0.119
+  last_batch_time: '2026-03-31T21:30:00'
 baseline_evaluation:
   completed: true
   total_screened: 76
@@ -28,20 +29,32 @@ alpha101_evaluation:
     name: williams_r_variant
     ic: 0.07
 signal_space_analysis:
-  exhaustion_status: OHLCV daily signal space near exhaustion at corr < 0.7
-  bottleneck: Factor 001 (std_returns_20 IC=-0.058) correlates 0.6-0.9 with ALL strong
-    signals
-  paths_forward:
-  - Add turnover/shares outstanding data → liquidity factors
-  - Add minute-level data → intraday aggregation factors
-  - Add fundamental data → P/E, P/B, earnings factors
-  - Add $vwap data → unlock 35+ Alpha101 factors
-  - Add industry classification → unlock 18+ Alpha101 factors
-  - Lower ic_min from 0.03 to 0.02 → more factors, lower quality
-  new_finding: Volume-confirmed reversal (Alpha012) is a genuinely new signal dimension — sign(ΔVol)×(-ΔClose) with ICIR=0.50
+  ohlcv_status: EXHAUSTED at corr < 0.7 (confirmed batch_020)
+  fundamental_status: NEWLY OPENED — $pe_ratio, $pb_ratio, $ps_ratio, $market_cap, $circ_market_cap, $turnover_rate all available
+  amount_status: $amount now has data (previously zero)
+  vwap_status: $vwap still zero
+  batch_021_breakthrough: >
+    First fundamental+liquidity batch: 8/8 candidates passed all stages (100% yield).
+    Turnover and PB are completely new signal dimensions with max_corr < 0.7 to all OHLCV factors.
+    Strongest: turnover_vol_10 IC=-0.047 ICIR=-0.533.
+  new_dimensions_unlocked:
+    - liquidity (turnover rate level/volatility/change) — 6 factors admitted
+    - valuation (PB ratio, book-to-price) — 2 factors admitted
+  remaining_untapped:
+    - PE ratio variations
+    - PS ratio variations
+    - Market cap / size factors
+    - $amount based factors
+    - Turnover × price cross signals
+    - Valuation × momentum cross signals
+    - Industry-relative factors (need industry data in Qlib)
 next_round_hint: >
-  Alpha012 family (volume-confirmed reversals) is the last productive OHLCV signal.
-  Williams %R smoothing failed (corr > 0.7 with F011). Range-volume cross failed (corr > 0.7 with F022).
-  Remaining active directions: signed_nonlinear_returns, regression_residual, alpha101_composites, intraday_vs_overnight.
-  Next round should focus on combining alpha012 signal with existing building blocks,
-  or explore the remaining untested active directions.
+  Batch 022: 2/8 admitted (F035 pb_x_reversal_10 IC=0.033, F036 turnover_level_x_reversal_20 IC=0.029).
+  Cross-dimensional signals (valuation×reversal, turnover×reversal) confirmed viable.
+  $amount方向已exhausted — corr>0.73 with existing volume factors.
+  Next priorities:
+  1. value_x_reversal: 尝试PE/PS × 反转, 或加市值中性化; 1/PB×10d有效
+  2. turnover_x_reversal: 尝试其他窗口(5d,60d), 或与市值交叉
+  3. PE/PS直接因子: $pe_ratio, $ps_ratio 未探索
+  4. 市值因子: $market_cap, $circ_market_cap 未探索
+  5. 行业相对因子: 需要industry_code在Qlib中可用

@@ -26,6 +26,7 @@ from report.analytics.profit import ProfitAnalyzer
 from report.analytics.conditional import ConditionalAnalyzer
 from report.analytics.decay import DecayAnalyzer
 from report.analytics.uniqueness import UniquenessAnalyzer
+from report.analytics.risk import RiskAttributionAnalyzer
 from report.scorer import CompositeScorer
 from report.data_prep import merge_factor_price
 from report.charts.theme import PNG_WIDTH, PNG_HEIGHT, PNG_SCALE
@@ -79,8 +80,18 @@ class ReportDataBuilder:
         profit_result = profit_analyzer.compute(merged, split_date)
         profit_charts = profit_analyzer.generate_charts(profit_result)
 
-        # ---- Ch3: Risk Attribution (null at L0 -- requires industry/market cap) ----
-        risk_result = None
+        # ---- Ch3: Risk Attribution (RiskAttributionAnalyzer) ----
+        symbols = factor_df["symbol"].unique().tolist()
+        style_dfs = self._load_style_factors(symbols)
+        risk_analyzer = RiskAttributionAnalyzer()
+        risk_result = risk_analyzer.compute(
+            factor_df=factor_df,
+            merged=merged,
+            style_dfs=style_dfs,
+            conn_string=self.config.system.database.connection_string,
+            symbols=symbols,
+        )
+        risk_charts = risk_analyzer.generate_charts(risk_result)
 
         # ---- Ch4: Conditional (ConditionalAnalyzer) ----
         cond_analyzer = ConditionalAnalyzer()
@@ -127,7 +138,7 @@ class ReportDataBuilder:
         # ---- Export charts ----
         all_charts = {}
         chart_groups = [
-            ic_charts, profit_charts, cond_charts,
+            ic_charts, profit_charts, risk_charts, cond_charts,
             decay_charts, uniq_charts, score_charts,
         ]
         for chart_dict in chart_groups:
@@ -145,7 +156,10 @@ class ReportDataBuilder:
                 **self._strip_internal(profit_result),
                 "charts": {k: all_charts[k] for k in profit_charts},
             },
-            "risk_attribution": risk_result,
+            "risk_attribution": {
+                **self._strip_internal(risk_result),
+                "charts": {k: all_charts[k] for k in risk_charts},
+            },
             "conditional": {
                 **self._strip_internal(cond_result),
                 "charts": {k: all_charts[k] for k in cond_charts},
@@ -197,34 +211,54 @@ class ReportDataBuilder:
     # ---- Data Loading (IO boundary) ----
 
     def _load_factor_metadata(self) -> dict:
-        """Load factor metadata from factor_meta DB table."""
-        import psycopg2
+        """Load factor metadata from factor_meta DB table, falling back to library.yaml."""
+        # Try DB first
         try:
+            import psycopg2
             conn = psycopg2.connect(self.config.system.database.connection_string)
-        except psycopg2.Error as exc:
-            raise RuntimeError(f"Failed to connect to database: {exc}") from exc
-        try:
-            sql = (
-                "SELECT factor_id, name, expression, category, batch_id, admitted_at "
-                "FROM factor_meta WHERE factor_id = %s"
-            )
-            with conn.cursor() as cur:
-                cur.execute(sql, (self.factor_id,))
-                row = cur.fetchone()
-            if row is None:
-                raise ValueError(
-                    f"Factor {self.factor_id!r} not found in factor_meta table"
+            try:
+                sql = (
+                    "SELECT factor_id, name, expression, category, batch_id, admitted_at "
+                    "FROM factor_meta WHERE factor_id = %s"
                 )
-            return {
-                "id": row[0],
-                "name": row[1],
-                "expression": row[2],
-                "category": row[3] or "other",
-                "batch": row[4] or "",
-                "admitted_at": str(row[5] or ""),
-            }
-        finally:
-            conn.close()
+                with conn.cursor() as cur:
+                    cur.execute(sql, (self.factor_id,))
+                    row = cur.fetchone()
+                if row is not None:
+                    return {
+                        "id": row[0],
+                        "name": row[1],
+                        "expression": row[2],
+                        "category": row[3] or "other",
+                        "batch": row[4] or "",
+                        "admitted_at": str(row[5] or ""),
+                    }
+            finally:
+                conn.close()
+        except Exception:
+            pass
+
+        # Fallback: read from library.yaml
+        import yaml
+        lib_path = Path(self.config.system.qlib_data_dir).parent.parent.parent / "storage" / "library" / "library.yaml"
+        if not lib_path.exists():
+            lib_path = Path("storage/library/library.yaml")
+        if lib_path.exists():
+            with open(lib_path) as f:
+                lib = yaml.safe_load(f)
+            for factor in lib.get("factors", []):
+                if str(factor.get("id")) == str(self.factor_id):
+                    return {
+                        "id": factor["id"],
+                        "name": factor.get("name", f"factor_{factor['id']}"),
+                        "expression": factor.get("expression", ""),
+                        "category": factor.get("category", "other"),
+                        "batch": factor.get("source", ""),
+                        "admitted_at": factor.get("admitted_at", ""),
+                    }
+        raise ValueError(
+            f"Factor {self.factor_id!r} not found in factor_meta table or library.yaml"
+        )
 
     def _load_data_from_db(self, expression: str) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Compute factor values via Qlib and load price data from DB.
@@ -280,8 +314,49 @@ class ReportDataBuilder:
         finally:
             conn.close()
 
+    def _load_style_factors(self, symbols: list[str]) -> dict[str, pd.DataFrame]:
+        """Load market_cap, pb_ratio, pe_ratio from Qlib for risk attribution.
+
+        Returns:
+            Dict mapping field name to DataFrame[time, symbol, value].
+            Empty dict on failure.
+        """
+        from qlib.data import D
+        self._ensure_qlib_initialized()
+
+        fields = ["$market_cap", "$pb_ratio", "$pe_ratio"]
+        try:
+            raw = D.features(
+                instruments=symbols,
+                fields=fields,
+                start_time=self.config.train_start,
+                end_time=self.config.test_end,
+            )
+        except Exception as exc:
+            logger.warning("Failed to load style factors from Qlib: %s", exc)
+            return {}
+
+        if raw.empty:
+            return {}
+
+        raw = raw.reset_index()
+        # Qlib MultiIndex: (instrument, datetime) → columns [symbol, time, ...]
+        raw.columns = ["symbol", "time"] + [f.lstrip("$") for f in fields]
+        raw["time"] = pd.to_datetime(raw["time"])
+
+        result = {}
+        for col in ["market_cap", "pb_ratio", "pe_ratio"]:
+            sub = raw[["time", "symbol", col]].rename(columns={col: "value"})
+            sub = sub.dropna(subset=["value"])
+            if not sub.empty:
+                result[col] = sub
+        return result
+
     def _load_library_factors(self) -> dict[str, pd.DataFrame]:
-        """Load factor values for admitted library members (except self) via Qlib.
+        """Load factor values for admitted library members (except self) from DB.
+
+        Reads from factor_values table where admitted values are pre-stored,
+        avoiding repeated Qlib expression evaluations.
 
         Returns:
             Dict mapping factor_id -> DataFrame[time, symbol, value].
@@ -292,16 +367,32 @@ class ReportDataBuilder:
         except psycopg2.Error as exc:
             logger.warning("Failed to connect to DB for library factors: %s", exc)
             return {}
+
         try:
-            sql = (
-                "SELECT factor_id, expression FROM factor_meta "
-                "WHERE factor_id != %s AND status = 'admitted'"
-            )
+            # Get admitted factor IDs (excluding self)
             with conn.cursor() as cur:
-                cur.execute(sql, (self.factor_id,))
+                cur.execute(
+                    "SELECT factor_id FROM factor_meta "
+                    "WHERE factor_id != %s AND status = 'admitted'",
+                    (self.factor_id,),
+                )
+                factor_ids = [r[0] for r in cur.fetchall()]
+
+            if not factor_ids:
+                return {}
+
+            # Batch-load all library factor values in one query
+            factor_names = [f"factor_{fid}" for fid in factor_ids]
+            placeholders = ",".join(["%s"] * len(factor_names))
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT factor_name, time, symbol, value FROM factor_values "
+                    f"WHERE factor_name IN ({placeholders})",
+                    factor_names,
+                )
                 rows = cur.fetchall()
         except Exception as exc:
-            logger.warning("Failed to query library factors: %s", exc)
+            logger.warning("Failed to load library factors from DB: %s", exc)
             return {}
         finally:
             conn.close()
@@ -309,30 +400,17 @@ class ReportDataBuilder:
         if not rows:
             return {}
 
-        self._ensure_qlib_initialized()
-        from qlib.data import D
+        # Build one DataFrame and split by factor_name
+        all_df = pd.DataFrame(rows, columns=["factor_name", "time", "symbol", "value"])
+        all_df["time"] = pd.to_datetime(all_df["time"])
+        all_df = all_df.dropna(subset=["value"])
 
-        instruments = D.instruments("all")
-        start = self.config.train_start
-        end = self.config.test_end
+        name_to_id = {f"factor_{fid}": fid for fid in factor_ids}
         result = {}
-        for fid, expr in rows:
-            try:
-                qlib_df = D.features(
-                    instruments=instruments,
-                    fields=[expr],
-                    start_time=start,
-                    end_time=end,
-                )
-                if not qlib_df.empty:
-                    df = qlib_df.iloc[:, [0]].reset_index()
-                    df.columns = ["symbol", "time", "value"]
-                    df = df[["time", "symbol", "value"]]
-                    df["time"] = pd.to_datetime(df["time"])
-                    df = df.dropna(subset=["value"])
-                    result[fid] = df
-            except Exception as exc:
-                logger.warning("Failed to compute library factor %s: %s", fid, exc)
+        for fname, grp in all_df.groupby("factor_name"):
+            fid = name_to_id.get(fname)
+            if fid:
+                result[fid] = grp[["time", "symbol", "value"]].reset_index(drop=True)
         return result
 
     # ---- Chart output (PNG for vault, HTML for legacy) ----

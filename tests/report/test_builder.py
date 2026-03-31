@@ -63,7 +63,13 @@ class TestReportDataBuilder:
 
         builder = ReportDataBuilder("001")
         result = builder.build()
-        assert result["risk_attribution"] is None  # No L1 data
+        # risk_attribution is now always a dict; when L1 data unavailable all has_* flags are False
+        ra = result["risk_attribution"]
+        assert isinstance(ra, dict)
+        assert ra["has_industry"] is False
+        assert ra["has_size"] is False
+        assert ra["has_style"] is False
+        assert ra["charts"] == {}
 
     @patch.object(ReportDataBuilder, "_load_factor_metadata")
     @patch.object(ReportDataBuilder, "_load_data_from_db")

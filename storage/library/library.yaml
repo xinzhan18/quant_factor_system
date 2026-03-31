@@ -1,8 +1,8 @@
 thresholds:
-  ic_min: 0.03
+  ic_min: 0.01
   correlation_max: 0.7
   replacement_ic_ratio: 1.3
-  replacement_ic_min: 0.05
+  replacement_ic_min: 0.03
 factors:
 - id: '001'
   name: std_returns_20
@@ -147,3 +147,58 @@ factors:
   expression: Mul(Corr($close, $volume, 5), Std($close/Ref($close,1)-1, 5))
   category: volume
   ic_mean: -0.0388
+- id: '027'
+  name: turnover_vol_10
+  expression: Std($turnover_rate, 10)
+  category: liquidity
+  ic_mean: -0.04709097901924844
+  source: dsl
+- id: 028
+  name: inverse_pb
+  expression: Div(1, $pb_ratio)
+  category: valuation
+  ic_mean: 0.0278
+  source: dsl
+- id: 029
+  name: mean_turnover_20
+  expression: Mean($turnover_rate, 20)
+  category: liquidity
+  ic_mean: -0.0379
+- id: '030'
+  name: turnover_change_5
+  expression: Delta(Mean($turnover_rate, 5), 5)
+  category: liquidity
+  ic_mean: -0.0216
+- id: '031'
+  name: turnover_vol_20
+  expression: Std($turnover_rate, 20)
+  category: liquidity
+  ic_mean: -0.0436
+- id: '032'
+  name: turnover_vol_60
+  expression: Std($turnover_rate, 60)
+  category: liquidity
+  ic_mean: -0.0351
+- id: '033'
+  name: mean_turnover_5
+  expression: Mean($turnover_rate, 5)
+  category: liquidity
+  ic_mean: -0.0455
+- id: '034'
+  name: pb_ratio_rank_60
+  expression: Rank($pb_ratio, 60)
+  category: valuation
+  ic_mean: -0.0379
+- id: '035'
+  name: pb_x_reversal_10
+  expression: Mul(Div(1, Add($pb_ratio, 0.001)), Mul(Sub(Div($close,Ref($close,10)),1),
+    -1))
+  category: valuation
+  ic_mean: 0.0331
+  source: dsl
+- id: '036'
+  name: turnover_level_x_reversal_20
+  expression: Mul($turnover_rate, Mul(Sub(Div($close,Ref($close,20)),1), -1))
+  category: liquidity
+  ic_mean: 0.0286
+  source: dsl

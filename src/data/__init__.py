@@ -2,13 +2,16 @@
 数据模块
 Data Module
 
-⚠️ 注意: 本项目只支持 TimescaleDB
+⚠️ 注意: 本项目只支持 TimescaleDB (Docker)
 
-安装 TimescaleDB:
+启动 TimescaleDB:
     docker run -d --name timescaledb \
       -p 5432:5432 \
-      -e POSTGRES_PASSWORD=quant123 \
+      -e POSTGRES_PASSWORD=postgres \
       timescale/timescaledb:latest-pg14
+
+    # 创建数据库
+    docker exec timescaledb psql -U postgres -c "CREATE DATABASE quant_data;"
 
 使用:
     from data import TimescaleDB, QuantDataManager
@@ -54,11 +57,6 @@ from .loaders import (
 )
 
 from .utils import (
-    PostgresDB,
-    get_postgres_db,
-    init_postgres_db,
-    FactorResult,
-    FactorMeta,
     QuantDataFormatter,
     format_daily_data,
     format_factor_data,
@@ -111,11 +109,6 @@ __all__ = [
     'get_available_factors',
     
     # 工具类
-    'PostgresDB',
-    'get_postgres_db',
-    'init_postgres_db',
-    'FactorResult',
-    'FactorMeta',
     'QuantDataFormatter',
     'format_daily_data',
     'format_factor_data',

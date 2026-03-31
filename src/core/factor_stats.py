@@ -56,11 +56,15 @@ def daily_cross_sectional_ic(
 ) -> pd.Series:
     """Compute daily cross-sectional IC between factor values and returns.
 
+    Fully vectorized: pivots to (date × stock) matrices, ranks cross-sectionally,
+    then computes Pearson correlation of ranks (= Spearman IC) via matrix ops.
+    No Python for-loop over days.
+
     Args:
         factor_df: Flat DataFrame [time, symbol, value].
         returns_df: Flat DataFrame [time, symbol, value] (forward returns).
-        method: "spearman" or "pearson".
-        min_obs: Minimum observations per day to compute IC.
+        method: "spearman" (rank IC) or "pearson".
+        min_obs: Minimum valid observations per day to include in output.
 
     Returns:
         pd.Series with DatetimeIndex and IC values.
@@ -69,26 +73,55 @@ def daily_cross_sectional_ic(
         returns_df, on=["time", "symbol"], suffixes=("_factor", "_return"),
     )
     merged = merged.dropna(subset=["value_factor", "value_return"])
-
     if merged.empty:
         return pd.Series(dtype=float)
 
-    corr_func = spearmanr if method == "spearman" else _pearsonr_safe
+    # Pivot to (date × stock) matrices — aligns NaN where data is missing
+    factor_wide = merged.pivot(index="time", columns="symbol", values="value_factor")
+    returns_wide = merged.pivot(index="time", columns="symbol", values="value_return")
 
-    records = []
-    for dt, group in merged.groupby("time"):
-        if len(group) < min_obs:
-            continue
-        if group["value_factor"].nunique() < 2 or group["value_return"].nunique() < 2:
-            continue
-        corr, _ = corr_func(group["value_factor"], group["value_return"])
-        if np.isfinite(corr):
-            records.append((dt, float(corr)))
-
-    if not records:
+    # Drop days with too few valid observations
+    n_valid = factor_wide.notna().sum(axis=1)
+    valid_dates = n_valid[n_valid >= min_obs].index
+    if valid_dates.empty:
         return pd.Series(dtype=float)
-    dates, ics = zip(*records)
-    return pd.Series(ics, index=pd.DatetimeIndex(dates), dtype=float)
+    factor_wide = factor_wide.loc[valid_dates]
+    returns_wide = returns_wide.loc[valid_dates]
+
+    if method == "spearman":
+        # Cross-sectional rank within each day (axis=1)
+        factor_vals = factor_wide.rank(axis=1, na_option="keep")
+        returns_vals = returns_wide.rank(axis=1, na_option="keep")
+    else:
+        factor_vals = factor_wide
+        returns_vals = returns_wide
+
+    # Vectorized Pearson correlation per row (day) using numpy matrix ops
+    # valid mask: NaN in either column excludes that stock
+    valid = factor_vals.notna() & returns_vals.notna()
+    n = valid.sum(axis=1).astype(float).values  # shape: (n_days,)
+
+    f = np.where(valid.values, factor_vals.values, np.nan)
+    r = np.where(valid.values, returns_vals.values, np.nan)
+
+    # Masked mean per day (nanmean along axis=1)
+    mean_f = np.nanmean(f, axis=1, keepdims=True)
+    mean_r = np.nanmean(r, axis=1, keepdims=True)
+
+    # Centered values (NaN stays NaN, contributes 0 via nansum)
+    f_c = np.where(valid.values, f - mean_f, 0.0)
+    r_c = np.where(valid.values, r - mean_r, 0.0)
+
+    # Variance and covariance
+    var_f = (f_c ** 2).sum(axis=1) / n
+    var_r = (r_c ** 2).sum(axis=1) / n
+    cov   = (f_c * r_c).sum(axis=1) / n
+
+    denom = np.sqrt(var_f * var_r)
+    ic = np.where(denom > 1e-10, cov / denom, np.nan)
+
+    result = pd.Series(ic, index=factor_wide.index, dtype=float)
+    return result.dropna()
 
 
 def _pearsonr_safe(a, b):
@@ -149,6 +182,9 @@ def pairwise_cross_sectional_corr(
 ) -> Optional[float]:
     """Average daily cross-sectional Spearman rank correlation between two factors.
 
+    Vectorized: uses the same pivot + rank + matrix-Pearson approach as
+    daily_cross_sectional_ic, then averages across days.
+
     Args:
         df_a: Factor A with columns [time, symbol, value].
         df_b: Factor B with columns [time, symbol, value].
@@ -158,16 +194,21 @@ def pairwise_cross_sectional_corr(
         Mean daily cross-sectional Spearman correlation, or None if insufficient data.
     """
     merged = df_a.merge(df_b, on=["time", "symbol"], suffixes=("_a", "_b"))
+    merged = merged.dropna(subset=["value_a", "value_b"])
     if len(merged) < min_obs:
         return None
-    daily_corrs = []
-    for _, group in merged.groupby("time"):
-        g = group.dropna(subset=["value_a", "value_b"])
-        if len(g) < min_obs:
-            continue
-        corr, _ = spearmanr(g["value_a"], g["value_b"])
-        if np.isfinite(corr):
-            daily_corrs.append(corr)
+
+    # Reuse daily_cross_sectional_ic in Pearson-of-ranks form
+    # Build flat DataFrames matching the expected [time, symbol, value] schema
+    flat_a = merged[["time", "symbol", "value_a"]].rename(columns={"value_a": "value"})
+    flat_b = merged[["time", "symbol", "value_b"]].rename(columns={"value_b": "value"})
+    daily_corrs_series = daily_cross_sectional_ic(flat_a, flat_b, method="spearman", min_obs=min_obs)
+    if daily_corrs_series.empty:
+        return None
+    # Placeholder for the old variable name used below
+    daily_corrs = daily_corrs_series.dropna().tolist()
+    if not daily_corrs:
+        return None
     return float(np.mean(daily_corrs)) if daily_corrs else None
 
 
@@ -182,11 +223,15 @@ def quintile_returns(
 ) -> Tuple[Dict[str, float], List[float]]:
     """Compute quintile (or n-quantile) average returns and daily long-short returns.
 
+    Fully vectorized: pivots to (date × stock) matrices, assigns quantile buckets
+    via cross-sectional rank, then aggregates with numpy masked operations.
+    No Python for-loop over dates.
+
     Args:
         factor_df: Flat DataFrame [time, symbol, value].
         returns_df: Flat DataFrame [time, symbol, value] (forward returns).
         n_quantiles: Number of quantile groups.
-        min_obs: Minimum observations per day.
+        min_obs: Minimum valid observations per day to include.
 
     Returns:
         Tuple of (average quintile returns dict, daily long-short return list).
@@ -195,33 +240,43 @@ def quintile_returns(
         returns_df, on=["time", "symbol"], suffixes=("_factor", "_return"),
     )
     merged = merged.dropna(subset=["value_factor", "value_return"])
-
     if merged.empty:
         return {f"q{i + 1}": np.nan for i in range(n_quantiles)}, []
 
-    daily_qs: Dict[str, List[float]] = {}
-    daily_ls: List[float] = []
+    # Pivot to (date × stock) matrices
+    factor_wide = merged.pivot(index="time", columns="symbol", values="value_factor")
+    returns_wide = merged.pivot(index="time", columns="symbol", values="value_return")
 
-    for _, group in merged.groupby("time"):
-        if len(group) < max(n_quantiles, min_obs):
-            continue
-        g = group.copy()
-        try:
-            g["quantile"] = pd.qcut(
-                g["value_factor"], n_quantiles, labels=False, duplicates="drop",
-            )
-        except ValueError:
-            continue
-        for q in range(n_quantiles):
-            q_ret = g.loc[g["quantile"] == q, "value_return"].mean()
-            daily_qs.setdefault(f"q{q + 1}", []).append(q_ret)
-        q_top = g.loc[g["quantile"] == n_quantiles - 1, "value_return"].mean()
-        q_bot = g.loc[g["quantile"] == 0, "value_return"].mean()
-        if not np.isnan(q_top) and not np.isnan(q_bot):
-            daily_ls.append(q_top - q_bot)
+    # Filter days with enough valid observations
+    n_valid = factor_wide.notna().sum(axis=1)
+    valid_days = n_valid[n_valid >= max(n_quantiles, min_obs)].index
+    if valid_days.empty:
+        return {f"q{i + 1}": np.nan for i in range(n_quantiles)}, []
+    factor_wide = factor_wide.loc[valid_days]
+    returns_wide = returns_wide.loc[valid_days]
 
-    avg_qs = {k: float(np.nanmean(v)) if v else np.nan
-              for k, v in daily_qs.items()}
+    # Cross-sectional quantile assignment: rank(pct=True) → floor to bucket index
+    # rank(pct=True) ∈ (0, 1], multiply by n_quantiles → (0, n_quantiles]
+    # subtract tiny epsilon to map 1.0 → bucket n_quantiles-1 (not n_quantiles)
+    pct = factor_wide.rank(axis=1, pct=True, na_option="keep").values  # (n_days, n_stocks)
+    buckets = np.floor(pct * n_quantiles - 1e-9).astype(float)          # 0-indexed
+    buckets = np.where(factor_wide.notna().values, buckets, np.nan)     # NaN where missing
+
+    ret_vals = returns_wide.values  # (n_days, n_stocks)
+
+    # Per-quintile mean return across all days
+    avg_qs: Dict[str, float] = {}
+    for q in range(n_quantiles):
+        mask = buckets == q
+        q_returns = np.where(mask, ret_vals, np.nan)
+        avg_qs[f"q{q + 1}"] = float(np.nanmean(q_returns))
+
+    # Daily long-short: top quintile mean - bottom quintile mean (per day)
+    top = np.nanmean(np.where(buckets == n_quantiles - 1, ret_vals, np.nan), axis=1)
+    bot = np.nanmean(np.where(buckets == 0, ret_vals, np.nan), axis=1)
+    ls = top - bot
+    daily_ls: List[float] = ls[np.isfinite(ls)].tolist()
+
     return avg_qs, daily_ls
 
 
@@ -295,8 +350,9 @@ def factor_autocorrelation(
 ) -> List[Dict[str, Any]]:
     """Compute cross-sectional factor autocorrelation at specified lags.
 
-    For each lag, computes the average daily Spearman correlation
-    between factor values at time t and t-lag.
+    Vectorized: pivots to (date × stock) matrix, then for each lag computes
+    Spearman correlation via rank + Pearson matrix ops across all sampled date
+    pairs simultaneously — no inner Python loop over dates.
 
     Args:
         factor_df: Flat DataFrame [time, symbol, value].
@@ -310,42 +366,59 @@ def factor_autocorrelation(
     if lags is None:
         lags = [1, 2, 3, 5, 10, 15, 20]
 
-    unique_dates = sorted(factor_df["time"].unique())
-    date_groups = {
-        pd.Timestamp(d): g for d, g in factor_df.groupby("time")
-    }
+    # Pivot to (date × stock) matrix once
+    factor_wide = factor_df.pivot(index="time", columns="symbol", values="value")
+    n_dates = len(factor_wide)
+
+    # Pre-rank cross-sectionally for all dates (Spearman = Pearson of ranks)
+    factor_ranked = factor_wide.rank(axis=1, na_option="keep")  # (n_dates, n_stocks)
+    f_np = factor_ranked.values  # numpy array for fast slicing
 
     result = []
+    rng = np.random.RandomState(42)
+
     for lag in lags:
-        if lag >= len(unique_dates):
+        if lag >= n_dates:
             continue
 
-        eligible_indices = list(range(lag, len(unique_dates)))
-        if len(eligible_indices) > max_dates:
-            rng = np.random.RandomState(42)
-            eligible_indices = list(
-                rng.choice(eligible_indices, max_dates, replace=False)
-            )
+        # Select date pair indices (curr_idx, prev_idx=curr_idx-lag)
+        eligible = np.arange(lag, n_dates)
+        if len(eligible) > max_dates:
+            eligible = rng.choice(eligible, max_dates, replace=False)
 
-        corrs = []
-        for idx in eligible_indices:
-            date = pd.Timestamp(unique_dates[idx])
-            prev_date = pd.Timestamp(unique_dates[idx - lag])
+        # Batch extract: curr[eligible] and prev[eligible-lag]
+        curr = f_np[eligible]          # (n_sampled, n_stocks)
+        prev = f_np[eligible - lag]    # (n_sampled, n_stocks)
 
-            curr_group = date_groups.get(date)
-            prev_group = date_groups.get(prev_date)
-            if curr_group is None or prev_group is None:
-                continue
+        # Valid mask: both curr and prev must be non-NaN
+        valid = ~np.isnan(curr) & ~np.isnan(prev)
+        n_valid = valid.sum(axis=1)    # (n_sampled,)
 
-            curr = curr_group.set_index("symbol")["value"]
-            prev = prev_group.set_index("symbol")["value"]
-            common = curr.index.intersection(prev.index)
-            if len(common) >= min_obs:
-                rho, _ = spearmanr(curr[common], prev[common])
-                if np.isfinite(rho):
-                    corrs.append(rho)
+        # Only use date pairs with enough common observations
+        ok = n_valid >= min_obs
+        if not ok.any():
+            continue
+        curr, prev, valid, n_valid = curr[ok], prev[ok], valid[ok], n_valid[ok].astype(float)
 
-        if corrs:
+        # Pearson correlation of already-ranked values = Spearman IC
+        # Zero out NaN positions for computation
+        c = np.where(valid, curr, 0.0)
+        p = np.where(valid, prev, 0.0)
+
+        mean_c = c.sum(axis=1) / n_valid          # (n_pairs,)
+        mean_p = p.sum(axis=1) / n_valid
+        c_cent = np.where(valid, c - mean_c[:, None], 0.0)
+        p_cent = np.where(valid, p - mean_p[:, None], 0.0)
+
+        var_c = (c_cent ** 2).sum(axis=1) / n_valid
+        var_p = (p_cent ** 2).sum(axis=1) / n_valid
+        cov   = (c_cent * p_cent).sum(axis=1) / n_valid
+
+        denom = np.sqrt(var_c * var_p)
+        corrs = np.where(denom > 1e-10, cov / denom, np.nan)
+        corrs = corrs[np.isfinite(corrs)]
+
+        if len(corrs) > 0:
             result.append({"lag": lag, "corr": round(float(np.mean(corrs)), 4)})
 
     return result
@@ -395,8 +468,10 @@ def incremental_ic(
 ) -> Tuple[Optional[float], Optional[float]]:
     """Compute IC of factor residuals after regressing out library factor exposures.
 
-    For each date, regresses the target factor on all library factors
-    (cross-sectional OLS), then computes Spearman IC of residuals vs returns.
+    Vectorized pre-join: merges all library factors into a single panel once
+    (eliminates inner loop over library factors per date), then iterates over
+    dates for the unavoidable per-date OLS solve (variable valid-stock sets
+    prevent full outer vectorization).
 
     Args:
         factor_df: Target factor [time, symbol, value].
@@ -410,45 +485,37 @@ def incremental_ic(
     if not library_factors:
         return None, None
 
-    target = factor_df.rename(columns={"value": "target"})
-    ret = returns_df.rename(columns={"value": "future_return"})
+    # Pre-join all data into one panel (eliminates inner loop over library factors)
+    panel = factor_df.rename(columns={"value": "target"})
+    panel = panel.merge(
+        returns_df.rename(columns={"value": "future_return"}),
+        on=["time", "symbol"], how="inner",
+    )
+    for fid, fdf in library_factors.items():
+        panel = panel.merge(
+            fdf[["time", "symbol", "value"]].rename(columns={"value": fid}),
+            on=["time", "symbol"], how="inner",
+        )
+
+    lib_cols = list(library_factors.keys())
+    panel = panel.dropna(subset=["target", "future_return"] + lib_cols)
+    if panel.empty:
+        return None, None
 
     daily_residual_ics = []
 
-    for date, group in ret.groupby("time"):
-        date_target = target[target["time"] == date][["symbol", "target"]]
-        lib_vals = date_target[["symbol"]].copy()
-
-        for fid, fdf in library_factors.items():
-            fdate = fdf[fdf["time"] == date][["symbol", "value"]].rename(
-                columns={"value": fid}
-            )
-            lib_vals = lib_vals.merge(fdate, on="symbol", how="inner")
-
-        lib_cols = [c for c in lib_vals.columns if c != "symbol"]
-        if not lib_cols:
+    for _, group in panel.groupby("time"):
+        if len(group) < min_obs:
             continue
-
-        if len(lib_vals) < min_obs:
-            continue
-
-        date_merged = date_target.merge(lib_vals, on="symbol")
-        date_merged = date_merged.merge(
-            group[["symbol", "future_return"]].drop_duplicates(), on="symbol"
-        )
-
-        if len(date_merged) < min_obs:
-            continue
-
-        X = date_merged[lib_cols].values
-        y = date_merged["target"].values
-
+        X = group[lib_cols].values          # (n_stocks, n_lib_factors)
+        y = group["target"].values          # (n_stocks,)
+        ret_vals = group["future_return"].values
         try:
             coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
             residual = y - X @ coeffs
             if np.std(residual) < 1e-10:
                 continue
-            corr, _ = spearmanr(residual, date_merged["future_return"].values)
+            corr, _ = spearmanr(residual, ret_vals)
             if np.isfinite(corr):
                 daily_residual_ics.append(corr)
         except (np.linalg.LinAlgError, ValueError):
