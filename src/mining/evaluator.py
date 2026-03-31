@@ -27,11 +27,72 @@ from .preprocessing import FactorPreprocessor
 
 logger = logging.getLogger(__name__)
 
+
+def compute_structural_similarity(code1: str, code2: str) -> float:
+    """Jaccard similarity of ops call signatures between two Python factors."""
+    from mining.expression import ExpressionValidator
+    validator = ExpressionValidator()
+    ops1 = set(validator.extract_ops_calls(code1))
+    ops2 = set(validator.extract_ops_calls(code2))
+    if not ops1 and not ops2:
+        return 0.0
+    if not ops1 or not ops2:
+        return 0.0
+    return len(ops1 & ops2) / len(ops1 | ops2)
+
+
+def check_lookahead_bias(code: str) -> bool:
+    """Static analysis for common lookahead patterns in Python factor code.
+
+    Checks for the most frequent lookahead anti-pattern: calling .shift() with
+    a negative argument, which would pull future data into the current row.
+
+    Args:
+        code: Python source code string to analyse.
+
+    Returns:
+        True if a potential lookahead pattern is detected, False otherwise.
+        Also returns False when ``code`` cannot be parsed (syntax error).
+    """
+    import ast
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return False
+
+    for node in ast.walk(tree):
+        # shift with negative values: df['close'].shift(-5)
+        if (isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "shift"):
+            for arg in node.args:
+                if isinstance(arg, ast.UnaryOp) and isinstance(arg.op, ast.USub):
+                    return True
+                if (isinstance(arg, ast.Constant)
+                        and isinstance(arg.value, (int, float))
+                        and arg.value < 0):
+                    return True
+    return False
+
+
 # Optional Qlib import — patched in tests via `mining.evaluator.D`
 try:
     from qlib.data import D
 except ImportError:
     D = None  # type: ignore[assignment]
+
+
+def _candidate_cache_key(c: Dict[str, Any]) -> str:
+    """Derive a stable cache key for a candidate (DSL expression or Python code hash)."""
+    if c.get("expression"):
+        return c["expression"]
+    # Python factors: use first 100 chars of code as cache key
+    return c.get("code", "")[:100]
+
+
+def _is_python_candidate(c: Dict[str, Any]) -> bool:
+    """Return True if the candidate represents a Python factor (not a DSL expression)."""
+    return c.get("source") == "python" or c.get("type") == "python"
 
 
 def _clean_factor_dict(c: Dict[str, Any]) -> Dict[str, Any]:
@@ -40,6 +101,9 @@ def _clean_factor_dict(c: Dict[str, Any]) -> Dict[str, Any]:
         "name", "expression", "category", "rationale", "batch",
         "stage1", "stage2", "stage3", "full_ic", "report_card",
         "validation_error", "reject_reason",
+        # Python factor / logic-guided evolution keys
+        "source", "code", "code_path", "type", "params", "param_space",
+        "logic_id", "lineage",
     }
     return {k: v for k, v in c.items() if k in ALLOWED_KEYS}
 
@@ -141,8 +205,71 @@ class FactorMiningEvaluator:
                 aux["market_cap"] = mcap_df[["$market_cap"]]
             except Exception:
                 logger.debug("market_cap not available for neutralization")
+
+        if self.config.neutralize_mode in ("industry", "both"):
+            industry_df = self._load_industry_from_db(instruments, start_time, end_time)
+            if industry_df is not None:
+                aux["industry"] = industry_df
+
         self._aux_cache[cache_key] = aux
         return aux
+
+    def _load_industry_from_db(self, instruments: list, start_time: str, end_time: str) -> Optional[pd.DataFrame]:
+        """Load industry classification from TimescaleDB ref_industry table.
+
+        ref_industry is a static symbol→industry_code mapping (no date column).
+        We broadcast it across all trading dates in [start_time, end_time] to produce
+        a MultiIndex (datetime, instrument) DataFrame with an 'industry_code' column,
+        matching the format expected by FactorPreprocessor.neutralize().
+        """
+        try:
+            import psycopg2
+            conn = psycopg2.connect(self.config.system.database.connection_string)
+            with conn.cursor() as cur:
+                symbols = [str(s) for s in instruments]
+                placeholders = ",".join(["%s"] * len(symbols))
+                cur.execute(
+                    f"SELECT symbol, industry_code FROM ref_industry WHERE symbol IN ({placeholders})",
+                    symbols,
+                )
+                rows = cur.fetchall()
+            conn.close()
+
+            if not rows:
+                logger.debug("No industry data found in ref_industry for given instruments")
+                return None
+
+            ind_map = {sym: code for sym, code in rows}
+
+            # Get trading dates from the already-loaded aux data (volume/close loaded above)
+            from qlib.data import D
+            dates_df = D.features(
+                instruments=instruments,
+                fields=["$close"],
+                start_time=start_time,
+                end_time=end_time,
+            )
+            dates = dates_df.index.get_level_values("datetime").unique()
+
+            rows_out = []
+            for dt in dates:
+                for sym in instruments:
+                    code = ind_map.get(str(sym))
+                    if code is not None:
+                        rows_out.append((dt, sym, code))
+
+            if not rows_out:
+                return None
+
+            df = pd.DataFrame(rows_out, columns=["datetime", "instrument", "industry_code"])
+            df = df.set_index(["datetime", "instrument"]).sort_index()
+            logger.info("Loaded industry data from TimescaleDB: %d symbols, %d dates",
+                        len(ind_map), len(dates))
+            return df
+
+        except Exception as e:
+            logger.warning("Could not load industry data from TimescaleDB: %s — industry neutralization skipped", e)
+            return None
 
     def _compute_factor_qlib(self, expression: str, instruments: list,
                               start_time: str, end_time: str) -> pd.DataFrame:
@@ -155,6 +282,41 @@ class FactorMiningEvaluator:
         from qlib.data import D
         return D.features(instruments=instruments, fields=["$returns_1d"],
                           start_time=start_time, end_time=end_time)
+
+    def _load_ohlcv_panel(self, instruments: list,
+                          start_time: str, end_time: str) -> pd.DataFrame:
+        """Load OHLCV data as (datetime, instrument) MultiIndex DataFrame.
+
+        Returns columns: open, high, low, close, volume.
+        Used by ``_compute_factor_python`` to feed panel data into sandbox.
+        """
+        from qlib.data import D
+        fields = ["$open", "$high", "$low", "$close", "$volume"]
+        df = D.features(instruments, fields, start_time=start_time, end_time=end_time)
+        df.columns = ["open", "high", "low", "close", "volume"]
+        return df
+
+    def _compute_factor_python(self, candidate: Dict[str, Any], instruments: list,
+                               start_time: str, end_time: str) -> pd.DataFrame:
+        """Execute Python factor in sandbox, return DataFrame matching Qlib output format.
+
+        The sandbox receives the OHLCV panel and returns a pd.Series with the
+        same (datetime, instrument) MultiIndex.  We wrap it as a single-column
+        DataFrame to match ``_compute_factor_qlib`` output.
+        """
+        from mining.sandbox import run_factor_in_sandbox
+        df = self._load_ohlcv_panel(instruments, start_time, end_time)
+        code = candidate["code"]
+        params = candidate.get("params", {})
+        series = run_factor_in_sandbox(code, df, params, timeout=self.config.sandbox_timeout)
+        return series.to_frame(name="factor")
+
+    def _compute_factor(self, candidate: Dict[str, Any], instruments: list,
+                        start_time: str, end_time: str) -> pd.DataFrame:
+        """Unified dispatcher: route to DSL (Qlib) or Python (sandbox) execution path."""
+        if _is_python_candidate(candidate):
+            return self._compute_factor_python(candidate, instruments, start_time, end_time)
+        return self._compute_factor_qlib(candidate["expression"], instruments, start_time, end_time)
 
     # ──────────────────── IC Computation ────────────────────
 
@@ -234,16 +396,23 @@ class FactorMiningEvaluator:
 
     # ──────────────────── Stage 1: Fast IC Screening ────────────────────
 
+    def _stage1_window(self):
+        """Return (start, end) for Stage 1: last N years of training period."""
+        from datetime import datetime, timedelta
+        end = datetime.strptime(self.config.train_end, "%Y-%m-%d")
+        start = end - timedelta(days=365 * self.config.stage1_lookback_years)
+        return start.strftime("%Y-%m-%d"), self.config.train_end
+
     def _fast_ic_screening(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        subset = self._get_fast_screening_universe()
-        returns = self._get_returns_qlib(subset, self.config.train_start, self.config.train_end)
-        aux = self._load_aux_data(subset, self.config.train_start, self.config.train_end)
+        universe = self._get_full_universe()
+        s1_start, s1_end = self._stage1_window()
+        returns = self._get_returns_qlib(universe, s1_start, s1_end)
+        aux = self._load_aux_data(universe, s1_start, s1_end)
         results = []
         for c in candidates:
             try:
-                values = self._compute_factor_qlib(c["expression"], subset,
-                                                    self.config.train_start, self.config.train_end)
-                self._subset_factor_cache[c["expression"]] = values
+                values = self._compute_factor(c, universe, s1_start, s1_end)
+                self._subset_factor_cache[_candidate_cache_key(c)] = values
                 ic_stats = self._compute_ic_from_frames(values, returns, aux_data=aux)
                 c["stage1"] = ic_stats
                 if abs(ic_stats.get("ic_mean", 0)) >= self.config.ic_threshold:
@@ -262,29 +431,30 @@ class FactorMiningEvaluator:
             return list(candidates)
         values_map: Dict[str, pd.DataFrame] = {}
         for c in candidates:
-            cached = self._subset_factor_cache.get(c["expression"])
+            ckey = _candidate_cache_key(c)
+            cached = self._subset_factor_cache.get(ckey)
             if cached is not None:
-                values_map[c["expression"]] = cached
+                values_map[ckey] = cached
             else:
                 try:
-                    subset = self._get_fast_screening_universe()
-                    vals = self._compute_factor_qlib(c["expression"], subset,
-                                                      self.config.train_start, self.config.train_end)
-                    values_map[c["expression"]] = vals
+                    universe = self._get_full_universe()
+                    s1_start, s1_end = self._stage1_window()
+                    vals = self._compute_factor(c, universe, s1_start, s1_end)
+                    values_map[ckey] = vals
                 except Exception:
-                    values_map[c["expression"]] = pd.DataFrame()
+                    values_map[ckey] = pd.DataFrame()
         sorted_candidates = sorted(candidates,
                                     key=lambda c: abs(c.get("stage1", {}).get("ic_mean", 0)),
                                     reverse=True)
         kept = []
         for c in sorted_candidates:
-            c_vals = values_map.get(c["expression"])
+            c_vals = values_map.get(_candidate_cache_key(c))
             if c_vals is None or c_vals.empty:
                 kept.append(c)
                 continue
             is_dup = False
             for k in kept:
-                k_vals = values_map.get(k["expression"])
+                k_vals = values_map.get(_candidate_cache_key(k))
                 if k_vals is None or k_vals.empty:
                     continue
                 corr = self._pairwise_correlation(c_vals, k_vals)
@@ -302,96 +472,145 @@ class FactorMiningEvaluator:
         from .library import FactorLibrary
         return FactorLibrary(self.config)
 
-    def _load_lib_values_from_db(self, lib_factors: List[Dict[str, Any]],
-                                full_universe: list) -> Dict[str, pd.DataFrame]:
-        """Try to load library factor values from DB. Returns {factor_id: DataFrame}."""
-        result = {}
+    def _corr_check_window(self) -> tuple:
+        """Return (start, end) for the correlation check window.
+
+        Uses the last `corr_check_years` of the IS period.  Correlation rank is
+        stable over 1–2 years; no need to load 8 years of library data.
+        """
+        from datetime import date, timedelta
+        end = pd.Timestamp(self.config.train_end).date()
+        start = date(end.year - self.config.corr_check_years, end.month, end.day)
+        return str(start), str(end)
+
+    def _corr_fetch_window(self) -> tuple:
+        """Return a 3-month continuous window at the end of the IS period.
+
+        Using a continuous range (not sampled dates) lets TimescaleDB use the
+        (factor_name, time) index directly — no type cast, no chunk scatter.
+        3 months × 5000 stocks × 34 factors ≈ 11 M rows, fetched in ~5 s.
+        """
+        end = pd.Timestamp(self.config.train_end)
+        start = end - pd.DateOffset(months=3)
+        return str(start.date()), str(end.date())
+
+    def _compute_lib_corrs_sampled(
+        self,
+        candidate_flat: pd.DataFrame,
+        lib_factor_names: List[str],
+        _unused_sample_dates: List[str],   # kept for API compat, ignored
+    ) -> Dict[str, float]:
+        """Compute Spearman correlation between a candidate and all library factors.
+
+        Fetches a 3-month continuous window from TimescaleDB (index-friendly range
+        scan), then vectorises cross-sectional rank correlation in Python.
+
+        Returns {factor_name: abs_mean_daily_spearman}.
+        """
+        import psycopg2
+
+        win_start, win_end = self._corr_fetch_window()
+
+        if candidate_flat.empty or not lib_factor_names:
+            return {}
+
+        cand = candidate_flat[
+            (candidate_flat["time"] >= pd.Timestamp(win_start)) &
+            (candidate_flat["time"] <= pd.Timestamp(win_end))
+        ].copy()
+        if cand.empty:
+            return {}
+
+        result: Dict[str, float] = {}
         try:
-            import psycopg2
             conn = psycopg2.connect(self.config.system.database.connection_string)
+            placeholders_f = ",".join(["%s"] * len(lib_factor_names))
             with conn.cursor() as cur:
-                for lf in lib_factors:
-                    factor_name = f"factor_{lf['id']}"
-                    cur.execute(
-                        "SELECT time, symbol, value FROM factor_values WHERE factor_name = %s",
-                        (factor_name,),
-                    )
-                    rows = cur.fetchall()
-                    if not rows:
-                        continue
-                    df = pd.DataFrame(rows, columns=["datetime", "instrument", factor_name])
-                    df["datetime"] = pd.to_datetime(df["datetime"])
-                    df = df.set_index(["datetime", "instrument"]).sort_index()
-                    result[lf["id"]] = df
+                cur.execute("SET max_parallel_workers_per_gather = 0")
+                cur.execute(
+                    f"SELECT factor_name, time, symbol, value FROM factor_values "
+                    f"WHERE factor_name IN ({placeholders_f}) "
+                    f"AND time >= %s AND time <= %s",
+                    lib_factor_names + [win_start, win_end],
+                )
+                rows = cur.fetchall()
             conn.close()
+
+            if not rows:
+                return {}
+
+            lib_df = pd.DataFrame(rows, columns=["factor_name", "time", "symbol", "value"])
+            lib_df["time"] = pd.to_datetime(lib_df["time"])
+
+            # Vectorised Spearman: rank cross-sectionally per day, then mean Pearson
+            for fname in lib_factor_names:
+                sub = lib_df[lib_df["factor_name"] == fname]
+                if sub.empty:
+                    continue
+                merged = cand.merge(sub[["time", "symbol", "value"]],
+                                    on=["time", "symbol"], suffixes=("_c", "_l"))
+                if len(merged) < 30:
+                    continue
+                daily_corrs = []
+                for _, grp in merged.groupby("time"):
+                    if len(grp) < 10:
+                        continue
+                    rc = grp["value_c"].rank()
+                    rl = grp["value_l"].rank()
+                    if rc.std() < 1e-9 or rl.std() < 1e-9:
+                        continue
+                    daily_corrs.append(rc.corr(rl))
+                if daily_corrs:
+                    result[fname] = abs(float(np.nanmean(daily_corrs)))
+
+            logger.info("Corr (%s→%s): fetched %s rows, %d/%d lib factors matched",
+                        win_start, win_end, f"{len(rows):,}", len(result), len(lib_factor_names))
         except Exception as e:
-            logger.debug("Could not load library factors from DB: %s", e)
+            logger.warning("Correlation check failed: %s", e)
         return result
 
     def _correlation_check(self, candidates: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         library = self._load_library()
         lib_factors = library.list_factors()
+        lib_factor_names = [f"factor_{lf['id']}" for lf in lib_factors]
+        id_by_fname = {f"factor_{lf['id']}": lf["id"] for lf in lib_factors}
+
         full_universe = self._get_full_universe()
-        passed, rejected = [], []
-
-        # Try loading library factor values from DB first (fast path)
-        lib_values = self._load_lib_values_from_db(lib_factors, full_universe)
-        db_loaded = len(lib_values)
-
-        # Fallback: compute missing library factors via Qlib
-        for lf in lib_factors:
-            if lf["id"] in lib_values:
-                continue
-            try:
-                vals = self._compute_factor_qlib(lf["expression"], full_universe,
-                                                  self.config.train_start, self.config.train_end)
-                lib_values[lf["id"]] = vals
-            except Exception as e:
-                logger.warning("Failed to compute library factor %s: %s", lf["id"], e)
-
-        if db_loaded:
-            logger.info("Library factors: %d from DB, %d computed via Qlib",
-                       db_loaded, len(lib_values) - db_loaded)
-        # Cache for Stage 3 (incremental IC computation)
-        self._lib_values_cache = lib_values
+        corr_start, corr_end = self._corr_check_window()
         returns = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
         aux = self._load_aux_data(full_universe, self.config.train_start, self.config.train_end)
 
-        # Parallel: compute all candidate factor values concurrently
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        logger.info("Stage 2 corr: %d lib factors, window %s → %s",
+                    len(lib_factor_names), corr_start, corr_end)
 
-        def _compute_candidate(c):
-            """Compute factor values + IC + correlations for one candidate."""
-            factor_vals = self._compute_factor_qlib(c["expression"], full_universe,
-                                                     self.config.train_start, self.config.train_end)
-            full_ic = self._compute_ic_from_frames(factor_vals, returns, aux_data=aux)
-            max_corr, max_corr_factor = 0.0, None
-            all_corrs = {}
-            for lid, lvals in lib_values.items():
-                corr = abs(self._pairwise_correlation(factor_vals, lvals))
-                all_corrs[lid] = corr
-                if corr > max_corr:
-                    max_corr, max_corr_factor = corr, lid
-            return factor_vals, full_ic, all_corrs, max_corr, max_corr_factor
+        passed, rejected = [], []
+        for c in candidates:
+            try:
+                factor_vals = self._compute_factor(c, full_universe,
+                                                   self.config.train_start, self.config.train_end)
+                self._factor_cache[_candidate_cache_key(c)] = factor_vals
+                full_ic = self._compute_ic_from_frames(factor_vals, returns, aux_data=aux)
+                c["full_ic"] = full_ic
 
-        with ThreadPoolExecutor(max_workers=min(4, len(candidates))) as pool:
-            futures = {pool.submit(_compute_candidate, c): c for c in candidates}
-            for future in as_completed(futures):
-                c = futures[future]
-                try:
-                    factor_vals, full_ic, all_corrs, max_corr, max_corr_factor = future.result()
-                    self._factor_cache[c["expression"]] = factor_vals
-                    c["full_ic"] = full_ic
-                    c["_lib_correlations"] = all_corrs
-                    if max_corr < self.config.correlation_threshold:
-                        c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": True}
-                        passed.append(c)
-                    else:
-                        c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": False}
-                        rejected.append(c)
-                except Exception as e:
-                    c["stage2"] = {"error": str(e), "passed": False}
+                flat = multiindex_to_flat(factor_vals)
+                corrs_by_fname = self._compute_lib_corrs_sampled(
+                    flat, lib_factor_names, []
+                )
+                all_corrs = {id_by_fname[fn]: v for fn, v in corrs_by_fname.items() if fn in id_by_fname}
+                c["_lib_correlations"] = all_corrs
+
+                max_corr = max(all_corrs.values(), default=0.0)
+                max_corr_factor = max(all_corrs, key=all_corrs.get) if all_corrs else None
+
+                if max_corr < self.config.correlation_threshold:
+                    c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": True}
+                    passed.append(c)
+                else:
+                    c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": False}
                     rejected.append(c)
+            except Exception as e:
+                c["stage2"] = {"error": str(e), "passed": False}
+                rejected.append(c)
         return passed, rejected
 
     # ──────────────────── Stage 2.5: Replacement Check ────────────────────
@@ -438,93 +657,96 @@ class FactorMiningEvaluator:
         Returns (screened, errors).  All screened factors have a ``report_card``
         dict attached.  No admission decision is made here — the LLM in the
         Ralph Loop skill reviews the report cards and decides.
+
+        Strategy: factor value loading is sequential (Qlib D.features is not
+        thread-safe); IC computation and report card building are pure pandas
+        and run in parallel via ThreadPoolExecutor.
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         full_universe = self._get_full_universe()
         test_end = self.config.test_end or str(pd.Timestamp.now().date())
 
-        # Shared data (loaded once)
+        # Shared data (loaded once, sequential)
         aux_is = self._load_aux_data(full_universe, self.config.train_start, self.config.train_end)
         aux_oos = self._load_aux_data(full_universe, self.config.test_start, test_end)
         returns_is = self._get_returns_qlib(full_universe, self.config.train_start, self.config.train_end)
         returns_oos = self._get_returns_qlib(full_universe, self.config.test_start, test_end)
 
-        # Multi-horizon returns for IC decay — compute in parallel
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
+        # Multi-horizon returns: horizon=1 reuses returns_is (no extra Qlib call)
         returns_multi: Dict[int, pd.DataFrame] = {}
-
-        def _compute_horizon_returns(h):
-            expr = f"Ref($close, -{h}) / $close - 1"
-            return h, self._compute_factor_qlib(
-                expr, full_universe, self.config.train_start, self.config.train_end,
-            )
-
-        horizons_to_compute = [h for h in self.config.decay_horizons if h != 1]
-        with ThreadPoolExecutor(max_workers=min(4, len(horizons_to_compute) or 1)) as pool:
-            futures = [pool.submit(_compute_horizon_returns, h) for h in horizons_to_compute]
-            for future in as_completed(futures):
+        for h in self.config.decay_horizons:
+            if h == 1:
+                returns_multi[1] = returns_is
+            else:
+                expr = f"Ref($close, -{h}) / $close - 1"
                 try:
-                    h, ret_df = future.result()
-                    returns_multi[h] = ret_df
+                    returns_multi[h] = self._compute_factor_qlib(
+                        expr, full_universe, self.config.train_start, self.config.train_end,
+                    )
                 except Exception as e:
-                    logger.warning("Failed to compute horizon returns: %s", e)
-        if 1 in self.config.decay_horizons:
-            returns_multi[1] = returns_is
+                    logger.warning("Failed to compute horizon %d returns: %s", h, e)
 
-        # Stage 3: compute report cards for each candidate in parallel
-        def _compute_one_report_card(c):
-            # IS factor values (from Stage 2 cache or fresh)
-            factor_vals_is = self._factor_cache.get(c["expression"])
-            if factor_vals_is is None:
-                factor_vals_is = self._compute_factor_qlib(
-                    c["expression"], full_universe,
-                    self.config.train_start, self.config.train_end,
-                )
+        # ── Step 1: Load all factor values sequentially (Qlib not thread-safe) ──
+        factor_vals_map: Dict[str, tuple] = {}  # ckey -> (vals_is, vals_oos)
+        load_errors: Dict[str, Exception] = {}
+        for c in candidates:
+            ckey = _candidate_cache_key(c)
+            try:
+                vals_is = self._factor_cache.get(ckey)
+                if vals_is is None:
+                    vals_is = self._compute_factor(
+                        c, full_universe, self.config.train_start, self.config.train_end,
+                    )
+                vals_oos = self._compute_factor(c, full_universe, self.config.test_start, test_end)
+                factor_vals_map[ckey] = (vals_is, vals_oos)
+            except Exception as e:
+                load_errors[ckey] = e
+                logger.warning("Stage 3 factor load error for %s: %s", c.get("name"), e)
 
-            # OOS factor values
-            factor_vals_oos = self._compute_factor_qlib(
-                c["expression"], full_universe, self.config.test_start, test_end,
-            )
+        # ── Step 2: IC computation + report card — parallel (pure pandas) ──────
+        def _compute_stats_and_rc(c: Dict[str, Any]) -> Dict[str, Any]:
+            ckey = _candidate_cache_key(c)
+            vals_is, vals_oos = factor_vals_map[ckey]
 
-            # Daily IC series
-            daily_ics_is = self._compute_daily_ics(factor_vals_is, returns_is, aux_data=aux_is)
-            daily_ics_oos = self._compute_daily_ics(factor_vals_oos, returns_oos, aux_data=aux_oos)
+            daily_ics_is = self._compute_daily_ics(vals_is, returns_is, aux_data=aux_is)
+            daily_ics_oos = self._compute_daily_ics(vals_oos, returns_oos, aux_data=aux_oos)
 
-            # Multi-horizon daily ICs for decay — parallel within candidate
-            daily_ics_by_horizon: Dict[int, pd.Series] = {}
+            # Reuse daily_ics_is for horizon=1 to avoid redundant computation
+            daily_ics_by_horizon: Dict[int, pd.Series] = {1: daily_ics_is}
             for h, ret_h in returns_multi.items():
-                daily_ics_by_horizon[h] = self._compute_daily_ics(
-                    factor_vals_is, ret_h, aux_data=aux_is,
-                )
-
-            return factor_vals_is, factor_vals_oos, daily_ics_is, daily_ics_oos, daily_ics_by_horizon
-
-        screened, errors = [], []
-        with ThreadPoolExecutor(max_workers=min(4, len(candidates) or 1)) as pool:
-            futures = {pool.submit(_compute_one_report_card, c): c for c in candidates}
-            for future in as_completed(futures):
-                c = futures[future]
-                try:
-                    factor_vals_is, factor_vals_oos, daily_ics_is, daily_ics_oos, daily_ics_by_horizon = future.result()
-
-                    # Build report card
-                    rc = compute_report_card(
-                        daily_ics_is=daily_ics_is,
-                        daily_ics_oos=daily_ics_oos,
-                        factor_vals_is=factor_vals_is,
-                        factor_vals_oos=factor_vals_oos,
-                        returns_is=returns_is,
-                        returns_oos=returns_oos,
-                        daily_ics_by_horizon=daily_ics_by_horizon,
-                        lib_values=self._lib_values_cache,
-                        lib_corr_profile=c.get("_lib_correlations", {}),
-                        stage2_info=c.get("stage2", {}),
-                        expression_depth=self._max_expression_depth(c["expression"]),
+                if h != 1:
+                    daily_ics_by_horizon[h] = self._compute_daily_ics(
+                        vals_is, ret_h, aux_data=aux_is,
                     )
 
-                    c["report_card"] = rc.to_dict()
+            rc = compute_report_card(
+                daily_ics_is=daily_ics_is,
+                daily_ics_oos=daily_ics_oos,
+                factor_vals_is=vals_is,
+                factor_vals_oos=vals_oos,
+                returns_is=returns_is,
+                returns_oos=returns_oos,
+                daily_ics_by_horizon=daily_ics_by_horizon,
+                lib_values=self._lib_values_cache,
+                lib_corr_profile=c.get("_lib_correlations", {}),
+                stage2_info=c.get("stage2", {}),
+                expression_depth=self._max_expression_depth(c.get("expression", "")),
+            )
+            return {"rc": rc, "vals_is": vals_is, "vals_oos": vals_oos}
 
-                    # Backward-compatible stage3 dict
+        screened, errors = [], []
+        eligible = [c for c in candidates if _candidate_cache_key(c) not in load_errors]
+        max_workers = min(4, len(eligible)) if eligible else 1
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            future_to_c = {pool.submit(_compute_stats_and_rc, c): c for c in eligible}
+            for future in as_completed(future_to_c):
+                c = future_to_c[future]
+                try:
+                    result = future.result()
+                    rc = result["rc"]
+                    c["report_card"] = rc.to_dict()
                     c["stage3"] = {
                         "ic_mean_is": rc.ic_mean,
                         "ic_ir_is": rc.ic_ir,
@@ -535,17 +757,22 @@ class FactorMiningEvaluator:
                         "ls_return": rc.ls_return,
                         "monotonicity": rc.monotonicity_is,
                     }
-
-                    # Transient values for publisher (not saved to YAML)
-                    c["_factor_values"] = factor_vals_is
-                    c["_factor_values_oos"] = factor_vals_oos
-
+                    c["_factor_values"] = result["vals_is"]
+                    c["_factor_values_oos"] = result["vals_oos"]
                     screened.append(c)
                 except Exception as e:
                     c["stage3"] = {"error": str(e)}
                     c["report_card"] = {"error": str(e)}
                     errors.append(c)
                     logger.warning("Stage 3 error for %s: %s", c.get("name"), e)
+
+        # Add factor-load failures to errors
+        for c in candidates:
+            ckey = _candidate_cache_key(c)
+            if ckey in load_errors:
+                c["stage3"] = {"error": str(load_errors[ckey])}
+                c["report_card"] = {"error": str(load_errors[ckey])}
+                errors.append(c)
 
         return screened, errors
 
@@ -564,6 +791,54 @@ class FactorMiningEvaluator:
             flat_factor, flat_returns, n_quantiles=n_quantiles, min_obs=n_quantiles,
         )
         return q_rets
+
+    # ──────────────────── Optuna Parameter Optimization ────────────────────
+
+    def _optimize_params(self, candidate: dict) -> dict:
+        """Use Optuna to search param_space for best Rank IC. Returns candidate with optimized params."""
+        import optuna
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+        param_space = candidate.get("param_space")
+        if not param_space:
+            return candidate
+
+        # Use fast screening instruments and train period
+        instruments = self._get_fast_screening_universe()
+        start = self.config.train_start
+        end = self.config.train_end
+
+        def objective(trial):
+            params = {}
+            for name, bounds in param_space.items():
+                if isinstance(bounds, (list, tuple)) and len(bounds) == 2:
+                    if isinstance(bounds[0], int) and isinstance(bounds[1], int):
+                        params[name] = trial.suggest_int(name, bounds[0], bounds[1])
+                    else:
+                        params[name] = trial.suggest_float(name, float(bounds[0]), float(bounds[1]))
+                else:
+                    params[name] = bounds  # Fixed value
+            test_candidate = {**candidate, "params": params}
+            try:
+                factor_values = self._compute_factor(test_candidate, instruments, start, end)
+                # Compute rank IC against forward returns
+                returns = self._get_returns_qlib(instruments, start, end)
+                merged = factor_values.join(returns, how="inner").dropna()
+                if len(merged) < 50:
+                    return 0.0
+                ic = merged.iloc[:, 0].corr(merged.iloc[:, 1], method="spearman")
+                return abs(ic) if not pd.isna(ic) else 0.0
+            except Exception:
+                return 0.0
+
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=self.config.optuna_trials,
+                       timeout=self.config.optuna_timeout, show_progress_bar=False)
+
+        if study.best_value > 0:
+            result = {**candidate, "params": study.best_params}
+            return result
+        return candidate
 
     # ──────────────────── Probe: Lightweight Single-Expression IC ────────────────────
 
@@ -622,7 +897,10 @@ class FactorMiningEvaluator:
         validator = ExpressionValidator(self.config)
         valid, invalid = [], []
         for c in candidates:
-            result = validator.validate(c["expression"])
+            if _is_python_candidate(c):
+                result = validator.validate_python(c.get("code", ""))
+            else:
+                result = validator.validate(c["expression"])
             if result.valid:
                 valid.append(c)
             else:
@@ -631,6 +909,17 @@ class FactorMiningEvaluator:
 
         if not valid:
             return BatchResult(screened=[], rejected=invalid, replacements=[])
+
+        # Optimize params for Python factors with param_space
+        optimized_valid = []
+        for candidate in valid:
+            if candidate.get("param_space") and _is_python_candidate(candidate):
+                try:
+                    candidate = self._optimize_params(candidate)
+                except Exception as e:
+                    logger.warning("Optuna optimization failed for %s: %s", candidate["name"], e)
+            optimized_valid.append(candidate)
+        valid = optimized_valid
 
         if skip_stage1:
             stage2_input = valid

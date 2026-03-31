@@ -30,7 +30,7 @@ class DatabaseConfig:
         return cls(
             host=os.getenv('TIMESCALE_HOST', 'localhost'),
             port=int(os.getenv('TIMESCALE_PORT', 5432)),
-            database=os.getenv('TIMESCALE_DB', 'quant'),
+            database=os.getenv('TIMESCALE_DB', 'quant_data'),
             user=os.getenv('TIMESCALE_USER', 'postgres'),
             password=os.getenv('TIMESCALE_PASSWORD', 'postgres'),
         )
@@ -97,13 +97,13 @@ class MiningConfig:
         return self.system.qlib_data_dir
 
     # Evaluation thresholds
-    ic_threshold: float = 0.03
+    ic_threshold: float = 0.01
     correlation_threshold: float = 0.7
     replacement_ic_ratio: float = 1.3
-    replacement_ic_min: float = 0.05
+    replacement_ic_min: float = 0.03
 
-    # Fast screening
-    fast_screening_universe_size: int = 50
+    # Fast screening — full universe, rolling window
+    stage1_lookback_years: int = 1
 
     # Library target
     target_library_size: int = 100
@@ -129,7 +129,7 @@ class MiningConfig:
     max_expression_depth: int = 10
 
     # IC decay horizons (days) for multi-horizon analysis
-    decay_horizons: List[int] = field(default_factory=lambda: [1, 5, 10, 20])
+    decay_horizons: List[int] = field(default_factory=lambda: [1])
 
     # Paths (relative to project root)
     memory_dir: str = "storage/memory"
@@ -141,6 +141,9 @@ class MiningConfig:
     base_fields: List[str] = field(default_factory=lambda: [
         "$open", "$high", "$low", "$close", "$volume", "$amount", "$vwap",
         "$returns",
+        # Fundamental / liquidity fields (available in Qlib binary since batch_021)
+        "$pe_ratio", "$pb_ratio", "$ps_ratio",
+        "$market_cap", "$circ_market_cap", "$turnover_rate",
     ])
 
     # Minute-aggregated fields (available after sync_minute_aggregates)
@@ -169,3 +172,27 @@ class MiningConfig:
 
     # Neutralization (optional, requires $market_cap / $industry_code synced)
     neutralize_mode: str = "market_cap"  # "none", "market_cap", "industry", "both"
+
+    # Optuna parameter optimization
+    optuna_trials: int = 30
+    optuna_timeout: int = 600  # seconds per factor
+
+    # Sandbox execution
+    sandbox_timeout: int = 60  # seconds per factor
+    sandbox_memory_limit_gb: int = 4
+
+    # Evolution engine
+    max_mutations_per_factor: int = 5
+    ast_similarity_threshold: float = 0.8
+
+    # New storage paths
+    logic_dir: str = "storage/logic"
+    python_factors_dir: str = "storage/python_factors"
+    forbidden_file: str = "storage/memory/forbidden.yaml"
+
+    # Correlation check window — use last N years of IS period instead of full IS period.
+    # Correlation is stable over 2-year windows; this gives ~4x speedup on Stage 2.
+    corr_check_years: int = 2
+
+    # Disk cache for library factor values (avoids re-computing 34 factors every batch)
+    lib_cache_dir: str = "storage/cache/lib_factors"

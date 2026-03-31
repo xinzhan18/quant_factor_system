@@ -163,12 +163,60 @@ tags:
 
 ## 3. 风险归因 — "这是 Alpha 还是 Beta？"
 
-> [!info] 风险归因需要行业和市值数据（L1）
-> 当前数据等级为 L0（OHLCV），无法进行量化风险归因。以下为基于因子表达式的定性分析。
+**若 risk_attribution.has_industry=true，嵌入：**
 
-（LLM 叙事：分析因子表达式可能暴露的风格因子（size, momentum, volatility, liquidity），推断行业偏好。150+ 字。）
+![[FXXX/industry_ic.png]]
 
-**结论**：（一句话回答"这是 Alpha 还是 Beta？"——基于定性分析）
+> [!note]- 行业 IC 明细（Top 10）
+> | 行业 | IC Mean | 股票数 |
+> |------|---------|-------|
+> | (从 risk_attribution.industry_ic 填充，取 abs(IC) 最大的 10 个) |
+
+**若 risk_attribution.has_size=true，嵌入：**
+
+![[FXXX/size_exposure.png]]
+
+> [!note]- 市值分位 IC
+> | 分位 | IC |
+> |------|----|
+> | Q1 (小市值) | |
+> | Q2 | |
+> | Q3 | |
+> | Q4 | |
+> | Q5 (大市值) | |
+> | (从 risk_attribution.size_exposure.ic_by_quintile 填充) |
+>
+> **因子-市值相关性**：<risk_attribution.size_exposure.factor_size_corr>（正值=大市值偏向，负值=小市值偏向）
+
+**若 risk_attribution.has_style=true，嵌入：**
+
+![[FXXX/style_corr.png]]
+
+> [!note]- 风格因子暴露
+> | 风格因子 | 相关系数 |
+> |---------|---------|
+> | market_cap（市值） | |
+> | pb_ratio（市净率） | |
+> | pe_ratio（市盈率） | |
+> | (从 risk_attribution.style_corr 填充) |
+
+**若所有 has_* 均为 false（数据加载失败），改为输出：**
+
+> [!info] 风险归因数据不可用
+> 行业/市值数据加载失败，以下为基于因子表达式的定性分析。
+
+（定性分析：分析因子表达式可能暴露的风格因子，推断行业偏好。150+ 字。）
+
+---
+
+**LLM 叙事（当有数据时）**：
+- 行业IC分解：识别 IC 最高/最低的行业，判断因子是否行业中性或存在明显行业偏向
+- 市值暴露：`factor_size_corr > 0.2` 表示大市值偏向，`< -0.2` 表示小市值偏向；结合 ic_by_quintile 判断信号在哪个规模段最强
+- 风格相关：pb/pe 相关性大说明 value/growth 暴露；market_cap 相关与 factor_size_corr 应一致
+- 最终判断：这些暴露是否可以用已知系统性因子解释，还是存在残余 Alpha
+- 必须引用具体数字（IC 值、相关系数等）
+
+**结论**：（一句话回答"这是 Alpha 还是 Beta？"）
 
 ---
 
@@ -279,12 +327,13 @@ tags:
 > - 可操作的建议3
 ```
 
-**图表名称对照（18 张 PNG）：**
+**图表名称对照（最多 21 张 PNG）：**
 
 | 章节 | 图表名称 | 来源 |
 |------|---------|------|
 | Ch1 预测能力 | ic_timeseries, ic_distribution, rolling_ic, cumulative_ic, monthly_heatmap | ICAnalyzer |
 | Ch2 盈利能力 | quintile_bar, cumulative_returns, long_short, is_vs_oos_bar, annual_group_returns | ProfitAnalyzer |
+| Ch3 风险归因 | industry_ic, size_exposure, style_corr（可选，数据可用时生成） | RiskAttributionAnalyzer |
 | Ch4 条件分析 | conditional_ic, annual_ic | ConditionalAnalyzer |
 | Ch5 衰减 | ic_decay, autocorrelation, distribution, coverage | DecayAnalyzer |
 | Ch6 独特性 | correlation_bar | UniquenessAnalyzer |

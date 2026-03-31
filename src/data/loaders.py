@@ -1,6 +1,10 @@
 """
-数据加载模块 — 从 mining DB 表加载因子和价格数据
-Data Loaders Module
+数据加载模块 — 从 TimescaleDB (quant_data) 加载因子和价格数据
+
+Tables used:
+  factor_meta   — admitted factor metadata (factor_id, name, expression, category, ic_mean, ...)
+  factor_values — factor time-series values  (time, symbol, factor_name, value)
+  market_daily  — daily OHLCV price data     (time, symbol, open, high, low, close, volume, ...)
 """
 
 import logging
@@ -20,10 +24,13 @@ def _validate_identifier(name: str) -> str:
 
 
 def get_available_factors(connection) -> List[dict]:
-    """Read factor list from mining_factors table."""
+    """Read admitted factor list from factor_meta table."""
     sql = """
-        SELECT factor_id, name, expression, category, ic_mean, ic_ir, admitted_at
-        FROM mining_factors
+        SELECT factor_id, name, expression, category,
+               ic_mean, ic_ir, ic_mean_is, ic_mean_oos,
+               ic_win_rate, ls_return, admitted_at
+        FROM factor_meta
+        WHERE status = 'admitted'
         ORDER BY admitted_at DESC
     """
     df = pd.read_sql(sql, connection)
@@ -36,15 +43,16 @@ def get_factor_data(
     factor_id: str,
     connection,
 ) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
-    """Read factor values from mining_factor_values table."""
+    """Read factor values from factor_values table."""
+    factor_name = f"factor_{factor_id}"
     sql = """
-        SELECT symbol, trade_date AS time, value
-        FROM mining_factor_values
-        WHERE factor_id = %s
-        ORDER BY trade_date, symbol
+        SELECT symbol, time, value
+        FROM factor_values
+        WHERE factor_name = %s
+        ORDER BY time, symbol
     """
     try:
-        df = pd.read_sql(sql, connection, params=[factor_id])
+        df = pd.read_sql(sql, connection, params=[factor_name])
         if df.empty:
             return None, f"No data for factor {factor_id}"
         return df, None
@@ -53,8 +61,8 @@ def get_factor_data(
 
 
 def get_factor_metrics(factor_id: str, connection) -> Optional[dict]:
-    """Read full metrics for a single factor."""
-    sql = "SELECT * FROM mining_factors WHERE factor_id = %s"
+    """Read full metrics for a single factor from factor_meta."""
+    sql = "SELECT * FROM factor_meta WHERE factor_id = %s"
     df = pd.read_sql(sql, connection, params=[factor_id])
     if df.empty:
         return None
@@ -68,7 +76,7 @@ def get_price_data(
     connection,
     table_name: str = 'market_daily'
 ) -> Optional[pd.DataFrame]:
-    """从数据库获取价格数据"""
+    """从 market_daily 获取价格数据"""
     if not symbols:
         return None
     try:

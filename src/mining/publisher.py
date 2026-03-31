@@ -82,11 +82,7 @@ class FactorPublisher:
             conn.rollback()
             raise
 
-        # Non-transactional: generate HTML report
-        report_path = self._generate_report(factor_id, factor_dict, combined)
-        self._update_report_path(conn, factor_id, report_path)
-        conn.commit()
-        return report_path
+        return ""
 
     # ------------------------------------------------------------------
     # Private helpers

@@ -3,6 +3,7 @@ from .profit import ProfitAnalyzer
 from .conditional import ConditionalAnalyzer
 from .decay import DecayAnalyzer
 from .uniqueness import UniquenessAnalyzer
+from .risk import RiskAttributionAnalyzer
 
 __all__ = [
     "ICAnalyzer",
@@ -10,4 +11,5 @@ __all__ = [
     "ConditionalAnalyzer",
     "DecayAnalyzer",
     "UniquenessAnalyzer",
+    "RiskAttributionAnalyzer",
 ]

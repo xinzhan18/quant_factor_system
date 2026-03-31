@@ -22,7 +22,10 @@
 
 ### 1.4 数据管道
 - `D.instruments('all')` 返回 `{'market': 'all'}` 字典，不是股票代码 — 需要传给 `D.features()` 然后从 index 中提取
-- `$amount` 和 `$vwap` 字段为零 — 数据源未填充这些字段
+- `$vwap` 字段为零 — 数据源未填充（2026-03-29确认）
+- `$amount` 已有数据（2026-03-29确认）— 之前"为零"记录已过时
+- **可用基本面字段**: $pe_ratio, $pb_ratio, $ps_ratio, $market_cap, $circ_market_cap, $turnover_rate — 均在Qlib binary中有完整数据
+- **关键教训**: 数据可用性假设必须定期验证，batch_021之前一直假设只有OHLCV可用，实际基本面数据一直存在
 - `evaluate_batch` 返回 `BatchResult`（dataclass，有 `.admitted`, `.rejected`, `.replacements` 属性）— 不能直接遍历
 - `evaluate_batch` 不会自动持久化到 library.yaml — 必须单独调用 `lib.admit()`
 

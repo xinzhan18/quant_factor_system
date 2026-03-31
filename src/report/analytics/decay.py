@@ -80,37 +80,64 @@ class DecayAnalyzer:
         price_df: pd.DataFrame,
         periods: list[int],
     ) -> list[dict]:
-        """Compute IC at each holding period and ratio vs 1-day IC."""
+        """Compute IC at each holding period and ratio vs 1-day IC.
+
+        Vectorized: pivots to (date × stock) matrices once, computes cross-sectional
+        rank IC for all periods using numpy matrix ops (no Python loop over dates).
+        """
         merged = pd.merge(
             factor_df, price_df, on=["time", "symbol"], how="inner"
         )
         merged = merged.sort_values(["symbol", "time"]).reset_index(drop=True)
 
-        results = []
-        base_ic = None
-
+        # Compute all forward return columns upfront
         for period in periods:
-            fwd_ret = (
+            merged[f"_ret_{period}"] = (
                 merged.groupby("symbol")["close"]
                 .pct_change(period)
                 .shift(-period)
             )
-            merged[f"_ret_{period}"] = fwd_ret
 
-            valid = merged.dropna(subset=["value", f"_ret_{period}"])
-            if len(valid) < 100:
-                continue
+        # Pivot factor to wide (date × stock) and rank cross-sectionally
+        factor_wide = merged.pivot(index="time", columns="symbol", values="value")
+        factor_ranks = factor_wide.rank(axis=1, na_option="keep")
 
+        results = []
+        base_ic = None
+
+        for period in periods:
             col = f"_ret_{period}"
-            daily_ic = (
-                valid.groupby("time")[["value", col]]
-                .apply(
-                    lambda g: _spearman_corr(g["value"], g.iloc[:, 1])
-                    if len(g) > 3
-                    else np.nan
-                )
-                .dropna()
-            )
+            ret_wide = merged.pivot(index="time", columns="symbol", values=col)
+            # Align columns
+            common_cols = factor_ranks.columns.intersection(ret_wide.columns)
+            f = factor_ranks[common_cols]
+            r = ret_wide[common_cols].rank(axis=1, na_option="keep")
+
+            # Drop days with too few valid obs
+            valid_mask = f.notna() & r.notna()
+            n = valid_mask.sum(axis=1)
+            good_days = n[n >= 30].index
+            if len(good_days) < 10:
+                continue
+            f, r = f.loc[good_days], r.loc[good_days]
+            vm = valid_mask.loc[good_days].values
+
+            fv = np.where(vm, f.values, np.nan)
+            rv = np.where(vm, r.values, np.nan)
+            n_day = vm.sum(axis=1).astype(float)
+
+            mean_f = np.nanmean(fv, axis=1, keepdims=True)
+            mean_r = np.nanmean(rv, axis=1, keepdims=True)
+            fc = np.where(vm, fv - mean_f, 0.0)
+            rc = np.where(vm, rv - mean_r, 0.0)
+
+            var_f = (fc ** 2).sum(axis=1) / n_day
+            var_r = (rc ** 2).sum(axis=1) / n_day
+            cov = (fc * rc).sum(axis=1) / n_day
+            denom = np.sqrt(var_f * var_r)
+            daily_ic = np.where(denom > 0, cov / denom, np.nan)
+            daily_ic = daily_ic[~np.isnan(daily_ic)]
+
             if len(daily_ic) == 0:
                 continue
 

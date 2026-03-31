@@ -1,17 +1,19 @@
 """
-米筐行业数据源适配器
-RiceQuant Industry Data Adapter
+米筐行业数据源适配器 — 仅用于数据同步写入 TimescaleDB
+RiceQuant Industry Data Adapter — DATA INGESTION ONLY
 
-功能:
-- 获取行业分类信息
-- 获取行业成分股
-- 计算行业因子
+⚠️  此模块只在同步新数据到 TimescaleDB 时调用（数据写入路径）。
+    运行时读取行业数据请从 TimescaleDB ref_industry 表获取，
+    不要直接调用米筐 API。
+
+同步入口:
+    PYTHONPATH=src python3 -m mining sync
 
 使用:
     from data import IndustrySource
-    
+
     source = IndustrySource()
-    
+
     # 获取行业分类
     classification = source.get_industry_classification('2024-01-01')
     
@@ -34,7 +36,6 @@ try:
     RQDATAC_AVAILABLE = True
 except ImportError:
     RQDATAC_AVAILABLE = False
-    logger.warning("rqdatac未安装，将使用模拟行业数据")
 
 
 class IndustrySource:

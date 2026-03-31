@@ -244,6 +244,56 @@ def cmd_memory(args):
     print(ctx)
 
 
+def cmd_logic(args):
+    """Manage and inspect market logics."""
+    from mining.logic_library import MarketLogicLibrary
+    from mining.scheduler import Scheduler
+
+    config = MiningConfig()
+    lib = MarketLogicLibrary(config.logic_dir)
+
+    if args.logic_action == "list":
+        status_filter = getattr(args, "status", None)
+        logics = lib.list_logics(status=status_filter)
+        if not logics:
+            print("No logics found.")
+            return
+        for l in logics:
+            s = l.get("stats", {})
+            print(f"  {l['id']} [{l['status']}] {l['name']} "
+                  f"(cat={l['category']}, gen={s.get('factors_generated', 0)}, "
+                  f"adm={s.get('factors_admitted', 0)})")
+
+    elif args.logic_action == "coverage":
+        coverage = lib.coverage_map()
+        if not coverage:
+            print("No taxonomy loaded.")
+            return
+        for cat, count in sorted(coverage.items()):
+            bar = "#" * count
+            print(f"  {cat:20s} {count:3d} {bar}")
+
+    elif args.logic_action == "schedule":
+        sched = Scheduler()
+        logics = lib.list_logics(status="active")
+        if not logics:
+            print("No active logics.")
+            return
+        coverage = lib.coverage_map()
+        # Compute avg IC from library
+        flib = FactorLibrary(config)
+        factors = flib.list_factors()
+        avg_ic = sum(abs(f.get("ic_mean", 0)) for f in factors) / max(len(factors), 1)
+        scores = sched.score_logics(logics, coverage, avg_ic)
+        print("Logic priority scores:")
+        for lid, score in scores:
+            logic = lib.get(lid)
+            name = logic["name"] if logic else "?"
+            print(f"  {lid} {name:30s} score={score:+.1f}")
+        if sched.should_trigger_outer_loop(logics, coverage, avg_ic):
+            print("\n  All scores non-positive — recommend running /logic new (outer loop)")
+
+
 def main():
     parser = argparse.ArgumentParser(description="FactorMiner CLI")
     sub = parser.add_subparsers(dest="command")
@@ -290,6 +340,13 @@ def main():
     p_mem = sub.add_parser("memory", help="查看挖掘记忆上下文")
     p_mem.add_argument("--memory-dir", default="storage/memory")
 
+    # logic
+    p_logic = sub.add_parser("logic", help="Manage and inspect market logics")
+    p_logic.add_argument("logic_action", choices=["list", "coverage", "schedule"],
+                         help="Action to perform: list, coverage, or schedule")
+    p_logic.add_argument("--status", default=None,
+                         help="Filter by status (active, saturated, dead) — used with 'list'")
+
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(name)s - %(message)s')
 
@@ -305,6 +362,8 @@ def main():
         cmd_memory(args)
     elif args.command == "probe":
         cmd_probe(args)
+    elif args.command == "logic":
+        cmd_logic(args)
     else:
         parser.print_help()
 
