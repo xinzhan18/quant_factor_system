@@ -54,36 +54,22 @@ class ICAnalyzer:
         split_date = pd.Timestamp(split_date)
         grouped = merged_df.groupby("time")
 
-        # Compute daily cross-sectional correlations
+        # Rank IC only (Pearson IC removed — Rank IC is the standard for factor evaluation)
         daily_rank_ic = self._compute_daily_ic(grouped, method="spearman")
-        daily_pearson_ic = self._compute_daily_ic(grouped, method="pearson")
 
         # Split IS / OOS
         rank_is = daily_rank_ic[daily_rank_ic.index < split_date]
         rank_oos = daily_rank_ic[daily_rank_ic.index >= split_date]
-        pearson_is = daily_pearson_ic[daily_pearson_ic.index < split_date]
-        pearson_oos = daily_pearson_ic[daily_pearson_ic.index >= split_date]
 
-        # Summaries
-        rank_summary_is = self._compute_summary(rank_is, prefix="rank_ic")
-        rank_summary_oos = self._compute_summary(rank_oos, prefix="rank_ic")
-        pearson_summary_is = self._compute_summary(pearson_is, prefix="ic")
-        pearson_summary_oos = self._compute_summary(pearson_oos, prefix="ic")
+        is_summary = self._compute_summary(rank_is, prefix="rank_ic")
+        oos_summary = self._compute_summary(rank_oos, prefix="rank_ic")
 
-        # Merge rank and pearson summaries for each period
-        is_summary = {**rank_summary_is, **pearson_summary_is}
-        oos_summary = {**rank_summary_oos, **pearson_summary_oos}
-
-        # Annual breakdown (based on rank IC)
         annual = self._compute_annual(daily_rank_ic)
-
-        # Monthly heatmap data
         monthly_heatmap_data = self._compute_monthly_heatmap(daily_rank_ic)
 
         return {
             "summary": {"is": is_summary, "oos": oos_summary},
             "daily_rank_ic": daily_rank_ic,
-            "daily_pearson_ic": daily_pearson_ic,
             "annual": annual,
             "monthly_heatmap_data": monthly_heatmap_data,
         }

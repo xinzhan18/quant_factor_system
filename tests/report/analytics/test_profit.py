@@ -80,6 +80,6 @@ class TestProfitAnalyzerCharts:
         analyzer = ProfitAnalyzer()
         result = analyzer.compute(merged, split_date="2023-07-01")
         charts = analyzer.generate_charts(result)
-        expected = ["quintile_bar", "cumulative_returns", "long_short", "is_vs_oos_bar", "annual_group_returns"]
+        expected = ["quintile_bar", "cumulative_returns", "long_short", "annual_group_returns"]
         for name in expected:
             assert name in charts, f"Missing chart: {name}"

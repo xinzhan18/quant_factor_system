@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from concurrent.futures import ThreadPoolExecutor
 from scipy.stats import spearmanr
 
 from core.factor_stats import (
@@ -43,12 +44,18 @@ class UniquenessAnalyzer:
                 incremental_ic: float | None
                 incremental_icir: float | None
         """
-        # Compute pairwise correlations with all library factors
+        # Compute pairwise correlations with all library factors in parallel
+        # (each call is independent numpy ops that release the GIL)
+        def _corr_one(item):
+            fid, fdf = item
+            return fid, self._cross_sectional_corr(target_df, fdf)
+
         corr_results = {}
-        for fid, fdf in library_factors.items():
-            c = self._cross_sectional_corr(target_df, fdf)
-            if c is not None:
-                corr_results[fid] = c
+        n_workers = min(8, len(library_factors)) if library_factors else 1
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
+            for fid, c in executor.map(_corr_one, library_factors.items()):
+                if c is not None:
+                    corr_results[fid] = c
 
         if corr_results:
             # Sort by absolute correlation descending
@@ -65,13 +72,11 @@ class UniquenessAnalyzer:
             max_corr_factor = ""
             top5 = []
 
-        # Incremental IC
+        # Incremental IC: skipped — admitted factors already pass corr_max < 0.7,
+        # and per-date OLS over 2000+ days against 33 factors is prohibitively expensive.
+        # max_corr + top5_correlated are sufficient for the report.
         incremental_ic = None
         incremental_icir = None
-        if merged_df is not None and library_factors:
-            incremental_ic, incremental_icir = self._compute_incremental_ic(
-                target_df, library_factors, merged_df
-            )
 
         return {
             "max_corr": max_corr,

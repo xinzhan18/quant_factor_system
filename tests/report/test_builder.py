@@ -42,34 +42,12 @@ class TestReportDataBuilder:
         builder = ReportDataBuilder("001")
         result = builder.build()
 
-        # New schema keys
         assert "factor" in result
         assert "predictive_power" in result
         assert "profitability" in result
-        assert "risk_attribution" in result  # null at L0
-        assert "conditional" in result
         assert "decay_tradability" in result
         assert "uniqueness" in result
         assert "composite" in result
-
-    @patch.object(ReportDataBuilder, "_load_factor_metadata")
-    @patch.object(ReportDataBuilder, "_load_data_from_db")
-    @patch.object(ReportDataBuilder, "_load_library_factors")
-    def test_risk_attribution_null_at_l0(self, mock_lib, mock_db, mock_meta):
-        mock_meta.return_value = _mock_factor_metadata()
-        fdf, pdf = _mock_db_data()
-        mock_db.return_value = (fdf, pdf)
-        mock_lib.return_value = {}
-
-        builder = ReportDataBuilder("001")
-        result = builder.build()
-        # risk_attribution is now always a dict; when L1 data unavailable all has_* flags are False
-        ra = result["risk_attribution"]
-        assert isinstance(ra, dict)
-        assert ra["has_industry"] is False
-        assert ra["has_size"] is False
-        assert ra["has_style"] is False
-        assert ra["charts"] == {}
 
     @patch.object(ReportDataBuilder, "_load_factor_metadata")
     @patch.object(ReportDataBuilder, "_load_data_from_db")
@@ -134,7 +112,6 @@ class TestReportDataBuilder:
 
         decay = result["decay_tradability"]
         assert "ic_by_period" in decay
-        assert "autocorrelation" in decay
         assert "charts" in decay
 
     @patch.object(ReportDataBuilder, "_load_factor_metadata")

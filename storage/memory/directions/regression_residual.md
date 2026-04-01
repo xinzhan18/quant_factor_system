@@ -17,6 +17,6 @@ Resi($close, N) as mean-reversion signal
 Baseline: Resi(close,5) IC=-0.041, normalized_residual IC=-0.035. Short windows stronger.
 
 ## Probe Records
-
+2026-04-01 | Resi($close, 10) | IC=-0.0007 ICIR=-0.005 WinRate=49.2% | pre-batch_024 (no signal)
 
 ## Candidate History
