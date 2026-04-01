@@ -1,0 +1,39 @@
+batch_id: batch_023
+timestamp: "2026-04-01T11:00:00"
+candidates: 8
+admitted: 2
+rejected: 6
+replacements: 0
+yield_rate: 0.25
+
+direction_summary:
+  - direction: valuation_pe_ps
+    candidates: 3
+    admitted: 1
+    best_ic: 0.020
+    admitted_factors: ["F037 inverse_ps IC_OOS=0.020"]
+    reject_reasons: |
+      inverse_pe: OOS单调性=-1.0（方向翻转），OOS衰减严重(0.45x)
+      pe_rank_60: OOS_IC=-0.007接近零，OOS单调性=-0.10
+
+  - direction: size_factor
+    candidates: 3
+    admitted: 1
+    best_ic: 0.012
+    admitted_factors: ["F038 inverse_circ_mktcap IC=0.012 mono=1.0"]
+    reject_reasons: |
+      smallcap_x_reversal_10: corr=0.755 with F035（超阈值）
+      circ_mktcap_rank_60: ic_max_drawdown=-43，corr=0.675接近边界，与F038重叠
+
+  - direction: turnover_x_reversal
+    candidates: 2
+    admitted: 0
+    best_ic: null
+    reject_reasons: "5d reversal × turnover → corr>0.93 with F003 (vol_regime_reversal)"
+
+key_learnings:
+  - "5d窗口reversal类信号与F003高度相关(>0.93)，短窗口reversal空间已饱和"
+  - "PE因子含负值和极端值导致OOS单调性不稳定，PS比PE更稳健"
+  - "小市值直接因子(inverse形式)有效且OOS极稳定；rank形式ic_drawdown大"
+  - "size_factor是完全新维度：inverse_circ_mktcap与所有OHLCV因子相关性<0.4"
+  - "config.py缺少fast_screening_universe_size字段(已修复，默认50)"

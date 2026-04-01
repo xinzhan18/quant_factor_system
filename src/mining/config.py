@@ -104,6 +104,7 @@ class MiningConfig:
 
     # Fast screening — full universe, rolling window
     stage1_lookback_years: int = 1
+    fast_screening_universe_size: int = 50
 
     # Library target
     target_library_size: int = 100

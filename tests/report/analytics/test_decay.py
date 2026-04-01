@@ -27,7 +27,6 @@ class TestDecayCompute:
         assert "ic_by_period" in result
         assert "half_life_days" in result
         assert "optimal_rebalance_days" in result
-        assert "autocorrelation" in result
         assert "distribution" in result
 
     def test_includes_2d_period(self):
@@ -67,14 +66,6 @@ class TestDecayCompute:
         assert isinstance(result["optimal_rebalance_days"], int)
         assert result["optimal_rebalance_days"] > 0
 
-    def test_autocorrelation_lags(self):
-        fdf, pdf = _make_data()
-        analyzer = DecayAnalyzer()
-        result = analyzer.compute(fdf, pdf)
-        lags = [r["lag"] for r in result["autocorrelation"]]
-        assert 1 in lags
-        assert 5 in lags
-        assert 20 in lags
 
 
 class TestDecayCharts:
@@ -83,6 +74,6 @@ class TestDecayCharts:
         analyzer = DecayAnalyzer()
         result = analyzer.compute(fdf, pdf, split_date="2023-07-01")
         charts = analyzer.generate_charts(result)
-        expected = ["ic_decay", "autocorrelation", "distribution", "coverage"]
+        expected = ["ic_decay", "distribution", "coverage"]
         for name in expected:
             assert name in charts, f"Missing chart: {name}"

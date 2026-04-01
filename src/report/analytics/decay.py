@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from concurrent.futures import ThreadPoolExecutor
 from scipy.stats import spearmanr, skew, kurtosis
 
 from core.factor_stats import (
@@ -59,14 +60,12 @@ class DecayAnalyzer:
         optimal_rebalance = self._compute_optimal_rebalance(
             ic_by_period, half_life, periods
         )
-        autocorrelation = self._compute_autocorrelation(factor_df)
         distribution = self._compute_distribution(factor_df, split_date)
 
         return {
             "ic_by_period": ic_by_period,
             "half_life_days": half_life,
             "optimal_rebalance_days": optimal_rebalance,
-            "autocorrelation": autocorrelation,
             "distribution": distribution,
         }
 
@@ -98,30 +97,25 @@ class DecayAnalyzer:
                 .shift(-period)
             )
 
-        # Pivot factor to wide (date × stock) and rank cross-sectionally
+        # Pivot factor to wide (date × stock) and rank cross-sectionally — shared across periods
         factor_wide = merged.pivot(index="time", columns="symbol", values="value")
         factor_ranks = factor_wide.rank(axis=1, na_option="keep")
 
-        results = []
-        base_ic = None
-
-        for period in periods:
+        def _ic_for_period(period: int):
+            """Compute mean IC for one holding period. Reads merged/factor_ranks (no writes)."""
             col = f"_ret_{period}"
             ret_wide = merged.pivot(index="time", columns="symbol", values=col)
-            # Align columns
             common_cols = factor_ranks.columns.intersection(ret_wide.columns)
             f = factor_ranks[common_cols]
             r = ret_wide[common_cols].rank(axis=1, na_option="keep")
 
-            # Drop days with too few valid obs
             valid_mask = f.notna() & r.notna()
-            n = valid_mask.sum(axis=1)
-            good_days = n[n >= 30].index
+            good_days = valid_mask.sum(axis=1).pipe(lambda s: s[s >= 30]).index
             if len(good_days) < 10:
-                continue
+                return period, None
+
             f, r = f.loc[good_days], r.loc[good_days]
             vm = valid_mask.loc[good_days].values
-
             fv = np.where(vm, f.values, np.nan)
             rv = np.where(vm, r.values, np.nan)
             n_day = vm.sum(axis=1).astype(float)
@@ -139,17 +133,22 @@ class DecayAnalyzer:
             daily_ic = daily_ic[~np.isnan(daily_ic)]
 
             if len(daily_ic) == 0:
-                continue
+                return period, None
+            return period, float(daily_ic.mean())
 
-            ic = float(daily_ic.mean())
-            if base_ic is None:
-                base_ic = ic
-            ratio = abs(ic / base_ic) if base_ic != 0 else 0.0
-            results.append({
-                "days": period,
-                "ic": round(ic, 6),
-                "ratio": round(ratio, 4),
-            })
+        # Run all periods in parallel (pure reads on shared DataFrames — thread-safe)
+        with ThreadPoolExecutor(max_workers=len(periods)) as executor:
+            period_ics = dict(executor.map(_ic_for_period, periods))
+
+        # Build results in original order; compute ratio after all ICs are known
+        base_ic = next((period_ics[p] for p in periods if period_ics.get(p) is not None), None)
+        results = []
+        for period in periods:
+            ic = period_ics.get(period)
+            if ic is None:
+                continue
+            ratio = abs(ic / base_ic) if base_ic and base_ic != 0 else 0.0
+            results.append({"days": period, "ic": round(ic, 6), "ratio": round(ratio, 4)})
 
         return results
 
@@ -245,15 +244,8 @@ class DecayAnalyzer:
         """
         charts = {}
         charts["ic_decay"] = self._chart_ic_decay(result["ic_by_period"], name)
-        charts["autocorrelation"] = self._chart_autocorrelation(
-            result["autocorrelation"], name
-        )
-        charts["distribution"] = self._chart_distribution(
-            result["distribution"], name
-        )
-        charts["coverage"] = self._chart_coverage(
-            result.get("_factor_df"), name
-        )
+        charts["distribution"] = self._chart_distribution(result["distribution"], name)
+        charts["coverage"] = self._chart_coverage(result.get("_factor_df"), name)
         return charts
 
     def _chart_ic_decay(

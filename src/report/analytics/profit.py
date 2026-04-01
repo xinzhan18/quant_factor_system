@@ -77,10 +77,6 @@ class ProfitAnalyzer:
             pivot, monotonicity
         )
 
-        # -- 8. IS vs OOS --
-        is_vs_oos = self._is_vs_oos(merged_df, split_date)
-
-        # -- Assemble extras for charts --
         return {
             "stats": stats,
             "ls_stats": ls_stats,
@@ -89,7 +85,6 @@ class ProfitAnalyzer:
             "annual_group_returns": annual_group_returns,
             "long_contribution": long_contribution,
             "short_contribution": short_contribution,
-            "is_vs_oos": is_vs_oos,
             # Internal data for chart generation
             "_pivot": pivot,
             "_ls_daily": ls_daily,
@@ -108,7 +103,6 @@ class ProfitAnalyzer:
         charts["quintile_bar"] = self._chart_quintile_bar(result["stats"])
         charts["cumulative_returns"] = self._chart_cumulative_returns(pivot, ls_daily)
         charts["long_short"] = self._chart_long_short(ls_daily)
-        charts["is_vs_oos_bar"] = self._chart_is_vs_oos_bar(result["is_vs_oos"])
         charts["annual_group_returns"] = self._chart_annual_heatmap(
             result["annual_group_returns"]
         )

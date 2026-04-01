@@ -1,0 +1,111 @@
+batch_id: "batch_023"
+timestamp: "2026-04-01T11:00:00"
+candidates:
+  # NOTE: williams_r_smoothed EXCLUDED — batch_019 history shows all smoothed WR
+  # variants (3d/5d/10d) rejected for corr>0.77 with F011/F001. Direction exhausted.
+
+  # ── Direction 1: valuation_pe_ps (genesis, L009 价值估值效应) ─────────────────
+  # Probe: 1/PE IC=+0.028, WinRate=59.5%; 1/PS IC=+0.022, WinRate=59.9%.
+  # F028 (1/PB) IC=+0.028 and F034 (Rank(PB,60)) IC=-0.038 already admitted.
+  # PE (earnings) and PS (sales) are orthogonal to PB (book) — different fundamental
+  # dimensions with independent predictive content.
+
+  - name: inverse_pe
+    expression: "Div(1, Add($pe_ratio, 0.001))"
+    category: valuation
+    logic_id: L009
+    direction: valuation_pe_ps
+    rationale: >
+      Earnings yield (1/PE). Low PE = cheap on earnings basis = high earnings yield.
+      Structural parallel to F028 (1/PB, IC=+0.028). Probe IC=+0.028, WinRate=59.5%.
+      PE measures profitability, independent from PB (book value) and PS (revenue).
+      0.001 guard prevents divide-by-zero for zero/negative PE.
+
+  - name: inverse_ps
+    expression: "Div(1, Add($ps_ratio, 0.001))"
+    category: valuation
+    logic_id: L009
+    direction: valuation_pe_ps
+    rationale: >
+      Sales yield (1/PS). Low PS = cheap on revenue basis. Revenue is more stable
+      than earnings (no accruals distortion), offering complementary information to
+      inverse_pe. Probe IC=+0.022, WinRate=59.9%. If low-corr with inverse_pe,
+      both can coexist in library as orthogonal valuation signals.
+
+  - name: pe_rank_60
+    expression: "Rank($pe_ratio, 60)"
+    category: valuation
+    logic_id: L009
+    direction: valuation_pe_ps
+    rationale: >
+      Time-series rank of PE over 60-day rolling window. High rank = currently
+      expensive vs own recent history → negative IC expected (overvalued relative
+      to own baseline underperforms). Rank transform is robust to PE level outliers
+      and captures "is this stock rich vs itself?" rather than cross-sectional cheapness.
+
+  # ── Direction 2: size_factor (genesis, L010 规模效应) ─────────────────────────
+  # Probe: 1/(circ_market_cap+1) IC=+0.016, WinRate=55.8%.
+  # A-shares small-cap premium is well-documented. circ_market_cap and market_cap
+  # are both available but have never been tested. IC=+0.016 is borderline; time-series
+  # rank and cross-dimensional variants may surface a cleaner signal.
+
+  - name: inverse_circ_mktcap
+    expression: "Div(1, Add($circ_market_cap, 1))"
+    category: other
+    logic_id: L010
+    direction: size_factor
+    rationale: >
+      Small-cap factor via inverse circulating market cap. Small-cap stocks (low
+      circ_market_cap) → high factor value → expected positive IC. Probe IC=+0.016,
+      WinRate=55.8%. A-shares small-cap premium driven by retail investor attention
+      and liquidity premium. Add(x, 1) guards against zero values.
+
+  - name: circ_mktcap_rank_60
+    expression: "Rank($circ_market_cap, 60)"
+    category: other
+    logic_id: L010
+    direction: size_factor
+    rationale: >
+      Time-series rank of circulating market cap over 60 days. High rank = currently
+      large vs own recent history → negative IC expected (market cap expansion signals
+      overvaluation or attention peak). Different from inverse_circ_mktcap: captures
+      whether a stock is growing or shrinking in relative size over time.
+
+  - name: smallcap_x_reversal_10
+    expression: "Mul(Div(1, Add($circ_market_cap, 1)), Mul(Sub(Div($close, Ref($close, 10)), 1), -1))"
+    category: other
+    logic_id: L010
+    direction: size_factor
+    rationale: >
+      Small-cap × 10-day reversal crossover. Small stocks that declined 10 days →
+      potential forced-seller exhaustion with reversal. Combines L010 (规模效应)
+      with L001 (动量反转). Small-cap reversal may be stronger due to lower liquidity
+      creating larger price dislocations, as seen in PB×reversal (F035, IC=+0.033).
+
+  # ── Direction 3: turnover_x_reversal (mutation/extension, L004 换手率流动性折价) ─
+  # Probe: Mean($turnover,5) × neg_ret5 IC=+0.023, WinRate=58.7%.
+  # F036 = $turnover × neg_ret20 (IC=+0.029) already admitted at 20d window.
+  # Short 5d window captures faster mean-reversion; spot turnover captures same-day
+  # selling intensity. Both expected lower correlation to F036 than 20d variants.
+
+  - name: turnover_mean5_x_rev5
+    expression: "Mul(Mean($turnover_rate, 5), Mul(Sub(Div($close, Ref($close, 5)), 1), -1))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_x_reversal
+    rationale: >
+      5-day mean turnover × negative 5-day return. Short-term (5d) version of
+      F036 (20d×20d). High short-term turnover with recent decline → active traders
+      are capitulating; mean-reversion likely. Probe IC=+0.023, WinRate=58.7%.
+      Shorter window captures faster liquidity-driven reversals vs F036.
+
+  - name: turnover_spot_x_rev5
+    expression: "Mul($turnover_rate, Mul(Sub(Div($close, Ref($close, 5)), 1), -1))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_x_reversal
+    rationale: >
+      Spot (today's) turnover rate × negative 5-day return. Instantaneous turnover
+      rather than mean — captures same-day trading intensity signal. High same-day
+      turnover after a 5-day decline = panic selling / forced liquidation signal →
+      strong reversal. Structural variant of turnover_mean5_x_rev5 using spot vs mean.

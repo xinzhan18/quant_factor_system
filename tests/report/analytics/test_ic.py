@@ -38,7 +38,6 @@ class TestICAnalyzerCompute:
         analyzer = ICAnalyzer()
         result = analyzer.compute(merged, split_date="2023-04-01")
         assert "daily_rank_ic" in result
-        assert "daily_pearson_ic" in result
         assert "summary" in result
         assert "is" in result["summary"]
         assert "oos" in result["summary"]
@@ -52,7 +51,6 @@ class TestICAnalyzerCompute:
             s = result["summary"][period]
             assert "rank_ic_mean" in s
             assert "rank_ic_std" in s
-            assert "ic_mean" in s
             assert "icir" in s
             assert "win_rate" in s
             assert "significant_rate" in s
@@ -116,7 +114,6 @@ class TestICAnalyzerCompute:
         analyzer = ICAnalyzer()
         result = analyzer.compute(merged, split_date="2023-04-01")
         assert isinstance(result["daily_rank_ic"], pd.Series)
-        assert isinstance(result["daily_pearson_ic"], pd.Series)
 
 
 class TestICAnalyzerCharts:

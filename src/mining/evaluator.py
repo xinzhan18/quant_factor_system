@@ -523,8 +523,10 @@ class FactorMiningEvaluator:
 
         result: Dict[str, float] = {}
         try:
+            import time as _time
             conn = psycopg2.connect(self.config.system.database.connection_string)
             placeholders_f = ",".join(["%s"] * len(lib_factor_names))
+            _t0 = _time.perf_counter()
             with conn.cursor() as cur:
                 cur.execute("SET max_parallel_workers_per_gather = 0")
                 cur.execute(
@@ -535,6 +537,7 @@ class FactorMiningEvaluator:
                 )
                 rows = cur.fetchall()
             conn.close()
+            logger.info("Corr DB fetch: %.2fs, %s rows", _time.perf_counter() - _t0, f"{len(rows):,}")
 
             if not rows:
                 return {}
@@ -542,29 +545,46 @@ class FactorMiningEvaluator:
             lib_df = pd.DataFrame(rows, columns=["factor_name", "time", "symbol", "value"])
             lib_df["time"] = pd.to_datetime(lib_df["time"])
 
-            # Vectorised Spearman: rank cross-sectionally per day, then mean Pearson
-            for fname in lib_factor_names:
-                sub = lib_df[lib_df["factor_name"] == fname]
-                if sub.empty:
-                    continue
-                merged = cand.merge(sub[["time", "symbol", "value"]],
-                                    on=["time", "symbol"], suffixes=("_c", "_l"))
-                if len(merged) < 30:
-                    continue
-                daily_corrs = []
-                for _, grp in merged.groupby("time"):
-                    if len(grp) < 10:
-                        continue
-                    rc = grp["value_c"].rank()
-                    rl = grp["value_l"].rank()
-                    if rc.std() < 1e-9 or rl.std() < 1e-9:
-                        continue
-                    daily_corrs.append(rc.corr(rl))
-                if daily_corrs:
-                    result[fname] = abs(float(np.nanmean(daily_corrs)))
+            _t1 = _time.perf_counter()
+            # Vectorised Spearman across all lib factors simultaneously:
+            # pivot → cross-sectional rank → z-score → matrix multiply → mean
+            lib_wide = lib_df.pivot_table(
+                index=["time", "symbol"], columns="factor_name", values="value", aggfunc="first"
+            )
+            cand_s = cand.set_index(["time", "symbol"])["value"].rename("_cand_")
+            combined = lib_wide.join(cand_s, how="inner").dropna(subset=["_cand_"])
 
-            logger.info("Corr (%s→%s): fetched %s rows, %d/%d lib factors matched",
-                        win_start, win_end, f"{len(rows):,}", len(result), len(lib_factor_names))
+            if len(combined) >= 30:
+                # Cross-sectional rank per day (NaN stays NaN)
+                ranked = combined.groupby(level="time").rank(method="average", na_option="keep")
+
+                # Keep only days with ≥ 10 valid candidate observations
+                valid_days = ranked["_cand_"].notna().groupby(level="time").sum()
+                valid_days = valid_days[valid_days >= 10].index
+                ranked = ranked.loc[ranked.index.get_level_values("time").isin(valid_days)]
+
+                if not ranked.empty:
+                    # Z-score ranks per day: (rank - mean) / std
+                    grp = ranked.groupby(level="time")
+                    daily_std = grp.transform("std")
+                    daily_std[daily_std < 1e-9] = np.nan
+                    ranked_z = (ranked - grp.transform("mean")) / daily_std
+
+                    # Daily Spearman ≈ mean(z_cand × z_lib) per day, then mean across days
+                    cand_z = ranked_z["_cand_"]
+                    lib_z = ranked_z.drop(columns=["_cand_"])
+                    products = lib_z.multiply(cand_z, axis=0)
+                    mean_corrs = products.groupby(level="time").mean().mean()
+
+                    result = {
+                        fname: abs(float(v))
+                        for fname, v in mean_corrs.items()
+                        if not np.isnan(v) and fname in set(lib_factor_names)
+                    }
+
+            logger.info("Corr compute: %.2fs | total: %.2fs | %s rows, %d/%d lib factors matched",
+                        _time.perf_counter() - _t1, _time.perf_counter() - _t0,
+                        f"{len(rows):,}", len(result), len(lib_factor_names))
         except Exception as e:
             logger.warning("Correlation check failed: %s", e)
         return result

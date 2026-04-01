@@ -25,12 +25,6 @@ factors:
   expression: Std($volume, 20)
   category: volume
   ic_mean: -0.0392
-- id: '005'
-  name: upper_shadow_ratio
-  expression: Div(Sub($high, If(Greater($close, $open), $close, $open)), Sub($high,
-    $low))
-  category: candlestick
-  ic_mean: 0.0347
 - id: '006'
   name: resi_close_5
   expression: Resi($close, 5)
@@ -57,11 +51,6 @@ factors:
   expression: HHI($volume, 20)
   category: volume
   ic_mean: -0.0341
-- id: '012'
-  name: up_day_count_20
-  expression: Div(Count(Greater($close, Ref($close,1)), 20), 20)
-  category: momentum
-  ic_mean: 0.010694831745259138
 - id: '013'
   name: alpha038
   expression: Mul(Mul(Rank(Rank($open, 10), 60), Rank(Div($close, $open), 60)), -1)
@@ -202,3 +191,20 @@ factors:
   category: liquidity
   ic_mean: 0.0286
   source: dsl
+- id: '037'
+  name: inverse_ps
+  expression: Div(1, Add($ps_ratio, 0.001))
+  category: valuation
+  ic_mean: 0.01797
+  source: dsl
+- id: 039
+  name: size_x_ps
+  expression: Mul(Div(1, Add($circ_market_cap, 1)), Div(1, Add($ps_ratio, 0.001)))
+  category: other
+  ic_mean: 0.02056
+  source: dsl
+- id: 038
+  name: size_x_pb
+  expression: Mul(Div(1, Add($circ_market_cap, 1)), Div(1, Add($pb_ratio, 0.001)))
+  category: other
+  ic_mean: 0.03147

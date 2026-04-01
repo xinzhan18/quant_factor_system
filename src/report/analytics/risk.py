@@ -124,7 +124,7 @@ class RiskAttributionAnalyzer:
         if not industry_map:
             return []
 
-        df = merged.copy()
+        df = merged[["time", "symbol", "value", "future_return"]].copy()
         df["industry"] = df["symbol"].map(industry_map)
         df = df.dropna(subset=["industry", "value", "future_return"])
         if df.empty:
