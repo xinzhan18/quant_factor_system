@@ -1,0 +1,31 @@
+id: L002
+name: 趋势强度衰减
+status: active
+category: market_structure
+created: '2026-03-31'
+hypothesis:
+  condition: 价格呈现连续单边趋势（高/低于 N 日线），斜率减缓
+  behavior: 趋势动能耗尽后回调幅度与趋势强度成正比
+  timeframe: 10-30 日
+  direction: 反向：趋势末期做空
+constraints:
+  required_fields:
+  - close
+  - open
+  - high
+  - low
+  suggested_ops:
+  - Mean
+  - Std
+  - Sub
+  - Div
+  - Slope
+  - CsRank
+  window_range:
+  - 10
+  - 30
+stats:
+  factors_generated: 0
+  factors_admitted: 0
+  best_ic: 0.0
+  rounds_without_admit: 0

@@ -14,13 +14,22 @@
 - PairOperator/SignedPower 必须处理数值参数 — 在调用 `.load()` 前检查 `isinstance(feature, Expression)`
 - **C.kernels = 1 是强制的** — 多进程 worker 不会继承 `_ops` 注册表
 
-### 1.3 数据管道
+### 1.3 Qlib 二进制数据格式
+- **格式**：每个 `.day.bin` 文件 = 4字节 header (start_index as float32) + N×4字节 data (float32)
+- **问题**：`_write_symbol_features` 未写入 start_index header → 7644/7982 个股票数据损坏
+- **修复**：找到第一个非 NaN 值的 index 作为 start_index，写入文件头部
+- **教训**：修改数据同步代码后必须验证二进制文件格式正确性
+
+### 1.4 数据管道
 - `D.instruments('all')` 返回 `{'market': 'all'}` 字典，不是股票代码 — 需要传给 `D.features()` 然后从 index 中提取
-- `$amount` 和 `$vwap` 字段为零 — 数据源未填充这些字段
+- `$vwap` 字段为零 — 数据源未填充（2026-03-29确认）
+- `$amount` 已有数据（2026-03-29确认）— 之前"为零"记录已过时
+- **可用基本面字段**: $pe_ratio, $pb_ratio, $ps_ratio, $market_cap, $circ_market_cap, $turnover_rate — 均在Qlib binary中有完整数据
+- **关键教训**: 数据可用性假设必须定期验证，batch_021之前一直假设只有OHLCV可用，实际基本面数据一直存在
 - `evaluate_batch` 返回 `BatchResult`（dataclass，有 `.admitted`, `.rejected`, `.replacements` 属性）— 不能直接遍历
 - `evaluate_batch` 不会自动持久化到 library.yaml — 必须单独调用 `lib.admit()`
 
-### 1.4 YAML 序列化
+### 1.5 YAML 序列化
 - 结果 YAML 文件可能包含 `_factor_values` 下的 pandas DataFrame 对象
 - `yaml.safe_load` 会失败 → 使用 `yaml.unsafe_load` 或避免序列化 DataFrame
 - 通过 `lib.replace()` 替换因子时，如果 metrics 字典的 key 是 `ic_mean_is` 而不是 `ic_mean`，会存储 `ic_mean: null` — 需要手动修复
@@ -54,13 +63,19 @@
 - 所有波动率度量（Std、MAD、RealizedVol、AmihudIlliq、IQR、Q90）本质上是同一个信号
 - **除以波动率会摧毁信号** — `range_over_vol` IC=-0.008，`resi_over_vol` IC=-0.004
 
-### 3.2 OHLCV 信号空间边界
-- 从 260+ 个候选中录取24个因子后，边际递减效应严重
+### 3.2 "Novel Construct" 全面失败（Batch 018）
+- 8个全新构造范式（路径效率、RSI、volume二阶导、lead-lag、vol趋势、gap相关性、PV rank背离、close位置稳定性）全部 |IC| < 0.02
+- **最强的"新发现"** gap_return_corr IC=+0.011 仍远低于 0.03 阈值
+- **结论**：OHLCV 日频中已无新的独立信号维度可挖。所有能用的信号类型（波动率、成交量模式、K线形态、短期反转）都已覆盖
+- **教训**：Classic technical indicators (RSI) 在A股日频无预测力，path efficiency / fractal efficiency 同样无效
+
+### 3.3 OHLCV 信号空间边界
+- 从 270+ 个候选中录取24个因子后，边际递减效应严重
 - 日频 OHLCV 只有约 3-4 个独立信号维度：波动率、成交量模式、K线形态、短期反转
 - 长动量（>20天）在A股基本无效：return_60d IC=-0.009
 - 自相关、熵、峰度（单独使用）全是噪声：|IC| < 0.01
 
-### 3.3 什么有效
+### 3.4 什么有效
 - **K线形态**：Williams %R 变体（IC=+0.070）、上影线比率（IC=+0.035）
 - **波动率**：std_returns_20（IC=-0.058）、ATR（IC=-0.044）
 - **成交量**：pv_corr_times_vol（IC=-0.052）、rank_ret*rank_vol（IC=-0.041）
@@ -68,7 +83,7 @@
 - **Alpha101 组合**：alpha024（IC=+0.049）、alpha038（IC=+0.035）、alpha023（IC=+0.030）
 - **带符号非线性**：SignedPower(ret, 0.5)（IC=-0.032）
 
-### 3.4 对称 IfElse 陷阱
+### 3.5 对称 IfElse 陷阱
 - `If(cond, x, Mul(x, -1))` 无论条件如何都会产生相同的值 → corr=1.0
 - 必须使用非对称载荷：两个分支使用不同的信号
 

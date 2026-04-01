@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -17,9 +18,13 @@ class ExperienceMemory:
     """Read/write YAML-based Experience Memory."""
 
     def __init__(self, config: MiningConfig):
+        self._config = config  # stored for logic_dir and other path references
         self._dir = Path(config.memory_dir)
         self._history_dir = self._dir / "history"
         self._history_dir.mkdir(parents=True, exist_ok=True)
+        self._directions_dir = self._dir / "directions"
+        self._directions_dir.mkdir(parents=True, exist_ok=True)
+        self._directions_index = self._dir / "directions.yaml"
 
     def read_state(self) -> Dict[str, Any]:
         return self._read_yaml(self._dir / "state.yaml")
@@ -43,28 +48,215 @@ class ExperienceMemory:
         return sorted(p.stem for p in self._history_dir.glob("batch_*.yaml"))
 
     def compose_search_context(self) -> str:
-        """Compose Memory into a prompt-ready string for Claude."""
-        parts = []
+        """Compose memory into a prompt-ready string.
+
+        Returns a multi-section string covering:
+        1. Current library state and next-round hint
+        2. Direction statuses
+        3. Taxonomy coverage map (from Logic Library)
+        4. Forbidden regions
+        5. Active logic evidence
+        """
+        sections: List[str] = []
+
+        # --- Section 1: Current library state ---
         state = self.read_state()
-        parts.append("## Current Mining State")
-        parts.append(f"Library size: {state.get('library', {}).get('size', 0)}")
-        sat = state.get("domain_saturation", {})
-        if sat:
-            sat_lines = [f"  - {k}: {v.get('count', 0)} factors ({v.get('saturation', 'low')})" for k, v in sat.items()]
-            parts.append("Domain saturation:\n" + "\n".join(sat_lines))
-        patterns = self.read_patterns()
-        rec = patterns.get("recommended_directions", [])
-        if rec:
-            parts.append("\n## Recommended Directions")
-            for p in rec:
-                parts.append(f"- **{p['pattern']}** ({p.get('success_rate', 'unknown')}): {p['description']}")
-        forbidden = patterns.get("forbidden_regions", [])
+        lib = state.get("library", {})
+        state_lines = ["## Current Mining State", f"Library size: {lib.get('size', 0)}"]
+        hint = state.get("next_round_hint")
+        if hint:
+            state_lines.append(f"\nLast round hint: {hint}")
+        sections.append("\n".join(state_lines))
+
+        # --- Section 2: Direction statuses ---
+        directions = self.list_directions()
+        if directions:
+            dir_lines = ["## Direction Statuses"]
+            by_status: Dict[str, list] = {}
+            for d in directions:
+                by_status.setdefault(d["status"], []).append(d)
+            for status in ["active", "new", "probing", "exhausted", "blocked", "dead"]:
+                if status in by_status:
+                    names = [
+                        f"{d['name']} (IC={d['best_ic']})" if d.get("best_ic") else d["name"]
+                        for d in by_status[status]
+                    ]
+                    dir_lines.append(f"- **{status}**: {', '.join(names)}")
+            sections.append("\n".join(dir_lines))
+
+        # --- Section 3: Taxonomy coverage map (Logic Library) ---
+        logic_lib = None
+        try:
+            from mining.logic_library import MarketLogicLibrary
+
+            logic_lib = MarketLogicLibrary(self._config.logic_dir)
+            coverage = logic_lib.coverage_map()
+            if coverage:
+                cov_lines = ["## Taxonomy Coverage"]
+                for cat, count in sorted(coverage.items()):
+                    cov_lines.append(f"  {cat}: {count} active logics")
+                sections.append("\n".join(cov_lines))
+        except Exception:
+            pass  # Logic library may not exist yet
+
+        # --- Section 4: Forbidden regions ---
+        forbidden = self.read_forbidden()
         if forbidden:
-            parts.append("\n## Forbidden Regions (AVOID)")
-            for f in forbidden:
-                parts.append(f"- {f['direction']}: {f['reason']}")
-        # 挖掘经验教训从 mining-lessons.md 加载（叙事性内容，由 skill 直接读取）
-        return "\n".join(parts)
+            forb_lines = ["## Forbidden Regions (DO NOT explore these)"]
+            for r in forbidden:
+                forb_lines.append(f"  - {r['pattern']} \u2014 {r['reason']}")
+            sections.append("\n".join(forb_lines))
+
+        # --- Section 5: Active logic evidence ---
+        try:
+            if logic_lib is None:
+                from mining.logic_library import MarketLogicLibrary
+
+                logic_lib = MarketLogicLibrary(self._config.logic_dir)
+            active = logic_lib.list_logics(status="active")
+            if active:
+                logic_lines = ["## Active Market Logics"]
+                for logic in active:
+                    s = logic.get("stats", {})
+                    logic_lines.append(
+                        f"  {logic['id']} {logic['name']} "
+                        f"[gen={s.get('factors_generated', 0)}, "
+                        f"adm={s.get('factors_admitted', 0)}, "
+                        f"best_ic={s.get('best_ic', 0):.3f}]"
+                    )
+                sections.append("\n".join(logic_lines))
+        except Exception:
+            pass
+
+        # --- Section 6: Lineage summary ---
+        lineage_text = self.get_lineage_summary()
+        if lineage_text:
+            sections.append(f"## Factor Lineage Tree\n{lineage_text}")
+
+        return "\n\n".join(s for s in sections if s)
+
+    def get_lineage_summary(self) -> str:
+        """Format lineage information from library for prompt context."""
+        try:
+            from mining.library import FactorLibrary
+            lib = FactorLibrary(self._config)
+            factors = lib.list_factors()
+
+            # Count factors with lineage
+            with_lineage = [f for f in factors if f.get("lineage")]
+            if not with_lineage:
+                return ""
+
+            from mining.evolution import EvolutionEngine
+            from mining.config import MiningConfig
+            engine = EvolutionEngine(MiningConfig())
+            return engine.format_lineage_tree(factors)
+        except Exception:
+            return ""
+
+    def list_directions(self) -> List[Dict[str, Any]]:
+        """Read directions.yaml index. Rebuilds from files if index missing."""
+        if self._directions_index.exists():
+            with open(self._directions_index, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or []
+        return self._rebuild_directions_index()
+
+    def read_direction(self, name: str) -> tuple:
+        """Read a direction file. Returns (frontmatter_dict, body_str)."""
+        path = self._directions_dir / f"{name}.md"
+        if not path.exists():
+            raise FileNotFoundError(f"Direction not found: {name}")
+        text = path.read_text(encoding="utf-8")
+        return self._parse_frontmatter(text)
+
+    def write_direction(self, name: str, frontmatter: Dict[str, Any], body: str = "") -> None:
+        """Write a direction file and update index."""
+        path = self._directions_dir / f"{name}.md"
+        text = self._render_frontmatter(frontmatter, body)
+        path.write_text(text, encoding="utf-8")
+        self._sync_index()
+
+    def update_direction(self, name: str, **updates) -> None:
+        """Update frontmatter fields of a direction file."""
+        meta, body = self.read_direction(name)
+        meta.update(updates)
+        self.write_direction(name, meta, body)
+
+    def append_to_direction(self, name: str, text: str) -> None:
+        """Append text to the body of a direction file."""
+        meta, body = self.read_direction(name)
+        body = body.rstrip() + "\n" + text
+        self.write_direction(name, meta, body)
+
+    def _parse_frontmatter(self, text: str) -> tuple:
+        """Parse YAML frontmatter from markdown. Returns (dict, body_str)."""
+        match = re.match(r'^---\n(.*?)\n---\n?(.*)', text, re.DOTALL)
+        if not match:
+            return {}, text
+        fm = yaml.safe_load(match.group(1)) or {}
+        body = match.group(2).lstrip('\n')  # strip separator artifact
+        return fm, body
+
+    def _render_frontmatter(self, meta: Dict[str, Any], body: str) -> str:
+        """Render frontmatter + body into markdown string."""
+        fm = yaml.dump(meta, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        return f"---\n{fm}---\n\n{body}"
+
+    def _sync_index(self) -> None:
+        """Rebuild directions.yaml from all direction files."""
+        index = self._rebuild_directions_index()
+        self._write_yaml(self._directions_index, index)
+
+    def _rebuild_directions_index(self) -> List[Dict[str, Any]]:
+        """Scan direction files and build index."""
+        index = []
+        for path in sorted(self._directions_dir.glob("*.md")):
+            meta, _ = self._parse_frontmatter(path.read_text(encoding="utf-8"))
+            if meta:
+                index.append({
+                    "name": meta.get("name", path.stem),
+                    "status": meta.get("status", "new"),
+                    "priority": meta.get("priority", "medium"),
+                    "category": meta.get("category", "other"),
+                    "attempts": meta.get("attempts", 0),
+                    "best_ic": meta.get("best_ic"),
+                })
+        return index
+
+    # ------------------------------------------------------------------
+    # Forbidden regions
+    # ------------------------------------------------------------------
+
+    def read_forbidden(self) -> list[dict]:
+        """Read all forbidden regions from forbidden.yaml."""
+        data = self._read_yaml(self._dir / "forbidden.yaml")
+        return data.get("forbidden_regions", [])
+
+    def add_forbidden(self, pattern: str, reason: str) -> None:
+        """Add a new forbidden region pattern."""
+        from datetime import date
+
+        regions = self.read_forbidden()
+        regions.append({
+            "pattern": pattern,
+            "reason": reason,
+            "added": str(date.today()),
+        })
+        self._write_yaml(self._dir / "forbidden.yaml", {"forbidden_regions": regions})
+
+    def check_forbidden(self, expression: str) -> str | None:
+        """Check if expression matches any forbidden region.
+
+        Returns the reason string if matched, or None if the expression is
+        not forbidden.  Pattern syntax: ``*`` matches ``[\\w.]+``.
+        """
+        for entry in self.read_forbidden():
+            raw = entry.get("pattern", "")
+            # Escape the pattern except for our wildcard placeholder
+            escaped = re.escape(raw).replace(r"\*", r"[\w.]+")
+            if re.search(escaped, expression):
+                return entry.get("reason", "")
+        return None
 
     def _read_yaml(self, path: Path) -> Dict[str, Any]:
         if not path.exists():

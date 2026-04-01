@@ -52,8 +52,8 @@ def get_db_stats(db: TimescaleDB) -> dict:
             total_bytes = result[0] if result and result[0] else 0
             stats['total_size'] = f"{total_bytes / 1024 / 1024 / 1024:.2f} GB"
             
-            # price_daily 记录数
-            cursor.execute("SELECT COUNT(*) FROM price_daily")
+            # market_daily 记录数
+            cursor.execute("SELECT COUNT(*) FROM market_daily")
             stats['price_records'] = cursor.fetchone()[0]
             
             # 因子表数量
@@ -65,13 +65,13 @@ def get_db_stats(db: TimescaleDB) -> dict:
             stats['factor_tables'] = cursor.fetchone()[0]
             
             # 日期范围
-            cursor.execute("SELECT MIN(time), MAX(time) FROM price_daily")
+            cursor.execute("SELECT MIN(time), MAX(time) FROM market_daily")
             dates = cursor.fetchone()
             if dates[0]:
                 stats['date_range'] = (str(dates[0])[:10], str(dates[1])[:10])
             
             # 股票数量
-            cursor.execute("SELECT COUNT(DISTINCT symbol) FROM price_daily")
+            cursor.execute("SELECT COUNT(DISTINCT symbol) FROM market_daily")
             stats['stock_count'] = cursor.fetchone()[0]
             
             stats['connected'] = True
@@ -145,7 +145,7 @@ def main():
     
     with col2:
         st.metric("📈 数据记录", f"{db_stats.get('price_records', 0):,}")
-        st.caption("price_daily 表")
+        st.caption("market_daily 表")
     
     with col3:
         st.metric("📊 因子表", f"{db_stats.get('factor_tables', 0)}")

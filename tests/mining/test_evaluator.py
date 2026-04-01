@@ -85,7 +85,8 @@ class TestStage1FastIC:
         signal = np.random.randn(len(idx))
         with patch.object(evaluator, "_compute_factor_qlib") as mock_factor, \
              patch.object(evaluator, "_get_returns_qlib") as mock_returns, \
-             patch.object(evaluator, "_get_fast_screening_universe", return_value=instruments):
+             patch.object(evaluator, "_get_full_universe", return_value=instruments), \
+             patch.object(evaluator, "_stage1_window", return_value=("2022-01-01", "2022-12-31")):
             mock_factor.return_value = pd.DataFrame({"factor": signal}, index=idx)
             mock_returns.return_value = pd.DataFrame({"$returns_1d": signal + np.random.randn(len(idx)) * 0.2}, index=idx)
             passed = evaluator._fast_ic_screening(candidates)
@@ -94,16 +95,18 @@ class TestStage1FastIC:
 
     def test_rejects_low_ic_factor(self, evaluator):
         candidates = [{"name": "F_bad", "expression": "Rank($close)", "category": "momentum"}]
-        dates = pd.bdate_range("2023-01-02", periods=30)
-        instruments = [f"SH60000{i}" for i in range(10)]
+        # Use 200 dates × 50 instruments so random IC reliably stays below 0.01
+        dates = pd.bdate_range("2020-01-02", periods=200)
+        instruments = [f"SH60000{i}" for i in range(50)]
         idx = pd.MultiIndex.from_product([dates, instruments], names=["datetime", "instrument"])
+        factor_vals = np.random.RandomState(0).randn(len(idx))
+        returns_vals = np.random.RandomState(1).randn(len(idx)) * 0.01
         with patch.object(evaluator, "_compute_factor_qlib") as mock_factor, \
              patch.object(evaluator, "_get_returns_qlib") as mock_returns, \
-             patch.object(evaluator, "_get_fast_screening_universe", return_value=instruments):
-            np.random.seed(42)
-            mock_factor.return_value = pd.DataFrame({"factor": np.random.randn(len(idx))}, index=idx)
-            np.random.seed(999)
-            mock_returns.return_value = pd.DataFrame({"$returns_1d": np.random.randn(len(idx)) * 0.01}, index=idx)
+             patch.object(evaluator, "_get_full_universe", return_value=instruments), \
+             patch.object(evaluator, "_stage1_window", return_value=("2022-01-01", "2022-12-31")):
+            mock_factor.return_value = pd.DataFrame({"factor": factor_vals}, index=idx)
+            mock_returns.return_value = pd.DataFrame({"$returns_1d": returns_vals}, index=idx)
             passed = evaluator._fast_ic_screening(candidates)
             assert len(passed) == 0
 
@@ -120,7 +123,8 @@ class TestStage15BatchDedup:
             {"name": "F2", "expression": "Rank($close) + 0.001", "stage1": {"ic_mean": 0.04}},
         ]
         with patch.object(evaluator, "_compute_factor_qlib") as mock_factor, \
-             patch.object(evaluator, "_get_fast_screening_universe", return_value=instruments):
+             patch.object(evaluator, "_get_full_universe", return_value=instruments), \
+             patch.object(evaluator, "_stage1_window", return_value=("2022-01-01", "2022-12-31")):
             mock_factor.side_effect = [
                 pd.DataFrame({"factor": signal}, index=idx),
                 pd.DataFrame({"factor": signal + np.random.randn(len(idx)) * 0.01}, index=idx),
@@ -302,3 +306,279 @@ class TestTransientKeys:
         assert isinstance(c["_factor_values_oos"], pd.DataFrame)
         assert "report_card" in c
         assert isinstance(c["report_card"], dict)
+
+
+class TestOptunaOptimization:
+    def test_optimize_params_no_param_space(self, evaluator):
+        """Candidates without param_space pass through unchanged (same object returned)."""
+        c = {"name": "test", "type": "dsl", "expression": "Std($close, 20)", "category": "vol"}
+        result = evaluator._optimize_params(c)
+        assert result is c  # Same object, unchanged
+
+    def test_optimize_params_method_exists(self):
+        """Method exists on FactorMiningEvaluator."""
+        from mining.evaluator import FactorMiningEvaluator
+        assert hasattr(FactorMiningEvaluator, "_optimize_params")
+
+    def test_optimize_params_returns_dict_with_params(self, evaluator):
+        """When param_space present, _optimize_params returns a dict with 'params' key."""
+        candidate = {
+            "name": "py_opt",
+            "source": "python",
+            "code": "return df['close'].rolling(params['window']).std()",
+            "category": "volatility",
+            "param_space": {"window": [5, 30]},
+        }
+        # Mock the underlying computation so we don't need Qlib data
+        import optuna
+
+        def fake_objective(trial):
+            trial.suggest_int("window", 5, 30)
+            return 0.05
+
+        with patch.object(evaluator, "_get_fast_screening_universe", return_value=["SH600000"]):
+            with patch("optuna.create_study") as mock_study_fn:
+                mock_study = MagicMock()
+                mock_study.best_value = 0.05
+                mock_study.best_params = {"window": 20}
+                mock_study_fn.return_value = mock_study
+                result = evaluator._optimize_params(candidate)
+
+        assert "params" in result
+        assert result["params"]["window"] == 20
+
+    def test_optimize_params_returns_original_on_zero_best_value(self, evaluator):
+        """If all Optuna trials return 0, original candidate is returned unchanged."""
+        candidate = {
+            "name": "py_noop",
+            "source": "python",
+            "code": "return df['close']",
+            "category": "momentum",
+            "param_space": {"window": [5, 20]},
+        }
+        with patch.object(evaluator, "_get_fast_screening_universe", return_value=["SH600000"]):
+            with patch("optuna.create_study") as mock_study_fn:
+                mock_study = MagicMock()
+                mock_study.best_value = 0.0
+                mock_study_fn.return_value = mock_study
+                result = evaluator._optimize_params(candidate)
+
+        # best_value == 0.0 → original candidate returned
+        assert result is candidate
+
+
+class TestPythonFactorDispatch:
+    """Tests for dual-dispatch: DSL vs Python factor evaluation paths."""
+
+    def test_clean_factor_dict_allows_new_keys(self):
+        """New Python/logic-guided keys survive _clean_factor_dict."""
+        from mining.evaluator import _clean_factor_dict
+        candidate = {
+            "name": "test",
+            "expression": "Rank($close)",
+            "category": "momentum",
+            "source": "python",
+            "code": "return df['close'].rank()",
+            "code_path": "storage/python_factors/logic_001/v1.py",
+            "type": "python",
+            "params": {"window": 20},
+            "param_space": {"window": [10, 20, 30]},
+            "logic_id": "logic_001",
+            "lineage": ["logic_001_v0", "logic_001_v1"],
+            # These should be stripped
+            "_factor_values": "should_be_removed",
+            "_lib_correlations": "should_be_removed",
+        }
+        cleaned = _clean_factor_dict(candidate)
+        # All new keys present
+        for key in ["source", "code", "code_path", "type", "params",
+                     "param_space", "logic_id", "lineage"]:
+            assert key in cleaned, f"Key '{key}' missing from cleaned dict"
+        # Internal keys stripped
+        assert "_factor_values" not in cleaned
+        assert "_lib_correlations" not in cleaned
+
+    def test_is_python_candidate_source(self):
+        """_is_python_candidate detects source='python'."""
+        from mining.evaluator import _is_python_candidate
+        assert _is_python_candidate({"source": "python", "code": "x"}) is True
+        assert _is_python_candidate({"source": "dsl", "expression": "X"}) is False
+
+    def test_is_python_candidate_type(self):
+        """_is_python_candidate detects type='python'."""
+        from mining.evaluator import _is_python_candidate
+        assert _is_python_candidate({"type": "python", "code": "x"}) is True
+        assert _is_python_candidate({"type": "dsl", "expression": "X"}) is False
+
+    def test_is_python_candidate_dsl_default(self):
+        """DSL candidates (no source/type) are not Python."""
+        from mining.evaluator import _is_python_candidate
+        assert _is_python_candidate({"expression": "Rank($close)"}) is False
+
+    def test_candidate_cache_key_dsl(self):
+        """DSL candidates use expression as cache key."""
+        from mining.evaluator import _candidate_cache_key
+        c = {"expression": "Rank($close)", "name": "test"}
+        assert _candidate_cache_key(c) == "Rank($close)"
+
+    def test_candidate_cache_key_python(self):
+        """Python candidates use first 100 chars of code as cache key."""
+        from mining.evaluator import _candidate_cache_key
+        code = "return df['close'].rolling(20).std()"
+        c = {"source": "python", "code": code, "name": "test"}
+        assert _candidate_cache_key(c) == code
+
+    def test_candidate_cache_key_python_long_code(self):
+        """Long Python code is truncated to 100 chars for cache key."""
+        from mining.evaluator import _candidate_cache_key
+        code = "x" * 200
+        c = {"source": "python", "code": code, "name": "test"}
+        assert len(_candidate_cache_key(c)) == 100
+
+    def test_python_candidate_validation_valid(self, evaluator):
+        """Python candidate with valid code passes validation in evaluate_batch."""
+        candidates = [{
+            "name": "py_factor",
+            "source": "python",
+            "code": "return df['close'].rolling(20).std()",
+            "category": "volatility",
+        }]
+        # Mock all pipeline stages since we only test validation dispatch
+        with patch.object(evaluator, "_fast_ic_screening", return_value=candidates) as mock_s1, \
+             patch.object(evaluator, "_batch_dedup", return_value=candidates), \
+             patch.object(evaluator, "_correlation_check", return_value=(candidates, [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=(candidates, [])):
+            result = evaluator.evaluate_batch(candidates)
+            # Should pass validation (not rejected as invalid)
+            assert len(result.screened) == 1
+            assert result.screened[0]["name"] == "py_factor"
+
+    def test_python_candidate_validation_syntax_error(self, evaluator):
+        """Python candidate with syntax error fails validation."""
+        candidates = [{
+            "name": "bad_py",
+            "source": "python",
+            "code": "def broken(:\n  return x",
+            "category": "other",
+        }]
+        result = evaluator.evaluate_batch(candidates)
+        # Should be rejected with validation_error
+        assert len(result.rejected) == 1
+        assert "validation_error" in result.rejected[0]
+
+    def test_python_candidate_validation_forbidden_import(self, evaluator):
+        """Python candidate with forbidden import fails validation."""
+        candidates = [{
+            "name": "unsafe_py",
+            "source": "python",
+            "code": "import os\nreturn df['close']",
+            "category": "other",
+        }]
+        result = evaluator.evaluate_batch(candidates)
+        assert len(result.rejected) == 1
+        assert "validation_error" in result.rejected[0]
+
+    def test_compute_factor_dispatches_to_qlib(self, evaluator):
+        """_compute_factor routes DSL candidates to _compute_factor_qlib."""
+        candidate = {"name": "F1", "expression": "Rank($close)", "category": "momentum"}
+        mock_df = pd.DataFrame({"factor": [1, 2, 3]})
+        with patch.object(evaluator, "_compute_factor_qlib", return_value=mock_df) as mock_qlib:
+            result = evaluator._compute_factor(candidate, ["SH600000"], "2023-01-01", "2023-12-31")
+            mock_qlib.assert_called_once_with("Rank($close)", ["SH600000"], "2023-01-01", "2023-12-31")
+            assert result is mock_df
+
+    def test_compute_factor_dispatches_to_python(self, evaluator):
+        """_compute_factor routes Python candidates to _compute_factor_python."""
+        candidate = {
+            "name": "F1", "source": "python",
+            "code": "return df['close']", "category": "momentum",
+        }
+        mock_df = pd.DataFrame({"factor": [1, 2, 3]})
+        with patch.object(evaluator, "_compute_factor_python", return_value=mock_df) as mock_py:
+            result = evaluator._compute_factor(candidate, ["SH600000"], "2023-01-01", "2023-12-31")
+            mock_py.assert_called_once_with(candidate, ["SH600000"], "2023-01-01", "2023-12-31")
+            assert result is mock_df
+
+    def test_mixed_batch_validation(self, evaluator):
+        """Batch with both DSL and Python candidates validates each correctly."""
+        candidates = [
+            {"name": "dsl_ok", "expression": "Rank($close)", "category": "momentum"},
+            {"name": "py_ok", "source": "python", "code": "return df['close']", "category": "momentum"},
+            {"name": "py_bad", "source": "python", "code": "def bad(:", "category": "other"},
+        ]
+        # Mock pipeline stages for candidates that pass validation
+        with patch.object(evaluator, "_fast_ic_screening", side_effect=lambda c: c), \
+             patch.object(evaluator, "_batch_dedup", side_effect=lambda c: c), \
+             patch.object(evaluator, "_correlation_check", return_value=([], [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=([], [])):
+            result = evaluator.evaluate_batch(candidates)
+            # py_bad should be rejected at validation; dsl_ok and py_ok should pass
+            rejected_names = [c["name"] for c in result.rejected if "validation_error" in c]
+            assert "py_bad" in rejected_names
+
+    def test_optimize_params_wired_into_evaluate_batch(self, evaluator):
+        """evaluate_batch calls _optimize_params for Python candidates with param_space."""
+        candidate = {
+            "name": "py_opt",
+            "source": "python",
+            "code": "return df['close'].rolling(params['window']).std()",
+            "category": "volatility",
+            "param_space": {"window": [5, 30]},
+        }
+        optimized = {**candidate, "params": {"window": 20}}
+
+        with patch.object(evaluator, "_optimize_params", return_value=optimized) as mock_opt, \
+             patch.object(evaluator, "_fast_ic_screening", return_value=[optimized]), \
+             patch.object(evaluator, "_batch_dedup", return_value=[optimized]), \
+             patch.object(evaluator, "_correlation_check", return_value=([optimized], [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=([optimized], [])):
+            result = evaluator.evaluate_batch([candidate])
+            mock_opt.assert_called_once()
+            assert result.screened[0].get("params", {}).get("window") == 20
+
+    def test_optimize_params_skipped_for_dsl(self, evaluator):
+        """evaluate_batch does NOT call _optimize_params for DSL candidates."""
+        candidate = {
+            "name": "dsl_f",
+            "expression": "Rank($close)",
+            "category": "momentum",
+            "param_space": {"window": [5, 30]},  # param_space present but DSL
+        }
+
+        with patch.object(evaluator, "_optimize_params") as mock_opt, \
+             patch.object(evaluator, "_fast_ic_screening", return_value=[candidate]), \
+             patch.object(evaluator, "_batch_dedup", return_value=[candidate]), \
+             patch.object(evaluator, "_correlation_check", return_value=([candidate], [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=([candidate], [])):
+            evaluator.evaluate_batch([candidate])
+            mock_opt.assert_not_called()
+
+    def test_stage1_uses_compute_factor_for_python(self, evaluator):
+        """Stage 1 calls _compute_factor (not _compute_factor_qlib) for Python candidates."""
+        dates = pd.bdate_range("2023-01-02", periods=20)
+        instruments = [f"SH60000{i}" for i in range(5)]
+        idx = pd.MultiIndex.from_product([dates, instruments], names=["datetime", "instrument"])
+        np.random.seed(42)
+        signal = np.random.randn(len(idx))
+
+        candidates = [{
+            "name": "py_f", "source": "python",
+            "code": "return df['close']", "category": "momentum",
+        }]
+
+        with patch.object(evaluator, "_compute_factor") as mock_cf, \
+             patch.object(evaluator, "_get_returns_qlib") as mock_ret, \
+             patch.object(evaluator, "_get_full_universe", return_value=instruments), \
+             patch.object(evaluator, "_stage1_window", return_value=("2022-01-01", "2022-12-31")):
+            mock_cf.return_value = pd.DataFrame({"factor": signal}, index=idx)
+            mock_ret.return_value = pd.DataFrame(
+                {"$returns_1d": signal + np.random.randn(len(idx)) * 0.2}, index=idx)
+            evaluator._fast_ic_screening(candidates)
+            # Verify _compute_factor was called with the full candidate dict
+            mock_cf.assert_called_once()
+            call_args = mock_cf.call_args
+            assert call_args[0][0] is candidates[0]  # candidate dict

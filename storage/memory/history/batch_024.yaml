@@ -1,0 +1,38 @@
+batch_id: batch_024
+timestamp: "2026-04-01T20:00:00"
+candidates: 8
+admitted: 1
+replaced: 1
+rejected: 6
+yield_rate: 0.25
+
+direction_summary:
+  - direction: size_value_crossover
+    candidates: 3
+    admitted: 1
+    replaced: 1
+    best_ic: 0.031
+    admitted_factors: ["F039 size_x_ps IC=0.021 mono_IS=OOS=1.0 ls_t=4.65"]
+    replaced_factors: ["F038 inverse_circ_mktcap(IC=0.012) → size_x_pb(IC=0.031, 2.58x)"]
+    reject_reasons: "size_x_low_pb_rank: mono=0.0(IS), ls_tstat=0.039 不显著"
+
+  - direction: signed_nonlinear_returns
+    candidates: 3
+    admitted: 0
+    reject_reasons: |
+      signed_sqrt_ret5: corr=1.000 with F003 (5d return ≡ vol_regime_reversal!!)
+      signed_cbrt_ret1: corr=1.000 with F023 (不同幂次无效)
+      signed_sqrt_ret3: corr=0.742 with F014
+
+  - direction: value_x_reversal (ps)
+    candidates: 2
+    admitted: 0
+    reject_reasons: |
+      ps_x_rev20: corr=0.746 with F036 (turnover_level_x_reversal_20)
+      ps_x_rev10: corr=0.875 with F035 (pb_x_reversal_10)
+
+key_learnings:
+  - "size×valuation crossover极强：ICIR=0.45，单调性完美，最稳定因子之一"
+  - "signed_nonlinear_returns方向已死：所有SignedPower变体与现有因子corr≥0.742，window/power均无效"
+  - "所有×reversal信号均被F035/F036/F003拦截，reversal空间完全饱和"
+  - "lib.admit()后publisher hanging问题持续存在，需要直接编辑library.yaml作为workaround"

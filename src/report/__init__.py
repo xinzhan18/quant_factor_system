@@ -1,19 +1,15 @@
-"""Factor report generation — analytics, scoring, and HTML rendering."""
+"""Factor report generation -- analytics, scoring, and HTML rendering."""
 
-from report.analytics.ic import ICAnalyzer
-from report.analytics.groups import GroupReturnsAnalyzer
-from report.analytics.decay import DecayAnalyzer
-from report.analytics.distribution import DistributionAnalyzer
+from report.analytics import (
+    ICAnalyzer, ProfitAnalyzer, ConditionalAnalyzer,
+    DecayAnalyzer, UniquenessAnalyzer,
+)
 from report.scorer import CompositeScorer
 from report.builder import ReportDataBuilder
-from report.renderer import ReportRenderer
+from report.renderer import ReportRenderer  # deprecated but kept for backward compat
 
 __all__ = [
-    "ICAnalyzer",
-    "GroupReturnsAnalyzer",
-    "DecayAnalyzer",
-    "DistributionAnalyzer",
-    "CompositeScorer",
-    "ReportDataBuilder",
-    "ReportRenderer",
+    "ICAnalyzer", "ProfitAnalyzer", "ConditionalAnalyzer",
+    "DecayAnalyzer", "UniquenessAnalyzer",
+    "CompositeScorer", "ReportDataBuilder", "ReportRenderer",
 ]

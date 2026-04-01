@@ -118,8 +118,9 @@ def cmd_batch(args):
 
     # 初始化 Qlib
     import qlib
-    from qlib.config import REG_CN
+    from qlib.config import REG_CN, C
     qlib.init(provider_uri=args.qlib_dir, region=REG_CN)
+    C.kernels = 1
     from qlib.data import D
 
     # 解析股票池
@@ -138,7 +139,7 @@ def cmd_batch(args):
         fast_screening_universe_size=args.screening_size,
     )
     evaluator = FactorMiningEvaluator(config)
-    result = evaluator.evaluate_batch(candidates)
+    result = evaluator.evaluate_batch(candidates, skip_stage1=args.skip_stage1)
 
     # 打印结果
     logger.info("筛选通过: %d, 淘汰: %d, 替换候选: %d",
@@ -155,6 +156,22 @@ def cmd_batch(args):
     for f in result.rejected:
         s1 = f.get('stage1', {})
         logger.info("  淘汰 %s: IC=%s", f['name'], s1.get('ic_mean', '?'))
+
+    # 保存 screened 因子的值为 pickle 缓存（供 judge admit 时加载写入 DB）
+    if result.screened:
+        import pickle
+        values_cache = {}
+        for f in result.screened:
+            if "_factor_values" in f and "_factor_values_oos" in f:
+                values_cache[f["name"]] = {
+                    "is": f["_factor_values"],
+                    "oos": f["_factor_values_oos"],
+                }
+        if values_cache:
+            cache_path = batch_path.parent / f"{batch_path.stem}_values.pkl"
+            with open(cache_path, "wb") as fp:
+                pickle.dump(values_cache, fp)
+            logger.info("因子值缓存已保存: %s (%d 个因子)", cache_path, len(values_cache))
 
     # 保存结果（白名单序列化）
     result_path = batch_path.parent / f"{batch_path.stem}_result.yaml"
@@ -182,12 +199,99 @@ def cmd_batch(args):
             logger.info("已替换: factor_%s → %s", r['replaces'], new_f['name'])
 
 
+def cmd_probe(args):
+    """Probe a single expression with lightweight IC evaluation."""
+    import warnings
+    warnings.filterwarnings('ignore')
+
+    import qlib
+    from qlib.config import REG_CN, C
+    qlib.init(provider_uri=args.qlib_dir, region=REG_CN)
+    C.kernels = 1
+    from qlib.data import D
+
+    # Get full universe
+    inst_dict = D.instruments('all')
+    df_temp = D.features(
+        instruments=inst_dict, fields=['$close'],
+        start_time='2024-06-01', end_time='2024-06-30',
+    )
+    all_instruments = df_temp.index.get_level_values('instrument').unique().tolist()
+
+    config = MiningConfig(custom_universe=all_instruments)
+    evaluator = FactorMiningEvaluator(config)
+    result = evaluator.probe_single(
+        expression=args.expression,
+        start=args.start,
+        end=args.end,
+    )
+
+    if "error" in result:
+        print(f"ERROR: {result['error']}")
+        sys.exit(1)
+    else:
+        ic = result.get("ic_mean", 0)
+        print(f"IC={ic:.4f}  ICIR={result.get('ic_ir', 0):.3f}  "
+              f"WinRate={result.get('ic_win_rate', 0):.1%}  "
+              f"Days={result.get('n_days', 0)}")
+
+
 def cmd_memory(args):
     """Show Experience Memory status."""
     config = MiningConfig(memory_dir=args.memory_dir)
     mem = ExperienceMemory(config)
     ctx = mem.compose_search_context()
     print(ctx)
+
+
+def cmd_logic(args):
+    """Manage and inspect market logics."""
+    from mining.logic_library import MarketLogicLibrary
+    from mining.scheduler import Scheduler
+
+    config = MiningConfig()
+    lib = MarketLogicLibrary(config.logic_dir)
+
+    if args.logic_action == "list":
+        status_filter = getattr(args, "status", None)
+        logics = lib.list_logics(status=status_filter)
+        if not logics:
+            print("No logics found.")
+            return
+        for l in logics:
+            s = l.get("stats", {})
+            print(f"  {l['id']} [{l['status']}] {l['name']} "
+                  f"(cat={l['category']}, gen={s.get('factors_generated', 0)}, "
+                  f"adm={s.get('factors_admitted', 0)})")
+
+    elif args.logic_action == "coverage":
+        coverage = lib.coverage_map()
+        if not coverage:
+            print("No taxonomy loaded.")
+            return
+        for cat, count in sorted(coverage.items()):
+            bar = "#" * count
+            print(f"  {cat:20s} {count:3d} {bar}")
+
+    elif args.logic_action == "schedule":
+        sched = Scheduler()
+        logics = lib.list_logics(status="active")
+        if not logics:
+            print("No active logics.")
+            return
+        coverage = lib.coverage_map()
+        # Compute avg IC from library
+        flib = FactorLibrary(config)
+        factors = flib.list_factors()
+        avg_ic = sum(abs(f.get("ic_mean", 0)) for f in factors) / max(len(factors), 1)
+        scores = sched.score_logics(logics, coverage, avg_ic)
+        print("Logic priority scores:")
+        for lid, score in scores:
+            logic = lib.get(lid)
+            name = logic["name"] if logic else "?"
+            print(f"  {lid} {name:30s} score={score:+.1f}")
+        if sched.should_trigger_outer_loop(logics, coverage, avg_ic):
+            print("\n  All scores non-positive — recommend running /logic new (outer loop)")
 
 
 def main():
@@ -217,15 +321,31 @@ def main():
     p_batch.add_argument("--train-end", default="2024-12-31")
     p_batch.add_argument("--test-start", default="2024-07-01")
     p_batch.add_argument("--screening-size", type=int, default=50)
+    p_batch.add_argument("--skip-stage1", action="store_true",
+                         help="跳过 Stage 1 快筛（候选已通过 Probe 验证时使用）")
     p_batch.add_argument("--admit", action="store_true", help="自动将录取因子加入因子库")
 
     # library
     p_lib = sub.add_parser("library", help="查看因子库状态")
     p_lib.add_argument("--library-dir", default="storage/library")
 
+    # probe
+    p_probe = sub.add_parser("probe", help="Probe a single expression (lightweight IC only)")
+    p_probe.add_argument("expression", help="Qlib expression")
+    p_probe.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
+    p_probe.add_argument("--start", default="2024-01-01")
+    p_probe.add_argument("--end", default="2024-12-31")
+
     # memory
     p_mem = sub.add_parser("memory", help="查看挖掘记忆上下文")
     p_mem.add_argument("--memory-dir", default="storage/memory")
+
+    # logic
+    p_logic = sub.add_parser("logic", help="Manage and inspect market logics")
+    p_logic.add_argument("logic_action", choices=["list", "coverage", "schedule"],
+                         help="Action to perform: list, coverage, or schedule")
+    p_logic.add_argument("--status", default=None,
+                         help="Filter by status (active, saturated, dead) — used with 'list'")
 
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(name)s - %(message)s')
@@ -240,6 +360,10 @@ def main():
         cmd_library(args)
     elif args.command == "memory":
         cmd_memory(args)
+    elif args.command == "probe":
+        cmd_probe(args)
+    elif args.command == "logic":
+        cmd_logic(args)
     else:
         parser.print_help()
 

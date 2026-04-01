@@ -48,7 +48,6 @@ try:
     RQDATAC_AVAILABLE = True
 except ImportError:
     RQDATAC_AVAILABLE = False
-    logger.warning("rqdatac未安装，将使用模拟数据")
 
 
 class RiceQuantSource:
