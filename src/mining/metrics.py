@@ -14,6 +14,17 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from core.metrics import ic_summary_from_series, max_drawdown as compute_max_drawdown
+from core.factor_stats import (
+    distribution_stats as _shared_distribution_stats,
+    estimate_half_life as _shared_estimate_half_life,
+    factor_autocorrelation as _shared_factor_autocorrelation,
+    incremental_ic as _shared_incremental_ic,
+    monotonicity as _shared_monotonicity,
+    multiindex_to_flat,
+    quintile_returns as _shared_quintile_returns,
+)
+
 logger = logging.getLogger(__name__)
 
 NaN = float("nan")
@@ -72,6 +83,10 @@ class FactorReportCard:
     incremental_ic: float = NaN
     expression_depth: int = 0
 
+    # --- Safety ---
+    lookahead_warning: bool = False
+    ast_similarity_score: float = 0.0
+
     def to_dict(self) -> Dict[str, Any]:
         """Serializable dict for YAML/JSON. NaN -> None."""
         return _sanitize(asdict(self))
@@ -101,17 +116,12 @@ def dim1_predictive_power(daily_ics: pd.Series) -> Dict[str, Any]:
         return {"ic_mean": NaN, "ic_std": NaN, "ic_ir": NaN, "ic_win_rate": NaN,
                 "ic_by_year": {}, "ic_by_month": {}}
 
-    arr = daily_ics.values.astype(float)
-    ic_mean = float(np.nanmean(arr))
-    ic_std = float(np.nanstd(arr)) if len(arr) > 1 else NaN
-    ic_ir = float(ic_mean / ic_std) if ic_std and ic_std > 0 else NaN
-    ic_win_rate = float(np.nansum(arr > 0) / np.sum(~np.isnan(arr)))
+    summary = ic_summary_from_series(daily_ics)
 
     ic_by_year = {int(y): float(g.mean()) for y, g in daily_ics.groupby(daily_ics.index.year)}
     ic_by_month = {int(m): float(g.mean()) for m, g in daily_ics.groupby(daily_ics.index.month)}
 
-    return {"ic_mean": ic_mean, "ic_std": ic_std, "ic_ir": ic_ir,
-            "ic_win_rate": ic_win_rate, "ic_by_year": ic_by_year, "ic_by_month": ic_by_month}
+    return {**summary, "ic_by_year": ic_by_year, "ic_by_month": ic_by_month}
 
 
 # ──────────────────── Dimension 2: Robustness ────────────────────
@@ -146,9 +156,7 @@ def dim2_robustness(daily_ics_is: pd.Series, daily_ics_oos: pd.Series) -> Dict[s
     # IC max drawdown (cumulative IC)
     ic_max_drawdown = NaN
     if not daily_ics_is.empty:
-        cum_ic = daily_ics_is.cumsum()
-        drawdown = cum_ic - cum_ic.cummax()
-        ic_max_drawdown = float(drawdown.min())
+        ic_max_drawdown = compute_max_drawdown(daily_ics_is.cumsum())
 
     # Best / worst quarter
     worst_quarter_ic = NaN
@@ -175,41 +183,20 @@ def dim2_robustness(daily_ics_is: pd.Series, daily_ics_oos: pd.Series) -> Dict[s
 def _quantile_returns(
     factor_values: pd.DataFrame, returns: pd.DataFrame, n_quantiles: int = 5,
 ) -> Tuple[Dict[str, float], List[float]]:
-    """Compute quintile returns and daily long-short returns."""
-    factor_col = factor_values.columns[0]
-    returns_col = returns.columns[0]
-    merged = factor_values.join(returns, how="inner").dropna()
-    if merged.empty:
-        return {f"q{i + 1}": NaN for i in range(n_quantiles)}, []
+    """Compute quintile returns and daily long-short returns.
 
-    daily_qs: Dict[str, List[float]] = {}
-    daily_ls: List[float] = []
-
-    for _, group in merged.groupby(level="datetime"):
-        if len(group) < n_quantiles:
-            continue
-        g = group.copy()
-        g["quantile"] = pd.qcut(g[factor_col], n_quantiles, labels=False, duplicates="drop")
-        for q in range(n_quantiles):
-            q_ret = g.loc[g["quantile"] == q, returns_col].mean()
-            daily_qs.setdefault(f"q{q + 1}", []).append(q_ret)
-        q_top = g.loc[g["quantile"] == n_quantiles - 1, returns_col].mean()
-        q_bot = g.loc[g["quantile"] == 0, returns_col].mean()
-        if not np.isnan(q_top) and not np.isnan(q_bot):
-            daily_ls.append(q_top - q_bot)
-
-    avg_qs = {k: float(np.nanmean(v)) if v else NaN for k, v in daily_qs.items()}
-    return avg_qs, daily_ls
+    Delegates to core.factor_stats.quintile_returns after converting
+    MultiIndex DataFrames to flat format.
+    """
+    flat_factor = multiindex_to_flat(factor_values)
+    flat_returns = multiindex_to_flat(returns)
+    return _shared_quintile_returns(
+        flat_factor, flat_returns, n_quantiles=n_quantiles, min_obs=n_quantiles,
+    )
 
 
 def _monotonicity(quantile_returns: Dict[str, float]) -> float:
-    q_keys = sorted(quantile_returns.keys())
-    q_vals = [quantile_returns[k] for k in q_keys
-              if not np.isnan(quantile_returns.get(k, NaN))]
-    if len(q_vals) < 3:
-        return NaN
-    rho, _ = spearmanr(range(len(q_vals)), q_vals)
-    return float(rho) if not np.isnan(rho) else NaN
+    return _shared_monotonicity(quantile_returns)
 
 
 def dim3_economic_coherence(
@@ -250,27 +237,7 @@ def dim3_economic_coherence(
 
 
 def _estimate_half_life(ic_decay: Dict[int, float]) -> float:
-    sorted_h = sorted(ic_decay.keys())
-    if len(sorted_h) < 2:
-        return NaN
-    ic_1d = ic_decay.get(sorted_h[0], NaN)
-    if np.isnan(ic_1d) or abs(ic_1d) < 1e-8:
-        return NaN
-    target = abs(ic_1d) / 2.0
-    for i in range(1, len(sorted_h)):
-        h = sorted_h[i]
-        ic_h = abs(ic_decay.get(h, NaN))
-        if np.isnan(ic_h):
-            continue
-        if ic_h <= target:
-            h_prev = sorted_h[i - 1]
-            ic_prev = abs(ic_decay[h_prev])
-            denom = ic_prev - ic_h
-            if abs(denom) < 1e-10:
-                return float(h)
-            frac = (ic_prev - target) / denom
-            return float(h_prev + frac * (h - h_prev))
-    return NaN
+    return _shared_estimate_half_life(ic_decay)
 
 
 def dim4_decay_turnover(
@@ -283,29 +250,16 @@ def dim4_decay_turnover(
         ic_decay[h] = float(ics.mean()) if not ics.empty else NaN
     half_life = _estimate_half_life(ic_decay)
 
-    # Factor turnover / autocorrelation
+    # Factor turnover / autocorrelation via shared function
     factor_turnover = NaN
     factor_autocorr = NaN
     if not factor_vals.empty:
-        factor_col = factor_vals.columns[0]
-        dates = factor_vals.index.get_level_values("datetime").unique().sort_values()
-        rank_corrs = []
-        for i in range(1, len(dates)):
-            try:
-                prev = factor_vals.loc[dates[i - 1]]
-                curr = factor_vals.loc[dates[i]]
-            except KeyError:
-                continue
-            common = prev.index.intersection(curr.index)
-            if len(common) < 5:
-                continue
-            rho, _ = spearmanr(
-                prev.loc[common, factor_col], curr.loc[common, factor_col],
-            )
-            if not np.isnan(rho):
-                rank_corrs.append(rho)
-        if rank_corrs:
-            factor_autocorr = float(np.mean(rank_corrs))
+        flat = multiindex_to_flat(factor_vals)
+        ac_result = _shared_factor_autocorrelation(
+            flat, lags=[1], min_obs=5, max_dates=9999,
+        )
+        if ac_result:
+            factor_autocorr = ac_result[0]["corr"]
             factor_turnover = 1.0 - factor_autocorr
 
     return {"ic_decay": ic_decay, "half_life_days": half_life,
@@ -316,7 +270,12 @@ def dim4_decay_turnover(
 
 
 def dim5_distribution(factor_vals: pd.DataFrame) -> Dict[str, Any]:
-    """Compute coverage and distribution metrics from raw factor values."""
+    """Compute coverage and distribution metrics from raw factor values.
+
+    Delegates cross-sectional skew/kurt to core.factor_stats but keeps
+    mining-specific coverage/zero_ratio/extreme_ratio logic (which uses
+    MultiIndex grouped by datetime).
+    """
     factor_col = factor_vals.columns[0]
     vals = factor_vals[factor_col]
     total = len(vals)
@@ -327,18 +286,13 @@ def dim5_distribution(factor_vals: pd.DataFrame) -> Dict[str, Any]:
     coverage = float(1 - vals.isna().sum() / total)
     zero_ratio = float((vals == 0).sum() / total)
 
-    # Cross-sectional skew / kurt (averaged across days)
-    skews, kurts = [], []
-    for _, group in factor_vals.groupby(level="datetime"):
-        g = group[factor_col].dropna()
-        if len(g) < 5:
-            continue
-        skews.append(float(g.skew()))
-        kurts.append(float(g.kurt()))
-    factor_skew = float(np.nanmean(skews)) if skews else NaN
-    factor_kurt = float(np.nanmean(kurts)) if kurts else NaN
+    # Cross-sectional skew / kurt via shared function
+    flat = multiindex_to_flat(factor_vals)
+    dist = _shared_distribution_stats(flat)
+    factor_skew = dist["skew"] if dist["coverage"] > 0 else NaN
+    factor_kurt = dist["kurtosis"] if dist["coverage"] > 0 else NaN
 
-    # Extreme ratio (|z| > 3)
+    # Extreme ratio (|z| > 3) — mining-specific metric
     extreme_ratio = NaN
     non_nan = vals.dropna()
     if len(non_nan) > 10:
@@ -361,43 +315,23 @@ def _compute_incremental_ic(
     factor_vals: pd.DataFrame, returns: pd.DataFrame,
     lib_values: Dict[str, pd.DataFrame],
 ) -> float:
-    """IC of factor residuals after regressing out library factors."""
+    """IC of factor residuals after regressing out library factors.
+
+    Delegates to core.factor_stats.incremental_ic after converting
+    MultiIndex DataFrames to flat format.
+    """
     if not lib_values:
         return NaN
 
-    factor_col = factor_vals.columns[0]
-    returns_col = returns.columns[0]
+    flat_factor = multiindex_to_flat(factor_vals)
+    flat_returns = multiindex_to_flat(returns)
+    flat_lib = {lid: multiindex_to_flat(lv) for lid, lv in lib_values.items()}
 
-    merged = factor_vals.copy()
-    lib_cols = []
-    for lid, lvals in lib_values.items():
-        col = f"lib_{lid}"
-        lib_cols.append(col)
-        merged = merged.join(
-            lvals.rename(columns={lvals.columns[0]: col}), how="inner",
-        )
-    merged = merged.join(returns, how="inner")
-
-    daily_ics = []
-    min_obs = max(10, len(lib_cols) + 2)
-    for _, group in merged.groupby(level="datetime"):
-        g = group.dropna()
-        if len(g) < min_obs:
-            continue
-        y = g[factor_col].values
-        X = np.column_stack([np.ones(len(y)), g[lib_cols].values])
-        try:
-            beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-            resid = y - X @ beta
-        except np.linalg.LinAlgError:
-            continue
-        if np.std(resid) < 1e-10 or np.std(g[returns_col].values) < 1e-10:
-            continue
-        ic, _ = spearmanr(resid, g[returns_col].values)
-        if not np.isnan(ic):
-            daily_ics.append(ic)
-
-    return float(np.mean(daily_ics)) if daily_ics else NaN
+    min_obs = max(10, len(lib_values) + 2)
+    result_ic, _ = _shared_incremental_ic(
+        flat_factor, flat_returns, flat_lib, min_obs=min_obs,
+    )
+    return result_ic if result_ic is not None else NaN
 
 
 def dim6_uniqueness(

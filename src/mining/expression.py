@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from dataclasses import dataclass, field
 from typing import List, Set
@@ -89,6 +90,71 @@ class ExpressionValidator:
                 warnings.append(f"Unknown operator: {op}")
 
         return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
+
+    # ------------------------------------------------------------------
+    # Python factor validation
+    # ------------------------------------------------------------------
+
+    _FORBIDDEN_IMPORTS: List[str] = [
+        "os", "sys", "subprocess", "shutil", "socket",
+        "http", "urllib", "requests", "pathlib", "importlib",
+    ]
+
+    def validate_python(self, code: str) -> ValidationResult:
+        """Validate a Python factor code snippet.
+
+        Checks:
+        1. Non-empty
+        2. Valid Python syntax via ast.parse
+        3. No forbidden imports (os, sys, subprocess, ...)
+        """
+        if not code or not code.strip():
+            return ValidationResult(valid=False, errors=["Empty code"])
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError as exc:
+            return ValidationResult(valid=False, errors=[f"SyntaxError: {exc}"])
+
+        errors: List[str] = []
+        for node in ast.walk(tree):
+            # import os  /  import os, sys
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root = alias.name.split(".")[0]
+                    if root in self._FORBIDDEN_IMPORTS:
+                        errors.append(f"Forbidden import: {alias.name}")
+            # from os import path  /  from os.path import join
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                root = module.split(".")[0]
+                if root in self._FORBIDDEN_IMPORTS:
+                    errors.append(f"Forbidden import: {module}")
+
+        return ValidationResult(valid=len(errors) == 0, errors=errors)
+
+    def extract_ops_calls(self, code: str) -> List[str]:
+        """Extract ``ops.*`` method names from Python factor code.
+
+        Walks the AST for ``Call`` nodes whose function is an attribute access
+        on the name ``ops`` (e.g. ``ops.Mean(...)`` → ``"Mean"``).
+        Returns a list of method names in call order.
+        """
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return []
+
+        names: List[str] = []
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "ops"
+            ):
+                names.append(node.func.attr)
+        return names
 
     def safe_wrap(self, expression: str) -> str:
         """Wrap Div operations to handle zero division.

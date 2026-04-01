@@ -2,13 +2,16 @@
 数据模块
 Data Module
 
-⚠️ 注意: 本项目只支持 TimescaleDB
+⚠️ 注意: 本项目只支持 TimescaleDB (Docker)
 
-安装 TimescaleDB:
+启动 TimescaleDB:
     docker run -d --name timescaledb \
       -p 5432:5432 \
-      -e POSTGRES_PASSWORD=quant123 \
+      -e POSTGRES_PASSWORD=postgres \
       timescale/timescaledb:latest-pg14
+
+    # 创建数据库
+    docker exec timescaledb psql -U postgres -c "CREATE DATABASE quant_data;"
 
 使用:
     from data import TimescaleDB, QuantDataManager
@@ -23,10 +26,6 @@ Data Module
     # 查询
     df = manager.get_price(symbols=['SH600000'], frequency='daily')
 """
-
-from .ricequant_source import (
-    RiceQuantSource,
-)
 
 from .storage import (
     TimescaleDB,
@@ -58,11 +57,6 @@ from .loaders import (
 )
 
 from .utils import (
-    PostgresDB,
-    get_postgres_db,
-    init_postgres_db,
-    FactorResult,
-    FactorMeta,
     QuantDataFormatter,
     format_daily_data,
     format_factor_data,
@@ -107,9 +101,6 @@ __all__ = [
     'DataManager',
     'create_data_manager',
     
-    # 数据源
-    'RiceQuantSource',
-    
     # 数据加载
     'get_factor_data',
     'get_factor_metrics',
@@ -118,11 +109,6 @@ __all__ = [
     'get_available_factors',
     
     # 工具类
-    'PostgresDB',
-    'get_postgres_db',
-    'init_postgres_db',
-    'FactorResult',
-    'FactorMeta',
     'QuantDataFormatter',
     'format_daily_data',
     'format_factor_data',
@@ -144,3 +130,5 @@ __all__ = [
     # Qlib 同步
     'DataSynchronizer',
 ]
+
+

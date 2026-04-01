@@ -6,16 +6,37 @@
     <title>Factor Report: {{ factor.name }}</title>
     <script src="https://cdn.plot.ly/plotly-basic-2.35.2.min.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* ===== CSS Variables ===== */
+        :root {
+            --bg:          #0d1117;
+            --surface:     #161b22;
+            --surface-2:   #1c2333;
+            --border:      #30363d;
+            --border-focus:#58a6ff;
+            --text:        #c9d1d9;
+            --text-muted:  #8b949e;
+            --text-dim:    #484f58;
+            --positive:    #3fb950;
+            --negative:    #f85149;
+            --accent:      #58a6ff;
+            --warning:     #d29922;
+            --grade:       #f0883e;
+        }
+
         /* ===== Base & Typography ===== */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: Georgia, 'Noto Serif SC', serif;
+            font-family: 'IBM Plex Sans', system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
             font-size: 14px;
             line-height: 1.7;
-            color: #2c3e50;
-            background: #fafafa;
+            color: var(--text);
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -29,39 +50,44 @@
         h3 { font-size: 1.1em; font-weight: 600; }
 
         code, .formula-inline {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.9em;
-            background: #f0f0f0;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.88em;
+            background: rgba(88, 166, 255, 0.1);
+            color: var(--accent);
             padding: 2px 6px;
             border-radius: 3px;
+            border: 1px solid rgba(88, 166, 255, 0.15);
         }
 
         /* ===== Report Header ===== */
         .report-header {
-            background: linear-gradient(135deg, #1a2a4a 0%, #2c3e6a 100%);
-            color: #fff;
+            background: var(--surface-2);
+            border-top: 3px solid var(--accent);
+            color: var(--text);
             padding: 36px 40px 28px;
             margin-bottom: 0;
         }
 
         .report-header .factor-label {
-            font-size: 0.75em;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72em;
             letter-spacing: 2px;
             text-transform: uppercase;
-            color: #aab8d0;
+            color: var(--text-muted);
             margin-bottom: 6px;
         }
 
         .report-header h1 {
             font-size: 2em;
-            color: #fff;
+            color: #e6edf3;
             margin-bottom: 4px;
         }
 
         .report-header .factor-name-en {
-            font-size: 1.1em;
-            color: #aab8d0;
-            font-style: italic;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1em;
+            color: var(--accent);
+            font-style: normal;
             margin-bottom: 16px;
         }
 
@@ -70,72 +96,81 @@
             flex-wrap: wrap;
             gap: 20px;
             font-size: 0.85em;
-            color: #c8d6e8;
+            color: var(--text-muted);
             margin-bottom: 18px;
         }
 
         .factor-meta-row span strong {
-            color: #fff;
+            color: var(--text-dim);
             margin-right: 4px;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
         }
 
         .formula-box {
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
             border-radius: 6px;
             padding: 14px 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.95em;
-            color: #e0eaff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.92em;
+            color: var(--text);
             margin-top: 10px;
             overflow-x: auto;
         }
 
         .formula-box .formula-raw {
-            font-size: 0.85em;
-            color: #8aa3c0;
+            font-size: 0.82em;
+            color: var(--text-dim);
             margin-top: 6px;
+        }
+
+        .formula-box .formula-raw code {
+            color: var(--positive);
+            background: rgba(63, 185, 80, 0.08);
+            border-color: rgba(63, 185, 80, 0.15);
         }
 
         /* ===== KPI Strip ===== */
         .kpi-strip {
-            background: #fff;
-            border-bottom: 2px solid #e8ecf0;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
             padding: 16px 40px;
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
             gap: 0;
             margin-bottom: 32px;
         }
 
         .kpi-item {
-            flex: 1;
-            min-width: 110px;
             text-align: center;
-            padding: 8px 12px;
-            border-right: 1px solid #e8ecf0;
+            padding: 10px 8px;
+            border-right: 1px solid var(--border);
         }
 
         .kpi-item:last-child { border-right: none; }
 
         .kpi-label {
-            font-size: 0.72em;
-            color: #7f8c8d;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            color: var(--text-dim);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
 
         .kpi-value {
-            font-size: 1.5em;
+            font-size: 1.45em;
             font-weight: 700;
-            font-family: 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        .kpi-value.positive { color: #27ae60; }
-        .kpi-value.negative { color: #e74c3c; }
-        .kpi-value.neutral  { color: #2c3e50; }
-        .kpi-value.grade    { color: #e67e22; }
+        .kpi-value.positive { color: var(--positive); }
+        .kpi-value.negative { color: var(--negative); }
+        .kpi-value.neutral  { color: var(--text); }
+        .kpi-value.grade    { color: var(--grade); }
 
         /* ===== Section Headers ===== */
         .section {
@@ -145,33 +180,32 @@
         .section-header {
             display: flex;
             align-items: center;
-            padding: 12px 0 12px 16px;
+            padding: 12px 0;
             margin-bottom: 20px;
-            border-left: 5px solid #3498db;
+            border-top: 2px solid var(--accent);
         }
 
-        /* Per-section border colors */
-        .section-1 .section-header { border-left-color: #3498db; }
-        .section-2 .section-header { border-left-color: #9b59b6; }
-        .section-3 .section-header { border-left-color: #1abc9c; }
-        .section-4 .section-header { border-left-color: #2ecc71; }
-        .section-5 .section-header { border-left-color: #e67e22; }
-        .section-6 .section-header { border-left-color: #3498db; }
-        .section-7 .section-header { border-left-color: #f39c12; }
-        .section-8 .section-header { border-left-color: #e74c3c; }
+        .section-1 .section-header { border-top-color: var(--accent); }
+        .section-2 .section-header { border-top-color: #bc8cff; }
+        .section-3 .section-header { border-top-color: #39d353; }
+        .section-4 .section-header { border-top-color: var(--positive); }
+        .section-5 .section-header { border-top-color: var(--warning); }
+        .section-6 .section-header { border-top-color: var(--accent); }
+        .section-7 .section-header { border-top-color: var(--grade); }
+        .section-8 .section-header { border-top-color: var(--negative); }
 
         .section-number {
+            font-family: 'JetBrains Mono', monospace;
             font-size: 0.75em;
             font-weight: 700;
             letter-spacing: 1px;
-            text-transform: uppercase;
-            color: #95a5a6;
+            color: var(--text-dim);
             margin-right: 12px;
             min-width: 28px;
         }
 
-        .section-title-cn { font-size: 1.25em; font-weight: 700; margin-right: 10px; }
-        .section-title-en { font-size: 0.9em; color: #7f8c8d; font-style: italic; }
+        .section-title-cn { font-size: 1.25em; font-weight: 700; color: #e6edf3; margin-right: 10px; }
+        .section-title-en { font-size: 0.85em; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-style: normal; }
 
         /* ===== Preprocessing Pipeline ===== */
         .pipeline {
@@ -179,73 +213,84 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 0;
-            background: #fff;
-            border: 1px solid #dce3ea;
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
             padding: 14px 20px;
             margin-bottom: 20px;
             font-size: 0.85em;
         }
 
         .pipeline-step {
-            background: #eaf4fd;
-            border: 1px solid #b3d4f0;
-            border-radius: 20px;
+            background: rgba(88, 166, 255, 0.08);
+            border: 1px solid rgba(88, 166, 255, 0.2);
+            border-radius: 4px;
             padding: 5px 14px;
-            color: #1a5f96;
+            color: var(--accent);
             white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
         }
 
         .pipeline-arrow {
-            color: #95a5a6;
+            color: var(--text-dim);
             font-size: 1.1em;
             padding: 0 8px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* ===== Data Tables ===== */
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            background: #fff;
-            border: 1px solid #dce3ea;
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
             overflow: hidden;
             margin-bottom: 20px;
             font-size: 0.88em;
         }
 
         .data-table thead tr {
-            background: #f0f4f8;
-            color: #4a5568;
+            background: var(--surface-2);
+            color: var(--text-muted);
         }
 
         .data-table th {
             padding: 10px 14px;
             text-align: left;
             font-weight: 600;
-            border-bottom: 2px solid #dce3ea;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         .data-table td {
             padding: 8px 14px;
-            border-bottom: 1px solid #eef1f4;
+            border-bottom: 1px solid rgba(48, 54, 61, 0.5);
             vertical-align: middle;
         }
 
-        .data-table tbody tr:nth-child(even) { background: #f9fbfc; }
+        .data-table tbody tr:nth-child(even) { background: rgba(22, 27, 34, 0.5); }
         .data-table tbody tr:last-child td { border-bottom: none; }
-        .data-table tbody tr:hover { background: #f0f6ff; }
+        .data-table tbody tr:hover { background: rgba(88, 166, 255, 0.04); }
 
-        .data-table td.num { text-align: right; font-family: 'Courier New', monospace; }
-        .data-table td.positive { color: #27ae60; font-weight: 600; }
-        .data-table td.negative { color: #e74c3c; font-weight: 600; }
+        .data-table td.num {
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95em;
+        }
+        .data-table td.positive, .data-table span.positive { color: var(--positive); font-weight: 600; }
+        .data-table td.negative, .data-table span.negative { color: var(--negative); font-weight: 600; }
 
         /* ===== Charts ===== */
         .chart-container {
-            background: #fff;
-            border: 1px solid #dce3ea;
-            border-radius: 8px;
-            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
             margin-bottom: 20px;
             overflow-x: auto;
         }
@@ -257,23 +302,27 @@
             margin-bottom: 20px;
         }
 
+        .chart-grid-2 .chart-container { margin-bottom: 0; }
+
         .chart-unavailable {
-            background: #f5f5f5;
-            border: 1px dashed #ccc;
+            background: var(--surface);
+            border: 1px dashed var(--border);
             border-radius: 6px;
             height: 200px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #aaa;
+            color: var(--text-dim);
             font-size: 0.85em;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* ===== LLM Narrative Boxes ===== */
         .narrative-box {
-            background: #f9fafb;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 6px 6px 0;
             padding: 16px 20px;
             margin-bottom: 16px;
             font-size: 0.9em;
@@ -281,21 +330,24 @@
         }
 
         .narrative-box .llm-prefix {
+            font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
-            color: #4a5568;
+            color: var(--text-dim);
             margin-bottom: 6px;
-            font-size: 0.85em;
+            font-size: 0.78em;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .narrative-box p { margin-bottom: 8px; }
         .narrative-box p:last-child { margin-bottom: 0; }
+        .narrative-box p strong { color: var(--text-muted); }
 
         .missing-narrative {
-            color: #bbb;
+            color: var(--text-dim);
             font-style: italic;
             font-size: 0.85em;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* ===== Attribution Cards (Section 2) ===== */
@@ -307,7 +359,9 @@
         }
 
         .attribution-card {
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
             padding: 16px 18px;
             font-size: 0.88em;
             line-height: 1.7;
@@ -316,12 +370,13 @@
         .attribution-card h3 {
             font-size: 0.9em;
             margin-bottom: 6px;
+            color: #e6edf3;
         }
 
-        .attribution-card.behavioral { background: #eaf4fd; border: 1px solid #b3d4f0; }
-        .attribution-card.fundamental { background: #fdf6e3; border: 1px solid #f0d9a0; }
-        .attribution-card.microstructure { background: #eafaf1; border: 1px solid #a9dfbf; }
-        .attribution-card.macro { background: #fef9e7; border: 1px solid #f9e79f; }
+        .attribution-card.behavioral   { border-left: 3px solid var(--accent); }
+        .attribution-card.fundamental   { border-left: 3px solid var(--warning); }
+        .attribution-card.microstructure{ border-left: 3px solid var(--positive); }
+        .attribution-card.macro         { border-left: 3px solid #bc8cff; }
 
         /* ===== Annual Table Regime Badges ===== */
         .regime-badge {
@@ -340,27 +395,34 @@
         .score-dim-table {
             width: 100%;
             border-collapse: collapse;
-            background: #fff;
-            border: 1px solid #dce3ea;
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
             overflow: hidden;
             font-size: 0.88em;
         }
 
         .score-dim-table th {
-            background: #f0f4f8;
+            background: var(--surface-2);
             padding: 9px 14px;
             text-align: left;
             font-weight: 600;
-            border-bottom: 2px solid #dce3ea;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         .score-dim-table td {
             padding: 8px 14px;
-            border-bottom: 1px solid #eef1f4;
+            border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+            color: var(--text);
         }
 
         .score-dim-table tbody tr:last-child td { border-bottom: none; }
+        .score-dim-table tbody tr:hover { background: rgba(88, 166, 255, 0.04); }
 
         .score-bar-wrapper {
             display: flex;
@@ -371,18 +433,26 @@
         .score-bar {
             height: 8px;
             border-radius: 4px;
-            background: #3498db;
             min-width: 2px;
         }
 
-        .score-bar.high   { background: #27ae60; }
-        .score-bar.medium { background: #f39c12; }
-        .score-bar.low    { background: #e74c3c; }
+        .score-bar.high {
+            background: var(--positive);
+            box-shadow: 0 0 6px rgba(63, 185, 80, 0.4);
+        }
+        .score-bar.medium {
+            background: var(--warning);
+            box-shadow: 0 0 6px rgba(210, 153, 34, 0.4);
+        }
+        .score-bar.low {
+            background: var(--negative);
+            box-shadow: 0 0 6px rgba(248, 81, 73, 0.4);
+        }
 
         .composite-summary {
-            background: linear-gradient(135deg, #1a2a4a, #2c3e6a);
-            color: #fff;
-            border-radius: 8px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
             padding: 20px 24px;
             display: flex;
             align-items: center;
@@ -391,22 +461,25 @@
         }
 
         .composite-grade-large {
+            font-family: 'JetBrains Mono', monospace;
             font-size: 3.5em;
             font-weight: 900;
-            color: #f39c12;
+            color: var(--grade);
             line-height: 1;
+            text-shadow: 0 0 20px rgba(240, 136, 62, 0.3);
         }
 
         .composite-score-num {
-            font-size: 1.1em;
-            color: #aab8d0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            color: var(--text-dim);
         }
 
         /* ===== Critical Review (Section 8) ===== */
         .critical-review-section {
-            background: #fff8f8;
-            border: 1px solid #f5c6cb;
-            border-radius: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
             padding: 20px 24px;
             margin-bottom: 20px;
         }
@@ -419,31 +492,31 @@
         }
 
         .weakness-card {
-            background: #fff;
-            border-left: 4px solid #e74c3c;
-            border-radius: 4px;
+            background: var(--surface-2);
+            border-left: 3px solid var(--negative);
+            border-radius: 0 6px 6px 0;
             padding: 14px 16px;
             font-size: 0.88em;
             line-height: 1.7;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
         }
 
         .weakness-card h3 {
-            color: #c0392b;
+            color: var(--negative);
             font-size: 0.92em;
             margin-bottom: 6px;
         }
 
         .improvement-box {
-            background: #eafaf1;
-            border: 1px solid #a9dfbf;
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--positive);
+            border-radius: 0 6px 6px 0;
             padding: 16px 20px;
             margin-bottom: 20px;
         }
 
         .improvement-box h3 {
-            color: #1e8449;
+            color: var(--positive);
             font-size: 0.95em;
             margin-bottom: 10px;
         }
@@ -458,14 +531,19 @@
             line-height: 1.7;
         }
 
+        .improvement-box ul li::marker {
+            color: var(--positive);
+        }
+
         /* ===== Footer ===== */
         .report-footer {
-            background: #f0f4f8;
-            border-top: 1px solid #dce3ea;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
             text-align: center;
             padding: 20px 24px;
-            font-size: 0.78em;
-            color: #95a5a6;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72em;
+            color: var(--text-dim);
             margin-top: 40px;
         }
 
@@ -480,11 +558,23 @@
         .text-right { text-align: right; }
         .text-center { text-align: center; }
 
+        /* ===== MathJax dark override ===== */
+        mjx-container { color: var(--text) !important; }
+
+        /* ===== Scrollbar styling ===== */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
         @media (max-width: 768px) {
             .chart-grid-2, .attribution-grid, .weakness-grid, .score-table-container, .two-col {
                 grid-template-columns: 1fr;
             }
-            .kpi-strip { padding: 12px 16px; }
+            .kpi-strip {
+                grid-template-columns: repeat(4, 1fr);
+                padding: 12px 16px;
+            }
             .report-header { padding: 24px 20px 18px; }
             .container { padding: 0 12px 32px; }
         }
@@ -835,7 +925,7 @@
 
     <!-- Annual Breakdown Table -->
     {% if ic_analysis and ic_analysis.annual and ic_analysis.annual | length > 0 %}
-    <h3 style="margin-bottom: 10px; color: #4a5568; font-size: 0.95em;">逐年 IC 分析</h3>
+    <h3 style="margin-bottom: 10px; color: var(--text-muted); font-size: 0.95em;">逐年 IC 分析</h3>
     <table class="data-table">
         <thead>
             <tr>
@@ -953,7 +1043,7 @@
             </tr>
             {% endfor %}
             {% if quintile.ls_stats and quintile.ls_stats | length > 0 %}
-            <tr style="background: #f0f6ff; font-weight: 600;">
+            <tr style="background: rgba(88, 166, 255, 0.06); font-weight: 600;">
                 <td>L/S (Q1-Q5)</td>
                 <td class="num {% if (quintile.ls_stats.ann_return or 0) > 0 %}positive{% elif (quintile.ls_stats.ann_return or 0) < 0 %}negative{% endif %}">{{ "%.2f" | format((quintile.ls_stats.ann_return or 0) * 100) }}%</td>
                 <td class="num">{{ "%.2f" | format((quintile.ls_stats.ann_vol or 0) * 100) }}%</td>
@@ -1006,7 +1096,7 @@
     {% if decay and decay.ic_by_period and decay.ic_by_period | length > 0 %}
     <div class="two-col">
         <div>
-            <h3 style="margin-bottom: 10px; color: #4a5568; font-size: 0.95em;">IC 衰减表</h3>
+            <h3 style="margin-bottom: 10px; color: var(--text-muted); font-size: 0.95em;">IC 衰减表</h3>
             <table class="data-table">
                 <thead>
                     <tr>
@@ -1026,15 +1116,15 @@
                 </tbody>
             </table>
             {% if decay.half_life_days %}
-            <p style="font-size:0.85em; color:#7f8c8d; margin-top:8px;">
-                估计半衰期: <strong>{{ decay.half_life_days }} 天</strong>
+            <p style="font-size:0.85em; color:var(--text-dim); margin-top:8px; font-family:'JetBrains Mono',monospace;">
+                估计半衰期: <strong style="color:var(--accent);">{{ decay.half_life_days }} 天</strong>
             </p>
             {% endif %}
         </div>
 
         <div>
             {% if decay.autocorrelation and decay.autocorrelation | length > 0 %}
-            <h3 style="margin-bottom: 10px; color: #4a5568; font-size: 0.95em;">因子自相关</h3>
+            <h3 style="margin-bottom: 10px; color: var(--text-muted); font-size: 0.95em;">因子自相关</h3>
             <table class="data-table">
                 <thead>
                     <tr>
@@ -1078,7 +1168,7 @@
     <div class="composite-summary">
         <div class="composite-grade-large">{{ scores.composite.grade }}</div>
         <div>
-            <div style="font-size:1.8em; font-weight:700; color:#fff;">{{ "%.1f" | format(scores.composite.score or 0) }} / 100</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:1.8em; font-weight:700; color:#e6edf3;">{{ "%.1f" | format(scores.composite.score or 0) }} / 100</div>
             <div class="composite-score-num">综合评分 · Composite Score</div>
         </div>
     </div>
@@ -1114,10 +1204,10 @@
                                 <div class="score-bar {% if (dim.score or 0) >= 70 %}high{% elif (dim.score or 0) >= 45 %}medium{% else %}low{% endif %}"
                                      style="width: {{ [(dim.score or 0) * 1.2, 100] | min }}px">
                                 </div>
-                                <span style="font-family:'Courier New',monospace; font-size:0.9em;">{{ "%.1f" | format(dim.score or 0) }}</span>
+                                <span style="font-family:'JetBrains Mono',monospace; font-size:0.9em;">{{ "%.1f" | format(dim.score or 0) }}</span>
                             </div>
                         </td>
-                        <td style="font-weight:600; color: {% if dim.grade in ['A','A-'] %}#27ae60{% elif dim.grade in ['B+','B','B-'] %}#f39c12{% else %}#e74c3c{% endif %};">
+                        <td style="font-family:'JetBrains Mono',monospace; font-weight:600; color: {% if dim.grade in ['A','A-'] %}var(--positive){% elif dim.grade in ['B+','B','B-'] %}var(--warning){% else %}var(--negative){% endif %};">
                             {{ dim.grade }}
                         </td>
                     </tr>
@@ -1148,26 +1238,26 @@
     {% if narrative and narrative.critical_review %}
     <div class="critical-review-section">
         {% if narrative.critical_review.one_liner %}
-        <div class="narrative-box" style="background:#fff8f8; border-color:#f5c6cb; margin-bottom:12px;">
-            <div class="llm-prefix" style="color:#c0392b;">一句话总结:</div>
+        <div class="narrative-box" style="background:rgba(248,81,73,0.05); border-left-color:var(--negative); margin-bottom:12px;">
+            <div class="llm-prefix" style="color:var(--negative);">一句话总结:</div>
             <p><strong>{{ narrative.critical_review.one_liner }}</strong></p>
         </div>
         {% endif %}
         {% if narrative.critical_review.body %}
-        <div class="narrative-box" style="background:#fff; border-color:#f5c6cb; margin-bottom:16px;">
-            <div class="llm-prefix" style="color:#c0392b;">LLM 解读:</div>
+        <div class="narrative-box" style="border-left-color:var(--negative); margin-bottom:16px;">
+            <div class="llm-prefix" style="color:var(--negative);">LLM 解读:</div>
             <p>{{ narrative.critical_review.body }}</p>
         </div>
         {% elif narrative.critical_review.overall_assessment %}
-        <div class="narrative-box" style="background:#fff; border-color:#f5c6cb; margin-bottom:16px;">
-            <div class="llm-prefix" style="color:#c0392b;">LLM 解读:</div>
+        <div class="narrative-box" style="border-left-color:var(--negative); margin-bottom:16px;">
+            <div class="llm-prefix" style="color:var(--negative);">LLM 解读:</div>
             <p>{{ narrative.critical_review.overall_assessment }}</p>
         </div>
         {% endif %}
 
         <!-- Key Weaknesses Grid -->
         {% if narrative.critical_review.key_weaknesses and narrative.critical_review.key_weaknesses | length > 0 %}
-        <h3 style="color:#c0392b; margin-bottom:12px; font-size:0.95em;">核心弱点 Key Weaknesses</h3>
+        <h3 style="color:var(--negative); margin-bottom:12px; font-size:0.95em;">核心弱点 Key Weaknesses</h3>
         <div class="weakness-grid">
             {% for w in narrative.critical_review.key_weaknesses %}
             <div class="weakness-card">
@@ -1205,13 +1295,129 @@
 <!-- ===== Footer ===== -->
 <div class="report-footer">
     <p>
-        Factor Report &mdash; <strong>{{ factor.name }}</strong> (factor_{{ factor.id }}) &mdash;
+        Factor Report &mdash; <strong style="color:var(--text-muted);">{{ factor.name }}</strong> (factor_{{ factor.id }}) &mdash;
         Generated at {{ generated_at }}
     </p>
-    <p style="margin-top:4px; color:#bbb;">
+    <p style="margin-top:4px;">
         Powered by Ralph Factor Mining System &middot; Quant Factor Library
     </p>
 </div>
+
+<!-- ===== Plotly Dark Theme Restyling ===== -->
+<script>
+(function() {
+    var darkLayout = {
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: '#161b22',
+        font: { color: '#c9d1d9', family: 'IBM Plex Sans, system-ui, sans-serif', size: 12 },
+        xaxis: {
+            gridcolor: '#21262d',
+            linecolor: '#30363d',
+            zerolinecolor: '#30363d',
+            tickfont: { color: '#8b949e', family: 'JetBrains Mono, monospace', size: 11 },
+            title: { font: { color: '#8b949e' } }
+        },
+        yaxis: {
+            gridcolor: '#21262d',
+            linecolor: '#30363d',
+            zerolinecolor: '#30363d',
+            tickfont: { color: '#8b949e', family: 'JetBrains Mono, monospace', size: 11 },
+            title: { font: { color: '#8b949e' } }
+        },
+        legend: {
+            bgcolor: 'transparent',
+            font: { color: '#8b949e', size: 11 }
+        },
+        coloraxis: {
+            colorbar: {
+                tickfont: { color: '#8b949e' },
+                title: { font: { color: '#8b949e' } }
+            }
+        },
+        margin: { t: 40 }
+    };
+
+    var darkColors = ['#58a6ff', '#3fb950', '#f85149', '#d29922', '#bc8cff', '#f0883e', '#39d353', '#db61a2'];
+
+    function applyDarkTheme() {
+        var plots = document.querySelectorAll('.js-plotly-plot');
+        plots.forEach(function(plot, idx) {
+            if (!plot.data) return;
+            try {
+                var layoutUpdate = JSON.parse(JSON.stringify(darkLayout));
+
+                // Handle radial/polar axes
+                if (plot.layout && plot.layout.polar) {
+                    layoutUpdate.polar = {
+                        bgcolor: '#161b22',
+                        radialaxis: { gridcolor: '#21262d', linecolor: '#30363d', tickfont: { color: '#8b949e' } },
+                        angularaxis: { gridcolor: '#21262d', linecolor: '#30363d', tickfont: { color: '#8b949e' } }
+                    };
+                }
+
+                // Handle multiple y-axes
+                for (var key in plot.layout) {
+                    if (key.match(/^[xy]axis\d+$/)) {
+                        layoutUpdate[key] = {
+                            gridcolor: '#21262d',
+                            linecolor: '#30363d',
+                            zerolinecolor: '#30363d',
+                            tickfont: { color: '#8b949e', family: 'JetBrains Mono, monospace', size: 11 },
+                            title: { font: { color: '#8b949e' } }
+                        };
+                    }
+                }
+
+                // Restyle trace colors
+                var traceUpdates = [];
+                plot.data.forEach(function(trace, i) {
+                    var update = {};
+                    var color = darkColors[i % darkColors.length];
+
+                    if (trace.type === 'scatter' || trace.type === 'scattergl') {
+                        if (trace.line) update['line.color'] = color;
+                        if (trace.marker) update['marker.color'] = color;
+                    } else if (trace.type === 'bar') {
+                        update['marker.color'] = color;
+                        update['marker.line'] = { color: 'transparent', width: 0 };
+                    } else if (trace.type === 'heatmap') {
+                        update.colorscale = [
+                            [0, '#f85149'],
+                            [0.25, '#30363d'],
+                            [0.5, '#161b22'],
+                            [0.75, '#1a3a2a'],
+                            [1, '#3fb950']
+                        ];
+                    } else if (trace.type === 'scatterpolar') {
+                        update['line.color'] = '#58a6ff';
+                        update['fillcolor'] = 'rgba(88,166,255,0.15)';
+                    } else if (trace.type === 'histogram') {
+                        update['marker.color'] = color;
+                        update['marker.line'] = { color: '#30363d', width: 1 };
+                    }
+                    traceUpdates.push(update);
+                });
+
+                Plotly.relayout(plot, layoutUpdate);
+                traceUpdates.forEach(function(update, i) {
+                    if (Object.keys(update).length > 0) {
+                        Plotly.restyle(plot, update, [i]);
+                    }
+                });
+            } catch(e) {
+                // Silently skip charts that fail to restyle
+            }
+        });
+    }
+
+    // Run after page load to ensure all Plotly charts are rendered
+    if (document.readyState === 'complete') {
+        applyDarkTheme();
+    } else {
+        window.addEventListener('load', applyDarkTheme);
+    }
+})();
+</script>
 
 </body>
 </html>

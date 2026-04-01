@@ -16,6 +16,7 @@ from data.loaders import (
     get_factor_metrics,
     get_price_data,
 )
+from core.constants import TRADING_DAYS_PER_YEAR
 from report.analytics.ic import ICAnalyzer
 
 
@@ -109,8 +110,8 @@ def compute_group_returns(merged: pd.DataFrame) -> dict:
     group_returns = merged.groupby(['time', 'group'])['future_return'].mean().reset_index()
     group_returns_pivot = group_returns.pivot(index='time', columns='group', values='future_return')
     cumulative_returns = (1 + group_returns_pivot).cumprod() - 1
-    mean_returns = group_returns_pivot.mean() * 252
-    stats = group_returns_pivot.std() * (252 ** 0.5)
+    mean_returns = group_returns_pivot.mean() * TRADING_DAYS_PER_YEAR
+    stats = group_returns_pivot.std() * (TRADING_DAYS_PER_YEAR ** 0.5)
     sharpe = mean_returns / stats
     return {
         'group_returns_pivot': group_returns_pivot,

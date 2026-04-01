@@ -1,0 +1,27 @@
+id: L014
+name: 波动率跨期结构
+status: active
+category: multi_scale
+created: '2026-03-31'
+hypothesis:
+  condition: 短期（5日）波动率 / 长期（60日）波动率 > 阈值（短期波动相对放大）
+  behavior: 短期波动扩张通常预示方向性突破或高度不确定，可结合价格方向判断
+  timeframe: 5 日 vs 60 日
+  direction: 条件性：结合价格方向
+constraints:
+  required_fields:
+  - close
+  suggested_ops:
+  - Std
+  - Div
+  - Ref
+  - CsRank
+  - Mean
+  window_range:
+  - 5
+  - 60
+stats:
+  factors_generated: 0
+  factors_admitted: 0
+  best_ic: 0.0
+  rounds_without_admit: 0

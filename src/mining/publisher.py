@@ -39,43 +39,19 @@ class FactorPublisher:
 
     @staticmethod
     def ensure_tables(conn) -> None:
-        """Create tables if they do not exist. Idempotent — safe to call on every publish."""
+        """Verify factor_meta and factor_values tables exist. They should already
+        exist from the DB restructure — this is a safety check only."""
         with conn.cursor() as cur:
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS mining_factors (
-                    factor_id    VARCHAR(10) PRIMARY KEY,
-                    name         VARCHAR(200) NOT NULL,
-                    expression   TEXT NOT NULL,
-                    category     VARCHAR(50),
-                    ic_mean      FLOAT,
-                    ic_ir        FLOAT,
-                    ic_mean_is   FLOAT,
-                    ic_mean_oos  FLOAT,
-                    ic_win_rate  FLOAT,
-                    ls_return    FLOAT,
-                    monotonicity FLOAT,
-                    train_start  DATE,
-                    train_end    DATE,
-                    test_start   DATE,
-                    test_end     DATE,
-                    admitted_at  DATE NOT NULL,
-                    report_path  VARCHAR(500)
+                SELECT tablename FROM pg_tables
+                WHERE tablename IN ('factor_meta', 'factor_values')
+            """)
+            existing = {r[0] for r in cur.fetchall()}
+            if "factor_meta" not in existing or "factor_values" not in existing:
+                raise RuntimeError(
+                    f"Required tables missing: {{'factor_meta', 'factor_values'}} - {existing}. "
+                    "Run scripts/restructure_db.py first."
                 )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS mining_factor_values (
-                    factor_id   VARCHAR(10) NOT NULL,
-                    symbol      VARCHAR(20) NOT NULL,
-                    trade_date  DATE NOT NULL,
-                    value       DOUBLE PRECISION,
-                    PRIMARY KEY (factor_id, symbol, trade_date)
-                )
-            """)
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_mfv_factor_date
-                    ON mining_factor_values (factor_id, trade_date)
-            """)
-        conn.commit()
 
     def publish(
         self,
@@ -106,11 +82,7 @@ class FactorPublisher:
             conn.rollback()
             raise
 
-        # Non-transactional: generate HTML report
-        report_path = self._generate_report(factor_id, factor_dict, combined)
-        self._update_report_path(conn, factor_id, report_path)
-        conn.commit()
-        return report_path
+        return ""
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -125,15 +97,17 @@ class FactorPublisher:
 
     @staticmethod
     def _to_flat_df(qlib_df: pd.DataFrame) -> pd.DataFrame:
-        """Convert Qlib MultiIndex (datetime, instrument) DataFrame to flat (time, symbol, value)."""
+        """Convert Qlib MultiIndex (instrument, datetime) DataFrame to flat (time, symbol, value)."""
         df = qlib_df.iloc[:, [0]].reset_index()
-        df.columns = ["time", "symbol", "value"]
+        # Qlib MultiIndex order is (instrument, datetime), so after reset_index:
+        # columns = [instrument, datetime, value_col]
+        df.columns = ["symbol", "time", "value"]
         return df
 
     def _save_metrics(self, conn, factor_id: str, factor_dict: dict) -> None:
-        """Upsert factor metadata and metrics into mining_factors."""
+        """Upsert factor metadata and metrics into factor_meta."""
         s3 = factor_dict.get("stage3", {})
-        # Compute full-sample IC as average of IS and OOS
+        rc = factor_dict.get("report_card", {})
         ic_is = s3.get("ic_mean_is")
         ic_oos = s3.get("ic_mean_oos")
         ic_mean = None
@@ -142,16 +116,18 @@ class FactorPublisher:
         elif ic_is is not None:
             ic_mean = ic_is
         sql = """
-            INSERT INTO mining_factors (
+            INSERT INTO factor_meta (
                 factor_id, name, expression, category,
                 ic_mean, ic_ir, ic_mean_is, ic_mean_oos, ic_win_rate,
                 ls_return, monotonicity,
+                max_corr, max_corr_with, batch_id, status,
                 train_start, train_end, test_start, test_end,
                 admitted_at
             ) VALUES (
                 %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s,
+                %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s
             )
@@ -166,10 +142,10 @@ class FactorPublisher:
                 ic_win_rate  = EXCLUDED.ic_win_rate,
                 ls_return    = EXCLUDED.ls_return,
                 monotonicity = EXCLUDED.monotonicity,
-                train_start  = EXCLUDED.train_start,
-                train_end    = EXCLUDED.train_end,
-                test_start   = EXCLUDED.test_start,
-                test_end     = EXCLUDED.test_end,
+                max_corr     = EXCLUDED.max_corr,
+                max_corr_with = EXCLUDED.max_corr_with,
+                batch_id     = EXCLUDED.batch_id,
+                status       = EXCLUDED.status,
                 admitted_at  = EXCLUDED.admitted_at
         """
         params = (
@@ -178,12 +154,16 @@ class FactorPublisher:
             factor_dict.get("expression", ""),
             factor_dict.get("category", "other"),
             ic_mean,
-            s3.get("ic_ir_is"),
+            s3.get("ic_ir_is") or rc.get("ic_ir"),
             s3.get("ic_mean_is"),
             s3.get("ic_mean_oos"),
             s3.get("ic_win_rate"),
             s3.get("ls_return"),
-            s3.get("monotonicity"),
+            s3.get("monotonicity") or rc.get("monotonicity_is"),
+            rc.get("max_corr"),
+            rc.get("max_corr_factor"),
+            factor_dict.get("batch"),
+            "admitted",
             self.config.train_start,
             self.config.train_end,
             self.config.test_start,
@@ -194,23 +174,27 @@ class FactorPublisher:
             cur.execute(sql, params)
 
     def _save_values(self, conn, factor_id: str, factor_values: pd.DataFrame) -> None:
-        """Delete existing values for factor_id, then bulk-insert new ones."""
+        """Delete existing values for factor, then bulk-insert into factor_values."""
         flat = self._to_flat_df(factor_values)
+        factor_name = f"factor_{factor_id}"
         rows = [
-            (factor_id, sym, t, v)
+            (t, sym, factor_name, v)
             for sym, t, v in zip(flat["symbol"], flat["time"], flat["value"])
+            if pd.notna(v)
         ]
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM mining_factor_values WHERE factor_id = %s",
-                (factor_id,),
+                "DELETE FROM factor_values WHERE factor_name = %s",
+                (factor_name,),
             )
-            execute_values(
-                cur,
-                "INSERT INTO mining_factor_values (factor_id, symbol, trade_date, value) VALUES %s",
-                rows,
-                page_size=5000,
-            )
+            if rows:
+                execute_values(
+                    cur,
+                    "INSERT INTO factor_values (time, symbol, factor_name, value) VALUES %s",
+                    rows,
+                    page_size=5000,
+                )
+        logger.info("Saved %d factor values for %s", len(rows), factor_name)
 
     def _generate_report(
         self,
@@ -247,9 +231,9 @@ class FactorPublisher:
             return ""
 
     def _update_report_path(self, conn, factor_id: str, report_path: str) -> None:
-        """Update mining_factors.report_path for the given factor_id."""
+        """Update factor_meta.report_path for the given factor_id."""
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE mining_factors SET report_path = %s WHERE factor_id = %s",
+                "UPDATE factor_meta SET report_path = %s WHERE factor_id = %s",
                 (report_path, factor_id),
             )
