@@ -1,63 +1,31 @@
 library:
-  size: 36
+  size: 30
   target_size: 100
-  avg_ic: 0.0368
+  avg_ic: 0.0305
   correlation_max: 0.7
 mining:
-  total_batches: 29
-  total_candidates: 318
-  total_admitted: 39
-  total_rejected: 266
-  yield_rate_blind: 0.057
-  yield_rate_alpha101: 0.217
-  yield_rate_fundamental: 1.0
-  yield_rate_overall: 0.119
-  last_batch_time: '2026-04-01T20:00:00'
-baseline_evaluation:
-  completed: true
-  total_screened: 76
-  passed_ic_threshold: 26
-  admitted_via_pipeline: 10
-alpha101_evaluation:
-  completed: true
-  translatable: 45
-  not_translatable: 55
-  candidates_submitted: 60
-  admitted: 13
-  replacements: 1
-  strongest:
-    name: williams_r_variant
-    ic: 0.07
+  total_batches: 30
+  total_candidates: 326
+  total_admitted: 40
+  total_rejected: 271
+  cleanup_2026_04_02: removed 7 weak factors (F003,F006,F007,F016,F017,F023,F037,F040)
+  yield_rate_overall: 0.123
+  last_batch_time: '2026-04-02T01:00:00'
 signal_space_analysis:
-  ohlcv_status: EXHAUSTED at corr < 0.7 (confirmed batch_020)
-  fundamental_status: NEWLY OPENED — $pe_ratio, $pb_ratio, $ps_ratio, $market_cap, $circ_market_cap, $turnover_rate all available
-  amount_status: $amount now has data (previously zero)
+  ohlcv_status: EXHAUSTED at corr < 0.7
+  fundamental_status: OPENED
   vwap_status: $vwap still zero
-  batch_021_breakthrough: >
-    First fundamental+liquidity batch: 8/8 candidates passed all stages (100% yield).
-    Turnover and PB are completely new signal dimensions with max_corr < 0.7 to all OHLCV factors.
-    Strongest: turnover_vol_10 IC=-0.047 ICIR=-0.533.
-  new_dimensions_unlocked:
-    - liquidity (turnover rate level/volatility/change) — 6 factors admitted
-    - valuation (PB ratio, book-to-price) — 2 factors admitted
-  remaining_untapped:
-    - PE ratio variations
-    - PS ratio variations
-    - Market cap / size factors
-    - $amount based factors
-    - Turnover × price cross signals
-    - Valuation × momentum cross signals
-    - Industry-relative factors (need industry data in Qlib)
+  amount_status: $amount has data, untapped
+  cleanup_impact: >
+    Removing F003/F006/F007/F023 lowers correlation barriers.
+    Factors previously blocked by these may now pass Stage 2.
+    Removing F037(inverse_ps) opens PS-based factors.
 next_round_hint: >
-  Batch 024: 1新增+1替换 (F039 size_x_ps IC=0.021, F038→size_x_pb IC=0.031).
-  size_value_crossover (小市值×低估值) 是最强方向，ICIR高、单调性完美。
-  关键发现:
-  1. signed_nonlinear_returns 完全死亡 — 所有SignedPower变体与F003/F023 corr=1.0
-  2. ps×reversal 和 pb×reversal 空间饱和 — 任何×reversal均被F035/F036拦截
-  3. regression_residual_10 IC≈0 — regression residual在A股可能无效
-  Next priorities:
-  1. size_value_crossover: 继续 — size×pe_clean(过滤负PE), size×turnover交叉
-  2. valuation_pe_ps: 继续 — PS rank变体, 多维度估值组合(PS+PB综合)
-  3. alpha101_composites: 仍有未探索的组合方向（attempts=7但space大）
-  4. regression_residual: dead — 不再尝试
-  5. 新方向探索: 价量信号新维度（intraday decomposition仍active）
+  Post-cleanup (30 factors). Correlation barriers lowered.
+  Priority directions:
+  1. $amount-based factors — completely untapped signal
+  2. PE ratio factors — $pe_ratio untapped (handle negative PE)
+  3. L002 趋势衰减 — probe IC=-0.018, worth expanding
+  4. L013 趋势共振 — F040 was removed but signal was real, try normalized version
+  5. Turnover × momentum cross signals
+  6. L005 低波动率 — with F003/F007 removed, new vol variants may pass
