@@ -51,3 +51,27 @@
 - 已从 `factor_meta` 数据库表中删除
 - 已删除对应的 Obsidian vault 报告
 - 如需重新探索上影线类因子，应改进表达式以解决单调性问题，而非直接复用 F005 的形式
+
+## 2026-04-02 清理 (本次)
+
+- **factor_040** (inverse_circ_mktcap): 与 F038 表达式完全相同，batch_023 意外重复录入，DB 孤立条目，删除
+- **[016] alpha010** (IC=0.017): 库中最弱因子，仅有 IS IC（无 Stage 3 OOS 验证），从库移除
+- **[037] inverse_ps** (IC=0.018): 次弱，与 inverse_pb(028, IC=0.028) 概念冗余，从库移除
+
+批量清理:
+- 删除 batch_011~017.yaml（未运行，OHLCV 空间已耗尽）
+- 删除 alpha101_batch_1,3,4,5.yaml（未运行，alpha101 评估完成）  
+- 删除 memory/history/ 所有文件（candidates/ 的冗余副本）
+- 删除 25 个 dead direction .md 文件
+- 删除 4 个 .pkl 文件
+- 删除 python_factors/F001_rolling_std_python.py（实验文件）
+- 删除 orphaned direction: alpha024_mutations.md, cross_signal_interaction.md
+
+## 2026-04-02 第二轮清理 (基于全期 IC 数据)
+
+经 report.builder 全期数据验证，以下因子 OOS IC 近乎为零，实际无预测力：
+- **[003] vol_regime_reversal** (全期 OOS IC=-0.011, Score=26): 矿掘期 IC=-0.043 在全期失效，regime 切换逻辑无法泛化
+- **[006] resi_close_5** (全期 OOS IC=-0.002, Score=31): 全期实际 IC 接近零，mining IC=-0.033 来自噪音窗口  
+- **[007] vol_regime_resi_vs_slope** (全期 OOS IC=-0.003, Score=39): 同上，regime × residual 组合无统计显著性
+- **[023] signed_sqrt_return** (全期 OOS IC=-0.003, Score=25): 平方根变换未改善信号，OOS 彻底失效
+- **[017] alpha034** (OOS IC=0.005, p=0.16 **不显著**): OOS t-stat仅1.41，无法拒绝IC=0假设；IS表现依赖特定期间，移除
