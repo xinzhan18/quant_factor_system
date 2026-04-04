@@ -126,6 +126,13 @@ def cmd_batch(args):
     evaluator = FactorMiningEvaluator(config)
     result = evaluator.evaluate_batch(candidates, skip_stage1=args.skip_stage1)
 
+    # Propagate batch_id to screened/replacement factors for library admission
+    for f in result.screened:
+        f["batch"] = batch_id
+    for r in result.replacements:
+        if "new_factor" in r:
+            r["new_factor"]["batch"] = batch_id
+
     # 打印结果
     logger.info("筛选通过: %d, 淘汰: %d, 替换候选: %d",
                 len(result.screened), len(result.rejected), len(result.replacements))
@@ -392,6 +399,14 @@ def cmd_audit(args):
               f"status={m['status']}")
 
 
+def cmd_retire(args):
+    """Retire a factor from the library."""
+    config = MiningConfig(library_dir=args.library_dir)
+    lib = FactorLibrary(config)
+    lib.retire(args.factor_id)
+    print(f"Factor {args.factor_id} retired")
+
+
 def main():
     parser = argparse.ArgumentParser(description="FactorMiner CLI")
     sub = parser.add_subparsers(dest="command")
@@ -451,6 +466,11 @@ def main():
     p_forbidden.add_argument("forbidden_action", choices=["suggest", "apply", "list"],
                              help="suggest: scan results; apply: write to forbidden.yaml; list: current")
 
+    # retire
+    p_retire = sub.add_parser("retire", help="Retire a factor from the library")
+    p_retire.add_argument("factor_id", help="Factor ID (e.g., 013)")
+    p_retire.add_argument("--library-dir", default="storage/library")
+
     # audit
     p_audit = sub.add_parser("audit", help="Audit direction states (read-only report)")
 
@@ -473,6 +493,8 @@ def main():
         cmd_logic(args)
     elif args.command == "forbidden":
         cmd_forbidden(args)
+    elif args.command == "retire":
+        cmd_retire(args)
     elif args.command == "audit":
         cmd_audit(args)
     else:

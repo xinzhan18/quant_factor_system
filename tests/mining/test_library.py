@@ -155,6 +155,122 @@ class TestPublisherIntegration:
             mock_instance.publish.assert_called_once()
 
 
+class TestLibrarySchemaIntegration:
+    """FactorRecord integration: admit() produces canonical schema."""
+
+    def test_admit_normalizes_metrics(self, library):
+        fid = library.admit({
+            "name": "test", "expression": "Std($close, 20)",
+            "category": "volatility", "batch": "test_batch",
+            "metrics": {"ic_mean_is": -0.05, "ic_ir_is": -0.3, "max_lib_corr": 0.4},
+        })
+        detail = library.load_factor(fid)
+        assert detail["metrics"]["ic_mean"] == -0.05
+        assert detail["metrics"]["ic_ir"] == -0.3
+        assert detail["metrics"]["max_corr"] == 0.4
+        assert "ic_mean_is" not in detail["metrics"]
+
+    def test_admit_sets_status_and_version(self, library):
+        fid = library.admit({
+            "name": "test", "expression": "X", "category": "c",
+            "batch": "b", "metrics": {"ic_mean": -0.02},
+        })
+        detail = library.load_factor(fid)
+        assert detail["status"] == "active"
+        assert detail["evaluation_version"] == "v2"
+
+    def test_index_has_full_schema(self, library):
+        library.admit({
+            "name": "test", "expression": "X", "category": "c",
+            "batch": "b", "metrics": {"ic_mean": -0.02},
+        })
+        entry = library.list_factors()[0]
+        assert "status" in entry
+        assert "long_leg" in entry
+        assert "evaluation_version" in entry
+        assert entry["status"] == "active"
+
+
+class TestFactorLifecycle:
+    """retire(), status-filtered list_factors(), corr blocking semantics."""
+
+    def test_retire_factor(self, library):
+        fid = library.admit({
+            "name": "x", "expression": "X", "category": "c",
+            "batch": "b", "metrics": {"ic_mean": -0.02},
+        })
+        library.retire(fid)
+        detail = library.load_factor(fid)
+        assert detail["status"] == "retired"
+        entry = next(f for f in library.list_factors() if f["id"] == fid)
+        assert entry["status"] == "retired"
+
+    def test_list_active_only(self, library):
+        library.admit({"name": "a", "expression": "A", "category": "c",
+                        "batch": "b", "metrics": {"ic_mean": -0.01}})
+        fid2 = library.admit({"name": "b", "expression": "B", "category": "c",
+                               "batch": "b", "metrics": {"ic_mean": -0.02}})
+        library.retire(fid2)
+        active = library.list_factors(status="active")
+        assert len(active) == 1
+        assert active[0]["name"] == "a"
+
+    def test_get_all_expressions_includes_all_statuses(self, library):
+        """Retired/legacy factors still participate in corr blocking."""
+        fid1 = library.admit({"name": "a", "expression": "A", "category": "c",
+                               "batch": "b", "metrics": {"ic_mean": -0.01}})
+        fid2 = library.admit({"name": "b", "expression": "B", "category": "c",
+                               "batch": "b", "metrics": {"ic_mean": -0.02}})
+        library.retire(fid2)
+        exprs = library.get_all_expressions()
+        assert fid1 in exprs
+        assert fid2 in exprs
+
+
+class TestReplaceArchival:
+    """replace() archives old detail YAML and preserves ID uniqueness."""
+
+    def test_replace_archives_old_detail(self, library):
+        fid = library.admit({
+            "name": "old_factor", "expression": "A", "category": "c",
+            "batch": "b", "metrics": {"ic_mean": -0.01},
+        })
+        library.replace(fid, {
+            "name": "new_factor", "expression": "B", "category": "c",
+            "batch": "b2", "metrics": {"ic_mean": -0.05},
+        })
+        history_dir = Path(library._config.library_dir) / "factors" / "history"
+        archived = list(history_dir.glob(f"factor_{fid}__replaced_*.yaml"))
+        assert len(archived) == 1
+        detail = library.load_factor(fid)
+        assert detail["name"] == "new_factor"
+        assert detail["replaces"] == fid
+
+    def test_replace_preserves_same_id(self, library):
+        fid = library.admit({
+            "name": "old", "expression": "A", "category": "c",
+            "batch": "b", "metrics": {"ic_mean": -0.01},
+        })
+        returned_id = library.replace(fid, {
+            "name": "new", "expression": "B", "category": "c",
+            "batch": "b2", "metrics": {"ic_mean": -0.05},
+        })
+        assert returned_id == fid
+
+    def test_replace_keeps_single_index_entry_per_id(self, library):
+        fid = library.admit({
+            "name": "old", "expression": "A", "category": "c",
+            "batch": "b", "metrics": {"ic_mean": -0.01},
+        })
+        library.replace(fid, {
+            "name": "new", "expression": "B", "category": "c",
+            "batch": "b2", "metrics": {"ic_mean": -0.05},
+        })
+        entries = [f for f in library.list_factors() if f["id"] == fid]
+        assert len(entries) == 1
+        assert entries[0]["name"] == "new"
+
+
 class TestPythonFactorAdmission:
     """Tests for admitting Python-source factors."""
 
