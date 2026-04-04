@@ -208,7 +208,7 @@ class TestSaveValues:
     def test_deletes_before_insert(self, publisher, mock_conn):
         conn, cur = mock_conn
         qlib_df = _make_qlib_df(n_dates=2, n_instruments=2)
-        with patch("mining.publisher.execute_values") as mock_ev:
+        with patch("mining.registry.publisher.execute_values") as mock_ev:
             publisher._save_values(conn, "001", qlib_df)
         # First call should be DELETE
         first_sql = cur.execute.call_args_list[0].args[0]
@@ -218,7 +218,7 @@ class TestSaveValues:
     def test_delete_uses_factor_id(self, publisher, mock_conn):
         conn, cur = mock_conn
         qlib_df = _make_qlib_df(n_dates=2, n_instruments=2)
-        with patch("mining.publisher.execute_values") as mock_ev:
+        with patch("mining.registry.publisher.execute_values") as mock_ev:
             publisher._save_values(conn, "007", qlib_df)
         delete_params = cur.execute.call_args_list[0].args[1]
         assert "007" in delete_params
@@ -226,14 +226,14 @@ class TestSaveValues:
     def test_calls_execute_values(self, publisher, mock_conn):
         conn, cur = mock_conn
         qlib_df = _make_qlib_df(n_dates=3, n_instruments=4)
-        with patch("mining.publisher.execute_values") as mock_ev:
+        with patch("mining.registry.publisher.execute_values") as mock_ev:
             publisher._save_values(conn, "001", qlib_df)
         assert mock_ev.called
 
     def test_execute_values_page_size(self, publisher, mock_conn):
         conn, cur = mock_conn
         qlib_df = _make_qlib_df(n_dates=3, n_instruments=4)
-        with patch("mining.publisher.execute_values") as mock_ev:
+        with patch("mining.registry.publisher.execute_values") as mock_ev:
             publisher._save_values(conn, "001", qlib_df)
         _, kwargs = mock_ev.call_args
         assert kwargs.get("page_size") == 5000
@@ -247,7 +247,7 @@ class TestSaveValues:
         def capture(*args, **kwargs):
             captured_rows.extend(args[2])
 
-        with patch("mining.publisher.execute_values", side_effect=capture):
+        with patch("mining.registry.publisher.execute_values", side_effect=capture):
             publisher._save_values(conn, "001", qlib_df)
 
         assert len(captured_rows) == n_dates * n_instruments
