@@ -13,19 +13,9 @@ def cmd_probe(args):
     import warnings
     warnings.filterwarnings('ignore')
 
-    import qlib
-    from qlib.config import REG_CN, C
-    qlib.init(provider_uri=args.qlib_dir, region=REG_CN)
-    C.kernels = 1
-    from qlib.data import D
-
-    # Get full universe
-    inst_dict = D.instruments('all')
-    df_temp = D.features(
-        instruments=inst_dict, fields=['$close'],
-        start_time='2024-06-01', end_time='2024-06-30',
-    )
-    all_instruments = df_temp.index.get_level_values('instrument').unique().tolist()
+    from mining.application.qlib_runtime import init_qlib, resolve_full_universe
+    init_qlib(args.qlib_dir)
+    all_instruments = resolve_full_universe()
 
     config = MiningConfig(custom_universe=all_instruments)
     evaluator = FactorMiningEvaluator(config)
