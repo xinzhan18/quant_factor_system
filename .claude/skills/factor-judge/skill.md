@@ -94,7 +94,7 @@ mem.save_admission_history(batch_id, {
 对判定**录取**的因子：
 
 ```python
-from mining.library import FactorLibrary
+from mining.registry import FactorLibrary
 from mining.config import MiningConfig
 
 lib = FactorLibrary(MiningConfig())
@@ -242,7 +242,7 @@ storage/mining/memory/mining-lessons.md
 
 审判完所有因子后，更新市场逻辑统计：
 ```python
-from mining.logic_library import MarketLogicLibrary
+from mining.logic import MarketLogicLibrary
 logic_lib = MarketLogicLibrary("storage/mining/logic")
 # 对本批次中的每个 logic_id：
 logic_lib.update_stats(logic_id,

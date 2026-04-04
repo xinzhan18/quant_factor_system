@@ -27,7 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import yaml
-from mining.schema import FactorRecord, normalize_metrics
+from mining.domain.schema import FactorRecord, normalize_metrics
 
 
 def migrate_factor(data: dict, path: Path) -> tuple[dict, list[str]]:

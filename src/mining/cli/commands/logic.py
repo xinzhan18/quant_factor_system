@@ -7,13 +7,12 @@ import sys
 import yaml
 
 from mining.config import MiningConfig
-from mining.library import FactorLibrary
+from mining.registry import FactorLibrary
 
 
 def cmd_logic(args):
     """Manage and inspect market logics."""
-    from mining.logic_library import MarketLogicLibrary
-    from mining.scheduler import Scheduler
+    from mining.logic import MarketLogicLibrary, Scheduler
 
     config = MiningConfig()
     lib = MarketLogicLibrary(config.logic_dir)

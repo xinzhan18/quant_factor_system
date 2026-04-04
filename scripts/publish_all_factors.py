@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def main():
     from mining.config import MiningConfig
     from mining.operators import register_custom_operators
-    from mining.publisher import FactorPublisher
+    from mining.registry.publisher import FactorPublisher
 
     import qlib
     from qlib.config import C

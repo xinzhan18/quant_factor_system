@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mining.config import MiningConfig
-from mining.library import FactorLibrary
+from mining.registry import FactorLibrary
 
 
 def cmd_retire(args):
