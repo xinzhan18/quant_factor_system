@@ -15,7 +15,7 @@ pytest tests/mining/test_evaluator.py::TestEvaluator::test_stage1 -v
 # Mining CLI (all commands require PYTHONPATH=src)
 PYTHONPATH=src python3 -m mining sync           # Sync TimescaleDB → Qlib binary
 PYTHONPATH=src python3 -m mining evaluate "Rank($close)"
-PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --admit
+PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
 PYTHONPATH=src python3 -m mining probe "Std($close, 20)"
 PYTHONPATH=src python3 -m mining library
 PYTHONPATH=src python3 -m mining memory
