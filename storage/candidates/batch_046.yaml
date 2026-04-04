@@ -1,0 +1,58 @@
+batch_id: "batch_046"
+timestamp: "2026-04-03T07:16:00"
+candidates:
+  - name: cov_ret_pb_20
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1),$pb_ratio,20)"
+    category: other
+    logic_id: L009
+    direction: return_fundamental_cov
+    rationale: "Covariance of daily return with PB ratio (20d). Probe IC=-0.030, ICIR=-0.255. Return (not price) × fundamental."
+
+  - name: cov_ret_pb_60
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1),$pb_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: return_fundamental_cov
+    rationale: "Return-PB covariance 60d. Probe IC=-0.024. Longer window."
+
+  - name: cov_ret_ps_20
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1),$ps_ratio,20)"
+    category: other
+    logic_id: L009
+    direction: return_fundamental_cov
+    rationale: "Return-PS covariance 20d. Probe IC=-0.026, ICIR=-0.248."
+
+  - name: cov_ret_ps_60
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1),$ps_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: return_fundamental_cov
+    rationale: "Return-PS covariance 60d. Probe IC=-0.021."
+
+  - name: cov_volume_ps_60
+    expression: "Cov($volume,$ps_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: volume_fundamental_cov
+    rationale: "Volume-PS covariance 60d. Probe IC=-0.024. Raw volume version."
+
+  - name: cov_close_ps_60
+    expression: "Cov($close,$ps_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: price_fundamental_cov
+    rationale: "Close-PS covariance 60d. Probe IC=-0.020."
+
+  - name: cov_range_pb_60
+    expression: "Cov(Sub(Div($high,$low),1),$pb_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: range_fundamental_cov
+    rationale: "Daily range-PB covariance 60d. Probe IC=-0.023. Volatility×fundamental via range."
+
+  - name: cov_volume_pb_20
+    expression: "Cov($volume,$pb_ratio,20)"
+    category: other
+    logic_id: L009
+    direction: volume_fundamental_cov
+    rationale: "Volume-PB covariance 20d. Not yet probed, may fill gap between rejected 60d and existing."

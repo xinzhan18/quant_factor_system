@@ -152,6 +152,33 @@ class TestStage15BatchDedup:
             assert len(result) == 2
 
 
+class TestBatchDedupWithSkipStage1:
+    def test_dedup_runs_when_skip_stage1(self, evaluator):
+        """batch_dedup must still run when skip_stage1=True."""
+        dates = pd.bdate_range("2023-01-02", periods=20)
+        instruments = [f"SH60000{i}" for i in range(10)]
+        idx = pd.MultiIndex.from_product([dates, instruments], names=["datetime", "instrument"])
+        np.random.seed(42)
+        signal = np.random.randn(len(idx))
+        candidates = [
+            {"name": "F1", "expression": "Rank($close)", "category": "momentum"},
+            {"name": "F2", "expression": "Rank($close) + 0.001", "category": "momentum"},
+        ]
+        with patch.object(evaluator, "_batch_dedup", wraps=evaluator._batch_dedup) as mock_dedup, \
+             patch.object(evaluator, "_correlation_check", return_value=([], [])), \
+             patch.object(evaluator, "_replacement_check", return_value=[]), \
+             patch.object(evaluator, "_compute_report_cards", return_value=([], [])), \
+             patch.object(evaluator, "_compute_factor_qlib") as mock_factor, \
+             patch.object(evaluator, "_get_full_universe", return_value=instruments), \
+             patch.object(evaluator, "_stage1_window", return_value=("2022-01-01", "2023-12-31")):
+            mock_factor.side_effect = [
+                pd.DataFrame({"factor": signal}, index=idx),
+                pd.DataFrame({"factor": signal + np.random.randn(len(idx)) * 0.01}, index=idx),
+            ]
+            result = evaluator.evaluate_batch(candidates, skip_stage1=True)
+            mock_dedup.assert_called_once()
+
+
 class TestStage2CorrelationCheck:
     def test_passes_uncorrelated_factor(self, evaluator, tmp_mining_dir, config):
         lib_dir = Path(config.library_dir)
@@ -582,3 +609,75 @@ class TestPythonFactorDispatch:
             mock_cf.assert_called_once()
             call_args = mock_cf.call_args
             assert call_args[0][0] is candidates[0]  # candidate dict
+
+
+class TestHardGates:
+    """Tests for _apply_hard_gates post-Stage3 filter."""
+
+    def _make_candidate(self, **overrides):
+        rc = {
+            "ic_sign_consistent": True,
+            "oos_decay_ratio": 0.8,
+            "coverage": 0.9,
+            "monotonicity_is": 0.5,
+            "monotonicity_oos": 0.4,
+            "ic_mean_oos": 0.03,
+        }
+        rc.update(overrides)
+        return {"name": "F1", "report_card": rc}
+
+    def test_good_factor_passes(self, evaluator):
+        c = self._make_candidate()
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(passed) == 1
+        assert len(gated) == 0
+
+    def test_ic_sign_flip_rejected(self, evaluator):
+        c = self._make_candidate(ic_sign_consistent=False)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+        assert gated[0]["hard_gate_reject"][0]["code"] == "ic_sign_flip"
+
+    def test_oos_decay_too_low_rejected(self, evaluator):
+        c = self._make_candidate(oos_decay_ratio=0.1)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+        assert gated[0]["hard_gate_reject"][0]["code"] == "oos_decay_too_low"
+
+    def test_coverage_too_low_rejected(self, evaluator):
+        c = self._make_candidate(coverage=0.2)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+        assert gated[0]["hard_gate_reject"][0]["code"] == "coverage_too_low"
+
+    def test_mono_sign_flip_rejected(self, evaluator):
+        c = self._make_candidate(monotonicity_is=0.8, monotonicity_oos=-0.5)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+        assert gated[0]["hard_gate_reject"][0]["code"] == "mono_sign_flip"
+
+    def test_ic_oos_too_low_rejected(self, evaluator):
+        c = self._make_candidate(ic_mean_oos=0.005)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+        assert gated[0]["hard_gate_reject"][0]["code"] == "ic_oos_too_low"
+
+    def test_zero_coverage_not_bypassed(self, evaluator):
+        """coverage=0.0 must NOT be treated as None (falsy bypass)."""
+        c = self._make_candidate(coverage=0.0)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+
+    def test_zero_oos_decay_not_bypassed(self, evaluator):
+        """oos_decay_ratio=0.0 must NOT be treated as None."""
+        c = self._make_candidate(oos_decay_ratio=0.0)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+
+    def test_multiple_gates_reported(self, evaluator):
+        c = self._make_candidate(ic_sign_consistent=False, coverage=0.1)
+        passed, gated = evaluator._apply_hard_gates([c])
+        assert len(gated) == 1
+        codes = [r["code"] for r in gated[0]["hard_gate_reject"]]
+        assert "ic_sign_flip" in codes
+        assert "coverage_too_low" in codes

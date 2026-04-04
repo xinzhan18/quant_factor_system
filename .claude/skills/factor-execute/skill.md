@@ -25,16 +25,17 @@ PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-
 **`--skip-stage1` 说明**：候选因子在 `/idea` 的 Probe 阶段已经用全量股票 + 1年数据验证过 IC，不需要再用 50 只股票做快筛。跳过 Stage 1 直接进入 Stage 2（相关性检查）。
 
 **其他参数：**
-- `--train-start` / `--train-end` — 训练期（默认 2020-01-01 ~ 2024-12-31）
-- `--test-start` — 测试期开始（默认 2024-07-01）
+- `--train-start` / `--train-end` — 训练期（默认 2015-01-01 ~ 2023-12-31）
+- `--test-start` / `--test-end` — 测试期（默认 2024-01-01 ~ 2024-12-31）
 
 评估管道执行：
 1. **Stage 0**：表达式语法验证
 2. ~~Stage 1：快速 IC 筛选~~ — 已跳过（Probe 已验证）
-3. ~~Stage 1.5：批内去重~~ — 已跳过
+3. **Stage 1.5：批内去重** — 始终运行（即使跳过 Stage 1）
 4. **Stage 2**：与因子库相关性检查（阈值 0.7）
 5. **Stage 2.5**：替换检查（被拒因子是否能替换库中弱因子）
 6. **Stage 3**：6 维报告卡计算（30 个指标）
+7. **Hard Gates**：自动拒绝（ic_sign_flip, oos_decay < 0.2, coverage < 0.3, mono_flip, ic_oos < 0.008）
 
 ## 第3步：验证结果
 

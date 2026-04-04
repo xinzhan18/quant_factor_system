@@ -1,18 +1,23 @@
 id: '043'
-name: slope_acceleration
-expression: Sub(Slope($close, 5), Slope($close, 20))
+name: amount_cv_10_60
+expression: Div(Std($amount, 10), Add(Mean($amount, 60), 1))
 source: dsl
-logic_id: L002
-category: trend
+logic_id: L003
+category: volume
 batch: unknown
 admitted_at: '2026-04-02'
 metrics:
-  ic_mean: -0.021
-  ic_ir: -0.2
-  ic_mean_oos: -0.0218
-  ic_ir_oos: -0.172
-  ic_win_rate: 0.39
-  monotonicity: 0.7
-  max_corr: 0.629
-  max_corr_factor: '002'
-  ls_return: 0.0008159195516926425
+  ic_mean: -0.037537458914321184
+  ic_std: 0.09300775139772208
+  ic_ir: -0.4035949514982097
+  ic_win_rate: 0.3217821782178218
+  ic_mean_oos: -0.03619888803295916
+  ic_ir_oos: -0.2484896837633545
+  quantile_returns:
+    q1: 0.0004905936075374484
+    q2: 0.0006196082103997469
+    q3: 0.0006765412981621921
+    q4: 0.00067145936191082
+    q5: -4.80683047499042e-05
+  ls_return: -0.0005402589144573044
+  monotonicity: -0.09999999999999999

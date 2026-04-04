@@ -1,0 +1,58 @@
+batch_id: "batch_037"
+timestamp: "2026-04-02T07:30:00"
+candidates:
+  - name: vol_up_ret_10
+    expression: "Mean(If(Greater(Delta($volume,1),0),Sub(Div($close,Ref($close,1)),1),0),10)"
+    category: volume
+    logic_id: L003
+    direction: conditional_ret
+    rationale: "Mean return on volume-up days only (10d). IC=-0.042. Conditional return signal."
+
+  - name: vol_up_ret_20
+    expression: "Mean(If(Greater(Delta($volume,1),0),Sub(Div($close,Ref($close,1)),1),0),20)"
+    category: volume
+    logic_id: L003
+    direction: conditional_ret
+    rationale: "Mean return on volume-up days (20d). IC=-0.038."
+
+  - name: vol_up_ret_normalized
+    expression: "Div(Mean(If(Greater(Delta($volume,1),0),Sub(Div($close,Ref($close,1)),1),0),10),Add(Std(Sub(Div($close,Ref($close,1)),1),10),0.001))"
+    category: volume
+    logic_id: L003
+    direction: conditional_ret
+    rationale: "Normalized vol-up return: conditional return / vol. IC=-0.036. Risk-adjusted."
+
+  - name: close_ma10_over_range
+    expression: "Div(Sub($close,Mean($close,10)),Add(Sub($high,$low),0.001))"
+    category: candlestick
+    logic_id: L007
+    direction: ma_range_position
+    rationale: "Close deviation from MA10 normalized by range. IC=-0.021."
+
+  - name: size_x_turnover_regime
+    expression: "Mul(Div(1,Add($circ_market_cap,1)),If(Greater(Mean($turnover_rate,5),Mean($turnover_rate,20)),1,-1))"
+    category: other
+    logic_id: L010
+    direction: size_x_regime
+    rationale: "Small-cap × turnover regime sign. IC=+0.016. Small stocks in rising turnover regime."
+
+  - name: pe_rank_x_ret_rank
+    expression: "Mul(Rank($pe_ratio,60),Rank(Sub(Div($close,Ref($close,20)),1),60))"
+    category: other
+    logic_id: L009
+    direction: pe_x_momentum
+    rationale: "PE rank × 20d return rank. IC=-0.013. Expensive + rising = overheated."
+
+  - name: slope_rank_x_vol_rank
+    expression: "Mul(Rank(Slope($close,5),60),Rank(Std(Sub(Div($close,Ref($close,1)),1),5),60))"
+    category: other
+    logic_id: L002
+    direction: trend_x_vol
+    rationale: "Slope rank × vol rank. IC=-0.014. Trending + volatile = momentum risk."
+
+  - name: gap_x_turnover
+    expression: "Mul(Div(Sub($open,Ref($close,1)),Add(Ref($close,1),0.001)),Mean($turnover_rate,5))"
+    category: microstructure
+    logic_id: L008
+    direction: gap_x_activity
+    rationale: "Overnight gap × turnover. IC=+0.013. Gap confirmed by trading activity."

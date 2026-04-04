@@ -111,7 +111,9 @@ storage/memory/mining-lessons.md
 
 **验证清单**（检查每个探针表达式）：
 - [ ] 所有算子都可用？（参考 mining-lessons.md 中的可用/不可用列表）
-- [ ] 所有字段都可用？（$close, $open, $high, $low, $volume — $amount/$vwap 不可用）
+- [ ] 所有字段都可用？参考 `src/mining/config.py` 中 `base_fields`。
+      已知限制：`$vwap` 数据为零。其余字段（含 $amount、基本面字段）均可用。
+      算子限制见 `storage/memory/mining-lessons.md`。
 - [ ] 与 dead 方向不重叠？
 
 ## 第3步：打印上下文摘要（强制）
@@ -151,9 +153,9 @@ storage/memory/mining-lessons.md
 **执行方式**：使用 Bash 工具的 `run_in_background` 参数，同时启动所有探针���在一条消息中发出所有 Bash 调用：
 
 ```
-Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式1' --start 2024-01-01 --end 2024-12-31", run_in_background=true)
-Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式2' --start 2024-01-01 --end 2024-12-31", run_in_background=true)
-Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式3' --start 2024-01-01 --end 2024-12-31", run_in_background=true)
+Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式1' --start 2022-01-01 --end 2023-12-31", run_in_background=true)
+Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式2' --start 2022-01-01 --end 2023-12-31", run_in_background=true)
+Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式3' --start 2022-01-01 --end 2023-12-31", run_in_background=true)
 ... 所有探针同时启动
 ```
 
@@ -190,8 +192,8 @@ Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式3' --start 
 - 参数微调
 
 **验证清单**（检查每个正式候选）：
-- [ ] 所有算子都可用？
-- [ ] 所有字段都可用？
+- [ ] 所有算子都可用？（见 mining-lessons.md）
+- [ ] 所有字段都可用？（见 config.py base_fields，$vwap 为零）
 - [ ] 表达式深度 ≤ 10？
 - [ ] 与因子库中的因子不是近似重复？
 

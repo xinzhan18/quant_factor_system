@@ -1,0 +1,58 @@
+batch_id: "batch_032"
+timestamp: "2026-04-02T05:00:00"
+candidates:
+  - name: pv_corr_x_turnover_5
+    expression: "Mul(Corr($close,$volume,5),Mean($turnover_rate,5))"
+    category: volume
+    logic_id: L003
+    direction: pv_corr_turnover
+    rationale: "PV correlation × turnover level (5d). Probe IC=-0.039."
+
+  - name: pv_corr_x_turnover_20
+    expression: "Mul(Corr($close,$volume,20),Mean($turnover_rate,20))"
+    category: volume
+    logic_id: L003
+    direction: pv_corr_turnover
+    rationale: "PV correlation × turnover level (20d). Longer window."
+
+  - name: pv_direction_count_10
+    expression: "Sum(If(Greater(Mul(Delta($close,1),Delta($volume,1)),0),1,0),10)"
+    category: volume
+    logic_id: L003
+    direction: pv_direction_count
+    rationale: "Count of volume-confirmed direction days in 10d. Probe IC=-0.031."
+
+  - name: pv_direction_count_20
+    expression: "Sum(If(Greater(Mul(Delta($close,1),Delta($volume,1)),0),1,0),20)"
+    category: volume
+    logic_id: L003
+    direction: pv_direction_count
+    rationale: "Count of volume-confirmed direction days in 20d."
+
+  - name: size_x_slope_accel
+    expression: "Mul(Div(1,Add($circ_market_cap,1)),Sub(Slope($close,10),Slope($close,20)))"
+    category: other
+    logic_id: L010
+    direction: size_x_trend
+    rationale: "Small-cap × trend acceleration. Probe IC=-0.029. Small stocks with accelerating trends."
+
+  - name: signed_range_10
+    expression: "Mean(Mul(Sign(Sub(Div($close,Ref($close,1)),1)),Div(Sub($high,$low),$close)),10)"
+    category: candlestick
+    logic_id: L007
+    direction: signed_range
+    rationale: "10d mean of sign(return)×range. Range weighted by direction. IC=-0.027."
+
+  - name: pb_ps_rank_product
+    expression: "Mul(Rank($pb_ratio,60),Rank($ps_ratio,60))"
+    category: valuation
+    logic_id: L009
+    direction: multi_valuation
+    rationale: "PB rank × PS rank. Multi-dimensional expensiveness. IC=-0.025."
+
+  - name: turnover_change_norm
+    expression: "Div(Delta($turnover_rate,5),Add(Std($turnover_rate,20),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_zscore
+    rationale: "Turnover change / turnover std. Z-score of turnover change. IC=-0.023."
