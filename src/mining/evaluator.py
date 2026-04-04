@@ -1026,4 +1026,14 @@ class FactorMiningEvaluator:
         all_rejected += stage3_errors
         all_rejected += hard_gated
 
+        # Build canonical metrics for library storage (f['stage3'] and f['full_ic'] unchanged)
+        from .schema import normalize_metrics
+        for f in screened:
+            raw = {**f.get('full_ic', {}), **f.get('stage3', {})}
+            f['metrics'] = normalize_metrics(raw)
+        for r in replacements:
+            nf = r.get('new_factor', r)
+            raw = {**nf.get('full_ic', {}), **nf.get('stage3', {})}
+            nf['metrics'] = normalize_metrics(raw)
+
         return BatchResult(screened=screened, rejected=all_rejected, replacements=replacements)
