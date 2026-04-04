@@ -10,7 +10,7 @@ user_invocable: true
 
 ## 第1步：确定批次编号
 
-扫描 `storage/candidates/` 目录，找到现有 `batch_XXX.yaml` 中最大的编号，+1 作为本批次编号。如果目录为空，从 `batch_001` 开始。
+扫描 `storage/mining/candidates/` 目录，找到现有 `batch_XXX.yaml` 中最大的编号，+1 作为本批次编号。如果目录为空，从 `batch_001` 开始。
 
 ## 第1.5步：Scheduler & Mode Selection
 
@@ -41,28 +41,28 @@ PYTHONPATH=src python3 -m mining logic coverage
 
 **方向索引：**
 ```
-storage/memory/directions.yaml
+storage/mining/memory/directions.yaml
 ```
 
 **全局状态：**
 ```
-storage/memory/state.yaml
+storage/mining/memory/state.yaml
 ```
 特别关注 `next_round_hint` 字段 — 上一轮 judge 留下的建议。
 
 **最近批次历史（最近2个）：**
 ```
-ls storage/memory/history/
+ls storage/mining/memory/history/
 ```
 
 **当前因子库：**
 ```
-storage/library/library.yaml
+storage/registry/library.yaml
 ```
 
 **工程经验：**
 ```
-storage/memory/mining-lessons.md
+storage/mining/memory/mining-lessons.md
 ```
 
 从记忆中提取：
@@ -75,7 +75,7 @@ storage/memory/mining-lessons.md
 
 读取以下额外上下文源：
 1. **覆盖地图**: `PYTHONPATH=src python3 -m mining logic coverage` — 哪些类别探索不足
-2. **禁区**: `cat storage/memory/forbidden.yaml` — 应避免的模式
+2. **禁区**: `cat storage/mining/memory/forbidden.yaml` — 应避免的模式
 3. **活跃逻辑**: `PYTHONPATH=src python3 -m mining logic list --status active` — 当前假设及其统计
 4. **谱系**: 检查哪些因子已被变异及结果
 
@@ -91,7 +91,7 @@ storage/memory/mining-lessons.md
 3. 从结果中提取可操作的因子公式或思路
 4. 为每个有价值的线索创建新的方向文件（status=new）：
    ```
-   storage/memory/directions/{slug}.md
+   storage/mining/memory/directions/{slug}.md
    ```
 
 ### 2c. 通道3：变异分析（自动）
@@ -113,7 +113,7 @@ storage/memory/mining-lessons.md
 - [ ] 所有算子都可用？（参考 mining-lessons.md 中的可用/不可用列表）
 - [ ] 所有字段都可用？参考 `src/mining/config.py` 中 `base_fields`。
       已知限制：`$vwap` 数据为零。其余字段（含 $amount、基本面字段）均可用。
-      算子限制见 `storage/memory/mining-lessons.md`。
+      算子限制见 `storage/mining/memory/mining-lessons.md`。
 - [ ] 与 dead 方向不重叠？
 
 ## 第3步：打印上下文摘要（强制）
@@ -199,7 +199,7 @@ Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式3' --start 
 
 ## 第6步：写入候选文件
 
-将候选写入 `storage/candidates/batch_XXX.yaml`：
+将候选写入 `storage/mining/candidates/batch_XXX.yaml`：
 
 ```yaml
 batch_id: "batch_XXX"
@@ -214,7 +214,7 @@ candidates:
 
 注意新增 `direction` 字段 — 标记每个候选来自哪个方向，供 judge 阶段按方向聚合。
 
-每个候选**必须**包含 `logic_id` 字段，关联到 `storage/logic/` 中的市场逻辑。如果没有对应的逻辑，使用 `logic_id: legacy`。
+每个候选**必须**包含 `logic_id` 字段，关联到 `storage/mining/logic/` 中的市场逻辑。如果没有对应的逻辑，使用 `logic_id: legacy`。
 
 #### Python 因子候选
 
@@ -255,7 +255,7 @@ candidates:
 ## 第8步：完成提示
 
 ```
-候选已生成：storage/candidates/batch_XXX.yaml（N 个候选，来自 M 个方向）
+候选已生成：storage/mining/candidates/batch_XXX.yaml（N 个候选，来自 M 个方向）
 方向分布：[方向1] x 3, [方向2] x 3, [方向3] x 2
 运行 /execute 开始评估，或 /mine 继续完整流程。
 ```

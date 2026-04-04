@@ -1,0 +1,58 @@
+batch_id: "batch_041"
+timestamp: "2026-04-03T02:22:00"
+candidates:
+  - name: upside_var_fraction_10
+    expression: "Div(Mean(If(Greater(Sub(Div($close,Ref($close,1)),1),0),Mul(Sub(Div($close,Ref($close,1)),1),Sub(Div($close,Ref($close,1)),1)),0),10),Add(Mean(Mul(Sub(Div($close,Ref($close,1)),1),Sub(Div($close,Ref($close,1)),1)),10),0.0001))"
+    category: volatility
+    logic_id: L005
+    direction: return_asymmetry
+    rationale: "Fraction of total return variance from up-day moves (10d). IC=-0.037. High upside var fraction = lottery-like stock. Cap-neutral, pure shape signal."
+
+  - name: upside_var_fraction_20
+    expression: "Div(Mean(If(Greater(Sub(Div($close,Ref($close,1)),1),0),Mul(Sub(Div($close,Ref($close,1)),1),Sub(Div($close,Ref($close,1)),1)),0),20),Add(Mean(Mul(Sub(Div($close,Ref($close,1)),1),Sub(Div($close,Ref($close,1)),1)),20),0.0001))"
+    category: volatility
+    logic_id: L005
+    direction: return_asymmetry
+    rationale: "Upside variance fraction 20d. IC=-0.036. Longer window variant."
+
+  - name: turnover_cv_5
+    expression: "Div(Std($turnover_rate,5),Add(Mean($turnover_rate,5),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_instability
+    rationale: "Turnover rate CV (5d). IC=-0.028, ICIR=-0.351. High turnover instability = uncertain trading behavior. Uses turnover_rate (cap-neutral) not $amount."
+
+  - name: turnover_cv_20
+    expression: "Div(Std($turnover_rate,20),Add(Mean($turnover_rate,20),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_instability
+    rationale: "Turnover rate CV (20d). IC=-0.029, ICIR=-0.348."
+
+  - name: range_return_corr_10
+    expression: "Corr(Sub(Div($high,$low),1),Sub(Div($close,Ref($close,1)),1),10)"
+    category: candlestick
+    logic_id: L006
+    direction: range_return_interaction
+    rationale: "Corr of daily range with daily return (10d). IC=-0.032, ICIR=-0.251. Measures if wide-range days predict direction. Novel signal type."
+
+  - name: range_return_corr_20
+    expression: "Corr(Sub(Div($high,$low),1),Sub(Div($close,Ref($close,1)),1),20)"
+    category: candlestick
+    logic_id: L006
+    direction: range_return_interaction
+    rationale: "Range-return correlation 20d. IC=-0.031, ICIR=-0.232."
+
+  - name: turnover_cv_x_pe_relative
+    expression: "Mul(Div(Std($turnover_rate,5),Add(Mean($turnover_rate,5),0.001)),Div($pe_ratio,Add(Mean($pe_ratio,60),0.001)))"
+    category: other
+    logic_id: L004
+    direction: liquidity_x_valuation
+    rationale: "Turnover CV × PE relative. IC=-0.031, ICIR=-0.343. Unstable turnover + overvalued PE = bad."
+
+  - name: pe_relative_60
+    expression: "Div($pe_ratio,Add(Mean($pe_ratio,60),0.001))"
+    category: valuation
+    logic_id: L009
+    direction: valuation_mean_reversion
+    rationale: "PE ratio relative to own 60d mean. IC=-0.027, ICIR=-0.183. PE above own avg = overvalued, mean reversion expected."

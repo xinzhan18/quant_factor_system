@@ -1,0 +1,52 @@
+batch_id: "batch_009"
+timestamp: "2026-03-24T09:57:00"
+description: "Focus on truly orthogonal factors — cross-asset rank, long-horizon, and novel composites"
+candidates:
+  # === Truly different constructions ===
+  # Use Count operator for binary event counting
+  - name: "up_day_count_20"
+    expression: "Div(Count(Greater($close, Ref($close,1)), 20), 20)"
+    category: "momentum"
+    rationale: "Fraction of up days in 20 days — different from return magnitude"
+
+  # Volume profile: concentration in time
+  - name: "volume_max_ratio_20"
+    expression: "Div(Max($volume, 20), Sum($volume, 20))"
+    category: "volume"
+    rationale: "Max single-day volume / total 20d volume — measures volume spike concentration"
+
+  # Price efficiency: how much return per unit of movement
+  - name: "path_efficiency_20"
+    expression: "Div(Abs($close/Ref($close,20)-1), Mean(Abs($close/Ref($close,1)-1), 20))"
+    category: "efficiency"
+    rationale: "Net return / avg daily |return| — path efficiency measure"
+
+  # Cross-scale interaction: different from vol term structure
+  - name: "vol_mean_reversion"
+    expression: "Sub(Std($close/Ref($close,1)-1, 60), Std($close/Ref($close,1)-1, 5))"
+    category: "volatility"
+    rationale: "Long vol minus short vol — positive when vol is contracting (mean reverting)"
+
+  # New regime: volume regime with truly different payloads
+  - name: "volume_regime_range_vs_resi"
+    expression: "If(Greater(Div($volume,Mean($volume,20)), 1.5), Mean(Div(Sub($high,$low),$close),5), Resi($close,10))"
+    category: "regime"
+    rationale: "Volume spike → range measure; quiet → regression residual. Truly asymmetric."
+
+  # Use Mad operator on volume (not tested before)
+  - name: "mad_volume_20"
+    expression: "Mad($volume, 20)"
+    category: "volume"
+    rationale: "Robust dispersion of volume — different from Std($volume)"
+
+  # Cross-field regression
+  - name: "close_volume_cov_ratio"
+    expression: "Div(Cov($close, $volume, 20), Mul(Std($close, 20), Std($volume, 20)))"
+    category: "volume"
+    rationale: "Normalized covariance = Pearson correlation via Cov/(Std*Std)"
+
+  # Price range over multiple scales
+  - name: "range_ratio_5_60"
+    expression: "Div(Mean(Div(Sub($high,$low),$close),5), Mean(Div(Sub($high,$low),$close),60))"
+    category: "candlestick"
+    rationale: "Short/long range ratio — is range expanding or contracting?"

@@ -15,7 +15,7 @@ pytest tests/mining/test_evaluator.py::TestEvaluator::test_stage1 -v
 # Mining CLI (all commands require PYTHONPATH=src)
 PYTHONPATH=src python3 -m mining sync           # Sync TimescaleDB → Qlib binary
 PYTHONPATH=src python3 -m mining evaluate "Rank($close)"
-PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
+PYTHONPATH=src python3 -m mining batch storage/mining/candidates/batch_XXX.yaml --skip-stage1
 PYTHONPATH=src python3 -m mining probe "Std($close, 20)"
 PYTHONPATH=src python3 -m mining library
 PYTHONPATH=src python3 -m mining memory
@@ -59,9 +59,19 @@ RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Mini
 
 ### Storage Layout (`storage/`)
 
-- `storage/library/` — Factor library: `library.yaml` index + `factors/factor_*.yaml` per factor
-- `storage/memory/` — Mining memory: `directions.yaml` index + `directions/*.md` per direction
-- `storage/candidates/` — Batch YAML files and evaluation results
+```
+storage/
+  registry/     — Factor registry: library.yaml index + factors/factor_*.yaml per factor
+  mining/       — Pipeline artifacts
+    candidates/ — Batch YAML files and evaluation results
+    memory/     — Mining memory: directions, state, history
+    logic/      — Market logics (outer loop)
+    python_factors/ — Generated Python factor code
+  evidence/     — Derivation layer (deletable, rebuildable)
+    vault/      — Obsidian vault: reports + PNG charts
+  runtime/      — Ephemeral cache (gitignored)
+    cache/      — Library factor value caches
+```
 
 ### Mining Pipeline Stages
 

@@ -1,0 +1,58 @@
+batch_id: "batch_045"
+timestamp: "2026-04-03T06:18:00"
+candidates:
+  - name: cov_turnover_ps_10
+    expression: "Cov($turnover_rate,$ps_ratio,10)"
+    category: other
+    logic_id: L009
+    direction: turnover_ps_cov
+    rationale: "Turnover-PS covariance 10d. Probe IC=-0.042, ICIR=-0.366. Best PS-family probe."
+
+  - name: cov_turnover_ps_20
+    expression: "Cov($turnover_rate,$ps_ratio,20)"
+    category: other
+    logic_id: L009
+    direction: turnover_ps_cov
+    rationale: "Turnover-PS covariance 20d. Probe IC=-0.039, ICIR=-0.346."
+
+  - name: cov_turnover_ps_60
+    expression: "Cov($turnover_rate,$ps_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: turnover_ps_cov
+    rationale: "Turnover-PS covariance 60d. Probe IC=-0.028. Longest window, most likely regime-robust per F073 pattern."
+
+  - name: cov_amount_pb_20
+    expression: "Cov($amount,$pb_ratio,20)"
+    category: other
+    logic_id: L009
+    direction: amount_fundamental_cov
+    rationale: "Amount-PB covariance 20d. Probe IC=-0.043, ICIR=-0.354. Uses $amount instead of $turnover_rate — different scale dimension."
+
+  - name: cov_amount_pb_60
+    expression: "Cov($amount,$pb_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: amount_fundamental_cov
+    rationale: "Amount-PB covariance 60d. Probe IC=-0.030."
+
+  - name: cov_amount_ps_20
+    expression: "Cov($amount,$ps_ratio,20)"
+    category: other
+    logic_id: L009
+    direction: amount_fundamental_cov
+    rationale: "Amount-PS covariance 20d. Probe IC=-0.040, ICIR=-0.338."
+
+  - name: cov_amount_ps_60
+    expression: "Cov($amount,$ps_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: amount_fundamental_cov
+    rationale: "Amount-PS covariance 60d. Probe IC=-0.028."
+
+  - name: cov_volume_pb_60
+    expression: "Cov($volume,$pb_ratio,60)"
+    category: other
+    logic_id: L009
+    direction: volume_fundamental_cov
+    rationale: "Volume-PB covariance 60d. Probe IC=-0.027. Raw volume version for comparison."

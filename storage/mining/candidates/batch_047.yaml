@@ -1,0 +1,58 @@
+batch_id: "batch_047"
+timestamp: "2026-04-03T09:17:00"
+candidates:
+  - name: amount_minmax_20
+    expression: "Div(Min($amount,20),Add(Max($amount,20),1))"
+    category: volume
+    logic_id: L004
+    direction: liquidity_stability
+    rationale: "Amount min/max ratio 20d. Probe IC=+0.033, ICIR=+0.331, WinRate=68.6%. High ratio = stable dollar volume = healthy trading."
+
+  - name: amount_minmax_60
+    expression: "Div(Min($amount,60),Add(Max($amount,60),1))"
+    category: volume
+    logic_id: L004
+    direction: liquidity_stability
+    rationale: "Amount min/max ratio 60d. Probe IC=+0.028, ICIR=+0.287. Longer window."
+
+  - name: volume_minmax_20
+    expression: "Div(Min($volume,20),Add(Max($volume,20),1))"
+    category: volume
+    logic_id: L004
+    direction: liquidity_stability
+    rationale: "Volume min/max ratio 20d. Probe IC=+0.027, ICIR=+0.322, WinRate=70.2%."
+
+  - name: turnover_minmax_20
+    expression: "Div(Min($turnover_rate,20),Add(Max($turnover_rate,20),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: liquidity_stability
+    rationale: "Turnover rate min/max 20d. Probe IC=+0.022, ICIR=+0.291, WinRate=68.2%. Cap-neutral via turnover_rate."
+
+  - name: turnover_minmax_60
+    expression: "Div(Min($turnover_rate,60),Add(Max($turnover_rate,60),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: liquidity_stability
+    rationale: "Turnover min/max 60d. Probe IC=+0.022, ICIR=+0.291."
+
+  - name: turnover_spike_20
+    expression: "Div(Max($turnover_rate,20),Add(Mean($turnover_rate,20),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: liquidity_spike
+    rationale: "Turnover spike ratio 20d (max/mean). Probe IC=-0.027, ICIR=-0.376. High spike = erratic trading = bad."
+
+  - name: turnover_spike_60
+    expression: "Div(Max($turnover_rate,60),Add(Mean($turnover_rate,60),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: liquidity_spike
+    rationale: "Turnover spike ratio 60d. Probe IC=-0.017, ICIR=-0.268."
+
+  - name: idxmax_turnover_20
+    expression: "IdxMax($turnover_rate,20)"
+    category: liquidity
+    logic_id: L004
+    direction: liquidity_timing
+    rationale: "When was peak turnover in 20d. Probe IC=-0.016. Timing signal — recent peak = recent hype."

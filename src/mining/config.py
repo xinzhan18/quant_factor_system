@@ -147,10 +147,10 @@ class MiningConfig:
     decay_horizons: List[int] = field(default_factory=lambda: [1])
 
     # Paths (relative to project root)
-    memory_dir: str = "storage/memory"
-    library_dir: str = "storage/library"
-    candidates_dir: str = "storage/candidates"
-    report_dir: str = "storage/reports"
+    memory_dir: str = "storage/mining/memory"
+    library_dir: str = "storage/registry"
+    candidates_dir: str = "storage/mining/candidates"
+    report_dir: str = "storage/evidence/reports"
 
     # Available base fields
     base_fields: List[str] = field(default_factory=lambda: [
@@ -201,19 +201,19 @@ class MiningConfig:
     ast_similarity_threshold: float = 0.8
 
     # New storage paths
-    logic_dir: str = "storage/logic"
-    python_factors_dir: str = "storage/python_factors"
-    forbidden_file: str = "storage/memory/forbidden.yaml"
+    logic_dir: str = "storage/mining/logic"
+    python_factors_dir: str = "storage/mining/python_factors"
+    forbidden_file: str = "storage/mining/memory/forbidden.yaml"
 
     # Correlation check window — use last N years of IS period instead of full IS period.
     # Correlation is stable over 2-year windows; this gives ~4x speedup on Stage 2.
     corr_check_years: int = 2
 
     # Vault output directory (Obsidian vault for reports + charts)
-    vault_dir: str = "storage/vault"
+    vault_dir: str = "storage/evidence/vault"
 
     # Disk cache for library factor values (avoids re-computing 34 factors every batch)
-    lib_cache_dir: str = "storage/cache/lib_factors"
+    lib_cache_dir: str = "storage/runtime/cache/lib_factors"
 
     # Hard gates (auto-reject, cannot be overridden by LLM or --admit)
     hard_gate_oos_decay_min: float = 0.2

@@ -84,9 +84,14 @@ class TestNewConfigFields:
 
     def test_storage_path_defaults(self):
         cfg = MiningConfig()
-        assert cfg.logic_dir == "storage/logic"
-        assert cfg.python_factors_dir == "storage/python_factors"
-        assert cfg.forbidden_file == "storage/memory/forbidden.yaml"
+        assert cfg.logic_dir == "storage/mining/logic"
+        assert cfg.python_factors_dir == "storage/mining/python_factors"
+        assert cfg.forbidden_file == "storage/mining/memory/forbidden.yaml"
+        assert cfg.library_dir == "storage/registry"
+        assert cfg.memory_dir == "storage/mining/memory"
+        assert cfg.candidates_dir == "storage/mining/candidates"
+        assert cfg.vault_dir == "storage/evidence/vault"
+        assert cfg.lib_cache_dir == "storage/runtime/cache/lib_factors"
 
     def test_custom_values(self):
         cfg = MiningConfig(

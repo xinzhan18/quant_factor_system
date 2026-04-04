@@ -1,0 +1,42 @@
+batch_id: "batch_006"
+timestamp: "2026-03-24T01:45:00"
+candidates:
+  - name: "resi_close_60"
+    expression: "Resi($close, 60)"
+    category: "trend"
+    rationale: "60-day regression residual. Longer window may decorrelate from factor_003 while preserving the residual signal that showed IC=-0.036 at 20d."
+
+  - name: "resi_volume_20"
+    expression: "Resi($volume, 20)"
+    category: "volume"
+    rationale: "Volume regression residual — captures whether volume is above/below its 20-day trend. Different dimension from price-based Resi."
+
+  - name: "std_volume_20"
+    expression: "Std($volume, 20)"
+    category: "volume"
+    rationale: "Volume volatility over 20 days. High volume volatility = event-driven or speculative activity."
+
+  - name: "ema_sma_spread"
+    expression: "Div(Sub(EMA($close, 20), SMA($close, 20)), SMA($close, 20))"
+    category: "momentum"
+    rationale: "EMA/SMA spread captures whether recent prices are weighted higher (EMA > SMA = recent strength). Percentage spread."
+
+  - name: "log_volume_ratio"
+    expression: "Sub(Log(Mean($volume, 5)), Log(Mean($volume, 60)))"
+    category: "volume"
+    rationale: "Log ratio of short-term to long-term average volume. Log transform reduces impact of outliers. Captures volume trend."
+
+  - name: "slope_volume_20"
+    expression: "Slope($volume, 20)"
+    category: "volume"
+    rationale: "Volume trend slope. Rising volume trend may indicate accumulation or distribution."
+
+  - name: "kurt_weighted_return"
+    expression: "Mul($close/Ref($close,10)-1, Kurt($close/Ref($close,1)-1, 20))"
+    category: "distribution"
+    rationale: "10-day return multiplied by 20-day kurtosis. Fat-tailed regimes amplify return signal — high kurt + positive return = strong conviction."
+
+  - name: "multi_lag_return"
+    expression: "Sub(Add($close/Ref($close,1)-1, $close/Ref($close,5)-1), $close/Ref($close,20)-1)"
+    category: "momentum"
+    rationale: "Short-term returns (1d + 5d) minus medium-term return (20d). Captures acceleration — recent momentum diverging from longer trend."

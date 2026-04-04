@@ -1,0 +1,101 @@
+batch_id: "batch_026"
+timestamp: "2026-04-02T02:00:00"
+candidates:
+  # ── Direction 1: $amount factors (NEW dimension) ────────────────────────────
+  # $amount = price × volume, captures dollar trading value. Completely untapped.
+  # Probe Std($amount,10) IC=-0.037 ICIR=-0.291 — strongest amount signal.
+
+  - name: amount_vol_10
+    expression: "Std($amount, 10)"
+    category: volume
+    logic_id: L003
+    direction: amount_factors
+    rationale: >
+      10-day volatility of trading amount. Probe IC=-0.037, ICIR=-0.291.
+      $amount = price × volume, captures dollar-denominated trading instability.
+      Different from Std($volume) because it incorporates price level — expensive
+      stocks with volatile volume get amplified signal. May correlate with F004
+      (std_volume_20) but different field and window.
+
+  - name: amount_vol_20
+    expression: "Std($amount, 20)"
+    category: volume
+    logic_id: L003
+    direction: amount_factors
+    rationale: >
+      20-day amount volatility. Longer window captures persistent dollar-trading
+      instability. Structural complement to amount_vol_10 at different time scale.
+      May have different corr profile with library.
+
+  - name: amount_price_corr_10
+    expression: "Corr($amount, $close, 10)"
+    category: volume
+    logic_id: L003
+    direction: amount_factors
+    rationale: >
+      10-day correlation between trading amount and close price. Probe IC=-0.034,
+      ICIR=-0.250. Negative IC means stocks with high amount-price correlation
+      underperform. When amount moves with price (buying on rises, selling on drops),
+      it indicates momentum crowding. Library has F009 (Corr close×volume) but
+      $amount is different from $volume.
+
+  # ── Direction 2: turnover × volatility cross (L004×L005) ───────────────────
+  # Probe turnover × Std(ret,10) IC=-0.040 ICIR=-0.290 — strongest overall.
+  # Cross-dimensional: liquidity activity × price instability.
+
+  - name: turnover_x_vol_10
+    expression: "Mul($turnover_rate, Std(Sub(Div($close, Ref($close, 1)), 1), 10))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_x_volatility
+    rationale: >
+      Turnover rate × 10-day return volatility. Probe IC=-0.040, ICIR=-0.290.
+      High turnover + high vol = speculative frenzy. Different from F027 (Std of
+      turnover, captures turnover instability) — this captures the INTERACTION of
+      trading activity with price volatility. Cross-dimensional signal.
+
+  - name: turnover_x_vol_5
+    expression: "Mul($turnover_rate, Std(Sub(Div($close, Ref($close, 1)), 1), 5))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_x_volatility
+    rationale: >
+      Turnover × 5-day vol. Shorter vol window captures more recent volatility.
+      May have different corr profile from 10d version. Both F027 and F001 use
+      different constructs — Std(turnover) and Std(returns) respectively.
+
+  - name: turnover_x_range
+    expression: "Mul($turnover_rate, Div(Sub($high, $low), $close))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_x_volatility
+    rationale: >
+      Turnover × intraday range ratio. Uses range as vol proxy instead of
+      realized vol. High turnover + wide intraday range = active day with big
+      swings. Different volatility measure may yield different corr profile.
+      Simpler construct than Std-based versions.
+
+  # ── Direction 3: PE/valuation composite ─────────────────────────────────────
+  # Probe 1/|PE|+1 IC=+0.015, Rank(PE)×Rank(PB) IC=-0.017
+
+  - name: inverse_abs_pe
+    expression: "Div(1, Add(Abs($pe_ratio), 1))"
+    category: valuation
+    logic_id: L009
+    direction: pe_valuation
+    rationale: >
+      Inverse of absolute PE ratio (+1 to avoid division by zero). Handles negative
+      PE gracefully. Probe IC=+0.015, ICIR=+0.213, WinRate=59.9%. High value means
+      low |PE| = cheap on earnings basis. Extends valuation coverage beyond PB/PS.
+      Different from F028 (inverse_pb) — uses PE dimension.
+
+  - name: pe_x_pb_rank_product
+    expression: "Mul(Rank($pe_ratio, 60), Rank($pb_ratio, 60))"
+    category: valuation
+    logic_id: L009
+    direction: pe_valuation
+    rationale: >
+      Product of PE rank × PB rank (both 60-day rolling). Probe IC=-0.017,
+      ICIR=-0.140. Captures multi-dimensional valuation: stocks that rank high on
+      BOTH PE and PB (expensive on both measures) underperform. Non-linear
+      interaction between two valuation measures. Different from individual PB/PE.

@@ -45,7 +45,7 @@ PYTHONPATH=src python3 -m mining logic schedule
 5. **Decide（收敛）**：
    - 基于探针IC选 top 2-3 方向
    - 每方向展开 2-3 个正式候选（共 6-8 个）
-   - 写入 `storage/candidates/batch_XXX.yaml`
+   - 写入 `storage/mining/candidates/batch_XXX.yaml`
 6. 更新探针方向状态
 
 ## 阶段二：评估执行（/execute）
@@ -55,7 +55,7 @@ PYTHONPATH=src python3 -m mining logic schedule
 1. 找到刚生成的 `batch_XXX.yaml`
 2. 运行评估管道（**加 `--skip-stage1`，不加 `--admit`**）：
    ```bash
-   PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
+   PYTHONPATH=src python3 -m mining batch storage/mining/candidates/batch_XXX.yaml --skip-stage1
    ```
 3. 等待完成，确认 `batch_XXX_result.yaml` 已生成
 4. 打印评估摘要
@@ -88,9 +88,9 @@ PYTHONPATH=src python3 -m mining logic schedule
    Bash(command="PYTHONPATH=src python3 -m report.builder --factor-id {id2} --vault", run_in_background=true)
    ... 同时启动所有
    ```
-2. 收集所有完成通知后，逐个读取 `storage/vault/assets/F{id}/report_data.json`
-3. 用 Write 工具生成 Obsidian Markdown 报告到 `storage/vault/factors/`
-4. 更新总览页 `storage/vault/Factor Library.md`
+2. 收集所有完成通知后，逐个读取 `storage/evidence/vault/assets/F{id}/report_data.json`
+3. 用 Write 工具生成 Obsidian Markdown 报告到 `storage/evidence/vault/factors/`
+4. 更新总览页 `storage/evidence/vault/Factor Library.md`
 
 ---
 
@@ -110,7 +110,7 @@ PYTHONPATH=src python3 -m mining library
 PYTHONPATH=src python3 -m mining memory
 
 # 批次评估（跳过Stage1，不录取）
-PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
+PYTHONPATH=src python3 -m mining batch storage/mining/candidates/batch_XXX.yaml --skip-stage1
 
 # 市场逻辑管理（外循环）
 PYTHONPATH=src python3 -m mining logic list          # 列出所有逻辑
@@ -121,7 +121,7 @@ PYTHONPATH=src python3 -m mining logic schedule       # 调度器建议下一步
 PYTHONPATH=src python3 -m report.builder --factor-id 025 --vault
 
 # 生成所有因子报告
-for id in $(ls storage/library/factors/factor_*.yaml | sed 's/.*factor_//;s/.yaml//'); do
+for id in $(ls storage/registry/factors/factor_*.yaml | sed 's/.*factor_//;s/.yaml//'); do
   PYTHONPATH=src python3 -m report.builder --factor-id "$id" --vault
 done
 ```

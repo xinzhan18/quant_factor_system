@@ -39,7 +39,7 @@ EXPECTED_METRICS = [
 
 def main():
     parser = argparse.ArgumentParser(description="Factor inventory snapshot")
-    parser.add_argument("--library-dir", default="storage/library")
+    parser.add_argument("--library-dir", default="storage/registry")
     parser.add_argument("--output", default=None, help="Save snapshot to YAML file")
     args = parser.parse_args()
 

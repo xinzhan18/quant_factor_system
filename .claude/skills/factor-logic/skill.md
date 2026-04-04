@@ -13,7 +13,7 @@ user_invocable: true
 ```bash
 PYTHONPATH=src python3 -m mining logic coverage
 PYTHONPATH=src python3 -m mining logic list
-cat storage/memory/forbidden.yaml
+cat storage/mining/memory/forbidden.yaml
 ```
 
 ### Step 2: 识别空白区域
