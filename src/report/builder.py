@@ -235,8 +235,26 @@ class ReportDataBuilder:
     # ---- Data Loading (IO boundary) ----
 
     def _load_factor_metadata(self) -> dict:
-        """Load factor metadata from factor_meta DB table, falling back to library.yaml."""
-        # Try DB first
+        """Load factor metadata from registry detail YAML (single metadata truth source).
+
+        Falls back to DB factor_meta table if YAML not found.
+        """
+        # Primary: registry detail YAML
+        detail_path = Path(self.config.library_dir) / "factors" / f"factor_{self.factor_id}.yaml"
+        if detail_path.exists():
+            import yaml
+            with open(detail_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            return {
+                "id": data["id"],
+                "name": data.get("name", f"factor_{data['id']}"),
+                "expression": data.get("expression", ""),
+                "category": data.get("category", "other"),
+                "batch": data.get("batch", ""),
+                "admitted_at": data.get("admitted_at", ""),
+            }
+
+        # Fallback: DB factor_meta (for factors not yet in registry)
         try:
             import psycopg2
             conn = psycopg2.connect(self.config.system.database.connection_string)
@@ -262,26 +280,8 @@ class ReportDataBuilder:
         except Exception:
             pass
 
-        # Fallback: read from library.yaml
-        import yaml
-        lib_path = Path(self.config.system.qlib_data_dir).parent.parent.parent / "storage" / "library" / "library.yaml"
-        if not lib_path.exists():
-            lib_path = Path("storage/library/library.yaml")
-        if lib_path.exists():
-            with open(lib_path) as f:
-                lib = yaml.safe_load(f)
-            for factor in lib.get("factors", []):
-                if str(factor.get("id")) == str(self.factor_id):
-                    return {
-                        "id": factor["id"],
-                        "name": factor.get("name", f"factor_{factor['id']}"),
-                        "expression": factor.get("expression", ""),
-                        "category": factor.get("category", "other"),
-                        "batch": factor.get("source", ""),
-                        "admitted_at": factor.get("admitted_at", ""),
-                    }
         raise ValueError(
-            f"Factor {self.factor_id!r} not found in factor_meta table or library.yaml"
+            f"Factor {self.factor_id!r} not found in registry YAML or factor_meta table"
         )
 
     def _load_data_from_db(self, expression: str) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -508,7 +508,7 @@ class ReportDataBuilder:
         logger.info("Report data saved to %s", path)
         return path
 
-    def save_for_vault(self, vault_dir: str = "storage/vault") -> str:
+    def save_for_vault(self, vault_dir: str | None = None) -> str:
         """Build report data with PNG charts and save JSON for skill consumption.
 
         Args:
@@ -517,6 +517,8 @@ class ReportDataBuilder:
         Returns:
             Path to the report_data.json file.
         """
+        if vault_dir is None:
+            vault_dir = self.config.vault_dir
         data = self.build(vault_dir=vault_dir)
         json_dir = os.path.join(vault_dir, "assets", f"F{self.factor_id}")
         os.makedirs(json_dir, exist_ok=True)
@@ -533,7 +535,7 @@ def main():
     parser.add_argument("--qlib-dir", default=None, help="Qlib data directory")
     parser.add_argument("--output-dir", default=None, help="Legacy HTML mode output dir")
     parser.add_argument("--vault", action="store_true", help="Vault mode: export PNGs + JSON")
-    parser.add_argument("--vault-dir", default="storage/vault", help="Vault root directory")
+    parser.add_argument("--vault-dir", default=None, help="Vault root directory (default: config.vault_dir)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s - %(message)s")

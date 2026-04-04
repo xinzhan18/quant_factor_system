@@ -209,6 +209,9 @@ class MiningConfig:
     # Correlation is stable over 2-year windows; this gives ~4x speedup on Stage 2.
     corr_check_years: int = 2
 
+    # Vault output directory (Obsidian vault for reports + charts)
+    vault_dir: str = "storage/vault"
+
     # Disk cache for library factor values (avoids re-computing 34 factors every batch)
     lib_cache_dir: str = "storage/cache/lib_factors"
 
