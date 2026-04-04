@@ -1,289 +1,471 @@
+thresholds: {}
 factors:
-- category: volatility
-  expression: Std($close/Ref($close,1)-1, 20)
-  ic_mean: -0.0575
-  id: '001'
+- id: '001'
   name: std_returns_20
-- category: volume
-  expression: Delta($volume, 5) / Mean($volume, 20)
-  ic_mean: -0.0323
-  id: '002'
+  expression: Std($close/Ref($close,1)-1, 20)
+  source: dsl
+  category: volatility
+  status: legacy
+  ic_mean: -0.0575
+  long_leg: low
+  evaluation_version: v1
+- id: '002'
   name: delta_volume_5
-- category: volume
-  expression: Std($volume, 20)
-  ic_mean: -0.0392
-  id: '004'
+  expression: Delta($volume, 5) / Mean($volume, 20)
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.0323
+  long_leg: low
+  evaluation_version: v1
+- id: '004'
   name: std_volume_20
-- category: volume
-  expression: Cov($close/Ref($close,1)-1, $volume, 20)
-  ic_mean: -0.0327
-  id: 008
+  expression: Std($volume, 20)
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.0392
+  long_leg: low
+  evaluation_version: v1
+- id: 008
   name: ret_vol_cov_20
-- category: volume
-  expression: Mul(Corr($close, $volume, 10), Std($close/Ref($close,1)-1, 10))
-  ic_mean: -0.0521
-  id: 009
+  expression: Cov($close/Ref($close,1)-1, $volume, 20)
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.03726607395011181
+  long_leg: low
+  evaluation_version: v1
+- id: 009
   name: pv_corr_times_vol
-- category: volume
-  expression: HHI($volume, 20)
-  ic_mean: -0.0341
-  id: '010'
+  expression: Mul(Corr($close, $volume, 10), Std($close/Ref($close,1)-1, 10))
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.05208352584974417
+  long_leg: low
+  evaluation_version: v1
+- id: '010'
   name: hhi_volume_20
-- category: momentum
-  expression: If(Greater($high, Mean($high, 20)), Mul(Delta($high, 2), -1), 0)
-  ic_mean: 0.029621
-  id: '014'
+  expression: HHI($volume, 20)
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.03413675756337266
+  long_leg: low
+  evaluation_version: v1
+- id: '011'
+  name: williams_r_variant
+  expression: Div(Sub(Mul(2, $close), $low), Sub($high, $low))
+  source: dsl
+  category: candlestick
+  status: legacy
+  ic_mean: 0.06952
+  long_leg: high
+  evaluation_version: v1
+- id: '014'
   name: alpha023
-- category: candlestick
+  expression: If(Greater($high, Mean($high, 20)), Mul(Delta($high, 2), -1), 0)
+  source: dsl
+  category: momentum
+  status: legacy
+  ic_mean: 0.029621
+  long_leg: high
+  evaluation_version: v1
+- id: '015'
+  name: alpha053
   expression: Mul(Delta(Div(Sub(Sub($close, $low), Sub($high, $close)), Sub($close,
     $low)), 9), -1)
+  source: dsl
+  category: candlestick
+  status: legacy
   ic_mean: 0.023441
-  id: '015'
-  name: alpha053
-- category: momentum
+  long_leg: high
+  evaluation_version: v1
+- id: 018
+  name: alpha017
   expression: Mul(Mul(Rank(Rank($close, 10), 60), Rank(Delta(Delta($close, 1), 1),
     60)), Mul(Rank(Rank(Div($volume, Mean($volume, 20)), 5), 60), -1))
+  source: dsl
+  category: momentum
+  status: legacy
   ic_mean: 0.023129
-  id: 018
-  name: alpha017
-- category: volume
-  expression: Mul(Rank($close/Ref($close,1)-1, 20), Rank($volume, 20))
-  ic_mean: -0.04101
-  id: 019
+  long_leg: high
+  evaluation_version: v1
+- id: 019
   name: rank_ret_times_rank_vol
-- category: momentum
+  expression: Mul(Rank($close/Ref($close,1)-1, 20), Rank($volume, 20))
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.04101
+  long_leg: low
+  evaluation_version: v1
+- id: '020'
+  name: intraday_vs_overnight
   expression: Sub(Div(Sub($close, $open), $open), Div(Sub($open, Ref($close, 1)),
     Ref($close, 1)))
+  source: dsl
+  category: momentum
+  status: legacy
   ic_mean: -0.0376
-  id: '020'
-  name: intraday_vs_overnight
-- category: momentum
+  long_leg: low
+  evaluation_version: v1
+- id: '021'
+  name: alpha024
   expression: If(Less(Div(Delta(Mean($close, 60), 60), Ref($close, 60)), 0.05), Mul(Sub($close,
     Min($close, 60)), -1), Mul(Delta($close, 3), -1))
+  source: dsl
+  category: momentum
+  status: legacy
   ic_mean: 0.048737
-  id: '021'
-  name: alpha024
-- category: candlestick
+  long_leg: high
+  evaluation_version: v1
+- id: '022'
+  name: range_compression_60
   expression: Div(Div(Sub($high, $low), $close), Mean(Div(Sub($high, $low), $close),
     60))
+  source: dsl
+  category: candlestick
+  status: legacy
   ic_mean: -0.04223
-  id: '022'
-  name: range_compression_60
-- category: volatility
+  long_leg: low
+  evaluation_version: v1
+- id: '024'
+  name: atr_like_14
   expression: Mean(If(Greater(Sub($high,$low), Abs(Sub($high,Ref($close,1)))), If(Greater(Sub($high,$low),
     Abs(Sub($low,Ref($close,1)))), Sub($high,$low), Abs(Sub($low,Ref($close,1)))),
     If(Greater(Abs(Sub($high,Ref($close,1))), Abs(Sub($low,Ref($close,1)))), Abs(Sub($high,Ref($close,1))),
     Abs(Sub($low,Ref($close,1))))), 14)
+  source: dsl
+  category: volatility
+  status: legacy
   ic_mean: -0.0443
-  id: '024'
-  name: atr_like_14
-- category: candlestick
-  expression: Div(Sub(Mul(2, $close), $low), Sub($high, $low))
-  ic_mean: 0.06952
-  id: '011'
-  name: williams_r_variant
-- category: volume
-  expression: Mean(Mul(Sign(Delta($volume, 1)), Mul(Delta($close, 1), -1)), 5)
-  ic_mean: 0.0363
-  id: '025'
+  long_leg: low
+  evaluation_version: v1
+- id: '025'
   name: vol_confirmed_reversal_5
-- category: volume
-  expression: Mul(Corr($close, $volume, 5), Std($close/Ref($close,1)-1, 5))
-  ic_mean: -0.0388
-  id: '026'
+  expression: Mean(Mul(Sign(Delta($volume, 1)), Mul(Delta($close, 1), -1)), 5)
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: 0.0363
+  long_leg: high
+  evaluation_version: v1
+- id: '026'
   name: pv_corr_times_vol_5
-- category: liquidity
-  expression: Std($turnover_rate, 10)
-  ic_mean: -0.04709097901924844
-  id: '027'
+  expression: Mul(Corr($close, $volume, 5), Std($close/Ref($close,1)-1, 5))
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.0388
+  long_leg: low
+  evaluation_version: v1
+- id: '027'
   name: turnover_vol_10
+  expression: Std($turnover_rate, 10)
   source: dsl
-- category: valuation
-  expression: Div(1, $pb_ratio)
-  ic_mean: 0.0278
-  id: 028
+  category: liquidity
+  status: legacy
+  ic_mean: -0.04709097901924844
+  long_leg: low
+  evaluation_version: v1
+- id: 028
   name: inverse_pb
+  expression: Div(1, $pb_ratio)
   source: dsl
-- category: liquidity
-  expression: Mean($turnover_rate, 20)
-  ic_mean: -0.0379
-  id: 029
+  category: valuation
+  status: legacy
+  ic_mean: 0.027763490605387443
+  long_leg: high
+  evaluation_version: v1
+- id: 029
   name: mean_turnover_20
-- category: liquidity
-  expression: Delta(Mean($turnover_rate, 5), 5)
-  ic_mean: -0.0216
-  id: '030'
-  name: turnover_change_5
-- category: liquidity
-  expression: Std($turnover_rate, 20)
-  ic_mean: -0.0436
-  id: '031'
-  name: turnover_vol_20
-- category: liquidity
-  expression: Std($turnover_rate, 60)
-  ic_mean: -0.0351
-  id: '032'
-  name: turnover_vol_60
-- category: liquidity
-  expression: Mean($turnover_rate, 5)
-  ic_mean: -0.0455
-  id: '033'
-  name: mean_turnover_5
-- category: valuation
-  expression: Rank($pb_ratio, 60)
+  expression: Mean($turnover_rate, 20)
+  source: dsl
+  category: liquidity
+  status: legacy
   ic_mean: -0.0379
-  id: '034'
+  long_leg: low
+  evaluation_version: v1
+- id: '030'
+  name: turnover_change_5
+  expression: Delta(Mean($turnover_rate, 5), 5)
+  source: dsl
+  category: liquidity
+  status: legacy
+  ic_mean: -0.0216
+  long_leg: low
+  evaluation_version: v1
+- id: '031'
+  name: turnover_vol_20
+  expression: Std($turnover_rate, 20)
+  source: dsl
+  category: liquidity
+  status: legacy
+  ic_mean: -0.0436
+  long_leg: low
+  evaluation_version: v1
+- id: '032'
+  name: turnover_vol_60
+  expression: Std($turnover_rate, 60)
+  source: dsl
+  category: liquidity
+  status: legacy
+  ic_mean: -0.0351
+  long_leg: low
+  evaluation_version: v1
+- id: '033'
+  name: mean_turnover_5
+  expression: Mean($turnover_rate, 5)
+  source: dsl
+  category: liquidity
+  status: legacy
+  ic_mean: -0.0455
+  long_leg: low
+  evaluation_version: v1
+- id: '034'
   name: pb_ratio_rank_60
-- category: valuation
+  expression: Rank($pb_ratio, 60)
+  source: dsl
+  category: valuation
+  status: legacy
+  ic_mean: -0.0379
+  long_leg: low
+  evaluation_version: v1
+- id: '035'
+  name: pb_x_reversal_10
   expression: Mul(Div(1, Add($pb_ratio, 0.001)), Mul(Sub(Div($close,Ref($close,10)),1),
     -1))
+  source: dsl
+  category: valuation
+  status: legacy
   ic_mean: 0.0331
-  id: '035'
-  name: pb_x_reversal_10
+  long_leg: high
+  evaluation_version: v1
+- id: '036'
+  name: vol_up_ret_20
+  expression: Mean(If(Greater(Delta($volume,1),0),Sub(Div($close,Ref($close,1)),1),0),20)
   source: dsl
-- category: other
-  expression: Mul(Div(1, Add($circ_market_cap, 1)), Div(1, Add($ps_ratio, 0.001)))
-  ic_mean: 0.02056
-  id: 039
-  name: size_x_ps
-  source: dsl
-- category: other
-  expression: Mul(Div(1, Add($circ_market_cap, 1)), Div(1, Add($pb_ratio, 0.001)))
-  ic_mean: 0.03147
-  id: 038
+  category: volume
+  status: legacy
+  ic_mean: -0.0426
+  long_leg: low
+  evaluation_version: v1
+- id: 038
   name: size_x_pb
+  expression: Mul(Div(1, Add($circ_market_cap, 1)), Div(1, Add($pb_ratio, 0.001)))
+  source: dsl
+  category: other
+  status: legacy
+  ic_mean: null
+  long_leg: null
+  evaluation_version: v1
+- id: 039
+  name: size_x_ps
+  expression: Mul(Div(1, Add($circ_market_cap, 1)), Div(1, Add($ps_ratio, 0.001)))
+  source: dsl
+  category: other
+  status: legacy
+  ic_mean: null
+  long_leg: null
+  evaluation_version: v1
 - id: '040'
   name: pe_x_pb_rank_product
   expression: Mul(Rank($pe_ratio, 60), Rank($pb_ratio, 60))
-  category: valuation
-  ic_mean: -0.02751836807642751
   source: dsl
+  category: valuation
+  status: legacy
+  ic_mean: -0.02751836807642751
+  long_leg: low
+  evaluation_version: v1
 - id: '042'
   name: ps_rank_60
   expression: Rank($ps_ratio, 60)
-  category: valuation
-  ic_mean: -0.0361
   source: dsl
+  category: valuation
+  status: legacy
+  ic_mean: -0.0361
+  long_leg: low
+  evaluation_version: v1
 - id: '043'
   name: amount_cv_10_60
   expression: Div(Std($amount, 10), Add(Mean($amount, 60), 1))
-  category: volume
-  ic_mean: -0.037537458914321184
   source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.037537458914321184
+  long_leg: low
+  evaluation_version: v1
 - id: '044'
   name: price_reversal_60
   expression: Div(Ref($close, 60), Add($close, 0.001))
-  category: momentum
-  ic_mean: 0.029589043237424284
   source: dsl
+  category: momentum
+  status: legacy
+  ic_mean: 0.029589043237424284
+  long_leg: high
+  evaluation_version: v1
 - id: '045'
   name: amount_cv_5_20
   expression: Div(Std($amount, 5), Add(Mean($amount, 20), 1))
-  category: volume
-  ic_mean: -0.03469307385665702
   source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.03469307385665702
+  long_leg: low
+  evaluation_version: v1
 - id: '047'
   name: vwap_close_ratio
   expression: Div($amount, Add(Mul($close, $volume), 1))
-  category: volume
-  ic_mean: 0.033875220212459485
   source: dsl
+  category: volume
+  status: legacy
+  ic_mean: 0.033875220212459485
+  long_leg: high
+  evaluation_version: v1
 - id: 048
   name: size_x_inverse_pe
   expression: Mul(Div(1,Add($circ_market_cap,1)), Div(1,Add(Abs($pe_ratio),1)))
-  category: other
-  ic_mean: 0.011907494958347916
   source: dsl
+  category: other
+  status: legacy
+  ic_mean: 0.011907494958347916
+  long_leg: high
+  evaluation_version: v1
 - id: '053'
   name: shadow_product
   expression: Mul(Div(Sub($high,$close),Add(Sub($high,$low),0.001)),Div(Sub($close,$low),Add(Sub($high,$low),0.001)))
-  category: candlestick
-  ic_mean: -0.01834103757802576
   source: dsl
+  category: candlestick
+  status: legacy
+  ic_mean: -0.01834103757802576
+  long_leg: low
+  evaluation_version: v1
 - id: '054'
   name: upper_shadow_x_turnover
   expression: Mul(Div(Sub($high,$close),Add(Sub($high,$low),0.001)),Mean($turnover_rate,5))
-  category: other
-  ic_mean: -0.019118115392177858
   source: dsl
+  category: other
+  status: legacy
+  ic_mean: -0.019118115392177858
+  long_leg: low
+  evaluation_version: v1
 - id: '055'
   name: signed_turnover_vol
   expression: Mul(Sign(Sub(Div($close,Ref($close,1)),1)),Std($turnover_rate,5))
-  category: liquidity
-  ic_mean: -0.02878739476219484
   source: dsl
+  category: liquidity
+  status: legacy
+  ic_mean: -0.02878739476219484
+  long_leg: low
+  evaluation_version: v1
 - id: '056'
   name: ret_volchange_cov_10
   expression: Cov(Sub(Div($close,Ref($close,1)),1), Sub(Div($volume,Ref($volume,1)),1),
     10)
-  category: volume
-  ic_mean: -0.04192535411392606
   source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.04192535411392606
+  long_leg: low
+  evaluation_version: v1
 - id: '061'
   name: up_volume_ratio_20
-  expression: Div(Sum(If(Greater(Delta($close,1)
+  expression: Div(Sum(If(Greater(Delta($close,1),0),$volume,0),20),Add(Sum($volume,20),1))
+  source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.0228324183426614
+  long_leg: low
+  evaluation_version: v1
 - id: '062'
   name: vol_rank_minus_turnover_rank
   expression: Sub(Rank(Std(Sub(Div($close,Ref($close,1)),1),10),60),Rank(Mean($turnover_rate,10),60))
-  category: other
-  ic_mean: 0.017953933249647887
   source: dsl
+  category: other
+  status: legacy
+  ic_mean: 0.017953933249647887
+  long_leg: high
+  evaluation_version: v1
 - id: '067'
   name: vol_peak_timing_20
   expression: Div(IdxMax($volume,20),20)
-  category: volume
-  ic_mean: -0.02103555175887144
   source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.02103555175887144
+  long_leg: low
+  evaluation_version: v1
 - id: 068
   name: close_ma10_over_range
   expression: Div(Sub($close,Mean($close,10)),Add(Sub($high,$low),0.001))
-  category: candlestick
-  ic_mean: -0.03670174348918007
   source: dsl
+  category: candlestick
+  status: legacy
+  ic_mean: -0.03670174348918007
+  long_leg: low
+  evaluation_version: v1
 - id: 069
   name: gap_x_turnover
   expression: Mul(Div(Sub($open,Ref($close,1)),Add(Ref($close,1),0.001)),Mean($turnover_rate,5))
-  category: microstructure
-  ic_mean: 0.009249
   source: dsl
+  category: microstructure
+  status: legacy
+  ic_mean: 0.009249
+  long_leg: high
+  evaluation_version: v1
 - id: '070'
   name: gap_x_turnover
   expression: Mul(Div(Sub($open,Ref($close,1)),Add(Ref($close,1),0.001)),Mean($turnover_rate,5))
-  category: microstructure
-  ic_mean: 0.009249
   source: dsl
-- id: '036'
-  name: vol_up_ret_20
-  expression: Mean(If(Greater(Delta($volume,1),0),Sub(Div($close,Ref($close,1)),1),0),20)
-  category: volume
-  ic_mean: -0.0426
+  category: microstructure
+  status: legacy
+  ic_mean: 0.009249
+  long_leg: high
+  evaluation_version: v1
 - id: '071'
   name: pe_change_60
   expression: Div(Sub(Ref($pe_ratio,60),$pe_ratio),Add(Ref($pe_ratio,60),0.001))
-  category: valuation
-  ic_mean: 0.016440991187290883
   source: dsl
+  category: valuation
+  status: legacy
+  ic_mean: 0.016440991187290883
+  long_leg: high
+  evaluation_version: v1
 - id: '072'
   name: pt_corr_20
   expression: Corr($close,$turnover_rate,20)
-  category: volume
-  ic_mean: -0.027031357120364596
   source: dsl
+  category: volume
+  status: legacy
+  ic_mean: -0.027031357120364596
+  long_leg: low
+  evaluation_version: v1
 - id: '073'
   name: cov_turnover_pb_60
   expression: Cov($turnover_rate,$pb_ratio,60)
-  category: other
-  ic_mean: -0.028589121591396465
   source: dsl
+  category: other
+  status: legacy
+  ic_mean: -0.028589121591396465
+  long_leg: low
+  evaluation_version: v1
 - id: '074'
   name: cov_amount_ps_60
   expression: Cov($amount,$ps_ratio,60)
-  category: other
-  ic_mean: -0.025949705446292284
   source: dsl
+  category: other
+  status: legacy
+  ic_mean: -0.025949705446292284
+  long_leg: low
+  evaluation_version: v1
 - id: '075'
   name: cov_turnover_body_120
   expression: Cov($turnover_rate,Div(Sub($close,$open),Add(Sub($high,$low),0.001)),120)
-  category: liquidity
-  ic_mean: -0.026403390594685994
   source: dsl
+  category: liquidity
+  status: legacy
+  ic_mean: -0.026403390594685994
+  long_leg: low
+  evaluation_version: v1
