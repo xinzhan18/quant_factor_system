@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -20,6 +19,9 @@ from core.factor_stats import (
     quintile_returns as _shared_quintile_returns,
 )
 from .config import MiningConfig
+from .domain.results import BatchResult, _clean_factor_dict  # noqa: F401 — re-export for backward compat
+from .domain.similarity import compute_structural_similarity, check_lookahead_bias  # noqa: F401
+from .domain.policies import _candidate_cache_key, _is_python_candidate  # noqa: F401
 from .expression import ExpressionValidator
 from .metrics import FactorReportCard, compute_report_card
 from .operators import register_custom_operators
@@ -28,121 +30,11 @@ from .preprocessing import FactorPreprocessor
 logger = logging.getLogger(__name__)
 
 
-def compute_structural_similarity(code1: str, code2: str) -> float:
-    """Jaccard similarity of ops call signatures between two Python factors."""
-    from mining.expression import ExpressionValidator
-    validator = ExpressionValidator()
-    ops1 = set(validator.extract_ops_calls(code1))
-    ops2 = set(validator.extract_ops_calls(code2))
-    if not ops1 and not ops2:
-        return 0.0
-    if not ops1 or not ops2:
-        return 0.0
-    return len(ops1 & ops2) / len(ops1 | ops2)
-
-
-def check_lookahead_bias(code: str) -> bool:
-    """Static analysis for common lookahead patterns in Python factor code.
-
-    Checks for the most frequent lookahead anti-pattern: calling .shift() with
-    a negative argument, which would pull future data into the current row.
-
-    Args:
-        code: Python source code string to analyse.
-
-    Returns:
-        True if a potential lookahead pattern is detected, False otherwise.
-        Also returns False when ``code`` cannot be parsed (syntax error).
-    """
-    import ast
-    try:
-        tree = ast.parse(code)
-    except SyntaxError:
-        return False
-
-    for node in ast.walk(tree):
-        # shift with negative values: df['close'].shift(-5)
-        if (isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "shift"):
-            for arg in node.args:
-                if isinstance(arg, ast.UnaryOp) and isinstance(arg.op, ast.USub):
-                    return True
-                if (isinstance(arg, ast.Constant)
-                        and isinstance(arg.value, (int, float))
-                        and arg.value < 0):
-                    return True
-    return False
-
-
 # Optional Qlib import — patched in tests via `mining.evaluator.D`
 try:
     from qlib.data import D
 except ImportError:
     D = None  # type: ignore[assignment]
-
-
-def _candidate_cache_key(c: Dict[str, Any]) -> str:
-    """Derive a stable cache key for a candidate (DSL expression or Python code hash)."""
-    if c.get("expression"):
-        return c["expression"]
-    # Python factors: use first 100 chars of code as cache key
-    return c.get("code", "")[:100]
-
-
-def _is_python_candidate(c: Dict[str, Any]) -> bool:
-    """Return True if the candidate represents a Python factor (not a DSL expression)."""
-    return c.get("source") == "python" or c.get("type") == "python"
-
-
-def _clean_factor_dict(c: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract only serializable fields from a factor dict (whitelist approach)."""
-    ALLOWED_KEYS = {
-        "name", "expression", "category", "rationale", "batch",
-        "stage1", "stage2", "stage3", "full_ic", "report_card",
-        "validation_error", "reject_reason",
-        # Python factor / logic-guided evolution keys
-        "source", "code", "code_path", "type", "params", "param_space",
-        "logic_id", "lineage",
-    }
-    return {k: v for k, v in c.items() if k in ALLOWED_KEYS}
-
-
-@dataclass
-class BatchResult:
-    """Result of a batch evaluation.
-
-    ``screened`` contains factors that passed Stage 1-2 hard filters and have
-    a full 6-dimension FactorReportCard.  They are *not* automatically admitted
-    — the LLM in the Ralph Loop skill reviews them and decides.
-
-    ``admitted`` is an alias kept for backward compatibility (same list).
-    """
-    screened: List[Dict[str, Any]] = field(default_factory=list)
-    rejected: List[Dict[str, Any]] = field(default_factory=list)
-    replacements: List[Dict[str, Any]] = field(default_factory=list)
-
-    @property
-    def admitted(self) -> List[Dict[str, Any]]:
-        """Backward-compatible alias for screened."""
-        return self.screened
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Return a clean, serializable dict for YAML/JSON export."""
-        clean_replacements = []
-        for r in self.replacements:
-            if isinstance(r, dict) and "new_factor" in r:
-                clean_replacements.append({
-                    "new_factor": _clean_factor_dict(r["new_factor"]),
-                    "replaces": r.get("replaces"),
-                })
-            else:
-                clean_replacements.append(_clean_factor_dict(r))
-        return {
-            "screened": [_clean_factor_dict(c) for c in self.screened],
-            "rejected": [_clean_factor_dict(c) for c in self.rejected],
-            "replacements": clean_replacements,
-        }
 
 
 class FactorMiningEvaluator:
