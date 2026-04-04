@@ -69,23 +69,6 @@ def cmd_library(args):
         print(f"  [{f['id']}] {f['name']}: IC={f.get('ic_mean', 'N/A')}")
 
 
-def _normalize_metrics(stage3: dict, full_ic: dict) -> dict:
-    """Normalize stage3/full_ic keys to standard metric names for library storage.
-
-    stage3 uses ic_mean_is/ic_ir_is, but library expects ic_mean/ic_ir.
-    """
-    return {
-        "ic_mean": stage3.get("ic_mean_is") or full_ic.get("ic_mean"),
-        "ic_std": full_ic.get("ic_std"),
-        "ic_ir": stage3.get("ic_ir_is") or full_ic.get("ic_ir"),
-        "ic_win_rate": stage3.get("ic_win_rate") or full_ic.get("ic_win_rate"),
-        "ic_mean_oos": stage3.get("ic_mean_oos"),
-        "ic_ir_oos": stage3.get("ic_ir_oos"),
-        "quantile_returns": stage3.get("quantile_returns"),
-        "ls_return": stage3.get("ls_return"),
-        "monotonicity": stage3.get("monotonicity"),
-    }
-
 
 def cmd_batch(args):
     """Evaluate a batch of candidate factors from a YAML file."""
@@ -209,21 +192,6 @@ def cmd_batch(args):
             logger.warning("Hard-gated %s: %s", f['name'],
                            [r["code"] for r in f['hard_gate_reject']])
 
-    # 自动录取（--admit 跳过 LLM 审判，直接录取所有筛选通过的因子）
-    if result.screened and args.admit:
-        lib = FactorLibrary(config)
-        for f in result.screened:
-            f['metrics'] = _normalize_metrics(f.get('stage3', {}), f.get('full_ic', {}))
-            fid = lib.admit(f)
-            logger.info("已录取到因子库: %s → factor_%s", f['name'], fid)
-
-    if result.replacements and args.admit:
-        lib = FactorLibrary(config)
-        for r in result.replacements:
-            new_f = r['new_factor']
-            new_f['metrics'] = _normalize_metrics(new_f.get('stage3', {}), new_f.get('full_ic', {}))
-            lib.replace(r['replaces'], new_f)
-            logger.info("已替换: factor_%s → %s", r['replaces'], new_f['name'])
 
 
 def cmd_probe(args):
@@ -454,7 +422,7 @@ def main():
     p_batch.add_argument("--screening-size", type=int, default=50)
     p_batch.add_argument("--skip-stage1", action="store_true",
                          help="跳过 Stage 1 快筛（候选已通过 Probe 验证时使用）")
-    p_batch.add_argument("--admit", action="store_true", help="自动将录取因子加入因子库")
+
 
     # library
     p_lib = sub.add_parser("library", help="查看因子库状态")
