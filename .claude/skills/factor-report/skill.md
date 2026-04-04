@@ -28,16 +28,11 @@ PYTHONPATH=src python3 -m report.builder --factor-id FACTOR_ID --vault
 **全部因子：**
 ```bash
 cd /Users/xinzhan/.openclaw/workspace/quant_factor_system
-PYTHONPATH=src python3 -c "
-import psycopg2
-from mining.config import MiningConfig
-conn = psycopg2.connect(MiningConfig().system.database.connection_string)
-cur = conn.cursor()
-cur.execute(\"SELECT factor_id FROM factor_meta WHERE status = 'admitted'\")
-ids = [r[0] for r in cur.fetchall()]
-conn.close()
-print(' '.join(ids))
-" | xargs -n1 -I{} bash -c 'echo "Building F{}..." && PYTHONPATH=src python3 -m report.builder --factor-id {} --vault'
+# Registry detail YAML (factor_XXX.yaml) is now the primary metadata source.
+# DB factor_meta is a derived cache / fallback only.
+for id in $(ls storage/library/factors/factor_*.yaml | sed 's/.*factor_//;s/.yaml//'); do
+  echo "Building F${id}..." && PYTHONPATH=src python3 -m report.builder --factor-id "$id" --vault
+done
 ```
 
 这会在 `storage/vault/assets/FXXX/` 下生成 18 张 PNG 图表和 `report_data.json`。

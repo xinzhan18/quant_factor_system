@@ -82,10 +82,11 @@ RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Mini
 - **Multiprocessing**: Set `C.kernels = 1` — worker processes don't inherit custom `_ops` registry
 - **`D.instruments('all')`** returns a dict, not a list — pass it to `D.features()` then extract instruments from the index
 - **`factor_values` DB table** — has 147M+ rows in TimescaleDB (`quant_data` database). Stage 2 loads library factor values from DB via a single batched query. DB is a Docker container: `timescale/timescaledb:latest-pg14` on `localhost:5432`. Do NOT run Homebrew PostgreSQL simultaneously — it will shadow port 5432 and intercept connections.
-- **`evaluate_batch()`** returns `BatchResult` but does NOT persist to library — must call `lib.admit()` separately
+- **`evaluate_batch()`** returns `BatchResult` but does NOT persist to library — must call `lib.admit()` separately. `evaluate_batch()` now adds canonical `f['metrics']` dict to screened factors — no need for manual metric normalization
 - **Unavailable Qlib operators**: `Neg`, `TsRank`, `TsMax`, `TsMin`, `SMA` — use alternatives like `Mul($x, -1)` for Neg
 - **`$vwap`** field is zero in current data — avoid using it in expressions
 - **`$amount`** has data (confirmed)
+- **Registry detail YAML is the metadata truth source** for factor records. DB `factor_meta` is a derived cache. New code must NOT read factor metadata from `src/data/loaders.py` — use `FactorLibrary` instead
 - **YAML safety**: Result files may contain pandas DataFrames — use `yaml.unsafe_load` when reading them, but always `yaml.safe_load` for config/candidate files
 
 ## Environment

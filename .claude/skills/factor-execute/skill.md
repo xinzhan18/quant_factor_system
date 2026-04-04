@@ -71,4 +71,4 @@ PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-
 - `filter_suspend` / `filter_limit` — 股票池过滤（默认 True）
 - `winsorize_method` / `winsorize_n` — 异常值处理（默认 "mad" / 5.0）
 - `standardize_method` — "zscore" 或 "rank"（默认 "zscore"）
-- `neutralize_mode` — "none", "market_cap", "industry", "both"（默认 "none"）
+- `neutralize_mode` — "none", "market_cap", "industry", "both"（默认 "market_cap"）

@@ -70,6 +70,27 @@ user_invocable: true
 
 ## 第3步：执行录取
 
+## 强制步骤：录取前写 admission_history
+
+```python
+from mining.memory import ExperienceMemory
+from mining.config import MiningConfig
+
+mem = ExperienceMemory(MiningConfig())
+mem.save_admission_history(batch_id, {
+    'factor_id': factor['factor_id'],
+    'name': factor['name'],
+    'expression': factor['expression'],
+    'decision': 'admit',  # or 'replace' or 'reject'
+    'reason': '...',
+    'metrics': report_card,
+})
+```
+
+此步骤不可跳过。必须在 `lib.admit()` / `lib.replace()` 之前执行。
+
+---
+
 对判定**录取**的因子：
 
 ```python

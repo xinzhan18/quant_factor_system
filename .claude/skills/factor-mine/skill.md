@@ -66,7 +66,7 @@ PYTHONPATH=src python3 -m mining logic schedule
 
 1. 读取 `batch_XXX_result.yaml`
 2. **LLM 审判**（强制）：6 维报告卡，录取/淘汰/替换
-3. **执行录取**：`lib.admit()` / `lib.replace()`
+3. **执行录取**：`lib.admit()` / `lib.replace()`（录取后因子 `status=active, evaluation_version=v2`）
 4. **Direction Feedback**（强制）：
    - 按方向聚合结果
    - 更新方向文件（frontmatter + body 追加）
@@ -111,9 +111,6 @@ PYTHONPATH=src python3 -m mining memory
 
 # 批次评估（跳过Stage1，不录取）
 PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
-
-# 批次评估 + 自动录取
-PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1 --admit
 
 # 市场逻辑管理（外循环）
 PYTHONPATH=src python3 -m mining logic list          # 列出所有逻辑
