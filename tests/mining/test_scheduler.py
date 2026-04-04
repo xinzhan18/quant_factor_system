@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from mining.scheduler import Scheduler
+from mining.logic import Scheduler
 
 
 # ---------------------------------------------------------------------------

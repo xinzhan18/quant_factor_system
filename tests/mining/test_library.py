@@ -4,7 +4,7 @@ import yaml
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from mining.library import FactorLibrary
+from mining.registry import FactorLibrary
 
 
 @pytest.fixture

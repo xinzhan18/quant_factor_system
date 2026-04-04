@@ -130,7 +130,7 @@ class TestContextPromptExpanded:
 
     def test_coverage_map_section_with_logic_lib(self, memory, tmp_path):
         """Taxonomy Coverage section appears when logic library has active entries."""
-        from mining.logic_library import MarketLogicLibrary
+        from mining.logic import MarketLogicLibrary
 
         logic_dir = tmp_path / "logic"
         logic_dir.mkdir()
@@ -145,7 +145,7 @@ class TestContextPromptExpanded:
 
     def test_active_logics_section_with_logic_lib(self, memory, tmp_path):
         """Active Market Logics section appears when there are active logics."""
-        from mining.logic_library import MarketLogicLibrary
+        from mining.logic import MarketLogicLibrary
 
         logic_dir = tmp_path / "logic2"
         logic_dir.mkdir()

@@ -2,7 +2,7 @@
 
 import pytest
 
-from mining.evaluator import check_lookahead_bias
+from mining.domain.similarity import check_lookahead_bias
 
 
 def test_no_lookahead_simple():

@@ -10,8 +10,9 @@ from pathlib import Path
 from scipy.stats import spearmanr
 
 from mining.config import MiningConfig
-from mining.evaluator import FactorMiningEvaluator, BatchResult
-from mining.library import FactorLibrary
+from mining.evaluator import FactorMiningEvaluator
+from mining.domain.results import BatchResult
+from mining.registry import FactorLibrary
 
 
 @pytest.fixture
@@ -399,7 +400,7 @@ class TestPythonFactorDispatch:
 
     def test_clean_factor_dict_allows_new_keys(self):
         """New Python/logic-guided keys survive _clean_factor_dict."""
-        from mining.evaluator import _clean_factor_dict
+        from mining.domain.results import _clean_factor_dict
         candidate = {
             "name": "test",
             "expression": "Rank($close)",
@@ -427,37 +428,37 @@ class TestPythonFactorDispatch:
 
     def test_is_python_candidate_source(self):
         """_is_python_candidate detects source='python'."""
-        from mining.evaluator import _is_python_candidate
+        from mining.domain.policies import _is_python_candidate
         assert _is_python_candidate({"source": "python", "code": "x"}) is True
         assert _is_python_candidate({"source": "dsl", "expression": "X"}) is False
 
     def test_is_python_candidate_type(self):
         """_is_python_candidate detects type='python'."""
-        from mining.evaluator import _is_python_candidate
+        from mining.domain.policies import _is_python_candidate
         assert _is_python_candidate({"type": "python", "code": "x"}) is True
         assert _is_python_candidate({"type": "dsl", "expression": "X"}) is False
 
     def test_is_python_candidate_dsl_default(self):
         """DSL candidates (no source/type) are not Python."""
-        from mining.evaluator import _is_python_candidate
+        from mining.domain.policies import _is_python_candidate
         assert _is_python_candidate({"expression": "Rank($close)"}) is False
 
     def test_candidate_cache_key_dsl(self):
         """DSL candidates use expression as cache key."""
-        from mining.evaluator import _candidate_cache_key
+        from mining.domain.policies import _candidate_cache_key
         c = {"expression": "Rank($close)", "name": "test"}
         assert _candidate_cache_key(c) == "Rank($close)"
 
     def test_candidate_cache_key_python(self):
         """Python candidates use first 100 chars of code as cache key."""
-        from mining.evaluator import _candidate_cache_key
+        from mining.domain.policies import _candidate_cache_key
         code = "return df['close'].rolling(20).std()"
         c = {"source": "python", "code": code, "name": "test"}
         assert _candidate_cache_key(c) == code
 
     def test_candidate_cache_key_python_long_code(self):
         """Long Python code is truncated to 100 chars for cache key."""
-        from mining.evaluator import _candidate_cache_key
+        from mining.domain.policies import _candidate_cache_key
         code = "x" * 200
         c = {"source": "python", "code": code, "name": "test"}
         assert len(_candidate_cache_key(c)) == 100
