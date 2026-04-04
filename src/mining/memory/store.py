@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 import yaml
 
-from .config import MiningConfig
+from ..config import MiningConfig
 
 logger = logging.getLogger(__name__)
 
