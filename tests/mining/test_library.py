@@ -107,7 +107,7 @@ class TestExpressions:
 
 class TestPublisherIntegration:
     def test_admit_calls_publisher_when_values_present(self, library):
-        with patch("mining.publisher.FactorPublisher") as MockPub:
+        with patch("mining.registry.publisher.FactorPublisher") as MockPub:
             mock_instance = MockPub.return_value
             mock_instance.__enter__ = MagicMock(return_value=mock_instance)
             mock_instance.__exit__ = MagicMock(return_value=False)
@@ -126,7 +126,7 @@ class TestPublisherIntegration:
             mock_instance.publish.assert_called_once()
 
     def test_admit_skips_publisher_when_no_values(self, library):
-        with patch("mining.publisher.FactorPublisher") as MockPub:
+        with patch("mining.registry.publisher.FactorPublisher") as MockPub:
             factor = {
                 "name": "Test", "expression": "Rank($close)", "category": "momentum",
                 "batch": "b1", "metrics": {"ic_mean": 0.05},
@@ -139,7 +139,7 @@ class TestPublisherIntegration:
             "name": "Old", "expression": "Rank($close)", "category": "momentum",
             "batch": "b1", "metrics": {"ic_mean": 0.04},
         })
-        with patch("mining.publisher.FactorPublisher") as MockPub:
+        with patch("mining.registry.publisher.FactorPublisher") as MockPub:
             mock_instance = MockPub.return_value
             mock_instance.__enter__ = MagicMock(return_value=mock_instance)
             mock_instance.__exit__ = MagicMock(return_value=False)
