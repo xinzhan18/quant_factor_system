@@ -16,14 +16,20 @@ def init_qlib(qlib_dir: str = "~/.qlib/qlib_data/cn_data_1d") -> None:
     C.kernels = 1
 
 
-def resolve_full_universe() -> list:
+def resolve_full_universe(universe: str = "all") -> list:
     """Resolve the full stock universe from Qlib.
+
+    Parameters
+    ----------
+    universe : str
+        Stock universe identifier passed to ``D.instruments()``.
+        Examples: ``"all"``, ``"csi300"``, ``"csi1000"``.
 
     Must be called after :func:`init_qlib`.
     """
     from qlib.data import D
 
-    inst_dict = D.instruments("all")
+    inst_dict = D.instruments(universe)
     df_temp = D.features(
         instruments=inst_dict,
         fields=["$close"],

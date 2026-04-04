@@ -15,9 +15,9 @@ def cmd_probe(args):
 
     from mining.application.qlib_runtime import init_qlib, resolve_full_universe
     init_qlib(args.qlib_dir)
-    all_instruments = resolve_full_universe()
+    all_instruments = resolve_full_universe(args.universe)
 
-    config = MiningConfig(custom_universe=all_instruments)
+    config = MiningConfig(universe=args.universe, custom_universe=all_instruments)
     evaluator = FactorMiningEvaluator(config)
     result = evaluator.probe_single(
         expression=args.expression,

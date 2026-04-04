@@ -135,7 +135,7 @@ class DataSynchronizer:
 
             # Write as Qlib binary format:
             #   header: start_index as float32 (first non-NaN calendar index)
-            #   data:   float32 values for each calendar day
+            #   data:   float32 values from start_index onwards (no leading NaNs)
             start_idx = 0
             for i, v in enumerate(values):
                 if not np.isnan(v):
@@ -145,7 +145,7 @@ class DataSynchronizer:
             bin_path = sym_dir / f"{field}.day.bin"
             with open(bin_path, "wb") as f:
                 f.write(struct.pack("<f", float(start_idx)))
-                for v in values:
+                for v in values[start_idx:]:
                     f.write(struct.pack("<f", v))
 
     def sync_minute_aggregates(self, start: str = "2024-01-01", end: str = None) -> None:
@@ -230,6 +230,68 @@ class DataSynchronizer:
             self._write_symbol_features(str(symbol), grp, minute_fields, calendar)
 
         logger.info("Minute aggregates sync complete: %d symbols", agg_df["symbol"].nunique())
+
+    def sync_universe(self, index_name: str) -> dict:
+        """Generate Qlib instruments file for an index universe from DB constituent data.
+
+        Reads daily constituent snapshots from ``index_constituents`` table,
+        merges consecutive membership dates into time intervals, and writes
+        ``instruments/{index_name}.txt``.
+
+        Returns dict with stats: n_symbols, n_intervals, date_range.
+        """
+        df = self.db.query_index_constituents(index_name)
+        if df.empty:
+            logger.warning("No constituent data for %s in DB", index_name)
+            return {"n_symbols": 0, "n_intervals": 0}
+
+        df["time"] = pd.to_datetime(df["time"])
+        df = df.sort_values(["symbol", "time"])
+
+        # Merge consecutive dates into intervals.
+        # Gap > 15 calendar days between samples → new interval.
+        # (Weekly sampling + long holidays like CNY/National Day can span ~14 days)
+        gap_threshold = pd.Timedelta(days=15)
+        intervals = []
+
+        for symbol, grp in df.groupby("symbol"):
+            dates = grp["time"].sort_values().reset_index(drop=True)
+            if dates.empty:
+                continue
+            interval_start = dates.iloc[0]
+            prev = dates.iloc[0]
+            for i in range(1, len(dates)):
+                curr = dates.iloc[i]
+                if curr - prev > gap_threshold:
+                    intervals.append((symbol, interval_start, prev))
+                    interval_start = curr
+                prev = curr
+            intervals.append((symbol, interval_start, prev))
+
+        if not intervals:
+            logger.warning("No intervals built for %s", index_name)
+            return {"n_symbols": 0, "n_intervals": 0}
+
+        # Write instruments file
+        inst_dir = self.qlib_dir / "instruments"
+        inst_dir.mkdir(parents=True, exist_ok=True)
+        inst_path = inst_dir / f"{index_name}.txt"
+
+        lines = []
+        for sym, start, end in sorted(intervals):
+            lines.append(f"{sym}\t{start.strftime('%Y-%m-%d')}\t{end.strftime('%Y-%m-%d')}")
+        inst_path.write_text("\n".join(lines) + "\n")
+
+        n_symbols = len(set(sym for sym, _, _ in intervals))
+        logger.info("Universe %s: %d symbols, %d intervals -> %s",
+                     index_name, n_symbols, len(intervals), inst_path)
+
+        return {
+            "n_symbols": n_symbols,
+            "n_intervals": len(intervals),
+            "date_range": (intervals[0][1].strftime("%Y-%m-%d"),
+                           intervals[-1][2].strftime("%Y-%m-%d")),
+        }
 
     def incremental_update(self) -> None:
         """Incremental update: sync only data newer than the last calendar entry."""

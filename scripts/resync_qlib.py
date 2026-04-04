@@ -147,56 +147,78 @@ def write_qlib(df: pd.DataFrame) -> dict:
         "symbols": {},  # symbol -> {n_valid_days, first_day, last_day}
     }
 
-    n_symbols = len(symbols)
-    for idx, (symbol, group) in enumerate(df.groupby("symbol")):
-        sym_dir = feat_dir / str(symbol)
-        sym_dir.mkdir(parents=True, exist_ok=True)
+    # ── Vectorized write: pivot each field to (date × symbol) matrix ──
+    #
+    # Instead of looping per-symbol per-field per-day, we:
+    #   1. Map each row's date string to its calendar index (vectorized)
+    #   2. For each field, pivot to a (n_days × n_symbols) float32 matrix
+    #   3. Write each column (= one symbol) as a binary file
+    #
+    # This replaces ~180M Python dict lookups with a single pandas pivot.
 
-        # Build date→row mapping
-        group_indexed = group.set_index(group["time"].dt.strftime("%Y-%m-%d"))
+    import time as _time
+    t_start = _time.perf_counter()
 
-        # Track valid days for this symbol (from close field)
-        valid_days_in_db = group_indexed.index.tolist()
-        sym_stats = {
-            "n_valid_days": len(valid_days_in_db),
-            "first_day": group["time"].min().strftime("%Y-%m-%d"),
-            "last_day": group["time"].max().strftime("%Y-%m-%d"),
+    # Map dates to calendar indices (vectorized)
+    date_strs = df["time"].dt.strftime("%Y-%m-%d")
+    cal_idx_series = date_strs.map(cal_index)
+
+    # Collect available fields
+    available_fields = [f for f in FIELDS if f in df.columns]
+
+    # Build per-symbol stats (vectorized groupby)
+    sym_groups = df.groupby("symbol")["time"]
+    for symbol in symbols:
+        grp = sym_groups.get_group(symbol)
+        stats["symbols"][symbol] = {
+            "n_valid_days": len(grp),
+            "first_day": grp.min().strftime("%Y-%m-%d"),
+            "last_day": grp.max().strftime("%Y-%m-%d"),
         }
 
-        for field in FIELDS:
-            if field not in group_indexed.columns:
+    logger.info("  stats built in %.1fs", _time.perf_counter() - t_start)
+
+    # Create all symbol directories at once
+    for symbol in symbols:
+        (feat_dir / symbol).mkdir(parents=True, exist_ok=True)
+
+    # Process field by field: pivot → write all symbols
+    n_symbols = len(symbols)
+    for field in available_fields:
+        t_field = _time.perf_counter()
+
+        # Build a (n_days × n_symbols) matrix via pivot
+        pivot_df = df.pivot_table(
+            index=cal_idx_series, columns="symbol", values=field,
+            aggfunc="first",
+        )
+        # Reindex to full calendar range, fill missing with NaN
+        pivot_df = pivot_df.reindex(range(n_days))
+        matrix = pivot_df.values.astype(np.float32)  # shape: (n_days, n_symbols)
+        col_to_idx = {col: i for i, col in enumerate(pivot_df.columns)}
+
+        # Write each symbol's column as a binary file
+        for sym_idx, symbol in enumerate(symbols):
+            col_idx = col_to_idx.get(symbol)
+            if col_idx is None:
+                # Symbol has no data for this field — skip
                 continue
+            col = matrix[:, col_idx]
 
-            values = np.full(n_days, np.nan, dtype=np.float32)
-            for day in valid_days_in_db:
-                cal_idx = cal_index.get(day)
-                if cal_idx is None:
-                    continue
-                row = group_indexed.loc[day]
-                if isinstance(row, pd.DataFrame):
-                    row = row.iloc[0]
-                val = row[field]
-                if pd.notna(val):
-                    values[cal_idx] = np.float32(val)
+            # Find start_index
+            non_nan = np.where(~np.isnan(col))[0]
+            start_idx = int(non_nan[0]) if len(non_nan) > 0 else 0
 
-            # Find start_index: first non-NaN value
-            non_nan_indices = np.where(~np.isnan(values))[0]
-            start_idx = int(non_nan_indices[0]) if len(non_nan_indices) > 0 else 0
-
-            # Write Qlib binary: [start_index:f32] [values:f32 * n_days]
-            bin_path = sym_dir / f"{field}.day.bin"
+            bin_path = feat_dir / symbol / f"{field}.day.bin"
             with open(bin_path, "wb") as f:
-                f.write(struct.pack("<f", float(start_idx)))
-                values.tofile(f)
+                np.array([start_idx], dtype="<f").tofile(f)
+                col[start_idx:].tofile(f)
 
-        stats["symbols"][str(symbol)] = sym_stats
-
-        if (idx + 1) % 500 == 0:
-            logger.info("  written: %d/%d symbols", idx + 1, n_symbols)
+        logger.info("  field %-20s written in %.1fs", field, _time.perf_counter() - t_field)
 
     logger.info(
-        "Qlib write complete: %d symbols, %d days, %d fields",
-        n_symbols, n_days, len(FIELDS),
+        "Qlib write complete: %d symbols, %d days, %d fields (%.1fs total)",
+        n_symbols, n_days, len(available_fields), _time.perf_counter() - t_start,
     )
     return stats
 
@@ -216,7 +238,7 @@ def validate(stats: dict) -> bool:
     """
     n_days = stats["n_days"]
     n_symbols = stats["n_symbols"]
-    expected_bin_size = (1 + n_days) * 4  # header + data
+    max_bin_size = (1 + n_days) * 4  # header + full-length data (start_index=0)
 
     errors = []
     warnings = []
@@ -261,26 +283,35 @@ def validate(stats: dict) -> bool:
                 continue
 
             size = bin_path.stat().st_size
-            if size != expected_bin_size:
+            if size > max_bin_size or size < 8:
                 bad_size += 1
                 errors.append(
                     f"Bad size: {symbol}/{field}.day.bin "
-                    f"expected={expected_bin_size} got={size}"
+                    f"max={max_bin_size} got={size}"
                 )
                 continue
 
-            # Check header
+            # Check header and size consistency
             with open(bin_path, "rb") as f:
                 header = np.frombuffer(f.read(4), dtype="<f")[0]
             if np.isnan(header):
                 bad_header += 1
-                # Only error if the symbol actually has data for this field
                 if field == "close":
                     errors.append(f"NaN header: {symbol}/{field}.day.bin")
+            else:
+                # Size should be: (1 + n_days - start_index) * 4
+                start_idx = int(header)
+                expected_size = (1 + n_days - start_idx) * 4
+                if size != expected_size:
+                    bad_size += 1
+                    errors.append(
+                        f"Size mismatch: {symbol}/{field}.day.bin "
+                        f"start_idx={start_idx} expected={expected_size} got={size}"
+                    )
 
         # Check close.day.bin non-NaN count matches DB
         close_path = sym_dir / "close.day.bin"
-        if close_path.exists() and close_path.stat().st_size == expected_bin_size:
+        if close_path.exists() and close_path.stat().st_size >= 8:
             with open(close_path, "rb") as f:
                 f.read(4)  # skip header
                 data = np.frombuffer(f.read(), dtype="<f")

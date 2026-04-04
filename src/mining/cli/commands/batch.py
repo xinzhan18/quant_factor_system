@@ -33,10 +33,11 @@ def cmd_batch(args):
     # 3. Call init_qlib() and resolve_full_universe()
     from mining.application.qlib_runtime import init_qlib, resolve_full_universe
     init_qlib(args.qlib_dir)
-    all_instruments = resolve_full_universe()
+    all_instruments = resolve_full_universe(args.universe)
 
     # 4. Build MiningConfig
     config = MiningConfig(
+        universe=args.universe,
         custom_universe=all_instruments,
         train_start=args.train_start,
         train_end=args.train_end,

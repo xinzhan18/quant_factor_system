@@ -34,6 +34,7 @@ RiceQuant Data Source Adapter
 """
 
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from pathlib import Path
@@ -250,9 +251,125 @@ class RiceQuantSource:
             symbols.append(symbol)
         
         return symbols
-    
+
+    # ==================== 指数成分股 ====================
+
+    INDEX_CODE_MAP = {
+        "csi300": "000300.XSHG",
+        "csi500": "000905.XSHG",
+        "csi1000": "000852.XSHG",
+    }
+
+    @staticmethod
+    def _rq_to_internal(order_book_id: str) -> str:
+        """
+        Convert RiceQuant order_book_id to internal symbol format.
+
+        Examples:
+            '600000.XSHG' -> 'SH600000'
+            '000001.XSHE' -> 'SZ000001'
+            '600000.SH'   -> 'SH600000'
+            '000001.SZ'   -> 'SZ000001'
+        """
+        code, suffix = order_book_id.split('.')
+        if suffix in ('XSHG', 'SH'):
+            return f"SH{code}"
+        elif suffix in ('XSHE', 'SZ'):
+            return f"SZ{code}"
+        else:
+            return order_book_id
+
+    def get_index_constituents(
+        self,
+        index_name: str,
+        date: str = None
+    ) -> List[str]:
+        """
+        Get constituent stocks of a given index.
+
+        Args:
+            index_name: Index key (e.g. 'csi300', 'csi500', 'csi1000')
+            date: Query date (YYYY-MM-DD or YYYYMMDD), defaults to latest
+
+        Returns:
+            List of internal symbols like ['SH600000', 'SZ000001']
+
+        Raises:
+            ValueError: If index_name is not in INDEX_CODE_MAP
+        """
+        if index_name not in self.INDEX_CODE_MAP:
+            raise ValueError(
+                f"Unknown index '{index_name}'. "
+                f"Available: {list(self.INDEX_CODE_MAP.keys())}"
+            )
+
+        if not RQDATAC_AVAILABLE:
+            logger.warning("rqdatac not available, returning empty constituent list")
+            return []
+
+        code = self.INDEX_CODE_MAP[index_name]
+
+        try:
+            components = rq.index_components(code, date=date)
+            return [self._rq_to_internal(ob_id) for ob_id in components]
+        except Exception as e:
+            logger.error(f"Failed to fetch index constituents for {index_name}: {e}")
+            return []
+
+    def get_index_constituents_history(
+        self,
+        index_name: str,
+        start_date: str,
+        end_date: str
+    ) -> pd.DataFrame:
+        """
+        Get historical index constituents sampled at weekly frequency.
+
+        Args:
+            index_name: Index key (e.g. 'csi300', 'csi500', 'csi1000')
+            start_date: Start date (YYYY-MM-DD or YYYYMMDD)
+            end_date: End date (YYYY-MM-DD or YYYYMMDD)
+
+        Returns:
+            DataFrame with columns [date, symbol, index_name].
+            date is in YYYY-MM-DD string format.
+        """
+        if not RQDATAC_AVAILABLE:
+            logger.warning("rqdatac not available, returning empty DataFrame")
+            return pd.DataFrame(columns=['date', 'symbol', 'index_name'])
+
+        try:
+            trading_dates = rq.get_trading_dates(start_date, end_date)
+        except Exception as e:
+            logger.error(f"Failed to fetch trading dates: {e}")
+            return pd.DataFrame(columns=['date', 'symbol', 'index_name'])
+
+        # Daily sampling for accurate constituent tracking
+        sampled_dates = trading_dates
+
+        rows = []
+        for i, d in enumerate(sampled_dates):
+            date_str = d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d)
+
+            symbols = self.get_index_constituents(index_name, date=date_str)
+            for sym in symbols:
+                rows.append({
+                    'date': date_str,
+                    'symbol': sym,
+                    'index_name': index_name,
+                })
+
+            if (i + 1) % 50 == 0:
+                logger.info(
+                    f"Index constituents progress: {i + 1}/{len(sampled_dates)} dates fetched"
+                )
+
+            time.sleep(0.1)  # Rate limit between API calls
+
+        return pd.DataFrame(rows, columns=['date', 'symbol', 'index_name'])
+
     # ==================== 日线数据 ====================
-    
+
     # 日线数据默认包含的涨跌停字段
     DAILY_FIELDS_WITH_LIMITS = [
         'open', 'high', 'low', 'close', 'volume',

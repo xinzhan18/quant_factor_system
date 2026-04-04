@@ -20,6 +20,18 @@ PYTHONPATH=src python3 -m mining probe "Std($close, 20)"
 PYTHONPATH=src python3 -m mining library
 PYTHONPATH=src python3 -m mining memory
 
+# Multi-universe mining (--universe flag on batch/probe/evaluate)
+PYTHONPATH=src python3 -m mining probe "Std($close, 20)" --universe csi1000
+PYTHONPATH=src python3 -m mining batch batch.yaml --universe csi300
+
+# Index constituent sync (RiceQuant API → DB → Qlib instruments file)
+PYTHONPATH=src python3 scripts/sync_index_constituents.py csi1000
+PYTHONPATH=src python3 scripts/sync_index_constituents.py csi300
+PYTHONPATH=src python3 scripts/sync_index_constituents.py --all
+
+# Qlib binary resync (TimescaleDB → Qlib binary, ~1 min vectorized)
+PYTHONPATH=src python3 scripts/resync_qlib.py
+
 # Report generation
 PYTHONPATH=src python3 -m report.builder --factor-id 001 --vault
 
@@ -54,8 +66,23 @@ RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Mini
                market_daily (11M rows)                            Stage 2 reads  Stage 3    Report Builder
                factor_values (147M rows)  ─────────────────────► library corr              → Markdown + PNG
                ref_valuation / ref_shares                          from DB
-               factor_meta (28 rows)
+               index_constituents (2.7M rows)                      ↓
+               factor_meta (28 rows)                          instruments/*.txt
 ```
+
+### Multi-Universe Support
+
+The system supports mining on different stock universes (full market, CSI 300, CSI 1000).
+
+**How it works**: Feature binary files (`features/{SYMBOL}/*.bin`) are shared across all universes — they contain data for all 5431 stocks. Only the `instruments/{universe}.txt` files differ. Qlib's `D.instruments("csi1000")` reads `instruments/csi1000.txt` and automatically filters to index constituents per date.
+
+**Data pipeline**: `scripts/sync_index_constituents.py` fetches daily constituent snapshots from RiceQuant API → stores in `index_constituents` DB table → merges consecutive dates into time intervals → writes `instruments/{name}.txt`. Gap threshold is 15 calendar days (handles CNY/National Day holidays).
+
+**Runtime**: `--universe` flag on `batch`/`probe`/`evaluate` commands flows through `MiningConfig.universe` → `D.instruments(universe)` in the evaluator. The evaluator's `_resolve_universe()` already parameterized — no evaluator changes needed.
+
+**DB table**: `index_constituents(time DATE, symbol TEXT, index_name TEXT)` — stores one row per (date, symbol, index) membership. ~2.7M rows for CSI 1000 over 10 years.
+
+**Cross-sectional operators** (`CsRank`, `CsZscore` in `operators.py`) always compute over the full market (`D.instruments("all")`), regardless of the mining universe. This is correct — cross-sectional rank should reference all stocks.
 
 ### Storage Layout (`storage/`)
 
@@ -98,6 +125,8 @@ storage/
 - **`$amount`** has data (confirmed)
 - **Registry detail YAML is the metadata truth source** for factor records. DB `factor_meta` is a derived cache. New code must NOT read factor metadata from `src/data/loaders.py` — use `FactorLibrary` instead
 - **YAML safety**: Result files may contain pandas DataFrames — use `yaml.unsafe_load` when reading them, but always `yaml.safe_load` for config/candidate files
+- **Qlib binary format**: File = `[start_index:f32][data:f32×N]`. `start_index` is the calendar index of the first data point; data contains ONLY values from `start_index` onwards (no leading NaNs). `resync_qlib.py` uses vectorized pivot_table writes (~1 min for 5431 stocks × 17 fields). Do NOT write full-length arrays with non-zero start_index — Qlib will read wrong offsets.
+- **`index_constituents` DB table** — stores daily index membership. Synced from RiceQuant via `scripts/sync_index_constituents.py`. Available indices: `csi300`, `csi500`, `csi1000`
 
 ## Environment
 

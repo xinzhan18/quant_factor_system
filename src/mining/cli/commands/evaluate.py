@@ -13,6 +13,7 @@ def cmd_evaluate(args):
     system = SystemConfig(qlib_data_dir=args.qlib_dir)
     config = MiningConfig(
         system=system,
+        universe=args.universe,
         train_start=args.train_start,
         train_end=args.train_end,
         test_start=args.test_start,

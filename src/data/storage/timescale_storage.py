@@ -242,9 +242,115 @@ class TimescaleDB:
     def create_all_tables(self):
         """创建所有表"""
         tables = ['market_1min', 'market_5min', 'market_daily']
-        
+
         for table in tables:
             self.create_hypertable(table)
+
+        self.create_index_constituents_table()
+
+    def create_index_constituents_table(self):
+        """创建指数成分股表 (regular table, not hypertable — small data volume)"""
+        if self._conn is None:
+            logger.warning("⚠️ 模拟模式: 跳过创建 index_constituents 表")
+            return
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS index_constituents (
+                    time DATE NOT NULL,
+                    symbol TEXT NOT NULL,
+                    index_name TEXT NOT NULL,
+                    UNIQUE(time, symbol, index_name)
+                );
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_ic_index_time
+                ON index_constituents(index_name, time);
+            """)
+
+            logger.info("✅ index_constituents 表创建成功")
+
+    def save_index_constituents(self, df: pd.DataFrame) -> int:
+        """
+        保存指数成分股数据
+
+        Args:
+            df: DataFrame with columns [time, symbol, index_name]
+
+        Returns:
+            插入的记录数
+        """
+        if df.empty:
+            return 0
+
+        if self._conn is None:
+            logger.info("⚠️ 模拟模式: 跳过插入 index_constituents")
+            return len(df)
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            records = 0
+            batch_size = 10000
+
+            for i in range(0, len(df), batch_size):
+                batch = df.iloc[i:i+batch_size]
+
+                args_str = ','.join(cursor.mogrify(
+                    "(%s, %s, %s)",
+                    (row['time'], row['symbol'], row['index_name'])
+                ).decode() for _, row in batch.iterrows())
+
+                cursor.execute(f"""
+                    INSERT INTO index_constituents (time, symbol, index_name)
+                    VALUES {args_str}
+                    ON CONFLICT (time, symbol, index_name) DO NOTHING
+                """)
+
+                records += len(batch)
+
+        logger.info(f"✅ 插入 index_constituents: {records} 条")
+        return records
+
+    def query_index_constituents(
+        self,
+        index_name: str,
+        start_date: str = None,
+        end_date: str = None
+    ) -> pd.DataFrame:
+        """
+        查询指数成分股
+
+        Args:
+            index_name: 指数名称
+            start_date: 开始日期 (可选)
+            end_date: 结束日期 (可选)
+
+        Returns:
+            DataFrame with columns [time, symbol, index_name]
+        """
+        if self._conn is None:
+            return pd.DataFrame()
+
+        query = "SELECT time, symbol, index_name FROM index_constituents WHERE index_name = %s"
+        params = [index_name]
+
+        if start_date:
+            query += " AND time >= %s"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND time <= %s"
+            params.append(end_date)
+
+        query += " ORDER BY time, symbol"
+
+        with self.connection() as conn:
+            df = pd.read_sql(query, conn, params=params)
+
+        return df
     
     # ==================== 数据操作 ====================
     
