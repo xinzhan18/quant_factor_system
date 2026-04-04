@@ -10,7 +10,7 @@ user_invocable: true
 
 ## 第1步：查找待审判结果
 
-扫描 `storage/candidates/` 目录：
+扫描 `storage/mining/candidates/` 目录：
 - 找编号最大的 `batch_XXX_result.yaml`
 - 如果没有结果文件 → 提示用户："没有待审判的结果。请先运行 `/execute` 评估候选。"
 
@@ -146,7 +146,7 @@ lib.replace(old_id, new_factor)
 
 ### 4b. 更新方向文件
 
-对每个参与本轮的方向，更新 `storage/memory/directions/{方向名}.md`：
+对每个参与本轮的方向，更新 `storage/mining/memory/directions/{方向名}.md`：
 
 **Frontmatter 更新：**
 - `attempts`: +1
@@ -175,7 +175,7 @@ lib.replace(old_id, new_factor)
 
 ### 4d. 更新 directions.yaml 索引
 
-读取所有方向文件的 frontmatter，重建 `storage/memory/directions.yaml`。
+读取所有方向文件的 frontmatter，重建 `storage/mining/memory/directions.yaml`。
 
 或者使用 Python：
 ```python
@@ -202,7 +202,7 @@ next_round_hint: "williams_r 变异录取1个(IC=0.055)，继续 rank 变换。a
 
 ### 4f. 保存批次历史
 
-保存到 `storage/memory/history/batch_XXX.yaml`：
+保存到 `storage/mining/memory/history/batch_XXX.yaml`：
 
 ```yaml
 batch_id: batch_XXX
@@ -235,7 +235,7 @@ key_learnings:
 
 如果本轮遇到了新的工程问题、算子发现、或市场洞察，追加到：
 ```
-storage/memory/mining-lessons.md
+storage/mining/memory/mining-lessons.md
 ```
 
 ### 4j. Logic Feedback
@@ -243,7 +243,7 @@ storage/memory/mining-lessons.md
 审判完所有因子后，更新市场逻辑统计：
 ```python
 from mining.logic_library import MarketLogicLibrary
-logic_lib = MarketLogicLibrary("storage/logic")
+logic_lib = MarketLogicLibrary("storage/mining/logic")
 # 对本批次中的每个 logic_id：
 logic_lib.update_stats(logic_id,
     factors_generated=N_generated,
@@ -276,7 +276,7 @@ mem.add_forbidden(pattern, reason)
 删除 evaluate 阶段生成的 pickle 缓存文件（因子值已写入 DB，不再需要）：
 
 ```bash
-rm -f storage/candidates/batch_XXX_values.pkl
+rm -f storage/mining/candidates/batch_XXX_values.pkl
 ```
 
 ### 4i. 验证

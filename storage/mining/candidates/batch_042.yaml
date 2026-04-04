@@ -1,0 +1,58 @@
+batch_id: "batch_042"
+timestamp: "2026-04-03T03:18:00"
+candidates:
+  - name: pa_corr_times_vol_10
+    expression: "Mul(Corr($close,$amount,10),Std(Sub(Div($close,Ref($close,1)),1),10))"
+    category: volume
+    logic_id: L003
+    direction: pv_corr_mutation
+    rationale: "F009 mutation: $volume→$amount. Corr(price,amount,10)×Vol(10). Probe IC=-0.043, ICIR=-0.300. $amount = price × volume, adds price-squared effect to correlation."
+
+  - name: pa_corr_times_vol_5
+    expression: "Mul(Corr($close,$amount,5),Std(Sub(Div($close,Ref($close,1)),1),5))"
+    category: volume
+    logic_id: L003
+    direction: pv_corr_mutation
+    rationale: "F009/F026 mutation: 5d window with $amount. Probe IC=-0.039, ICIR=-0.285."
+
+  - name: pt_corr_times_vol_10
+    expression: "Mul(Corr($close,$turnover_rate,10),Std(Sub(Div($close,Ref($close,1)),1),10))"
+    category: volume
+    logic_id: L003
+    direction: pv_corr_mutation
+    rationale: "F009 mutation: $volume→$turnover_rate. Probe IC=-0.041, ICIR=-0.306. Cap-neutral: turnover_rate = volume/float."
+
+  - name: pt_corr_times_vol_20
+    expression: "Mul(Corr($close,$turnover_rate,20),Std(Sub(Div($close,Ref($close,1)),1),20))"
+    category: volume
+    logic_id: L003
+    direction: pv_corr_mutation
+    rationale: "Price-turnover corr × vol 20d. Probe IC=-0.038, ICIR=-0.281. Longer window."
+
+  - name: pa_corr_10
+    expression: "Corr($close,$amount,10)"
+    category: volume
+    logic_id: L003
+    direction: pa_corr_standalone
+    rationale: "Standalone price-amount correlation 10d. IC=-0.034, ICIR=-0.250. Without vol multiplier, may have different corr profile vs library."
+
+  - name: pt_corr_x_turnover_rank
+    expression: "Mul(Corr($close,$turnover_rate,10),Rank($turnover_rate,20))"
+    category: volume
+    logic_id: L004
+    direction: pv_corr_x_liquidity
+    rationale: "Price-turnover corr × turnover rank. IC=-0.036, ICIR=-0.285. Corr amplified by relative liquidity position."
+
+  - name: pt_corr_20
+    expression: "Corr($close,$turnover_rate,20)"
+    category: volume
+    logic_id: L003
+    direction: pt_corr_standalone
+    rationale: "Standalone price-turnover correlation 20d. IC=-0.032, ICIR=-0.249. Pure cap-neutral price-liquidity interaction."
+
+  - name: volume_ratio_5_20
+    expression: "Div(Sum($volume,5),Add(Sum($volume,20),1))"
+    category: volume
+    logic_id: L003
+    direction: volume_momentum
+    rationale: "Recent volume concentration ratio. IC=-0.021, ICIR=-0.179. Simple, regime-robust."

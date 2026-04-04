@@ -1,0 +1,133 @@
+batch_id: "baseline_B"
+timestamp: "2026-03-24T10:00:00"
+description: "Advanced/Interaction Factors — PV interaction, rolling extremes, distribution, multi-scale, regime"
+candidates:
+  # === Price-Volume Interaction ===
+  - name: "pv_corr_10"
+    expression: "Corr($close, $volume, 10)"
+    category: "volume"
+    rationale: "Short-term price-volume correlation"
+
+  - name: "pv_corr_60"
+    expression: "Corr($close, $volume, 60)"
+    category: "volume"
+    rationale: "Long-term price-volume correlation"
+
+  - name: "ret_vol_cov_20"
+    expression: "Cov($close/Ref($close,1)-1, $volume, 20)"
+    category: "volume"
+    rationale: "Return-volume covariance — unsigned PV interaction"
+
+  - name: "pv_corr_change"
+    expression: "Sub(Corr($close, $volume, 5), Corr($close, $volume, 60))"
+    category: "volume"
+    rationale: "PV correlation short vs long — coordination change"
+
+  - name: "signed_volume_change"
+    expression: "Mul(Sign($close/Ref($close,1)-1), Log(Div($volume, Ref($volume,1))))"
+    category: "volume"
+    rationale: "Return sign * log volume change — directional volume"
+
+  # === Rolling Extremes ===
+  - name: "idx_max_20"
+    expression: "IdxMax($close, 20)"
+    category: "momentum"
+    rationale: "Days since 20-day high"
+
+  - name: "idx_min_20"
+    expression: "IdxMin($close, 20)"
+    category: "momentum"
+    rationale: "Days since 20-day low"
+
+  - name: "high_low_timing_gap"
+    expression: "Sub(IdxMax($close, 20), IdxMin($close, 20))"
+    category: "momentum"
+    rationale: "Gap between high/low timing — trend shape"
+
+  - name: "position_in_60d_range"
+    expression: "Div(Sub(Max($close,60), $close), Sub(Max($close,60), Min($close,60)))"
+    category: "momentum"
+    rationale: "Position within 60-day price range"
+
+  - name: "dist_from_low_over_vol"
+    expression: "Div(Sub($close, Min($close, 20)), Std($close, 20))"
+    category: "volatility"
+    rationale: "Distance from 20d low normalized by vol"
+
+  # === Distribution ===
+  - name: "skew_returns_60"
+    expression: "Skew($close/Ref($close,1)-1, 60)"
+    category: "distribution"
+    rationale: "60-day return skewness"
+
+  - name: "kurt_returns_60"
+    expression: "Kurt($close/Ref($close,1)-1, 60)"
+    category: "distribution"
+    rationale: "60-day return kurtosis — tail risk"
+
+  - name: "quantile_90_ret_20"
+    expression: "Quantile($close/Ref($close,1)-1, 20, 0.9)"
+    category: "distribution"
+    rationale: "90th percentile of 20-day returns"
+
+  - name: "quantile_10_ret_20"
+    expression: "Quantile($close/Ref($close,1)-1, 20, 0.1)"
+    category: "distribution"
+    rationale: "10th percentile of 20-day returns"
+
+  - name: "interquantile_range_20"
+    expression: "Sub(Quantile($close/Ref($close,1)-1, 20, 0.9), Quantile($close/Ref($close,1)-1, 20, 0.1))"
+    category: "distribution"
+    rationale: "IQR of 20-day returns — robust dispersion"
+
+  # === Multi-scale ===
+  - name: "momentum_acceleration"
+    expression: "Sub($close/Ref($close,5)-1, $close/Ref($close,20)-1)"
+    category: "momentum"
+    rationale: "5d minus 20d return — momentum acceleration"
+
+  - name: "vol_term_structure"
+    expression: "Sub(Std($close/Ref($close,1)-1, 5), Std($close/Ref($close,1)-1, 60))"
+    category: "volatility"
+    rationale: "Short minus long volatility — vol term structure"
+
+  - name: "volume_acceleration"
+    expression: "Div(Mean($volume, 5), Mean($volume, 20))"
+    category: "volume"
+    rationale: "5d/20d volume ratio — volume acceleration"
+
+  - name: "pv_corr_term_structure"
+    expression: "Sub(Corr($close,$volume,5), Corr($close,$volume,20))"
+    category: "volume"
+    rationale: "PV correlation term structure"
+
+  - name: "ema_ratio_5_60"
+    expression: "Div(EMA($close, 5), EMA($close, 60))"
+    category: "momentum"
+    rationale: "EMA(5)/EMA(60) — medium-term momentum"
+
+  # === Regime/Conditional ===
+  - name: "pv_corr_regime_switch"
+    expression: "If(Greater(Corr($close,$volume,20), 0), $close/Ref($close,5)-1, Mul($close/Ref($close,5)-1, -1))"
+    category: "regime"
+    rationale: "Positive PV corr → momentum; negative → reversal"
+
+  - name: "volume_regime_pv_corr"
+    expression: "If(Greater(Mean($volume,5), Mean($volume,20)), Corr($close,$volume,10), Mul(Corr($close,$volume,10), -1))"
+    category: "regime"
+    rationale: "High volume regime → PV corr; low → flipped PV corr"
+
+  - name: "price_position_regime"
+    expression: "If(Gt(Div(Sub($close, Min($close,20)), Sub(Max($close,20), Min($close,20))), 0.8), Mul($close/Ref($close,5)-1, -1), $close/Ref($close,5)-1)"
+    category: "regime"
+    rationale: "Near 20d high → reversal; otherwise momentum"
+
+  - name: "vol_regime_resi_vs_slope"
+    expression: "If(Greater(Std($close/Ref($close,1)-1,10), Std($close/Ref($close,1)-1,60)), Resi($close,10), Slope($close,10))"
+    category: "regime"
+    rationale: "High vol regime → residual; low vol → slope"
+
+  - name: "pv_corr_regime_range"
+    expression: "If(Greater(Corr($close,$volume,20), 0), Mean(Div(Sub($high,$low),$close),5), Mean(Div(Sub($high,$low),$close),60))"
+    category: "regime"
+    rationale: "PV coordination → short-term range; divergence → long-term range"

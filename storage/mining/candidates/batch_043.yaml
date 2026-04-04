@@ -1,0 +1,58 @@
+batch_id: "batch_043"
+timestamp: "2026-04-03T04:20:00"
+candidates:
+  - name: pt_corr_10
+    expression: "Corr($close,$turnover_rate,10)"
+    category: volume
+    logic_id: L003
+    direction: pt_corr_window
+    rationale: "F072 variant with 10d window. Probe IC=-0.032, ICIR=-0.253. Shorter window may capture faster dynamics."
+
+  - name: pt_corr_5
+    expression: "Corr($close,$turnover_rate,5)"
+    category: volume
+    logic_id: L003
+    direction: pt_corr_window
+    rationale: "F072 variant with 5d window. Even shorter, more responsive."
+
+  - name: turnover_pb_corr_20
+    expression: "Corr($turnover_rate,$pb_ratio,20)"
+    category: other
+    logic_id: L009
+    direction: liquidity_fundamental_corr
+    rationale: "Turnover-PB correlation 20d. Probe IC=-0.031, ICIR=-0.250. Novel: when turnover rises with PB (buying expensive), stock underperforms."
+
+  - name: turnover_pb_corr_10
+    expression: "Corr($turnover_rate,$pb_ratio,10)"
+    category: other
+    logic_id: L009
+    direction: liquidity_fundamental_corr
+    rationale: "Turnover-PB corr 10d variant. Shorter window."
+
+  - name: price_pb_corr_20
+    expression: "Corr($close,$pb_ratio,20)"
+    category: valuation
+    logic_id: L009
+    direction: price_fundamental_corr
+    rationale: "Price-PB correlation 20d. IC=-0.023, ICIR=-0.191. How tightly price tracks PB."
+
+  - name: turnover_momentum_5_20
+    expression: "Div(Mean($turnover_rate,5),Add(Mean($turnover_rate,20),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_momentum
+    rationale: "Turnover rate short/long ratio 5/20. IC=-0.025, ICIR=-0.232. Rising turnover = overheating."
+
+  - name: turnover_momentum_5_60
+    expression: "Div(Mean($turnover_rate,5),Add(Mean($turnover_rate,60),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_momentum
+    rationale: "Turnover momentum 5/60. IC=-0.023, ICIR=-0.179. Longer baseline."
+
+  - name: shadow_ratio_10
+    expression: "Mean(Div(Sub($high,$close),Add(Sub($close,$low),0.001)),10)"
+    category: candlestick
+    logic_id: L007
+    direction: shadow_asymmetry
+    rationale: "Avg upper/lower shadow ratio 10d. IC=+0.017, ICIR=+0.166. High upper shadow vs low lower = selling pressure."

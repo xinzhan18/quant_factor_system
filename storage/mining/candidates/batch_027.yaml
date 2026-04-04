@@ -1,0 +1,82 @@
+batch_id: "batch_027"
+timestamp: "2026-04-02T02:30:00"
+candidates:
+  # ── Direction 1: PS re-exploration (F037 removed) ───────────────────────────
+  - name: inverse_ps
+    expression: "Div(1, Add($ps_ratio, 0.001))"
+    category: valuation
+    logic_id: L009
+    direction: ps_valuation
+    rationale: >
+      Inverse PS ratio. Was F037 (removed in cleanup). Probe IC=+0.022, ICIR=+0.233.
+      With F037 gone, correlation barrier removed. Re-test if it passes the new 30-factor library.
+
+  - name: ps_rank_60
+    expression: "Rank($ps_ratio, 60)"
+    category: valuation
+    logic_id: L009
+    direction: ps_valuation
+    rationale: >
+      60-day rolling rank of PS ratio. Probe IC=-0.023, ICIR=-0.137. Structural
+      analog of F034 (pb_ratio_rank_60) but using PS dimension. Likely low corr.
+
+  - name: ps_rank_20
+    expression: "Rank($ps_ratio, 20)"
+    category: valuation
+    logic_id: L009
+    direction: ps_valuation
+    rationale: >
+      20-day rolling rank of PS ratio. Shorter window than 60d, captures more recent
+      PS regime. May have different corr profile with F034.
+
+  # ── Direction 2: Slope re-exploration (F006/F007 removed) ───────────────────
+  - name: slope_10
+    expression: "Slope($close, 10)"
+    category: trend
+    logic_id: L002
+    direction: slope_trend
+    rationale: >
+      10-day price slope. Probe IC=-0.025, ICIR=-0.168. F006 (Resi 5d) was removed,
+      F007 (regime resi vs slope) also removed. The slope/trend signal space is now
+      wide open. Simple slope may now pass correlation screen.
+
+  - name: slope_20
+    expression: "Slope($close, 20)"
+    category: trend
+    logic_id: L002
+    direction: slope_trend
+    rationale: >
+      20-day price slope. Longer trend measure. Different from 10d in capturing
+      medium-term rather than short-term trend direction.
+
+  - name: slope_acceleration
+    expression: "Sub(Slope($close, 5), Slope($close, 20))"
+    category: trend
+    logic_id: L002
+    direction: slope_trend
+    rationale: >
+      Trend acceleration = short slope minus long slope. Probe IC=-0.018.
+      Positive when recent trend steeper than historical = trend intensifying.
+      Captures trend momentum rather than trend level.
+
+  # ── Direction 3: PE cross + turnover acceleration ───────────────────────────
+  - name: pe_x_reversal_10
+    expression: "Mul(Div(1, Add(Abs($pe_ratio), 1)), Mul(Sub(Div($close, Ref($close, 10)), 1), -1))"
+    category: valuation
+    logic_id: L009
+    direction: pe_cross
+    rationale: >
+      Inverse |PE| × negative 10d return. Probe IC=+0.023, ICIR=+0.146.
+      Cheap earnings (low |PE|) + recent decline = deep value on earnings basis.
+      Structural analog of F035 (pb_x_reversal_10) but using PE dimension.
+
+  - name: turnover_accel_norm
+    expression: "Div(Delta(Mean($turnover_rate, 5), 5), Add(Mean($turnover_rate, 20), 0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_acceleration
+    rationale: >
+      Normalized turnover acceleration. Probe IC=-0.019, ICIR=-0.179.
+      Change in 5d mean turnover over 5 days, normalized by 20d mean.
+      Different from F030 (Delta(Mean(turnover,5),5)) which is unnormalized.
+      Normalization makes it comparable across stocks with different turnover levels.

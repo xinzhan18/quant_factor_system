@@ -1,0 +1,58 @@
+batch_id: "batch_048"
+timestamp: "2026-04-03T19:43:00"
+candidates:
+  - name: cov_amount_range_60
+    expression: "Cov($amount,Sub(Div($high,$low),1),60)"
+    category: volume
+    logic_id: L006
+    direction: liquidity_volatility_cov
+    rationale: "Cov of dollar amount with daily range (60d). Probe IC=-0.035, ICIR=-0.275. When high volume days have wide ranges = volatile trading."
+
+  - name: cov_turnover_range_60
+    expression: "Cov($turnover_rate,Sub(Div($high,$low),1),60)"
+    category: liquidity
+    logic_id: L006
+    direction: liquidity_volatility_cov
+    rationale: "Cov(turnover, range, 60). Probe IC=-0.028, ICIR=-0.306. Cap-neutral version."
+
+  - name: cov_turnover_range_120
+    expression: "Cov($turnover_rate,Sub(Div($high,$low),1),120)"
+    category: liquidity
+    logic_id: L006
+    direction: liquidity_volatility_cov
+    rationale: "Cov(turnover, range, 120d). Probe IC=-0.028, ICIR=-0.342. Semi-annual window."
+
+  - name: cov_turnover_body_60
+    expression: "Cov($turnover_rate,Div(Sub($close,$open),Add(Sub($high,$low),0.001)),60)"
+    category: liquidity
+    logic_id: L007
+    direction: liquidity_candle_cov
+    rationale: "Cov(turnover, candle body ratio, 60d). Probe IC=-0.028, ICIR=-0.380. When high turnover days have strong directional candles."
+
+  - name: cov_turnover_body_120
+    expression: "Cov($turnover_rate,Div(Sub($close,$open),Add(Sub($high,$low),0.001)),120)"
+    category: liquidity
+    logic_id: L007
+    direction: liquidity_candle_cov
+    rationale: "Cov(turnover, body ratio, 120d). Probe IC=-0.030, ICIR=-0.408. Best ICIR in batch."
+
+  - name: cov_amount_body_60
+    expression: "Cov($amount,Div(Sub($close,$open),Add(Sub($high,$low),0.001)),60)"
+    category: volume
+    logic_id: L007
+    direction: liquidity_candle_cov
+    rationale: "Cov(amount, body ratio, 60d). Probe IC=-0.028, ICIR=-0.309."
+
+  - name: cov_amount_range_120
+    expression: "Cov($amount,Sub(Div($high,$low),1),120)"
+    category: volume
+    logic_id: L006
+    direction: liquidity_volatility_cov
+    rationale: "Cov(amount, range, 120d). Probe IC=-0.030, ICIR=-0.241."
+
+  - name: cov_turnover_overnight_60
+    expression: "Cov($turnover_rate,Div(Sub($open,Ref($close,1)),Add(Ref($close,1),0.001)),60)"
+    category: liquidity
+    logic_id: L008
+    direction: liquidity_gap_cov
+    rationale: "Cov(turnover, overnight gap return, 60d). When turnover rises with positive gaps."

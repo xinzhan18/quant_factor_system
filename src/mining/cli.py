@@ -441,7 +441,7 @@ def main():
 
     # library
     p_lib = sub.add_parser("library", help="查看因子库状态")
-    p_lib.add_argument("--library-dir", default="storage/library")
+    p_lib.add_argument("--library-dir", default="storage/registry")
 
     # probe
     p_probe = sub.add_parser("probe", help="Probe a single expression (lightweight IC only)")
@@ -452,7 +452,7 @@ def main():
 
     # memory
     p_mem = sub.add_parser("memory", help="查看挖掘记忆上下文")
-    p_mem.add_argument("--memory-dir", default="storage/memory")
+    p_mem.add_argument("--memory-dir", default="storage/mining/memory")
 
     # logic
     p_logic = sub.add_parser("logic", help="Manage and inspect market logics")
@@ -469,7 +469,7 @@ def main():
     # retire
     p_retire = sub.add_parser("retire", help="Retire a factor from the library")
     p_retire.add_argument("factor_id", help="Factor ID (e.g., 013)")
-    p_retire.add_argument("--library-dir", default="storage/library")
+    p_retire.add_argument("--library-dir", default="storage/registry")
 
     # audit
     p_audit = sub.add_parser("audit", help="Audit direction states (read-only report)")

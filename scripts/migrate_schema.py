@@ -128,7 +128,7 @@ def main():
     parser = argparse.ArgumentParser(description="Migrate factor records to canonical schema")
     parser.add_argument("--apply", action="store_true",
                         help="Apply changes (default is dry-run)")
-    parser.add_argument("--library-dir", default="storage/library")
+    parser.add_argument("--library-dir", default="storage/registry")
     args = parser.parse_args()
     dry_run = not args.apply
 

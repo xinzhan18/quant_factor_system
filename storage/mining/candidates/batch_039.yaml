@@ -1,0 +1,58 @@
+batch_id: "batch_039"
+timestamp: "2026-04-03T00:40:00"
+candidates:
+  - name: down_turnover_ratio_10
+    expression: "Div(Sum(If(Greater(Ref($close,1),$close),$turnover_rate,0),10),Add(Sum($turnover_rate,10),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: down_day_turnover
+    rationale: "Fraction of total turnover on down days (10d). Probe IC=-0.039, ICIR=-0.315. High value = panic selling. Cap-neutral via turnover_rate."
+
+  - name: down_turnover_ratio_20
+    expression: "Div(Sum(If(Greater(Ref($close,1),$close),$turnover_rate,0),20),Add(Sum($turnover_rate,20),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: down_day_turnover
+    rationale: "Down-day turnover ratio 20d. Probe IC=-0.036, ICIR=-0.303. Longer window variant."
+
+  - name: ret_amount_cov_5
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1),Div($amount,Mean($amount,10)),5)"
+    category: volume
+    logic_id: L003
+    direction: ret_amount_covariance
+    rationale: "Covariance of daily return with relative amount (5d). Probe IC=-0.032, ICIR=-0.264. Positive cov = amount rises on up days."
+
+  - name: ret_amount_cov_10
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1),Div($amount,Mean($amount,20)),10)"
+    category: volume
+    logic_id: L003
+    direction: ret_amount_covariance
+    rationale: "Return-amount covariance 10d. Probe IC=-0.029, ICIR=-0.244."
+
+  - name: turnover_wt_ret_10
+    expression: "Div(Mean(Mul(Sub(Div($close,Ref($close,1)),1),$turnover_rate),10),Add(Mean($turnover_rate,10),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_weighted_return
+    rationale: "Turnover-weighted average return (10d). Probe IC=-0.031, ICIR=-0.165. Smart money: high turnover days weighted more."
+
+  - name: turnover_wt_ret_20
+    expression: "Div(Mean(Mul(Sub(Div($close,Ref($close,1)),1),$turnover_rate),20),Add(Mean($turnover_rate,20),0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_weighted_return
+    rationale: "Turnover-weighted return 20d. Probe IC=-0.029, ICIR=-0.165."
+
+  - name: signed_trend_x_amount_ratio
+    expression: "Mul(Sign(Sub(Mean($close,5),Mean($close,20))),Div(Mean($amount,5),Add(Mean($amount,20),1)))"
+    category: volume
+    logic_id: L003
+    direction: trend_amount_interaction
+    rationale: "Trend direction × short/long amount ratio. Probe IC=-0.025, ICIR=-0.180. Uptrend + rising amount = crowded."
+
+  - name: pb_rank_x_5d_ret
+    expression: "Mul(Rank($pb_ratio,60),Sub(Div($close,Ref($close,5)),1))"
+    category: valuation
+    logic_id: L009
+    direction: value_x_momentum
+    rationale: "PB rank × 5d return. Probe IC=-0.023, ICIR=-0.137. Expensive stocks with recent gains are overvalued."

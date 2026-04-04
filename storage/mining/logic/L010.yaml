@@ -1,0 +1,28 @@
+id: L010
+name: 规模效应
+status: active
+category: cross_sectional
+created: '2026-03-31'
+hypothesis:
+  condition: 流通市值截面排名
+  behavior: 小市值股票相对大市值有超额收益（A股小市值溢价）
+  timeframe: 20-60 日
+  direction: 反向：小市值做多
+constraints:
+  required_fields:
+  - circ_market_cap
+  - market_cap
+  suggested_ops:
+  - CsRank
+  - Ref
+  - Log
+  - Mean
+  window_range:
+  - 20
+  - 60
+  notes: market_cap 和 circ_market_cap 均有数据，log 处理后截面效果更稳定
+stats:
+  factors_generated: 3
+  factors_admitted: 0
+  best_ic: 0.034
+  rounds_without_admit: 1

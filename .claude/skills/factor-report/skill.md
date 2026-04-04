@@ -6,7 +6,7 @@ user_invocable: true
 
 # 因子报告生成器（Obsidian Vault 版）
 
-生成包含 7 章分析 + LLM 叙事的 Obsidian Markdown 因子报告，输出到 `storage/vault/`。
+生成包含 7 章分析 + LLM 叙事的 Obsidian Markdown 因子报告，输出到 `storage/evidence/vault/`。
 
 ## 用法
 
@@ -30,18 +30,18 @@ PYTHONPATH=src python3 -m report.builder --factor-id FACTOR_ID --vault
 cd /Users/xinzhan/.openclaw/workspace/quant_factor_system
 # Registry detail YAML (factor_XXX.yaml) is now the primary metadata source.
 # DB factor_meta is a derived cache / fallback only.
-for id in $(ls storage/library/factors/factor_*.yaml | sed 's/.*factor_//;s/.yaml//'); do
+for id in $(ls storage/registry/factors/factor_*.yaml | sed 's/.*factor_//;s/.yaml//'); do
   echo "Building F${id}..." && PYTHONPATH=src python3 -m report.builder --factor-id "$id" --vault
 done
 ```
 
-这会在 `storage/vault/assets/FXXX/` 下生成 18 张 PNG 图表和 `report_data.json`。
+这会在 `storage/evidence/vault/assets/FXXX/` 下生成 18 张 PNG 图表和 `report_data.json`。
 
 ### 第2阶段：生成 Obsidian Markdown（LLM）
 
-对每个因子，读取 `storage/vault/assets/FXXX/report_data.json`，然后用 Write 工具生成 Obsidian Markdown 文件。
+对每个因子，读取 `storage/evidence/vault/assets/FXXX/report_data.json`，然后用 Write 工具生成 Obsidian Markdown 文件。
 
-**文件路径**: `storage/vault/factors/FXXX <name>.md`
+**文件路径**: `storage/evidence/vault/factors/FXXX <name>.md`
 
 **report_data.json 结构（v2 schema）：**
 ```
@@ -346,7 +346,7 @@ tags:
 
 ### 第3阶段：重建总览页（LLM）
 
-读取所有因子的 report_data.json，用 Write 工具生成/更新 `storage/vault/Factor Library.md`。
+读取所有因子的 report_data.json，用 Write 工具生成/更新 `storage/evidence/vault/Factor Library.md`。
 
 **总览页结构：**
 
@@ -387,6 +387,6 @@ tags:
 ### 第4阶段：报告完成
 
 告知用户：
-- 因子报告路径：`storage/vault/factors/FXXX <name>.md`
-- 总览页路径：`storage/vault/Factor Library.md`
-- 提示用户在 Obsidian 中打开 `storage/vault/` 作为 vault
+- 因子报告路径：`storage/evidence/vault/factors/FXXX <name>.md`
+- 总览页路径：`storage/evidence/vault/Factor Library.md`
+- 提示用户在 Obsidian 中打开 `storage/evidence/vault/` 作为 vault

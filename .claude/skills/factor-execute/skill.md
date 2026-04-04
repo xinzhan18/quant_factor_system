@@ -10,7 +10,7 @@ user_invocable: true
 
 ## 第1步：查找待评估批次
 
-扫描 `storage/candidates/` 目录：
+扫描 `storage/mining/candidates/` 目录：
 - 找编号最大的 `batch_XXX.yaml`，且不存在对应的 `batch_XXX_result.yaml`
 - 如果所有批次都已评估 → 提示用户："没有待评估的批次。请先运行 `/idea` 生成候选。"
 
@@ -19,7 +19,7 @@ user_invocable: true
 执行 CLI 命令（**注意：不加 `--admit`，加 `--skip-stage1`**）：
 
 ```bash
-PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-stage1
+PYTHONPATH=src python3 -m mining batch storage/mining/candidates/batch_XXX.yaml --skip-stage1
 ```
 
 **`--skip-stage1` 说明**：候选因子在 `/idea` 的 Probe 阶段已经用全量股票 + 1年数据验证过 IC，不需要再用 50 只股票做快筛。跳过 Stage 1 直接进入 Stage 2（相关性检查）。
@@ -39,7 +39,7 @@ PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-
 
 ## 第3步：验证结果
 
-检查 `storage/candidates/batch_XXX_result.yaml` 已生成。
+检查 `storage/mining/candidates/batch_XXX_result.yaml` 已生成。
 
 ## 第4步：打印摘要
 
@@ -48,7 +48,7 @@ PYTHONPATH=src python3 -m mining batch storage/candidates/batch_XXX.yaml --skip-
 筛选通过: N 个
 淘汰: M 个
 替换候选: K 个
-结果文件: storage/candidates/batch_XXX_result.yaml
+结果文件: storage/mining/candidates/batch_XXX_result.yaml
 ```
 
 **注意**：评估同时会生成 `batch_XXX_values.pkl` 缓存文件，存储 screened 因子的完整因子值。此缓存供 `/judge` 录取时写入 DB，judge 完成后会自动删除。
