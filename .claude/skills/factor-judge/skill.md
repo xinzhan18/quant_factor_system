@@ -38,12 +38,24 @@ user_invocable: true
 理由: [2-3句具体理由，引用报告卡中的数字]
 ```
 
-### 红旗（通常应淘汰）
+### Hard Gates（代码强制 — 已在评估管道中自动执行）
 
-- `ic_sign_consistent = False` — IS/OOS 方向翻转
-- `oos_decay_ratio < 0.3` — 严重过拟合
-- `coverage < 0.5` — 覆盖率过低
-- `monotonicity_oos` 与 `monotonicity_is` 符号相反
+以下条件由 `evaluator._apply_hard_gates()` 强制执行。触发任一条件的因子**不会出现在 screened 列表中**：
+
+| 条件 | 阈值 | 配置项 |
+|------|------|--------|
+| `ic_sign_consistent = False` | — | 不可配置 |
+| `oos_decay_ratio < X` | 0.2 | `hard_gate_oos_decay_min` |
+| `coverage < X` | 0.3 | `hard_gate_coverage_min` |
+| `monotonicity` IS/OOS 符号相反 | — | 不可配置 |
+| `abs(ic_mean_oos) < X` | 0.008 | `hard_gate_ic_oos_min` |
+
+如果在 `screened` 中仍看到触发上述条件的因子，说明代码层 hard gate 未生效，必须手动拒绝。
+
+### 红旗（LLM 裁量 — Hard Gate 之上的额外判断）
+
+- `oos_decay_ratio < 0.5` — 衰减较大（0.2 以下已被 hard gate 拦截）
+- `coverage < 0.5` — 覆盖率偏低（0.3 以下已被 hard gate 拦截）
 - `half_life_days < 1` — 信号存活不到一天
 
 ### 强信号（倾向录取）

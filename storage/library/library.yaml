@@ -29,11 +29,6 @@ factors:
   ic_mean: -0.0341
   id: '010'
   name: hhi_volume_20
-- category: candlestick
-  expression: Mul(Mul(Rank(Rank($open, 10), 60), Rank(Div($close, $open), 60)), -1)
-  ic_mean: 0.035497
-  id: '013'
-  name: alpha038
 - category: momentum
   expression: If(Greater($high, Mean($high, 20)), Mul(Delta($high, 2), -1), 0)
   ic_mean: 0.029621
@@ -146,12 +141,6 @@ factors:
   id: '035'
   name: pb_x_reversal_10
   source: dsl
-- category: liquidity
-  expression: Mul($turnover_rate, Mul(Sub(Div($close,Ref($close,20)),1), -1))
-  ic_mean: 0.0286
-  id: '036'
-  name: turnover_level_x_reversal_20
-  source: dsl
 - category: other
   expression: Mul(Div(1, Add($circ_market_cap, 1)), Div(1, Add($ps_ratio, 0.001)))
   ic_mean: 0.02056
@@ -176,13 +165,125 @@ factors:
   ic_mean: -0.0361
   source: dsl
 - id: '043'
-  name: slope_acceleration
-  expression: Sub(Slope($close, 5), Slope($close, 20))
-  category: trend
-  ic_mean: -0.021
+  name: amount_cv_10_60
+  expression: Div(Std($amount, 10), Add(Mean($amount, 60), 1))
+  category: volume
+  ic_mean: -0.037537458914321184
   source: dsl
-thresholds:
-  correlation_max: 0.7
-  ic_min: 0.01
-  replacement_ic_min: 0.03
-  replacement_ic_ratio: 1.3
+- id: '044'
+  name: price_reversal_60
+  expression: Div(Ref($close, 60), Add($close, 0.001))
+  category: momentum
+  ic_mean: 0.029589043237424284
+  source: dsl
+- id: '045'
+  name: amount_cv_5_20
+  expression: Div(Std($amount, 5), Add(Mean($amount, 20), 1))
+  category: volume
+  ic_mean: -0.03469307385665702
+  source: dsl
+- id: '047'
+  name: vwap_close_ratio
+  expression: Div($amount, Add(Mul($close, $volume), 1))
+  category: volume
+  ic_mean: 0.033875220212459485
+  source: dsl
+- id: 048
+  name: size_x_inverse_pe
+  expression: Mul(Div(1,Add($circ_market_cap,1)), Div(1,Add(Abs($pe_ratio),1)))
+  category: other
+  ic_mean: 0.011907494958347916
+  source: dsl
+- id: '053'
+  name: shadow_product
+  expression: Mul(Div(Sub($high,$close),Add(Sub($high,$low),0.001)),Div(Sub($close,$low),Add(Sub($high,$low),0.001)))
+  category: candlestick
+  ic_mean: -0.01834103757802576
+  source: dsl
+- id: '054'
+  name: upper_shadow_x_turnover
+  expression: Mul(Div(Sub($high,$close),Add(Sub($high,$low),0.001)),Mean($turnover_rate,5))
+  category: other
+  ic_mean: -0.019118115392177858
+  source: dsl
+- id: '055'
+  name: signed_turnover_vol
+  expression: Mul(Sign(Sub(Div($close,Ref($close,1)),1)),Std($turnover_rate,5))
+  category: liquidity
+  ic_mean: -0.02878739476219484
+  source: dsl
+- id: '056'
+  name: ret_volchange_cov_10
+  expression: Cov(Sub(Div($close,Ref($close,1)),1), Sub(Div($volume,Ref($volume,1)),1),
+    10)
+  category: volume
+  ic_mean: -0.04192535411392606
+  source: dsl
+- id: '061'
+  name: up_volume_ratio_20
+  expression: Div(Sum(If(Greater(Delta($close,1)
+- id: '062'
+  name: vol_rank_minus_turnover_rank
+  expression: Sub(Rank(Std(Sub(Div($close,Ref($close,1)),1),10),60),Rank(Mean($turnover_rate,10),60))
+  category: other
+  ic_mean: 0.017953933249647887
+  source: dsl
+- id: '067'
+  name: vol_peak_timing_20
+  expression: Div(IdxMax($volume,20),20)
+  category: volume
+  ic_mean: -0.02103555175887144
+  source: dsl
+- id: 068
+  name: close_ma10_over_range
+  expression: Div(Sub($close,Mean($close,10)),Add(Sub($high,$low),0.001))
+  category: candlestick
+  ic_mean: -0.03670174348918007
+  source: dsl
+- id: 069
+  name: gap_x_turnover
+  expression: Mul(Div(Sub($open,Ref($close,1)),Add(Ref($close,1),0.001)),Mean($turnover_rate,5))
+  category: microstructure
+  ic_mean: 0.009249
+  source: dsl
+- id: '070'
+  name: gap_x_turnover
+  expression: Mul(Div(Sub($open,Ref($close,1)),Add(Ref($close,1),0.001)),Mean($turnover_rate,5))
+  category: microstructure
+  ic_mean: 0.009249
+  source: dsl
+- id: '036'
+  name: vol_up_ret_20
+  expression: Mean(If(Greater(Delta($volume,1),0),Sub(Div($close,Ref($close,1)),1),0),20)
+  category: volume
+  ic_mean: -0.0426
+- id: '071'
+  name: pe_change_60
+  expression: Div(Sub(Ref($pe_ratio,60),$pe_ratio),Add(Ref($pe_ratio,60),0.001))
+  category: valuation
+  ic_mean: 0.016440991187290883
+  source: dsl
+- id: '072'
+  name: pt_corr_20
+  expression: Corr($close,$turnover_rate,20)
+  category: volume
+  ic_mean: -0.027031357120364596
+  source: dsl
+- id: '073'
+  name: cov_turnover_pb_60
+  expression: Cov($turnover_rate,$pb_ratio,60)
+  category: other
+  ic_mean: -0.028589121591396465
+  source: dsl
+- id: '074'
+  name: cov_amount_ps_60
+  expression: Cov($amount,$ps_ratio,60)
+  category: other
+  ic_mean: -0.025949705446292284
+  source: dsl
+- id: '075'
+  name: cov_turnover_body_120
+  expression: Cov($turnover_rate,Div(Sub($close,$open),Add(Sub($high,$low),0.001)),120)
+  category: liquidity
+  ic_mean: -0.026403390594685994
+  source: dsl

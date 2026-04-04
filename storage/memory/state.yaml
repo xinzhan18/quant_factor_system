@@ -1,31 +1,43 @@
 library:
-  size: 30
+  size: 44
   target_size: 100
-  avg_ic: 0.0305
+  avg_ic: 0.031
   correlation_max: 0.7
 mining:
-  total_batches: 30
-  total_candidates: 326
-  total_admitted: 40
-  total_rejected: 271
-  cleanup_2026_04_02: removed 7 weak factors (F003,F006,F007,F016,F017,F023,F037,F040)
-  yield_rate_overall: 0.123
-  last_batch_time: '2026-04-02T01:00:00'
+  total_batches: 48
+  total_candidates: 382
+  total_admitted: 49
+  total_rejected: 333
+  yield_rate_overall: 0.128
+  last_batch_time: '2026-04-03T19:43:00'
 signal_space_analysis:
-  ohlcv_status: EXHAUSTED at corr < 0.7
-  fundamental_status: OPENED
+  ohlcv_status: DEEP EXHAUSTION — most novel OHLCV constructs blocked by corr
+  fundamental_status: OPENED — PE, PB, PS all explored, crossovers active
+  amount_status: amount_cv admitted (CV normalization bypassed vol corr barrier)
   vwap_status: $vwap still zero
-  amount_status: $amount has data, untapped
-  cleanup_impact: >
-    Removing F003/F006/F007/F023 lowers correlation barriers.
-    Factors previously blocked by these may now pass Stage 2.
-    Removing F037(inverse_ps) opens PS-based factors.
+  new_dimensions_opened:
+    - amount_cv (scale-invariant dollar trading volatility)
+    - shadow_product (candle body compression — most independent factor)
+    - conditional_range (range on up-days only)
+    - volume_weighted_returns
+    - pv_direction_count (volume-confirmed trend days)
+    - stochastic_position
+    - slope_acceleration (trend deceleration)
+    - close_ma10_over_range (MA deviation normalized by range — mean reversion)
+  corr_barrier_analysis: >
+    ~60% of candidates rejected by corr>0.7.
+    Key blockers: F001(vol), F004(vol_volume), F009(pv_corr), F027(turnover_vol),
+    F028(inverse_pb), F035(pb_x_rev), F038(size_x_pb).
+    Successful strategies: CV normalization, conditional signals (If/Greater),
+    cross-dimensional products, signed signals, timing features (IdxMax).
 next_round_hint: >
-  Post-cleanup (30 factors). Correlation barriers lowered.
-  Priority directions:
-  1. $amount-based factors — completely untapped signal
-  2. PE ratio factors — $pe_ratio untapped (handle negative PE)
-  3. L002 趋势衰减 — probe IC=-0.018, worth expanding
-  4. L013 趋势共振 — F040 was removed but signal was real, try normalized version
-  5. Turnover × momentum cross signals
-  6. L005 低波动率 — with F003/F007 removed, new vol variants may pass
+  Batch 046: 0 admissions. Cov space EXHAUSTED.
+  FATAL: return-based Cov(ret, fundamental, N) has REVERSED direction OOS: Mono_IS=-0.9→OOS=+1.0.
+  This is not collapse but complete flip — 2024 regime opposite to 2020-2023 for return×fundamental.
+  Only LEVEL-based Cov (close/turnover/amount × fundamental @ 60d) is regime-robust.
+  Corr blockers: F073 blocks volume/close×PS_60, range×PB_60. F074 blocks volume×PS_60, close×PS_60.
+  PE confirmed dead at ALL windows and X fields.
+  Session total: 9 rounds (038-046), 4 admitted (F071-F074). Cov(liq,fund,60) vein fully mined.
+  RECOMMENDATION: Pause mining loop. Daily OHLCV + fundamental Cov space exhausted.
+  Next productive steps: (a) new data dimensions (weekly, intraday, alternative), (b) model-based factors,
+  (c) focus on portfolio construction with existing 48 factors rather than adding more.

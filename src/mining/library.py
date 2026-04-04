@@ -67,12 +67,32 @@ class FactorLibrary:
         file_path.write_text(content, encoding="utf-8")
         return str(file_path)
 
+    @staticmethod
+    def _infer_long_leg(metrics: dict) -> Optional[str]:
+        """Infer long leg from IC direction. Returns None if unreliable."""
+        ic_mean = metrics.get("ic_mean")
+        if ic_mean is None:
+            ic_mean = metrics.get("ic_mean_is")
+        if ic_mean is None:
+            return None
+        return "high" if ic_mean >= 0 else "low"
+
+    @staticmethod
+    def _ic_for_index(metrics: dict) -> Optional[float]:
+        """Get IC for library index with consistent fallback."""
+        ic = metrics.get("ic_mean")
+        if ic is None:
+            ic = metrics.get("ic_mean_is")
+        return ic
+
     def admit(self, factor: Dict[str, Any]) -> str:
         """Admit a new factor to the library. Returns assigned ID."""
         index = self._read_index()
         factor_id = self._next_id(index)
         source = factor.get("source", "dsl")
         name = factor.get("name", f"factor_{factor_id}")
+        metrics = factor.get("metrics", {})
+        long_leg = self._infer_long_leg(metrics)
 
         # Persist Python factor .py file before building the record
         code_path: Optional[str] = None
@@ -87,10 +107,12 @@ class FactorLibrary:
             "code_path": code_path,
             "logic_id": factor.get("logic_id"),
             "lineage": factor.get("lineage"),
+            "long_leg": long_leg,
+            "evaluation_version": "v2",
             "category": factor.get("category", "other"),
             "batch": factor.get("batch", "unknown"),
             "admitted_at": str(date.today()),
-            "metrics": factor.get("metrics", {}),
+            "metrics": metrics,
         }
         # For DSL factors keep backward-compat: don't pollute record with None-valued new fields
         if source == "dsl":
@@ -100,15 +122,15 @@ class FactorLibrary:
         detail_path = self._factors_dir / f"factor_{factor_id}.yaml"
         with open(detail_path, "w", encoding="utf-8") as f:
             yaml.dump(record, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-        metrics = record["metrics"]
-        ic_mean = metrics.get("ic_mean") or metrics.get("ic_mean_is")
         index.setdefault("factors", []).append({
             "id": factor_id,
             "name": record["name"],
             "expression": record.get("expression"),
             "category": record["category"],
-            "ic_mean": ic_mean,
+            "ic_mean": self._ic_for_index(metrics),
             "source": source,
+            "long_leg": long_leg,
+            "evaluation_version": "v2",
         })
         self._write_index(index)
         logger.info("Admitted factor %s: %s", factor_id, record["name"])
@@ -137,22 +159,43 @@ class FactorLibrary:
         """Replace an existing factor. Keeps the same ID."""
         index = self._read_index()
         index["factors"] = [f for f in index.get("factors", []) if f["id"] != old_id]
+
+        source = new_factor.get("source", "dsl")
+        metrics = new_factor.get("metrics", {})
+        long_leg = self._infer_long_leg(metrics)
+
+        code_path: Optional[str] = None
+        if source == "python":
+            code_path = self._persist_python_factor(old_id, new_factor)
+
         record = {
             "id": old_id,
             "name": new_factor.get("name", f"factor_{old_id}"),
-            "expression": new_factor["expression"],
+            "expression": new_factor.get("expression") if source == "dsl" else None,
+            "source": source,
+            "code_path": code_path,
+            "logic_id": new_factor.get("logic_id"),
+            "lineage": new_factor.get("lineage"),
+            "long_leg": long_leg,
+            "evaluation_version": "v2",
             "category": new_factor.get("category", "other"),
             "batch": new_factor.get("batch", "unknown"),
             "admitted_at": str(date.today()),
-            "metrics": new_factor.get("metrics", {}),
+            "metrics": metrics,
             "replaces": old_id,
         }
         detail_path = self._factors_dir / f"factor_{old_id}.yaml"
         with open(detail_path, "w", encoding="utf-8") as f:
             yaml.dump(record, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         index["factors"].append({
-            "id": old_id, "name": record["name"], "expression": record["expression"],
-            "category": record["category"], "ic_mean": record["metrics"].get("ic_mean"),
+            "id": old_id,
+            "name": record["name"],
+            "expression": record.get("expression"),
+            "category": record["category"],
+            "ic_mean": self._ic_for_index(metrics),
+            "source": source,
+            "long_leg": long_leg,
+            "evaluation_version": "v2",
         })
         self._write_index(index)
         logger.info("Replaced factor %s with %s", old_id, record["name"])

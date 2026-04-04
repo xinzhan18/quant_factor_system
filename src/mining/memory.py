@@ -47,6 +47,82 @@ class ExperienceMemory:
     def list_batch_history(self) -> List[str]:
         return sorted(p.stem for p in self._history_dir.glob("batch_*.yaml"))
 
+    # --- Typed history (eval / admission subdirectories) ---
+
+    @property
+    def _eval_history_dir(self) -> Path:
+        d = self._history_dir / "eval"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    @property
+    def _admission_history_dir(self) -> Path:
+        d = self._history_dir / "admission"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def save_eval_history(self, batch_id: str, data: Dict[str, Any]) -> None:
+        self._write_yaml(self._eval_history_dir / f"{batch_id}.yaml", data)
+
+    def save_admission_history(self, batch_id: str, data: Dict[str, Any]) -> None:
+        self._write_yaml(self._admission_history_dir / f"{batch_id}.yaml", data)
+
+    def list_eval_history(self) -> List[str]:
+        return sorted(p.stem for p in self._eval_history_dir.glob("batch_*.yaml"))
+
+    def list_admission_history(self) -> List[str]:
+        return sorted(p.stem for p in self._admission_history_dir.glob("batch_*.yaml"))
+
+    # --- Direction audit ---
+
+    def audit_directions(self, candidates_dir: str) -> List[Dict[str, Any]]:
+        """Compare recorded direction states vs actual batch participation.
+
+        Returns a list of mismatch dicts (read-only, does not modify files).
+        """
+        mismatches: List[Dict[str, Any]] = []
+        directions = self.list_directions()
+
+        # Count actual participation from batch files
+        actual_counts: Dict[str, set] = {}
+        cdir = Path(candidates_dir)
+        for batch_file in cdir.glob("batch_*.yaml"):
+            if "_result" in batch_file.name or "_values" in batch_file.name:
+                continue
+            try:
+                with open(batch_file) as f:
+                    batch = yaml.safe_load(f) or {}
+                batch_id = batch.get("batch_id", batch_file.stem)
+                for c in batch.get("candidates", []):
+                    d = c.get("direction", "")
+                    if d:
+                        actual_counts.setdefault(d, set()).add(batch_id)
+            except Exception:
+                continue
+
+        for d in directions:
+            name = d["name"]
+            recorded = d.get("attempts", 0)
+            actual = len(actual_counts.get(name, set()))
+
+            if recorded != actual:
+                mismatches.append({
+                    "direction": name,
+                    "recorded_attempts": recorded,
+                    "observed_attempts": actual,
+                    "status": d["status"],
+                    "flag": "attempts_mismatch",
+                })
+            if recorded == 0 and d["status"] in ("exhausted", "dead"):
+                mismatches.append({
+                    "direction": name,
+                    "recorded_attempts": recorded,
+                    "observed_attempts": actual,
+                    "status": d["status"],
+                    "flag": "zero_attempts_terminal_status",
+                })
+        return mismatches
+
     def compose_search_context(self) -> str:
         """Compose memory into a prompt-ready string.
 

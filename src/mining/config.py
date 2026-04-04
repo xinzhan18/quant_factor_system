@@ -115,9 +115,23 @@ class MiningConfig:
 
     # Time ranges
     train_start: str = "2015-01-01"
-    train_end: str = "2022-12-31"
-    test_start: str = "2023-01-01"
+    train_end: str = "2023-12-31"
+    test_start: str = "2024-01-01"
     test_end: str = "2024-12-31"
+
+    def __post_init__(self):
+        """Validate time window invariants (structural, not policy-specific)."""
+        train_end_dt = datetime.strptime(self.train_end, "%Y-%m-%d").date()
+        test_start_dt = datetime.strptime(self.test_start, "%Y-%m-%d").date()
+        test_end_dt = datetime.strptime(self.test_end, "%Y-%m-%d").date()
+        if test_start_dt <= train_end_dt:
+            raise ValueError(
+                f"test_start ({self.test_start}) must be after "
+                f"train_end ({self.train_end})")
+        if test_start_dt > test_end_dt:
+            raise ValueError(
+                f"test_start ({self.test_start}) must not exceed "
+                f"test_end ({self.test_end})")
 
     # Holdout set — never used in mining/evaluation, reserved for final backtest
     holdout_start: str = "2025-01-01"
@@ -197,3 +211,8 @@ class MiningConfig:
 
     # Disk cache for library factor values (avoids re-computing 34 factors every batch)
     lib_cache_dir: str = "storage/cache/lib_factors"
+
+    # Hard gates (auto-reject, cannot be overridden by LLM or --admit)
+    hard_gate_oos_decay_min: float = 0.2
+    hard_gate_coverage_min: float = 0.3
+    hard_gate_ic_oos_min: float = 0.008

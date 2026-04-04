@@ -28,6 +28,31 @@ class TestAdmit:
         index = library.list_factors()
         assert len(index) == 1
         assert index[0]["id"] == "001"
+        # New fields
+        assert index[0]["long_leg"] == "high"
+        assert index[0]["evaluation_version"] == "v2"
+
+    def test_admit_negative_ic_long_leg_low(self, library):
+        factor_id = library.admit({
+            "name": "Neg_IC", "expression": "Std($close, 20)",
+            "category": "volatility", "batch": "batch_001",
+            "metrics": {"ic_mean": -0.05},
+        })
+        detail = library.load_factor(factor_id)
+        assert detail["long_leg"] == "low"
+        assert detail["evaluation_version"] == "v2"
+
+    def test_admit_ic_mean_is_fallback(self, library):
+        """When ic_mean is missing, fall back to ic_mean_is."""
+        factor_id = library.admit({
+            "name": "Fallback", "expression": "Rank($close)",
+            "category": "momentum", "batch": "batch_001",
+            "metrics": {"ic_mean_is": -0.03},  # no ic_mean key
+        })
+        detail = library.load_factor(factor_id)
+        assert detail["long_leg"] == "low"
+        idx = library.list_factors()
+        assert idx[0]["ic_mean"] == -0.03
 
     def test_admit_increments_id(self, library):
         for i in range(3):
@@ -45,6 +70,22 @@ class TestReplace:
         assert len(index) == 1
         assert index[0]["name"] == "Better_Factor"
         assert index[0]["id"] == "001"
+        # Schema should match admit
+        assert index[0]["long_leg"] == "high"
+        assert index[0]["evaluation_version"] == "v2"
+
+    def test_replace_schema_matches_admit(self, library):
+        """replace() must produce the same detail YAML fields as admit()."""
+        library.admit({"name": "Old", "expression": "Rank($close)", "category": "momentum",
+                       "batch": "b1", "metrics": {"ic_mean": 0.04}})
+        library.replace("001", {"name": "New", "expression": "Rank($volume)",
+                                "category": "volume", "batch": "b2",
+                                "metrics": {"ic_mean": -0.06}})
+        detail = library.load_factor("001")
+        assert detail["long_leg"] == "low"
+        assert detail["evaluation_version"] == "v2"
+        assert detail["replaces"] == "001"
+        assert "source" in detail
 
 
 class TestLoad:

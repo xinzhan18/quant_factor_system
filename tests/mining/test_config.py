@@ -1,5 +1,6 @@
 """Tests for MiningConfig."""
 
+import pytest
 from mining.config import MiningConfig
 
 
@@ -12,6 +13,31 @@ def test_default_config():
     assert cfg.universe == "all"
     assert cfg.custom_universe is None
     assert cfg.max_expression_depth == 10
+    # Time window defaults
+    assert cfg.train_end == "2023-12-31"
+    assert cfg.test_start == "2024-01-01"
+    assert cfg.test_end == "2024-12-31"
+
+
+def test_time_window_overlap_raises():
+    """test_start must be after train_end."""
+    with pytest.raises(ValueError, match="must be after"):
+        MiningConfig(train_end="2024-12-31", test_start="2024-07-01")
+
+
+def test_time_window_start_exceeds_end_raises():
+    """test_start must not exceed test_end."""
+    with pytest.raises(ValueError, match="must not exceed"):
+        MiningConfig(train_end="2023-12-31", test_start="2025-01-01",
+                     test_end="2024-12-31")
+
+
+def test_valid_time_window_ok():
+    cfg = MiningConfig(train_end="2023-12-31", test_start="2024-01-01",
+                       test_end="2024-12-31")
+    assert cfg.train_end == "2023-12-31"
+    assert cfg.test_start == "2024-01-01"
+    assert cfg.test_end == "2024-12-31"
 
 
 def test_custom_config():

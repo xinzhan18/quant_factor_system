@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -136,6 +137,7 @@ def cmd_batch(args):
         train_start=args.train_start,
         train_end=args.train_end,
         test_start=args.test_start,
+        test_end=args.test_end,
         fast_screening_universe_size=args.screening_size,
     )
     evaluator = FactorMiningEvaluator(config)
@@ -181,6 +183,31 @@ def cmd_batch(args):
     with open(result_path, 'w', encoding='utf-8') as fp:
         yaml.dump(output, fp, default_flow_style=False, allow_unicode=True)
     logger.info("结果已保存: %s", result_path)
+
+    # Save eval history (programmatic, always runs)
+    try:
+        mem = ExperienceMemory(config)
+        eval_history = {
+            "batch_id": batch_id,
+            "timestamp": datetime.now().isoformat(),
+            "phase": "evaluate",
+            "candidates": len(candidates),
+            "screened": len(result.screened),
+            "rejected": len(result.rejected),
+            "replacements": len(result.replacements),
+            "hard_gated": len([r for r in result.rejected if "hard_gate_reject" in r]),
+            "screened_names": [s["name"] for s in result.screened],
+        }
+        mem.save_eval_history(batch_id, eval_history)
+        logger.info("Eval history saved: %s", batch_id)
+    except Exception as e:
+        logger.warning("Failed to save eval history: %s", e)
+
+    # Log hard-gated factors
+    for f in result.rejected:
+        if "hard_gate_reject" in f:
+            logger.warning("Hard-gated %s: %s", f['name'],
+                           [r["code"] for r in f['hard_gate_reject']])
 
     # 自动录取（--admit 跳过 LLM 审判，直接录取所有筛选通过的因子）
     if result.screened and args.admit:
@@ -293,6 +320,109 @@ def cmd_logic(args):
         if sched.should_trigger_outer_loop(logics, coverage, avg_ic):
             print("\n  All scores non-positive — recommend running /logic new (outer loop)")
 
+    elif args.logic_action == "create":
+        logic_yaml = yaml.safe_load(sys.stdin)
+        if not isinstance(logic_yaml, dict):
+            print("ERROR: expected YAML dict from stdin, got:", type(logic_yaml))
+            sys.exit(1)
+        required = ["name", "category", "hypothesis"]
+        missing = [k for k in required if k not in logic_yaml]
+        if missing:
+            print(f"ERROR: missing required fields: {missing}")
+            print(f"Required: {required}")
+            sys.exit(1)
+        record = lib.create(**logic_yaml)
+        print(f"Created logic: {record['id']}")
+
+
+def cmd_forbidden(args):
+    """Manage forbidden expression patterns."""
+    config = MiningConfig()
+    mem = ExperienceMemory(config)
+
+    if args.forbidden_action == "list":
+        regions = mem.read_forbidden()
+        if not regions:
+            print("No forbidden regions.")
+            return
+        for r in regions:
+            print(f"  {r.get('pattern', '?')} — {r.get('reason', '?')}")
+
+    elif args.forbidden_action in ("suggest", "apply"):
+        suggestions = _forbidden_suggest(config)
+        if not suggestions:
+            print("No forbidden patterns suggested.")
+            return
+        for s in suggestions:
+            print(f"  {s['skeleton']}  (blocker={s['blocker']}, "
+                  f"batches={s['batch_count']}, category={s['category']})")
+        if args.forbidden_action == "apply":
+            for s in suggestions:
+                mem.add_forbidden(s["skeleton"], f"auto: blocker={s['blocker']}, "
+                                  f"{s['batch_count']} batches")
+            print(f"\n{len(suggestions)} patterns written to forbidden.yaml.")
+
+
+def _forbidden_suggest(config: MiningConfig):
+    """Scan result files for Stage 2 corr rejects, find repeated patterns."""
+    from collections import defaultdict
+    candidates_dir = Path(config.candidates_dir)
+    # key = (skeleton, blocker) → set of batch_ids
+    pattern_batches: dict = defaultdict(lambda: {"batches": set(), "category": None})
+
+    for result_file in sorted(candidates_dir.glob("*_result.yaml")):
+        try:
+            with open(result_file, 'r') as f:
+                data = yaml.unsafe_load(f) or {}
+        except Exception:
+            continue
+        batch_id = data.get("batch_id", result_file.stem)
+        for r in data.get("rejected", []):
+            # Check for Stage 2 corr reject (new structured or old format)
+            meta = r.get("reject_meta", {})
+            if meta.get("code") == "stage2_corr":
+                blocker = meta.get("blocker", "?")
+                corr = meta.get("corr", 0)
+            elif r.get("stage2", {}).get("passed") is False:
+                blocker = r.get("stage2", {}).get("max_corr_factor", "?")
+                corr = r.get("stage2", {}).get("max_corr", 0)
+            else:
+                continue
+            expr = r.get("expression", "")
+            if not expr:
+                continue
+            skeleton = re.sub(r'\d+\.?\d*', '*', expr)
+            category = r.get("category", "?")
+            key = (skeleton, blocker)
+            pattern_batches[key]["batches"].add(batch_id)
+            pattern_batches[key]["category"] = category
+
+    suggestions = []
+    for (skeleton, blocker), info in pattern_batches.items():
+        if len(info["batches"]) >= 3:
+            suggestions.append({
+                "skeleton": skeleton,
+                "blocker": blocker,
+                "batch_count": len(info["batches"]),
+                "category": info["category"],
+            })
+    return sorted(suggestions, key=lambda s: -s["batch_count"])
+
+
+def cmd_audit(args):
+    """Audit direction states (read-only report)."""
+    config = MiningConfig()
+    mem = ExperienceMemory(config)
+    mismatches = mem.audit_directions(config.candidates_dir)
+    if not mismatches:
+        print("All direction states consistent.")
+        return
+    print(f"Found {len(mismatches)} mismatches:")
+    for m in mismatches:
+        print(f"  [{m['flag']}] {m['direction']}: "
+              f"recorded={m['recorded_attempts']}, observed={m['observed_attempts']}, "
+              f"status={m['status']}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="FactorMiner CLI")
@@ -308,18 +438,19 @@ def main():
     p_eval = sub.add_parser("evaluate", help="评估单个因子表达式")
     p_eval.add_argument("expression", help="Qlib 表达式, 如 Rank($close)")
     p_eval.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
-    p_eval.add_argument("--train-start", default="2020-01-01")
-    p_eval.add_argument("--train-end", default="2024-12-31")
-    p_eval.add_argument("--test-start", default="2025-01-01")
-    p_eval.add_argument("--test-end", default=None)
+    p_eval.add_argument("--train-start", default="2015-01-01")
+    p_eval.add_argument("--train-end", default="2023-12-31")
+    p_eval.add_argument("--test-start", default="2024-01-01")
+    p_eval.add_argument("--test-end", default="2024-12-31")
 
     # batch
     p_batch = sub.add_parser("batch", help="评估一个批次的候选因子")
     p_batch.add_argument("batch_file", help="批次 YAML 文件路径")
     p_batch.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
-    p_batch.add_argument("--train-start", default="2020-01-01")
-    p_batch.add_argument("--train-end", default="2024-12-31")
-    p_batch.add_argument("--test-start", default="2024-07-01")
+    p_batch.add_argument("--train-start", default="2015-01-01")
+    p_batch.add_argument("--train-end", default="2023-12-31")
+    p_batch.add_argument("--test-start", default="2024-01-01")
+    p_batch.add_argument("--test-end", default="2024-12-31")
     p_batch.add_argument("--screening-size", type=int, default=50)
     p_batch.add_argument("--skip-stage1", action="store_true",
                          help="跳过 Stage 1 快筛（候选已通过 Probe 验证时使用）")
@@ -333,8 +464,8 @@ def main():
     p_probe = sub.add_parser("probe", help="Probe a single expression (lightweight IC only)")
     p_probe.add_argument("expression", help="Qlib expression")
     p_probe.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
-    p_probe.add_argument("--start", default="2024-01-01")
-    p_probe.add_argument("--end", default="2024-12-31")
+    p_probe.add_argument("--start", default="2022-01-01")
+    p_probe.add_argument("--end", default="2023-12-31")
 
     # memory
     p_mem = sub.add_parser("memory", help="查看挖掘记忆上下文")
@@ -342,10 +473,18 @@ def main():
 
     # logic
     p_logic = sub.add_parser("logic", help="Manage and inspect market logics")
-    p_logic.add_argument("logic_action", choices=["list", "coverage", "schedule"],
-                         help="Action to perform: list, coverage, or schedule")
+    p_logic.add_argument("logic_action", choices=["list", "coverage", "schedule", "create"],
+                         help="Action to perform: list, coverage, schedule, or create (stdin YAML)")
     p_logic.add_argument("--status", default=None,
                          help="Filter by status (active, saturated, dead) — used with 'list'")
+
+    # forbidden
+    p_forbidden = sub.add_parser("forbidden", help="Manage forbidden expression patterns")
+    p_forbidden.add_argument("forbidden_action", choices=["suggest", "apply", "list"],
+                             help="suggest: scan results; apply: write to forbidden.yaml; list: current")
+
+    # audit
+    p_audit = sub.add_parser("audit", help="Audit direction states (read-only report)")
 
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(name)s - %(message)s')
@@ -364,6 +503,10 @@ def main():
         cmd_probe(args)
     elif args.command == "logic":
         cmd_logic(args)
+    elif args.command == "forbidden":
+        cmd_forbidden(args)
+    elif args.command == "audit":
+        cmd_audit(args)
     else:
         parser.print_help()
 

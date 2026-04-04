@@ -167,6 +167,70 @@ class TestContextPromptExpanded:
         assert "## Current Mining State" in result
 
 
+class TestEvalHistory:
+    def test_save_and_list_eval_history(self, memory):
+        memory.save_eval_history("batch_050", {"batch_id": "batch_050", "phase": "evaluate"})
+        memory.save_eval_history("batch_051", {"batch_id": "batch_051", "phase": "evaluate"})
+        history = memory.list_eval_history()
+        assert len(history) == 2
+        assert "batch_050" in history
+        assert "batch_051" in history
+
+    def test_eval_history_in_subdir(self, memory):
+        """Eval history goes to history/eval/, not history/ root."""
+        memory.save_eval_history("batch_050", {"batch_id": "batch_050"})
+        eval_dir = Path(memory._dir) / "history" / "eval"
+        assert (eval_dir / "batch_050.yaml").exists()
+        # Old-style list should NOT include eval history
+        old_list = memory.list_batch_history()
+        assert "batch_050" not in old_list
+
+    def test_save_admission_history(self, memory):
+        memory.save_admission_history("batch_050", {"batch_id": "batch_050", "phase": "judge"})
+        history = memory.list_admission_history()
+        assert len(history) == 1
+
+
+class TestAuditDirections:
+    def test_detects_attempts_mismatch(self, memory, config):
+        """audit_directions detects when recorded != observed attempts."""
+        # Create a direction with 0 attempts
+        memory.write_direction("test_dir", {
+            "name": "test_dir", "status": "active", "attempts": 0,
+            "category": "momentum", "priority": "high",
+        })
+        # Create a batch file that references this direction
+        candidates_dir = Path(config.candidates_dir)
+        candidates_dir.mkdir(parents=True, exist_ok=True)
+        batch = {
+            "batch_id": "batch_099",
+            "candidates": [
+                {"name": "F1", "expression": "Rank($close)", "direction": "test_dir"},
+            ],
+        }
+        (candidates_dir / "batch_099.yaml").write_text(yaml.dump(batch))
+
+        mismatches = memory.audit_directions(config.candidates_dir)
+        assert len(mismatches) >= 1
+        flags = [m["flag"] for m in mismatches]
+        assert "attempts_mismatch" in flags
+
+    def test_detects_zero_attempts_terminal(self, memory, config):
+        """audit_directions flags attempts=0 + status=exhausted."""
+        memory.write_direction("dead_dir", {
+            "name": "dead_dir", "status": "exhausted", "attempts": 0,
+            "category": "volatility", "priority": "low",
+        })
+        mismatches = memory.audit_directions(config.candidates_dir)
+        flags = [m["flag"] for m in mismatches]
+        assert "zero_attempts_terminal_status" in flags
+
+    def test_empty_directions_no_crash(self, memory, config):
+        """audit_directions with no directions returns empty list."""
+        mismatches = memory.audit_directions(config.candidates_dir)
+        assert mismatches == []
+
+
 class TestGetLineageSummary:
     def test_get_lineage_summary_empty(self, memory):
         """With no library factors, returns empty string."""

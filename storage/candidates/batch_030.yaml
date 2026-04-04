@@ -1,0 +1,78 @@
+batch_id: "batch_030"
+timestamp: "2026-04-02T04:00:00"
+candidates:
+  # ── Direction 1: Return-volume_change covariance ────────────────────────────
+  - name: ret_volchange_cov_10
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1), Sub(Div($volume,Ref($volume,1)),1), 10)"
+    category: volume
+    logic_id: L003
+    direction: ret_vol_change_cov
+    rationale: >
+      Cov(daily_return, daily_volume_change, 10). Probe IC=-0.040, ICIR=-0.316.
+      F008 uses Cov(return, volume_LEVEL). This uses volume CHANGE rate.
+      High cov = returns and volume changes move together = momentum-driven trading.
+
+  - name: ret_volchange_cov_20
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1), Sub(Div($volume,Ref($volume,1)),1), 20)"
+    category: volume
+    logic_id: L003
+    direction: ret_vol_change_cov
+    rationale: >
+      20-day version. Longer window captures more stable covariance.
+
+  - name: ret_volchange_cov_5
+    expression: "Cov(Sub(Div($close,Ref($close,1)),1), Sub(Div($volume,Ref($volume,1)),1), 5)"
+    category: volume
+    logic_id: L003
+    direction: ret_vol_change_cov
+    rationale: >
+      5-day version. Short window captures very recent return-volume dynamics.
+
+  # ── Direction 2: Turnover term structure ────────────────────────────────────
+  - name: turnover_ratio_5_60
+    expression: "Div(Mean($turnover_rate, 5), Add(Mean($turnover_rate, 60), 0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_term
+    rationale: >
+      Short/long turnover ratio. Probe IC=-0.023, ICIR=-0.179.
+      High ratio = recent turnover surge relative to long-term average.
+      Different from F030 (Delta of mean turnover) — this is a ratio, scale-invariant.
+
+  - name: turnover_ratio_5_20
+    expression: "Div(Mean($turnover_rate, 5), Add(Mean($turnover_rate, 20), 0.001))"
+    category: liquidity
+    logic_id: L004
+    direction: turnover_term
+    rationale: >
+      5d/20d turnover ratio. Shorter denominator window.
+
+  # ── Direction 3: Price peak timing (IdxMax) ─────────────────────────────────
+  - name: days_since_high_20
+    expression: "IdxMax($close, 20)"
+    category: momentum
+    logic_id: L001
+    direction: peak_timing
+    rationale: >
+      Days since 20-day price high. Probe IC=-0.016. Low value = price peaked
+      recently = still strong. High value = peaked long ago = weakening. Novel
+      timing signal, different from price level or return-based factors.
+
+  - name: days_since_high_60
+    expression: "IdxMax($close, 60)"
+    category: momentum
+    logic_id: L001
+    direction: peak_timing
+    rationale: >
+      Days since 60-day price high. Longer window captures medium-term peak timing.
+
+  # ── Direction 4: Volume-weighted momentum ───────────────────────────────────
+  - name: volume_weighted_ret_5
+    expression: "Div(Sum(Mul(Sub(Div($close,Ref($close,1)),1), $volume), 5), Add(Sum($volume, 5), 1))"
+    category: volume
+    logic_id: L003
+    direction: volume_weighted_ret
+    rationale: >
+      5-day volume-weighted return. Returns weighted by their trading volume.
+      High-volume days contribute more. Captures volume-confirmed momentum.
+      Novel weighting scheme different from simple returns.

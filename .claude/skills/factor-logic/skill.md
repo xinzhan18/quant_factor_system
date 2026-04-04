@@ -48,12 +48,22 @@ constraints:
 
 ### Step 4: 写入逻辑文件
 
-对每个审批通过的逻辑：
+对每个审批通过的逻辑，通过 CLI 创建：
 
-```python
-from mining.logic_library import MarketLogicLibrary
-lib = MarketLogicLibrary("storage/logic")
-lib.create(name=..., category=..., hypothesis=..., constraints=...)
+```bash
+cat <<'EOF' | PYTHONPATH=src python3 -m mining logic create
+name: 缩量横盘后放量突破
+category: volume_price
+hypothesis:
+  condition: "成交量连续 N 天低于均值，价格振幅收窄"
+  behavior: "后续放量突破，方向跟随突破方向"
+  timeframe: "5-20 交易日"
+  direction: long_on_breakout
+constraints:
+  required_fields: [volume, close, high, low]
+  suggested_ops: [Std, Mean, CsRank, TsDecay]
+  window_range: [5, 60]
+EOF
 ```
 
 ### Step 5: 确认

@@ -1,0 +1,58 @@
+batch_id: "batch_035"
+timestamp: "2026-04-02T06:30:00"
+candidates:
+  - name: close_to_ma60
+    expression: "Div($close,Add(Mean($close,60),0.001))"
+    category: momentum
+    logic_id: L001
+    direction: ma_deviation
+    rationale: "Close / MA60 ratio. Probe IC=-0.032. Overbought/oversold vs 60d average."
+
+  - name: upper_shadow_x_turnover
+    expression: "Mul(Div(Sub($high,$close),Add(Sub($high,$low),0.001)),Mean($turnover_rate,5))"
+    category: other
+    logic_id: L007
+    direction: shadow_x_liquidity
+    rationale: "Upper shadow ratio × 5d turnover. IC=-0.031. Selling pressure × activity."
+
+  - name: ma_deviation_normalized
+    expression: "Div(Sub(Mean($close,5),Mean($close,20)),Add(Std($close,20),0.001))"
+    category: momentum
+    logic_id: L013
+    direction: normalized_ma_dev
+    rationale: "Normalized MA deviation (5-20)/Std(20). IC=-0.024. Z-score of MA crossover."
+
+  - name: ps_x_slope_10
+    expression: "Mul(Div(1,Add($ps_ratio,0.001)),Slope($close,10))"
+    category: valuation
+    logic_id: L009
+    direction: value_x_trend
+    rationale: "Inverse PS × slope 10d. IC=-0.023. Cheap PS + recent trend."
+
+  - name: pv_confirm_rank_x_turnover
+    expression: "Mul(Rank(Sum(If(Greater(Mul(Delta($close,1),Delta($volume,1)),0),1,0),10),60),Rank($turnover_rate,60))"
+    category: other
+    logic_id: L003
+    direction: pv_confirm_x_activity
+    rationale: "PV direction count rank × turnover rank. IC=-0.023. Double confirmation."
+
+  - name: close_to_ma60_inv
+    expression: "Div(Mean($close,60),Add($close,0.001))"
+    category: momentum
+    logic_id: L001
+    direction: ma_deviation
+    rationale: "MA60 / close. Inverse of close/MA60. High = stock fell below MA60."
+
+  - name: signed_turnover_vol
+    expression: "Mul(Sign(Sub(Div($close,Ref($close,1)),1)),Std($turnover_rate,5))"
+    category: liquidity
+    logic_id: L004
+    direction: signed_liquidity
+    rationale: "Sign(return) × turnover vol. IC=-0.009. Directional liquidity signal."
+
+  - name: range_cv
+    expression: "Div(Std(Div(Sub($high,$low),$close),10),Add(Mean(Div(Sub($high,$low),$close),10),0.001))"
+    category: candlestick
+    logic_id: L014
+    direction: range_variability
+    rationale: "CV of intraday range (10d). IC=-0.007. Range stability measure."

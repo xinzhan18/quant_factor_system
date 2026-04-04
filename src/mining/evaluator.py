@@ -627,6 +627,12 @@ class FactorMiningEvaluator:
                     passed.append(c)
                 else:
                     c["stage2"] = {"max_corr": max_corr, "max_corr_factor": max_corr_factor, "passed": False}
+                    c["reject_reason"] = "stage2_corr"
+                    c["reject_meta"] = {
+                        "code": "stage2_corr",
+                        "blocker": max_corr_factor,
+                        "corr": max_corr,
+                    }
                     rejected.append(c)
             except Exception as e:
                 c["stage2"] = {"error": str(e), "passed": False}
@@ -685,7 +691,7 @@ class FactorMiningEvaluator:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         full_universe = self._get_full_universe()
-        test_end = self.config.test_end or str(pd.Timestamp.now().date())
+        test_end = self.config.test_end
 
         # Shared data (loaded once, sequential)
         aux_is = self._load_aux_data(full_universe, self.config.train_start, self.config.train_end)
@@ -898,6 +904,56 @@ class FactorMiningEvaluator:
         except Exception as e:
             return {"error": str(e)}
 
+    # ──────────────────── Hard Gates ────────────────────
+
+    def _apply_hard_gates(
+        self, screened: List[Dict[str, Any]]
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Post-Stage3 hard gates. Cannot be overridden by LLM or --admit."""
+        passed, gated = [], []
+        for c in screened:
+            rc = c.get("report_card", {})
+            reasons: List[Dict[str, Any]] = []
+
+            if rc.get("ic_sign_consistent") is False:
+                reasons.append({"code": "ic_sign_flip", "value": None})
+
+            decay = rc.get("oos_decay_ratio")
+            if decay is not None and decay < self.config.hard_gate_oos_decay_min:
+                reasons.append({"code": "oos_decay_too_low",
+                                "value": round(decay, 3),
+                                "threshold": self.config.hard_gate_oos_decay_min})
+
+            cov = rc.get("coverage")
+            if cov is not None and cov < self.config.hard_gate_coverage_min:
+                reasons.append({"code": "coverage_too_low",
+                                "value": round(cov, 3),
+                                "threshold": self.config.hard_gate_coverage_min})
+
+            mono_is = rc.get("monotonicity_is")
+            mono_oos = rc.get("monotonicity_oos")
+            if (mono_is is not None and mono_oos is not None
+                    and mono_is != 0 and mono_oos != 0
+                    and (mono_is * mono_oos < 0)):
+                reasons.append({"code": "mono_sign_flip",
+                                "value": {"is": round(mono_is, 2),
+                                          "oos": round(mono_oos, 2)}})
+
+            ic_oos_val = rc.get("ic_mean_oos")
+            if ic_oos_val is not None and abs(ic_oos_val) < self.config.hard_gate_ic_oos_min:
+                reasons.append({"code": "ic_oos_too_low",
+                                "value": round(abs(ic_oos_val), 4),
+                                "threshold": self.config.hard_gate_ic_oos_min})
+
+            if reasons:
+                c["hard_gate_reject"] = reasons
+                gated.append(c)
+                logger.info("Hard gate reject %s: %s",
+                            c["name"], [r["code"] for r in reasons])
+            else:
+                passed.append(c)
+        return passed, gated
+
     # ──────────────────── Main Entry Point ────────────────────
 
     def evaluate_batch(self, candidates: List[Dict[str, Any]],
@@ -942,20 +998,32 @@ class FactorMiningEvaluator:
         valid = optimized_valid
 
         if skip_stage1:
-            stage2_input = valid
+            dedup_input = valid
         else:
             stage1_passed = self._fast_ic_screening(valid)
-            stage2_input = self._batch_dedup(stage1_passed)
+            dedup_input = stage1_passed
+
+        # batch_dedup always runs (even when skip_stage1) to remove correlated
+        # candidates within the same batch.
+        stage2_input = self._batch_dedup(dedup_input)
 
         stage2_passed, stage2_rejected = self._correlation_check(stage2_input)
         replacements = self._replacement_check(stage2_rejected)
         screened, stage3_errors = self._compute_report_cards(stage2_passed)
+        # Apply hard gates (cannot be overridden by LLM or --admit)
+        screened, hard_gated = self._apply_hard_gates(screened)
 
         all_rejected = list(invalid)
         if not skip_stage1:
             all_rejected += [c for c in valid if c not in stage1_passed]
-            all_rejected += [c for c in stage1_passed if c not in stage2_input]
+        # dedup rejects (always tracked)
+        dedup_rejected = [c for c in dedup_input if c not in stage2_input]
+        for c in dedup_rejected:
+            c.setdefault("reject_reason",
+                         "batch_dedup: correlated with earlier kept candidate")
+        all_rejected += dedup_rejected
         all_rejected += stage2_rejected
         all_rejected += stage3_errors
+        all_rejected += hard_gated
 
         return BatchResult(screened=screened, rejected=all_rejected, replacements=replacements)
