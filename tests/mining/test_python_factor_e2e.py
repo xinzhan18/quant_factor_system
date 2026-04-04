@@ -9,14 +9,14 @@ import pytest
 import yaml
 
 from mining.config import MiningConfig
-from mining.evaluator import check_lookahead_bias, compute_structural_similarity
+from mining.domain.similarity import check_lookahead_bias, compute_structural_similarity
 from mining.evolution import EvolutionEngine
 from mining.expression import ExpressionValidator
-from mining.library import FactorLibrary
-from mining.logic_library import MarketLogicLibrary
+from mining.registry import FactorLibrary
+from mining.logic import MarketLogicLibrary
 from mining.ops_adapter import OpsAdapter
 from mining.sandbox import SandboxError, run_factor_in_sandbox
-from mining.scheduler import Scheduler
+from mining.logic import Scheduler
 
 
 # ---------------------------------------------------------------------------

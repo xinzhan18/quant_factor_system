@@ -2,7 +2,7 @@
 
 import pytest
 
-from mining.evaluator import compute_structural_similarity
+from mining.domain.similarity import compute_structural_similarity
 
 
 class TestStructuralSimilarity:

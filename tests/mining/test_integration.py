@@ -9,9 +9,10 @@ import pytest
 import yaml
 
 from mining.config import MiningConfig
-from mining.evaluator import FactorMiningEvaluator, BatchResult
+from mining.evaluator import FactorMiningEvaluator
+from mining.domain.results import BatchResult
 from mining.expression import ExpressionValidator
-from mining.library import FactorLibrary
+from mining.registry import FactorLibrary
 from mining.memory import ExperienceMemory
 
 

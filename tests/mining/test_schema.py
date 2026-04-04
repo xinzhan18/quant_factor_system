@@ -1,6 +1,6 @@
 """Tests for canonical factor record schema."""
 import pytest
-from mining.schema import FactorRecord, normalize_metrics, METRICS_ALIASES
+from mining.domain.schema import FactorRecord, normalize_metrics, METRICS_ALIASES
 
 
 class TestFactorRecord:

@@ -4,7 +4,7 @@ import pytest
 import yaml
 from pathlib import Path
 
-from mining.logic_library import MarketLogicLibrary
+from mining.logic import MarketLogicLibrary
 
 
 # ---------------------------------------------------------------------------
