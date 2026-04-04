@@ -361,7 +361,7 @@ class FactorMiningEvaluator:
     # ──────────────────── Stage 2: Correlation Check ────────────────────
 
     def _load_library(self):
-        from .library import FactorLibrary
+        from .registry import FactorLibrary
         return FactorLibrary(self.config)
 
     def _corr_check_window(self) -> tuple:
@@ -878,7 +878,7 @@ class FactorMiningEvaluator:
         all_rejected += hard_gated
 
         # Build canonical metrics for library storage (f['stage3'] and f['full_ic'] unchanged)
-        from .schema import normalize_metrics
+        from .domain.schema import normalize_metrics
         for f in screened:
             raw = {**f.get('full_ic', {}), **f.get('stage3', {})}
             f['metrics'] = normalize_metrics(raw)

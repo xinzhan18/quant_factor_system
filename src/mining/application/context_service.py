@@ -58,7 +58,7 @@ def compose_search_context(config: MiningConfig) -> str:
     # --- Section 3: Taxonomy coverage map (Logic Library) ---
     logic_lib = None
     try:
-        from mining.logic_library import MarketLogicLibrary
+        from mining.logic import MarketLogicLibrary
 
         logic_lib = MarketLogicLibrary(config.logic_dir)
         coverage = logic_lib.coverage_map()
@@ -81,7 +81,7 @@ def compose_search_context(config: MiningConfig) -> str:
     # --- Section 5: Active logic evidence ---
     try:
         if logic_lib is None:
-            from mining.logic_library import MarketLogicLibrary
+            from mining.logic import MarketLogicLibrary
 
             logic_lib = MarketLogicLibrary(config.logic_dir)
         active = logic_lib.list_logics(status="active")
@@ -110,7 +110,7 @@ def compose_search_context(config: MiningConfig) -> str:
 def _get_lineage_summary(config: MiningConfig) -> str:
     """Format lineage information from library for prompt context."""
     try:
-        from mining.library import FactorLibrary
+        from mining.registry import FactorLibrary
 
         lib = FactorLibrary(config)
         factors = lib.list_factors()

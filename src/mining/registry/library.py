@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from ..config import MiningConfig
-from ..schema import FactorRecord
+from ..domain.schema import FactorRecord
 from .history import archive_detail
 from .values_cache import load_values_cache
 

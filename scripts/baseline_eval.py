@@ -307,7 +307,7 @@ def main():
 
             # Auto-admit passing factors
             if batch_result.admitted:
-                from mining.library import FactorLibrary
+                from mining.registry import FactorLibrary
                 library = FactorLibrary(config)
                 for factor in batch_result.admitted:
                     factor["metrics"] = factor.get("stage3", {})

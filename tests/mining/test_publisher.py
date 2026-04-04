@@ -50,7 +50,7 @@ def config(tmp_path):
 
 @pytest.fixture
 def publisher(config):
-    from mining.publisher import FactorPublisher
+    from mining.registry.publisher import FactorPublisher
     return FactorPublisher(config)
 
 

@@ -89,7 +89,7 @@ def main():
 
     from qlib.data import D
     from mining.config import MiningConfig, SystemConfig
-    from mining.library import FactorLibrary
+    from mining.registry import FactorLibrary
     from mining.operators import register_custom_operators
 
     register_custom_operators()
