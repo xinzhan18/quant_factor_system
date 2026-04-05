@@ -35,13 +35,14 @@ class BatchRunner:
         preprocess_signal: Optional[Callable] = None,
         compute_stat_evidence: Optional[Callable] = None,
         compute_redundancy: Optional[Callable] = None,
-        compute_risk_review: Optional[Callable] = None,
         compute_feasibility: Optional[Callable] = None,
+        risk_engine: Optional[Any] = None,
     ):
         self._profile = load_evaluation_profile(profile_path)
         self._sample_policy = load_sample_policy(sample_policy_path)
         self._results_dir = Path(results_dir) if results_dir else None
         self._packets_dir = Path(packets_dir) if packets_dir else None
+        self._risk_engine = risk_engine
         self._compute_kwargs: Dict[str, Any] = {}
         if compute_signal is not None:
             self._compute_kwargs["compute_signal"] = compute_signal
@@ -51,8 +52,6 @@ class BatchRunner:
             self._compute_kwargs["compute_stat_evidence"] = compute_stat_evidence
         if compute_redundancy is not None:
             self._compute_kwargs["compute_redundancy"] = compute_redundancy
-        if compute_risk_review is not None:
-            self._compute_kwargs["compute_risk_review"] = compute_risk_review
         if compute_feasibility is not None:
             self._compute_kwargs["compute_feasibility"] = compute_feasibility
 
@@ -95,6 +94,7 @@ class BatchRunner:
         pipeline = ResearchExecutePipeline(
             profile=self._profile,
             sample_policy=self._sample_policy,
+            risk_engine=self._risk_engine,
             **self._compute_kwargs,
         )
 

@@ -57,6 +57,10 @@ REASON_CODES: Dict[str, str] = {
     "feasibility_ok": INFO,
     "feasibility_borderline": MEDIUM,
     "feasibility_poor": HIGH,
+    # Risk model review
+    "risk_model_acceptable": INFO,
+    "moderate_style_exposure": MEDIUM,
+    "style_dominance_detected": HIGH,
     # Mechanism
     "mechanism_aligned": INFO,
     "mechanism_unclear": MEDIUM,
@@ -113,6 +117,24 @@ class CandidateEvidence:
     replace_hard: Optional[HardConditions] = None
     replace_comparison: Optional[DiscreteComparison] = None
     replace_target_id: Optional[str] = None
+
+    @classmethod
+    def from_judge_packet_brief(cls, brief: Dict[str, Any]) -> "CandidateEvidence":
+        """Construct CandidateEvidence from a judge packet candidate brief.
+
+        This closes the brief→evidence mapping in code rather than
+        relying on LLM skill prompts.
+        """
+        return cls(
+            candidate_id=brief.get("candidate_id", ""),
+            statistical_strength=brief.get("validation_effect_bucket", "borderline"),
+            stability=brief.get("stability_bucket", "borderline"),
+            redundancy=brief.get("redundancy_bucket", "acceptable"),
+            feasibility=brief.get("feasibility_bucket", "ok"),
+            risk_model_review=brief.get("risk_model_review_bucket", "acceptable"),
+            execution_gate_passed=brief.get("execution_gate_status") == "pass",
+            support_window_warning=brief.get("support_window_warning", "none"),
+        )
 
 
 @dataclass
@@ -254,6 +276,15 @@ class CandidateJudge:
         summary["feasibility"] = evidence.feasibility
 
         # Risk model review
+        risk_map = {
+            "acceptable": ("risk_model_acceptable", INFO),
+            "borderline": ("moderate_style_exposure", MEDIUM),
+            "poor": ("style_dominance_detected", HIGH),
+        }
+        r_code, r_sev = risk_map.get(
+            evidence.risk_model_review, ("risk_model_acceptable", INFO)
+        )
+        codes.append((r_code, r_sev))
         summary["risk_model_review"] = evidence.risk_model_review
 
         # Support window warning

@@ -23,7 +23,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
 
-from mining.config import MiningConfig
+from research.domain.config import ResearchConfig as MiningConfig  # migration alias
 from report.analytics.ic import ICAnalyzer
 from report.analytics.profit import ProfitAnalyzer
 from report.analytics.decay import DecayAnalyzer
@@ -227,7 +227,7 @@ class ReportDataBuilder:
         from qlib.config import C
         C.kernels = 1
         try:
-            from mining.operators import register_custom_operators
+            from research.compute.operators import register_custom_operators
             register_custom_operators()
         except ImportError:
             pass

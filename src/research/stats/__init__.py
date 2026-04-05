@@ -19,7 +19,6 @@ from research.stats.multiple_testing import (
     compute_multiple_testing_risk,
     compute_search_adjusted_strength,
 )
-from research.stats.risk_model import compute_risk_views
 from research.stats.support_windows import check_support_windows
 from research.stats.probe import run_probe
 
@@ -34,7 +33,6 @@ __all__ = [
     "compute_purged_walk_forward",
     "compute_multiple_testing_risk",
     "compute_search_adjusted_strength",
-    "compute_risk_views",
     "check_support_windows",
     "run_probe",
 ]
