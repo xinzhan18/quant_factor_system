@@ -10,7 +10,7 @@ they can be versioned and stored independently in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 
 # ======================================================================
