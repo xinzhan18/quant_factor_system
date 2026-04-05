@@ -33,6 +33,7 @@ setup(
     entry_points={
         "console_scripts": [
             "quant-mining=mining.cli:main",
+            "quant-research=research.cli.main:main",
         ],
     },
 )
