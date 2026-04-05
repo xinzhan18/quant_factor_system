@@ -44,7 +44,7 @@ class ForbiddenManager:
 
     def __init__(self, base_dir: Path) -> None:
         self._base_dir = Path(base_dir)
-        self._path = self._base_dir / "memory" / "forbidden.yaml"
+        self._path = self._base_dir / "governance" / "research_config.yaml"
 
     @property
     def path(self) -> Path:
@@ -184,12 +184,15 @@ class ForbiddenManager:
         data = yaml.safe_load(text)
         if data is None:
             return []
-        # Accept either a top-level list or a dict with 'forbidden_patterns' key.
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict) and "forbidden_patterns" in data:
-            return data["forbidden_patterns"]
-        return []
+        patterns = data.get("forbidden_patterns", [])
+        return patterns if isinstance(patterns, list) else []
 
     def _save(self, patterns: List[dict]) -> None:
-        atomic_yaml_write(self._path, patterns)
+        # Read full config, update only forbidden_patterns section
+        if self._path.exists():
+            text = self._path.read_text(encoding="utf-8")
+            data = yaml.safe_load(text) or {}
+        else:
+            data = {}
+        data["forbidden_patterns"] = patterns
+        atomic_yaml_write(self._path, data)

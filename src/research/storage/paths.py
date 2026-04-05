@@ -16,7 +16,7 @@ class StoragePaths:
         self.root = Path(root)
 
     # ------------------------------------------------------------------
-    # Top-level directories
+    # Top-level directories (7)
     # ------------------------------------------------------------------
 
     @property
@@ -32,41 +32,26 @@ class StoragePaths:
         return self.root / "registry"
 
     @property
-    def policy_dir(self) -> Path:
-        return self.root / "policy"
+    def governance_dir(self) -> Path:
+        return self.root / "governance"
 
     @property
-    def ledger_dir(self) -> Path:
-        return self.root / "ledger"
+    def batches_dir(self) -> Path:
+        return self.root / "batches"
 
     @property
-    def packets_dir(self) -> Path:
-        return self.root / "packets"
+    def evidence_dir(self) -> Path:
+        return self.root / "evidence"
 
     @property
-    def memory_dir(self) -> Path:
-        return self.root / "memory"
-
-    @property
-    def results_dir(self) -> Path:
-        return self.root / "results"
-
-    @property
-    def candidates_dir(self) -> Path:
-        return self.root / "candidates"
-
-    @property
-    def notes_dir(self) -> Path:
-        return self.root / "notes"
-
-    @property
-    def evaluation_profiles_dir(self) -> Path:
-        return self.root / "evaluation_profiles"
+    def runtime_dir(self) -> Path:
+        return self.root / "runtime"
 
     # ------------------------------------------------------------------
     # Sub-directories
     # ------------------------------------------------------------------
 
+    # logic/
     @property
     def logic_proposals_dir(self) -> Path:
         return self.logic_dir / "proposals"
@@ -83,6 +68,7 @@ class StoragePaths:
     def logic_snapshots_dir(self) -> Path:
         return self.logic_dir / "snapshots"
 
+    # registry/
     @property
     def factors_dir(self) -> Path:
         return self.registry_dir / "factors"
@@ -90,6 +76,24 @@ class StoragePaths:
     @property
     def families_dir(self) -> Path:
         return self.registry_dir / "families"
+
+    # evidence/
+    @property
+    def vault_dir(self) -> Path:
+        return self.evidence_dir / "vault"
+
+    @property
+    def vault_assets_dir(self) -> Path:
+        return self.vault_dir / "assets"
+
+    @property
+    def vault_factors_dir(self) -> Path:
+        return self.vault_dir / "factors"
+
+    # runtime/
+    @property
+    def cache_dir(self) -> Path:
+        return self.runtime_dir / "cache"
 
     # ------------------------------------------------------------------
     # Concrete file paths
@@ -118,49 +122,14 @@ class StoragePaths:
     def family_registry_file(self) -> Path:
         return self.families_dir / "family_registry.yaml"
 
-    # policy/
+    # governance/
     @property
-    def capability_registry_file(self) -> Path:
-        return self.policy_dir / "capability_registry.yaml"
+    def ledger_file(self) -> Path:
+        return self.governance_dir / "ledger.yaml"
 
     @property
-    def implementation_policy_file(self) -> Path:
-        return self.policy_dir / "implementation_policy.yaml"
-
-    @property
-    def failure_taxonomy_file(self) -> Path:
-        return self.policy_dir / "failure_taxonomy.yaml"
-
-    @property
-    def policy_upgrade_ledger_file(self) -> Path:
-        return self.policy_dir / "policy_upgrade_ledger.yaml"
-
-    # ledger/
-    @property
-    def search_ledger_file(self) -> Path:
-        return self.ledger_dir / "search_ledger.yaml"
-
-    @property
-    def batch_usage_file(self) -> Path:
-        return self.ledger_dir / "batch_usage.yaml"
-
-    @property
-    def holdout_review_ledger_file(self) -> Path:
-        return self.ledger_dir / "holdout_review_ledger.yaml"
-
-    @property
-    def write_audit_log_file(self) -> Path:
-        return self.ledger_dir / "write_audit_log.yaml"
-
-    # memory/
-    @property
-    def forbidden_file(self) -> Path:
-        return self.memory_dir / "forbidden.yaml"
-
-    # evaluation_profiles/
-    @property
-    def research_eval_v1_file(self) -> Path:
-        return self.evaluation_profiles_dir / "research_eval_v1.yaml"
+    def research_config_file(self) -> Path:
+        return self.governance_dir / "research_config.yaml"
 
     # ------------------------------------------------------------------
     # Dynamic paths (depend on batch_id / factor_id / logic_id)
@@ -181,26 +150,30 @@ class StoragePaths:
     def factor_detail_file(self, factor_id: str) -> Path:
         return self.factors_dir / f"factor_{factor_id}.yaml"
 
-    def judge_packet_file(self, batch_id: str) -> Path:
-        return self.packets_dir / f"{batch_id}_judge_packet.yaml"
-
-    def context_snapshot_file(self, batch_id: str) -> Path:
-        return self.packets_dir / f"{batch_id}_context_snapshot.yaml"
+    # batch — per-batch subdirectory
+    def batch_dir(self, batch_id: str) -> Path:
+        return self.batches_dir / batch_id
 
     def batch_manifest_file(self, batch_id: str) -> Path:
-        return self.candidates_dir / f"{batch_id}.yaml"
+        return self.batch_dir(batch_id) / "manifest.yaml"
 
     def idea_report_file(self, batch_id: str) -> Path:
-        return self.candidates_dir / f"{batch_id}_idea_report.yaml"
+        return self.batch_dir(batch_id) / "idea_report.yaml"
 
     def result_file(self, batch_id: str) -> Path:
-        return self.results_dir / f"{batch_id}_result.yaml"
+        return self.batch_dir(batch_id) / "research_result.yaml"
 
     def execute_report_file(self, batch_id: str) -> Path:
-        return self.results_dir / f"{batch_id}_execute_report.yaml"
+        return self.batch_dir(batch_id) / "execute_report.yaml"
+
+    def judge_packet_file(self, batch_id: str) -> Path:
+        return self.batch_dir(batch_id) / "judge_packet.yaml"
+
+    def context_snapshot_file(self, batch_id: str) -> Path:
+        return self.batch_dir(batch_id) / "context_snapshot.yaml"
 
     def judge_report_file(self, batch_id: str) -> Path:
-        return self.results_dir / f"{batch_id}_judge_report.yaml"
+        return self.batch_dir(batch_id) / "judge_report.yaml"
 
     # ------------------------------------------------------------------
     # Directory creation
@@ -218,14 +191,12 @@ class StoragePaths:
             self.registry_dir,
             self.factors_dir,
             self.families_dir,
-            self.policy_dir,
-            self.ledger_dir,
-            self.packets_dir,
-            self.memory_dir,
-            self.results_dir,
-            self.candidates_dir,
-            self.notes_dir,
-            self.evaluation_profiles_dir,
+            self.governance_dir,
+            self.batches_dir,
+            self.vault_dir,
+            self.vault_assets_dir,
+            self.vault_factors_dir,
+            self.cache_dir,
         ]
 
     def ensure_dirs(self) -> None:

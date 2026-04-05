@@ -12,12 +12,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from research.controller.batch_scheduler import (
+from research.governance.batch_scheduler import (
     BatchScheduler,
     SchedulerDecision,
     SchedulerState,
 )
-from research.controller.holdout_queue import HoldoutEntry, HoldoutQueue
+from research.governance.holdout_queue import HoldoutEntry, HoldoutQueue
 from research.judge.verdict_builder import BatchJudgeReport
 
 

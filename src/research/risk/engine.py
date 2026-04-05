@@ -2,13 +2,16 @@
 
 Orchestrates data fetching, caching, style factor computation,
 exposure regression, cap neutralization, and bucket classification.
+
+Supports batch mode: call prepare_batch() once before processing
+multiple candidates to share returns and market cap data.
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -40,26 +43,33 @@ class RiskEngine:
     ) -> None:
         self.provider = data_provider
         self.cache = cache or RiskCache()
+        self._batch_returns: Dict[Tuple[str, str, int], pd.DataFrame] = {}
+        self._batch_cap: Optional[pd.DataFrame] = None
+
+    def prepare_batch(
+        self,
+        shared_returns_flat: Dict[Tuple[str, str, int], pd.DataFrame],
+        shared_market_cap_mi: Optional[pd.DataFrame],
+    ) -> None:
+        """Cache batch-level shared data. Called once before candidate loop."""
+        self._batch_returns = shared_returns_flat
+        self._batch_cap = shared_market_cap_mi
 
     def compute_risk_review(
         self,
         evaluation_ready_signal: pd.DataFrame,
         sample_policy: Dict[str, Any],
         profile: Dict[str, Any],
+        factor_flat: Optional[pd.DataFrame] = None,
     ) -> RiskReview:
         """Compute full risk review for a candidate alpha factor.
 
         Parameters
         ----------
         evaluation_ready_signal : MultiIndex (datetime, instrument) DataFrame.
-            The preprocessed alpha signal. Already winsorized + z-scored.
-        sample_policy : dict with ``active_validation_range`` (date windows only).
-        profile : dict with ``holding_horizon`` (computation config only).
-
-        Returns
-        -------
-        RiskReview frozen dataclass with all fields populated (NaN where
-        data is insufficient).
+        sample_policy : dict with ``active_validation_range``.
+        profile : dict with ``holding_horizon``.
+        factor_flat : Pre-converted flat DataFrame. If None, will be computed.
         """
         # Extract parameters
         val_range = sample_policy.get("active_validation_range", [])
@@ -67,24 +77,19 @@ class RiskEngine:
         val_end = val_range[1] if len(val_range) > 1 else "2023-12-31"
         horizon = profile.get("holding_horizon", 5)
 
-        # Convert signal to flat format
-        factor_flat = multiindex_to_flat(evaluation_ready_signal)
+        # Use pre-converted flat form or compute it
+        if factor_flat is None:
+            factor_flat = multiindex_to_flat(evaluation_ready_signal)
         if factor_flat.empty:
             return RiskReview.stub()
 
-        # Trim factor to validation window
+        # Trim to validation window
         factor_flat = _trim_to_range(factor_flat, val_start, val_end)
         if factor_flat.empty:
             return RiskReview.stub()
 
-        # Self-fetch forward returns (trimmed to validation)
-        try:
-            returns_mi = self.provider.get_returns(val_start, val_end, horizon=horizon)
-            returns_flat = multiindex_to_flat(returns_mi)
-        except Exception:
-            logger.warning("Failed to fetch forward returns for risk review")
-            returns_flat = pd.DataFrame(columns=["time", "symbol", "value"])
-
+        # Get forward returns from batch cache or fetch
+        returns_flat = self._get_returns_flat(val_start, val_end, horizon)
         if returns_flat.empty:
             return RiskReview.stub()
 
@@ -94,14 +99,14 @@ class RiskEngine:
         raw_view_ic = raw_ic_stats.get("ic_mean", np.nan)
 
         # Cap-neutral IC
+        cap_mi = self._get_market_cap(val_start, val_end)
         cap_neutral_ic = self._compute_cap_neutral_ic(
-            factor_flat, returns_flat, val_start, val_end
+            factor_flat, returns_flat, cap_mi
         )
 
         # Style matrix (cached)
         style_matrix = self._get_style_matrix(val_start, val_end)
         if style_matrix is None or style_matrix.empty:
-            # No style analysis possible — return partial result
             bucket = compute_risk_bucket(None, "low")
             return RiskReview(
                 raw_view_ic=_safe(raw_view_ic),
@@ -117,7 +122,6 @@ class RiskEngine:
             raw_view_ic=raw_view_ic if np.isfinite(raw_view_ic) else 0.0,
         )
 
-        # Compute bucket
         bucket = compute_risk_bucket(
             barra.get("alpha_survival_ratio"),
             barra.get("style_crowding_risk", "low"),
@@ -140,6 +144,27 @@ class RiskEngine:
     # Internal methods
     # ------------------------------------------------------------------
 
+    def _get_returns_flat(self, val_start: str, val_end: str, horizon: int) -> pd.DataFrame:
+        """Get forward returns: batch cache → provider fallback."""
+        key = (val_start, val_end, horizon)
+        if key in self._batch_returns:
+            return self._batch_returns[key]
+        try:
+            returns_mi = self.provider.get_returns(val_start, val_end, horizon=horizon)
+            return multiindex_to_flat(returns_mi)
+        except Exception:
+            logger.warning("Failed to fetch forward returns for risk review")
+            return pd.DataFrame(columns=["time", "symbol", "value"])
+
+    def _get_market_cap(self, val_start: str, val_end: str) -> Optional[pd.DataFrame]:
+        """Get market cap: batch cache → provider fallback."""
+        if self._batch_cap is not None:
+            return self._batch_cap
+        try:
+            return self.provider.get_market_data(["$circ_market_cap"], val_start, val_end)
+        except Exception:
+            return None
+
     def _get_style_matrix(self, val_start: str, val_end: str) -> Optional[pd.DataFrame]:
         """Get or compute cached style factor matrix."""
         universe_name = self.provider.universe.name
@@ -148,7 +173,6 @@ class RiskEngine:
         if cached is not None:
             return cached
 
-        # Extend start for lookback (momentum needs 252 trading days)
         extended_start = _extend_start(val_start, LOOKBACK_CALENDAR_DAYS)
 
         try:
@@ -170,9 +194,10 @@ class RiskEngine:
             turnover_rate=market["$turnover_rate"],
         )
 
-        # Trim to validation range (remove lookback prefix)
-        matrix = matrix.loc[val_start:]
+        if matrix.index.names[0] != "datetime":
+            matrix = matrix.swaplevel().sort_index()
 
+        matrix = matrix.loc[val_start:]
         self.cache.put_style_matrix(universe_name, val_start, val_end, matrix)
         return matrix
 
@@ -180,35 +205,18 @@ class RiskEngine:
         self,
         factor_flat: pd.DataFrame,
         returns_flat: pd.DataFrame,
-        val_start: str,
-        val_end: str,
+        cap_mi: Optional[pd.DataFrame],
     ) -> float:
-        """Compute cap-neutral IC. Cap-only; no industry provider yet."""
-        try:
-            cap_mi = self.provider.get_market_data(
-                ["$circ_market_cap"], val_start, val_end
-            )
-        except Exception:
+        """Compute cap-neutral IC."""
+        if cap_mi is None or cap_mi.empty:
             return np.nan
 
-        if cap_mi.empty:
-            return np.nan
-
-        # Pivot to wide
         fv_wide = factor_flat.pivot(index="time", columns="symbol", values="value")
-        cap_wide = cap_mi.reset_index()
-        if "instrument" in cap_wide.columns:
-            cap_wide = cap_wide.rename(columns={"instrument": "symbol"})
-        if "datetime" in cap_wide.columns:
-            cap_wide = cap_wide.rename(columns={"datetime": "time"})
-
-        # Handle MultiIndex cap_mi
         cap_flat = multiindex_to_flat(cap_mi)
         cap_pivot = cap_flat.pivot(index="time", columns="symbol", values="value")
 
         neutral_wide = neutralize_cap(fv_wide, cap_pivot)
 
-        # Convert back to flat
         neutral_flat = neutral_wide.stack().reset_index()
         neutral_flat.columns = ["time", "symbol", "value"]
         neutral_flat = neutral_flat.dropna(subset=["value"])
@@ -226,6 +234,9 @@ class RiskEngine:
 
 class _StubRiskEngine:
     """Stub that returns RiskReview.stub() for every call."""
+
+    def prepare_batch(self, *args, **kwargs) -> None:
+        pass
 
     def compute_risk_review(self, *args, **kwargs) -> RiskReview:
         return RiskReview.stub()

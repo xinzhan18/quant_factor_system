@@ -8,28 +8,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def add_parser(subparsers: argparse._SubParsersAction) -> None:
-    p = subparsers.add_parser("probe", help="Lightweight IC probe (train only)")
-    p.add_argument("expression", help="Qlib DSL expression")
-    p.add_argument("--universe", default="csi1000")
-    p.add_argument("--start", default="2015-01-01")
-    p.add_argument("--end", default="2021-12-31")
-    p.set_defaults(func=cmd_probe)
-
-
 def cmd_probe(args: argparse.Namespace) -> None:
     from research.compute.data_provider import DataProvider
     from research.compute.universe import UniverseManager
+    from research.execute.config import load_research_config
     from core.factor_stats import daily_cross_sectional_ic, ic_summary, multiindex_to_flat
 
-    universe = UniverseManager(args.universe)
-    provider = DataProvider(universe=universe)
+    # Load from central config, allow CLI overrides
+    config = load_research_config()
+    universe_name = args.universe or config.get("universe", "csi1000")
+    probe_cfg = config.get("probe", {})
+    start = args.start or probe_cfg.get("start", "2019-01-01")
+    end = args.end or probe_cfg.get("end", "2023-12-31")
+    qlib_dir = getattr(args, "qlib_dir", None) or config.get("qlib_data_dir", "~/.qlib/qlib_data/cn_data_1d")
+
+    universe = UniverseManager(universe_name)
+    provider = DataProvider(universe=universe, qlib_dir=qlib_dir)
 
     print(f"Probing: {args.expression}")
-    print(f"Universe: {args.universe} | Period: {args.start} ~ {args.end}")
+    print(f"Universe: {universe_name} | Period: {start} ~ {end}")
 
-    factor_mi = provider.get_factor_values(args.expression, args.start, args.end)
-    returns_mi = provider.get_returns(args.start, args.end, horizon=5)
+    factor_mi = provider.get_factor_values(args.expression, start, end)
+    returns_mi = provider.get_returns(start, end, horizon=5)
 
     factor_flat = multiindex_to_flat(factor_mi)
     returns_flat = multiindex_to_flat(returns_mi)

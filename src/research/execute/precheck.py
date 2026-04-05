@@ -35,6 +35,8 @@ DSL_OPERATOR_WHITELIST: Set[str] = {
     "SignedPower", "Tanh", "Exp", "Sigmoid", "Softmax",
     "Scale", "Zscore", "Winsorize",
     "TsDecay", "TsMomentum", "TsAutoCorr", "RealizedVol", "TsEntropy",
+    "TsMax", "TsMin", "TsRank", "TsSkew", "TsKurt",
+    "CsRank", "CsZscore", "CsDemean",
     "AmihudIlliq", "HHI",
 }
 
@@ -48,7 +50,7 @@ DSL_FIELD_WHITELIST: Set[str] = {
 FORBIDDEN_FIELDS: Set[str] = {"$vwap"}
 
 # Operators known to be unregistered at runtime
-UNAVAILABLE_OPERATORS: Set[str] = {"Neg", "TsRank", "TsMax", "TsMin", "SMA"}
+UNAVAILABLE_OPERATORS: Set[str] = {"Neg", "SMA"}
 
 # Patterns that are empirically known to produce bad factors
 FORBIDDEN_PATTERNS: List[re.Pattern] = [

@@ -11,16 +11,10 @@ from research.storage.yaml_io import load_yaml
 logger = logging.getLogger(__name__)
 
 
-def add_parser(subparsers: argparse._SubParsersAction) -> None:
-    p = subparsers.add_parser("logic", help="Logic management")
-    p.add_argument("action", choices=["list", "schedule"], help="Sub-action")
-    p.set_defaults(func=cmd_logic)
-
-
 def cmd_logic(args: argparse.Namespace) -> None:
     paths = StoragePaths()
 
-    if args.action == "list":
+    if args.logic_action == "list":
         registry = load_yaml(paths.logic_registry_file)
         logics = registry.get("logics", [])
         print(f"Logic Registry: {len(logics)} logics")
@@ -32,7 +26,7 @@ def cmd_logic(args: argparse.Namespace) -> None:
         if not logics:
             print("  (empty — use /factor-logic to create)")
 
-    elif args.action == "schedule":
+    elif args.logic_action == "schedule":
         snap_dir = paths.logic_dir / "snapshots"
         latest = snap_dir / "latest_schedule_snapshot.yaml"
         if latest.exists():

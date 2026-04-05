@@ -1,4 +1,4 @@
-"""Tests for LedgerStore (search ledger, batch usage, holdout review, audit log)."""
+"""Tests for LedgerStore (unified ledger: search, batch usage, holdout review, audit log)."""
 
 from __future__ import annotations
 
@@ -101,3 +101,31 @@ class TestAuditLog:
         store.append_audit_entry(actor="judge", action="reject", target="F002")
         log = store.load_audit_log()
         assert len(log["entries"]) == 2
+
+
+class TestSectionIsolation:
+    """Verify that writing to one section does not clobber another."""
+
+    def test_sections_coexist(self, tmp_path: Path) -> None:
+        store = _make_store(tmp_path)
+
+        # Write to all four sections
+        store.increment_search("by_logic", "L001")
+        store.record_batch_usage("batch_001", {"candidates": 3})
+        store.append_holdout_review({"factor_id": "F001", "verdict": "pass"})
+        store.append_audit_entry(actor="judge", action="admit", target="F001")
+
+        # Verify all sections survive
+        assert store.get_search_count("by_logic", "L001") == 1
+        assert store.load_batch_usage()["batches"]["batch_001"]["candidates"] == 3
+        assert len(store.load_holdout_review_ledger()["reviews"]) == 1
+        assert len(store.load_audit_log()["entries"]) == 1
+
+        # Write again to one section
+        store.increment_search("by_logic", "L001")
+
+        # All other sections still intact
+        assert store.get_search_count("by_logic", "L001") == 2
+        assert store.load_batch_usage()["batches"]["batch_001"]["candidates"] == 3
+        assert len(store.load_holdout_review_ledger()["reviews"]) == 1
+        assert len(store.load_audit_log()["entries"]) == 1

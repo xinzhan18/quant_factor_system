@@ -57,10 +57,10 @@ def compute_barra_exposures(
     if len(common_dates) == 0:
         return _empty_result()
 
-    # Per-date OLS regression
+    # Pre-allocate residual wide DataFrame
+    residual_wide = pd.DataFrame(np.nan, index=fv_wide.index, columns=fv_wide.columns)
     betas_per_date = []
     r2_per_date = []
-    residual_records = []
 
     for date in common_dates:
         y = fv_wide.loc[date]
@@ -86,29 +86,28 @@ def compute_barra_exposures(
 
         y_v = y_v[valid_mask]
         X_styles = X_styles[valid_mask]
-        syms = np.array(common_syms)[valid_mask]
+        syms = common_syms[valid_mask]
 
         # OLS: y = intercept + X @ beta + residual
         X = np.column_stack([np.ones(len(y_v)), X_styles])
         try:
             beta, _, _, _ = np.linalg.lstsq(X, y_v, rcond=None)
-        except np.linalg.LinAlgError:
+            resid = y_v - X @ beta
+            if not np.all(np.isfinite(resid)):
+                continue
+        except (np.linalg.LinAlgError, FloatingPointError):
             continue
-
-        pred = X @ beta
-        resid = y_v - pred
 
         # R²
         ss_tot = np.var(y_v) * len(y_v)
         ss_res = np.var(resid) * len(resid)
-        r2 = 1.0 - ss_res / max(ss_tot, 1e-12)
-        r2 = max(0.0, min(1.0, r2))
+        r2 = max(0.0, min(1.0, 1.0 - ss_res / max(ss_tot, 1e-12)))
 
         betas_per_date.append(beta[1:])  # exclude intercept
         r2_per_date.append(r2)
 
-        for sym, rv in zip(syms, resid):
-            residual_records.append({"time": date, "symbol": sym, "value": rv})
+        # Direct assignment — no dict creation
+        residual_wide.loc[date, syms] = resid
 
     if not betas_per_date:
         return _empty_result()
@@ -124,13 +123,14 @@ def compute_barra_exposures(
     # Dominant style
     dominant_idx = int(np.argmax([style_exposures[n] for n in style_cols]))
     dominant_style = style_cols[dominant_idx]
-    dominant_value = style_exposures[dominant_style]
 
     # Crowding
     style_crowding_risk = _classify_crowding(style_r_squared, style_exposures)
 
-    # Residual IC
-    residual_flat = pd.DataFrame(residual_records)
+    # Convert residual wide to flat for IC computation
+    residual_flat = residual_wide.stack().reset_index()
+    residual_flat.columns = ["time", "symbol", "value"]
+    residual_flat = residual_flat.dropna(subset=["value"])
     if residual_flat.empty:
         return _empty_result()
 

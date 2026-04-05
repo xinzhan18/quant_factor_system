@@ -31,6 +31,66 @@ class TestStripNonSerializable:
 
 
 # ===================================================================
+# Helpers for full callable injection
+# ===================================================================
+
+def _noop_signal(candidate, profile):
+    return {
+        "base_signal": None,
+        "diagnostics": {"base_valid_ratio": 0.0, "base_variance": 0.0,
+                        "base_outlier_ratio": 0.0, "base_skew": 0.0, "base_kurtosis": 0.0},
+    }
+
+
+def _noop_preprocess(base_result, profile):
+    return {"evaluation_ready_signal": None, "factor_flat": None}
+
+
+def _noop_stat(signal, sample_policy):
+    return {
+        "ic_mean_train": 0.0, "ic_ir_train": 0.0,
+        "ic_mean_validation": 0.0, "ic_ir_validation": 0.0,
+        "ic_win_rate_validation": 0.5, "monotonicity_validation": 0.0,
+        "sign_consistency": True, "train_validation_decay_ratio": 1.0,
+        "split_stability": "medium", "regime_stability": "medium",
+        "horizon_consistency": "medium",
+        "expanding_window_ic_stability": 0.5, "expanding_window_sign_consistency": 0.5,
+        "expanding_window_pass": True,
+        "bootstrap_stability_score": None, "bootstrap_sign_consistency": None,
+        "purged_walk_forward_score": None, "purged_walk_forward_status": None,
+        "multiple_testing_risk_bucket": "low", "search_adjusted_strength_bucket": "medium",
+        "support_window_checks": [],
+    }
+
+
+def _noop_redundancy(signal, candidate):
+    return {"max_lib_corr": 0.0, "nearest_factor_id": None,
+            "family_overlap_score": 0.0, "subspace_redundancy_score": 0.0,
+            "residual_incremental_ic": 0.0, "replacement_candidate_hint": False,
+            "family_redundancy_view": {}, "subspace_redundancy_view": {}}
+
+
+def _noop_feasibility(signal):
+    return {"turnover": 0.3, "coverage": 0.9, "half_life": 5.0,
+            "holding_period_proxy": "medium", "liquidity_coverage_ratio": 0.9,
+            "tail_trade_concentration": 0.15, "small_cap_concentration": 0.25,
+            "rebalance_stress_proxy": "low"}
+
+
+def _mock_runner(batches_dir=None, **overrides):
+    """Create a BatchRunner with all callables mocked (no Qlib needed)."""
+    defaults = dict(
+        compute_signal=_noop_signal,
+        preprocess_signal=_noop_preprocess,
+        compute_stat_evidence=_noop_stat,
+        compute_redundancy=_noop_redundancy,
+        compute_feasibility=_noop_feasibility,
+    )
+    defaults.update(overrides)
+    return BatchRunner(batches_dir=batches_dir, **defaults)
+
+
+# ===================================================================
 # BatchRunner
 # ===================================================================
 class TestBatchRunner:
@@ -55,36 +115,35 @@ class TestBatchRunner:
 
     def test_run_basic(self, tmp_path):
         path = self._write_manifest(tmp_path)
-        runner = BatchRunner()
+        runner = _mock_runner()
         result = runner.run(path)
         assert result["batch_id"] == "batch_001"
         assert len(result["candidate_results"]) == 1
         assert "judge_packet" in result
 
     def test_run_saves_results(self, tmp_path):
-        results_dir = tmp_path / "results"
-        packets_dir = tmp_path / "packets"
+        batches_dir = tmp_path / "batches"
         path = self._write_manifest(tmp_path)
-        runner = BatchRunner(results_dir=results_dir, packets_dir=packets_dir)
+        runner = _mock_runner(batches_dir=str(batches_dir))
         runner.run(path)
-        assert (results_dir / "batch_001_research_result.yaml").exists()
-        assert (packets_dir / "batch_001_judge_packet.yaml").exists()
+        assert (batches_dir / "batch_001" / "research_result.yaml").exists()
+        assert (batches_dir / "batch_001" / "judge_packet.yaml").exists()
 
     def test_run_with_search_context(self, tmp_path):
         path = self._write_manifest(tmp_path)
         ctx = {"validation_window_id": "val_2022_2023"}
-        runner = BatchRunner()
+        runner = _mock_runner()
         result = runner.run(path, search_context=ctx)
         assert result["candidate_results"][0]["search_context"] == ctx
 
     def test_run_empty_candidates(self, tmp_path):
         path = self._write_manifest(tmp_path, candidates=[])
-        runner = BatchRunner()
+        runner = _mock_runner()
         result = runner.run(path)
         assert result["summary"]["total_candidates"] == 0
 
     def test_missing_manifest_raises(self, tmp_path):
-        runner = BatchRunner()
+        runner = _mock_runner()
         with pytest.raises(FileNotFoundError):
             runner.run(tmp_path / "nonexistent.yaml")
 
@@ -92,7 +151,7 @@ class TestBatchRunner:
         path = tmp_path / "bad.yaml"
         with open(path, "w") as f:
             yaml.dump({"batch_id": "bad"}, f)
-        runner = BatchRunner()
+        runner = _mock_runner()
         with pytest.raises(ValueError, match="missing 'candidates' key"):
             runner.run(path)
 
@@ -110,12 +169,11 @@ class TestBatchRunner:
             for i in range(5)
         ]
         path = self._write_manifest(tmp_path, candidates=candidates)
-        runner = BatchRunner()
+        runner = _mock_runner()
         result = runner.run(path)
         assert len(result["candidate_results"]) == 5
 
     def test_batch_id_from_filename(self, tmp_path):
-        """When batch_id is missing from manifest, use filename as fallback."""
         manifest = {
             "candidates": [
                 {
@@ -128,7 +186,7 @@ class TestBatchRunner:
         path = tmp_path / "my_batch.yaml"
         with open(path, "w") as f:
             yaml.dump(manifest, f)
-        runner = BatchRunner()
+        runner = _mock_runner()
         result = runner.run(path)
         assert result["batch_id"] == "my_batch"
 
@@ -138,39 +196,14 @@ class TestBatchRunner:
 
         def custom_signal(candidate, profile):
             called["signal"] = True
-            return {
-                "base_signal": None,
-                "diagnostics": {"base_valid_ratio": 0.95, "base_variance": 1.0, "base_outlier_ratio": 0.02},
-            }
+            return _noop_signal(candidate, profile)
 
         def custom_stat(signal, sample_policy):
             called["stat"] = True
-            return {
-                "ic_mean_train": 0.01,
-                "ic_ir_train": 0.1,
-                "ic_mean_validation": 0.01,
-                "ic_ir_validation": 0.1,
-                "ic_win_rate_validation": 0.55,
-                "monotonicity_validation": 0.3,
-                "sign_consistency": True,
-                "train_validation_decay_ratio": 0.5,
-                "split_stability": "medium",
-                "regime_stability": "medium",
-                "horizon_consistency": "medium",
-                "expanding_window_ic_stability": 0.5,
-                "expanding_window_sign_consistency": 0.5,
-                "expanding_window_pass": True,
-                "bootstrap_stability_score": None,
-                "bootstrap_sign_consistency": None,
-                "purged_walk_forward_score": None,
-                "purged_walk_forward_status": None,
-                "multiple_testing_risk_bucket": "low",
-                "search_adjusted_strength_bucket": "medium",
-                "support_window_checks": [],
-            }
+            return _noop_stat(signal, sample_policy)
 
         path = self._write_manifest(tmp_path)
-        runner = BatchRunner(
+        runner = _mock_runner(
             compute_signal=custom_signal,
             compute_stat_evidence=custom_stat,
         )

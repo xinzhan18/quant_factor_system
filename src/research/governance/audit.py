@@ -40,39 +40,49 @@ class WriteAuditLog:
 
     def __init__(self, base_dir: Path) -> None:
         self._base_dir = Path(base_dir)
-        self._log_path = self._base_dir / "ledger" / "write_audit_log.yaml"
+        # Audit entries live inside ledger.yaml under write_audit_log.entries
+        self._ledger_path = self._base_dir / "governance" / "ledger.yaml"
 
     @property
     def log_path(self) -> Path:
-        return self._log_path
+        return self._ledger_path
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def append(self, entry: AuditEntry) -> None:
-        """Append *entry* to the audit log atomically."""
-        entries = self._load()
+        """Append *entry* to the audit log section in ledger.yaml."""
+        import yaml
+
+        ledger = self._load_ledger()
+        audit = ledger.setdefault("write_audit_log", {})
+        entries = audit.setdefault("entries", [])
         entries.append(asdict(entry))
-        self._save(entries)
+        self._save_ledger(ledger)
 
     def read_all(self) -> List[dict]:
         """Return every entry as a list of plain dicts."""
-        return self._load()
+        ledger = self._load_ledger()
+        return ledger.get("write_audit_log", {}).get("entries", [])
 
     def entries_for_request(self, request_id: str) -> List[dict]:
         """Return all entries matching *request_id*."""
-        return [e for e in self._load() if e.get("request_id") == request_id]
+        return [e for e in self.read_all() if e.get("request_id") == request_id]
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _load(self) -> List[dict]:
-        return safe_yaml_load_list(self._log_path)
+    def _load_ledger(self) -> dict:
+        if not self._ledger_path.exists():
+            return {}
+        import yaml
+        text = self._ledger_path.read_text(encoding="utf-8")
+        return yaml.safe_load(text) or {}
 
-    def _save(self, entries: List[dict]) -> None:
-        atomic_yaml_write(self._log_path, entries)
+    def _save_ledger(self, ledger: dict) -> None:
+        atomic_yaml_write(self._ledger_path, ledger)
 
     @staticmethod
     def make_entry(

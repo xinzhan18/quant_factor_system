@@ -1,7 +1,7 @@
 """Tests for BatchScheduler -- batch start decision logic."""
 from datetime import datetime, timedelta
 
-from research.controller.batch_scheduler import (
+from research.governance.batch_scheduler import (
     BatchScheduler,
     SchedulerState,
     MAX_BATCHES_PER_WEEK,

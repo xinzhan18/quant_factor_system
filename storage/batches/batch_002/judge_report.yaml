@@ -1,0 +1,161 @@
+batch_id: batch_002
+judge_date: "2026-04-05"
+evaluation_profile_id: research_eval_v1
+sample_policy_version: research_sample_v3
+
+# ── 候选裁决 ──
+candidate_verdicts:
+
+  - candidate_id: C002_01
+    name: pv_corr_times_vol_20
+    verdict: admit
+    reason_codes:
+      - mechanism_aligned
+      - feasibility_ok
+      - style_dominance_detected
+    dimension_scores:
+      mechanism_alignment: aligned    # L001 量价背离假设匹配，Corr($close,$volume) 直接回答 hypothesis
+      statistical_strength: strong    # IC_val=-0.049, ICIR=-0.37, Mono=-1.0, ls_t=-4.17
+      stability: good                # 3 support windows 一致，decay=0.80, ew_pass
+      redundancy: low                # 空库，无重叠
+      feasibility: ok                # turnover=0.039, coverage=0.97
+      risk_model_review: borderline  # survival=0.23 (最高), dominant=turnover_20d
+    notes: >
+      量价相关性加权成交量波动，机制清晰。alpha_survival=23% 在本批最高，
+      虽然 Barra 判 poor，但作为量价背离的核心表征因子，保留进库。
+      冷启动期可接受 borderline risk。
+
+  - candidate_id: C002_02
+    name: ret_vol_cov_20
+    verdict: reserve
+    reason_codes:
+      - mechanism_aligned
+      - feasibility_ok
+      - style_dominance_detected
+      - low_alpha_survival
+    dimension_scores:
+      mechanism_alignment: aligned
+      statistical_strength: strong    # IC_val=+0.050, ICIR=+0.50(本批最高), Mono=0.9, ls_t=4.90(最高)
+      stability: good                # decay=0.99(几乎无衰减), 3 windows 一致
+      redundancy: low
+      feasibility: ok
+      risk_model_review: poor        # survival=0.106, dominant=str_1m
+    notes: >
+      统计表现本批最强(ICIR=0.50, decay=0.99)。但 alpha_survival=10.6%，
+      主要暴露在短期反转(str_1m)风格上——即收益-量协方差本质上捕捉的是反转效应。
+      Reserve 等待 holdout 确认残差 alpha。
+
+  - candidate_id: C002_03
+    name: amount_cv_10_60
+    verdict: admit
+    reason_codes:
+      - mechanism_aligned
+      - feasibility_ok
+      - style_dominance_detected
+    dimension_scores:
+      mechanism_alignment: aligned    # L002 流动性假设匹配，amount CV 直接度量流动性冲击
+      statistical_strength: strong    # IC_val=-0.048, ICIR=-0.45, Mono=-0.9
+      stability: good                # 3 windows 一致，递增趋势
+      redundancy: low
+      feasibility: ok                # turnover=0.054, coverage=0.99
+      risk_model_review: borderline  # survival=0.19, dominant=vol_20d
+    notes: >
+      成交额变异系数，流动性冲击的直接度量。旧系统同名因子 Grade A。
+      survival=19% 可接受。
+
+  - candidate_id: C002_04
+    name: turnover_vol_10
+    verdict: admit
+    reason_codes:
+      - mechanism_aligned
+      - feasibility_ok
+      - style_dominance_detected
+    dimension_scores:
+      mechanism_alignment: aligned    # L002 流动性假设核心
+      statistical_strength: strong    # IC_val=-0.078(本批第3), ICIR=-0.57(本批第1), Mono=-1.0
+      stability: good                # decay=1.09(OOS 增强!), 3 windows 递增
+      redundancy: low
+      feasibility: ok                # turnover=0.037, coverage=0.97
+      risk_model_review: borderline  # survival=0.17, dominant=turnover_20d
+    notes: >
+      换手率短期波动。IC/ICIR/Mono 三项指标均为本批前列，decay>1.0 说明
+      OOS 表现反而增强。核心流动性因子，admit。
+
+  - candidate_id: C002_05
+    name: atr_ratio_20
+    verdict: admit
+    reason_codes:
+      - mechanism_aligned
+      - feasibility_ok
+      - style_dominance_detected
+    dimension_scores:
+      mechanism_alignment: aligned    # L003 K线结构假设匹配，日内振幅直接度量
+      statistical_strength: strong    # IC_val=-0.083, Mono=-1.0
+      stability: borderline          # decay=1.60(OOS 大幅增强，需注意过拟合反转风险)
+      redundancy: low
+      feasibility: ok                # turnover=0.021(最低), coverage=1.0
+      risk_model_review: borderline  # survival=0.15, dominant=vol_20d
+    notes: >
+      日内振幅占比均值。IC 很强(-0.083)但 decay=1.60 异常高——
+      OOS IC 大幅强于 train，可能反映市场 regime 变化而非过拟合。
+      turnover 极低(0.021) 是优点。Admit with caution。
+
+  - candidate_id: C002_06
+    name: range_x_turnover_vol
+    verdict: reserve
+    reason_codes:
+      - style_dominance_detected
+      - low_alpha_survival
+      - crossover_needs_confirmation
+    dimension_scores:
+      mechanism_alignment: aligned    # L003×L002 crossover
+      statistical_strength: strong    # IC_val=-0.085(本批最强), ICIR=-0.55, Mono=-1.0
+      stability: good                # decay=1.15, 3 windows 递增
+      redundancy: low
+      feasibility: ok
+      risk_model_review: poor        # survival=0.052(本批最低!), dominant=vol_20d
+    notes: >
+      统计信号最强(IC=-0.085, ls_t=-5.36)但 alpha_survival=5.2%，
+      几乎全部可被 vol_20d 风格因子解释。作为 crossover 首轮缺乏独立性证据。
+      Reserve 等待去风格后的增量 IC 确认。
+
+# ── Route Verdicts ──
+route_verdicts:
+  - route_id: R1
+    logic_id: L001
+    verdict: continue
+    reason: "1 admit + 1 reserve。量价背离假设得到验证，继续探索低风格暴露变体"
+  - route_id: R2
+    logic_id: L002
+    verdict: continue
+    reason: "2 admits。流动性微观结构假设强烈验证，两个因子互相独立"
+  - route_id: R3
+    logic_id: L003
+    verdict: continue
+    reason: "1 admit。K线结构有独立信号(atr_ratio)，但需要更多非 vol 暴露的变体"
+  - route_id: R3x
+    logic_id: L003
+    verdict: pause
+    reason: "crossover 因子 alpha_survival 过低(5%)，暂停此方向"
+
+# ── Logic Recommendations ──
+logic_recommendations:
+  - logic_id: L001
+    recommended_status: active
+    reason: "首轮 1 admit，量价假设成立。继续"
+  - logic_id: L002
+    recommended_status: active
+    reason: "首轮 2 admits，流动性假设强烈验证。继续"
+  - logic_id: L003
+    recommended_status: active
+    reason: "首轮 1 admit(atr_ratio)，K线结构有信号但需更多证据"
+
+# ── 汇总 ──
+summary:
+  total_candidates: 6
+  admit: 4
+  reserve: 2
+  reject: 0
+  replace: 0
+  admitted_ids: [C002_01, C002_03, C002_04, C002_05]
+  reserved_ids: [C002_02, C002_06]

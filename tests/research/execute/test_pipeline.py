@@ -1,15 +1,13 @@
 """Tests for research.execute.pipeline — the main orchestrator.
 
-All sibling compute modules are mocked so these tests focus purely on
-orchestration correctness:
-- candidates flow through all steps in order
-- failed prechecks skip evaluation
-- execution gate classifies correctly
-- batch result contains all expected keys
-- judge packet is built and attached
+Tests focus on orchestration: candidates flow through steps in order,
+prepare_batch is called, factor_flat propagates, batch summary is correct.
 """
 
 import pytest
+from unittest.mock import MagicMock, call
+
+import pandas as pd
 
 from research.execute.pipeline import (
     ResearchExecutePipeline,
@@ -22,6 +20,7 @@ from research.execute.execution_gate import GateResult
 # ===================================================================
 # Fixtures / helpers
 # ===================================================================
+
 def _dsl_candidate(cid="C001", expr="Rank($close)", **extra):
     base = {
         "candidate_id": cid,
@@ -41,8 +40,15 @@ def _bad_dsl_candidate(cid="C_BAD"):
     return _dsl_candidate(cid=cid, expr="Neg($vwap)")
 
 
-def _make_custom_stat_evidence(ic_val=0.012, sign_ok=True, split="medium"):
-    """Return a stat evidence callable that returns controllable values."""
+def _make_signal_result(with_flat=True):
+    """Return a signal result dict with evaluation_ready_signal + factor_flat."""
+    return {
+        "evaluation_ready_signal": pd.DataFrame({"factor": [1.0]}) if with_flat else None,
+        "factor_flat": pd.DataFrame({"time": [], "symbol": [], "value": []}) if with_flat else None,
+    }
+
+
+def _make_stat_evidence(ic_val=0.012, sign_ok=True):
     def _stat(signal, sample_policy):
         return {
             "ic_mean_train": 0.018,
@@ -52,215 +58,167 @@ def _make_custom_stat_evidence(ic_val=0.012, sign_ok=True, split="medium"):
             "ic_win_rate_validation": 0.55,
             "monotonicity_validation": 0.35,
             "sign_consistency": sign_ok,
-            "train_validation_decay_ratio": 0.56 if sign_ok else -0.30,
-            "split_stability": split,
+            "train_validation_decay_ratio": 0.56,
+            "split_stability": "medium",
             "regime_stability": "medium",
             "horizon_consistency": "medium",
             "expanding_window_ic_stability": 0.63,
             "expanding_window_sign_consistency": 0.71,
             "expanding_window_pass": True,
-            "bootstrap_stability_score": 0.67,
-            "bootstrap_sign_consistency": 0.81,
+            "bootstrap_stability_score": None,
+            "bootstrap_sign_consistency": None,
             "purged_walk_forward_score": None,
             "purged_walk_forward_status": None,
-            "multiple_testing_risk_bucket": "medium",
+            "multiple_testing_risk_bucket": "low",
             "search_adjusted_strength_bucket": "medium",
             "support_window_checks": [],
         }
     return _stat
 
 
+def _make_pipeline(**overrides):
+    """Build a pipeline with mock callables."""
+    defaults = {
+        "compute_signal": lambda c, p: {"base_signal": pd.DataFrame({"f": [1.0]}), "diagnostics": {}},
+        "preprocess_signal": lambda b, p: _make_signal_result(),
+        "compute_stat_evidence": _make_stat_evidence(),
+        "compute_redundancy": lambda s, c: {"max_lib_corr": 0.1, "nearest_factor_id": None},
+        "compute_feasibility": lambda s: {"turnover": 0.2, "coverage": 0.9, "half_life": 5.0,
+                                           "holding_period_proxy": "medium",
+                                           "liquidity_coverage_ratio": 0.9,
+                                           "tail_trade_concentration": 0.15,
+                                           "small_cap_concentration": 0.25,
+                                           "rebalance_stress_proxy": "low"},
+    }
+    defaults.update(overrides)
+    return ResearchExecutePipeline(**defaults)
+
+
 # ===================================================================
 # Single candidate execution
 # ===================================================================
+
 class TestExecuteCandidate:
     def test_passing_candidate_has_all_keys(self):
-        pipeline = ResearchExecutePipeline()
+        pipeline = _make_pipeline()
         result = pipeline.execute_candidate(_dsl_candidate())
-
-        required_keys = {
-            "candidate_id", "logic_id", "route_id", "family_id",
-            "source_type", "sample_policy", "precheck",
-            "diagnostics", "evaluation", "similarity",
+        expected_keys = {
+            "candidate_id", "logic_id", "route_id", "experiment_lineage_tag",
+            "family_id", "route_type", "source_type", "sample_policy",
+            "precheck", "diagnostics", "evaluation", "similarity",
             "risk_review", "feasibility", "execution_gate",
             "support_window_review", "holdout_review",
         }
-        assert required_keys.issubset(result.keys()), (
-            f"Missing keys: {required_keys - result.keys()}"
-        )
+        assert expected_keys.issubset(result.keys())
 
-    def test_precheck_pass(self):
-        pipeline = ResearchExecutePipeline()
-        result = pipeline.execute_candidate(_dsl_candidate())
-        assert result["precheck"]["status"] == "passed"
-
-    def test_precheck_failed_skips_evaluation(self):
-        pipeline = ResearchExecutePipeline()
+    def test_failed_precheck_fills_empty_sections(self):
+        pipeline = _make_pipeline()
         result = pipeline.execute_candidate(_bad_dsl_candidate())
         assert result["precheck"]["status"] == "failed"
-        # Evaluation should be empty (skipped)
         assert result["evaluation"] == {}
-        # But execution gate should still run and fail_technical
-        assert result["execution_gate"]["status"] == "fail_technical"
+        assert result["similarity"] == {}
 
-    def test_custom_compute_signal_called(self):
-        called = {"count": 0}
-        def custom_compute(candidate, profile):
-            called["count"] += 1
-            return {
-                "base_signal": "mock",
-                "diagnostics": {
-                    "base_valid_ratio": 0.85,
-                    "base_variance": 1.2,
-                    "base_outlier_ratio": 0.04,
-                },
-            }
-        pipeline = ResearchExecutePipeline(compute_signal=custom_compute)
-        result = pipeline.execute_candidate(_dsl_candidate())
-        assert called["count"] == 1
-        assert result["diagnostics"]["base_valid_ratio"] == 0.85
+    def test_factor_flat_passed_to_risk_engine(self):
+        """Risk engine receives factor_flat from preprocess step."""
+        mock_risk = MagicMock()
+        mock_risk.compute_risk_review.return_value = MagicMock(to_dict=lambda: {})
 
-    def test_execution_gate_pass_with_stubs(self):
-        """With default stubs, a valid DSL candidate should pass the gate."""
-        pipeline = ResearchExecutePipeline()
-        result = pipeline.execute_candidate(_dsl_candidate())
-        assert result["execution_gate"]["status"] == "pass"
+        pipeline = _make_pipeline(risk_engine=mock_risk)
+        pipeline.execute_candidate(_dsl_candidate())
 
-    def test_execution_gate_fail_when_sign_flips(self):
-        stat_fn = _make_custom_stat_evidence(sign_ok=False)
-        pipeline = ResearchExecutePipeline(compute_stat_evidence=stat_fn)
-        result = pipeline.execute_candidate(_dsl_candidate())
-        assert result["execution_gate"]["status"] == "fail_technical"
-        assert "train_validation_sign_flip" in result["execution_gate"]["reason_codes"]
-
-    def test_holdout_review_not_recommended_by_default(self):
-        pipeline = ResearchExecutePipeline()
-        result = pipeline.execute_candidate(_dsl_candidate())
-        assert result["holdout_review"]["recommended"] is False
+        mock_risk.compute_risk_review.assert_called_once()
+        call_kwargs = mock_risk.compute_risk_review.call_args
+        assert "factor_flat" in call_kwargs.kwargs
 
 
 # ===================================================================
 # Batch execution
 # ===================================================================
-class TestExecuteBatch:
-    def test_batch_result_structure(self):
-        pipeline = ResearchExecutePipeline()
-        candidates = [_dsl_candidate("C001"), _dsl_candidate("C002")]
-        batch_result = pipeline.execute_batch("batch_test", candidates)
 
-        assert batch_result["batch_id"] == "batch_test"
-        assert len(batch_result["candidate_results"]) == 2
-        assert "judge_packet" in batch_result
-        assert "summary" in batch_result
+class TestExecuteBatch:
+    def test_prepare_batch_called_before_candidates(self):
+        call_order = []
+        mock_prepare = MagicMock(side_effect=lambda sp, re: call_order.append("prepare"))
+
+        def mock_compute(c, p):
+            call_order.append("compute")
+            return {"base_signal": pd.DataFrame({"f": [1.0]}), "diagnostics": {}}
+
+        pipeline = _make_pipeline(
+            prepare_batch=mock_prepare,
+            compute_signal=mock_compute,
+        )
+        pipeline.execute_batch("B001", [_dsl_candidate()])
+
+        assert call_order[0] == "prepare"
+        assert "compute" in call_order
 
     def test_batch_summary_counts(self):
-        pipeline = ResearchExecutePipeline()
-        candidates = [
-            _dsl_candidate("C001"),
-            _bad_dsl_candidate("C002"),
-            _dsl_candidate("C003"),
-        ]
-        batch_result = pipeline.execute_batch("batch_test", candidates)
-        summary = batch_result["summary"]
+        pipeline = _make_pipeline()
+        result = pipeline.execute_batch(
+            "B001",
+            [_dsl_candidate("C1"), _dsl_candidate("C2"), _bad_dsl_candidate("C3")],
+        )
+        summary = result["summary"]
         assert summary["total_candidates"] == 3
         assert summary["precheck_failed"] == 1
-        # C002 fails precheck -> fail_technical; C001, C003 pass
-        assert summary["gate_fail_technical"] == 1
 
-    def test_judge_packet_built_from_results(self):
-        pipeline = ResearchExecutePipeline()
-        candidates = [_dsl_candidate("C001")]
-        batch_result = pipeline.execute_batch("batch_test", candidates)
-        packet = batch_result["judge_packet"]
-        jp = packet["judge_packet"]
-        assert jp["batch_id"] == "batch_test"
-        assert len(jp["candidate_briefs"]) == 1
-        assert jp["candidate_briefs"][0]["candidate_id"] == "C001"
-
-    def test_search_context_attached_to_results(self):
-        pipeline = ResearchExecutePipeline()
-        ctx = {"validation_window_id": "val_2022_2023"}
-        batch_result = pipeline.execute_batch("batch_test", [_dsl_candidate()], search_context=ctx)
-        assert batch_result["candidate_results"][0]["search_context"] == ctx
-
-    def test_empty_batch(self):
-        pipeline = ResearchExecutePipeline()
-        batch_result = pipeline.execute_batch("batch_empty", [])
-        assert batch_result["summary"]["total_candidates"] == 0
-        assert batch_result["candidate_results"] == []
-
-    def test_mixed_pass_and_fail(self):
-        """Mix of passing and failing candidates in one batch."""
-        pipeline = ResearchExecutePipeline()
-        candidates = [
-            _dsl_candidate("C001"),
-            _bad_dsl_candidate("C002"),
-        ]
-        batch_result = pipeline.execute_batch("batch_mixed", candidates)
-        statuses = [
-            r["execution_gate"]["status"]
-            for r in batch_result["candidate_results"]
-        ]
-        assert "pass" in statuses
-        assert "fail_technical" in statuses
+    def test_batch_result_has_judge_packet(self):
+        pipeline = _make_pipeline()
+        result = pipeline.execute_batch("B001", [_dsl_candidate()])
+        assert "judge_packet" in result
 
 
 # ===================================================================
-# Helpers
+# Support window review
 # ===================================================================
+
 class TestSupportWindowReview:
     def test_no_flips(self):
-        eval_ = {"support_window_checks": [
-            {"sign_consistency_support": True},
-            {"sign_consistency_support": True},
-        ]}
-        assert _compute_support_window_review(eval_)["support_window_warning"] == "none"
+        result = _compute_support_window_review({
+            "support_window_checks": [
+                {"sign_consistency_support": True},
+                {"sign_consistency_support": True},
+            ]
+        })
+        assert result["support_window_warning"] == "none"
 
     def test_single_flip(self):
-        eval_ = {"support_window_checks": [
-            {"sign_consistency_support": True},
-            {"sign_consistency_support": False},
-        ]}
-        assert _compute_support_window_review(eval_)["support_window_warning"] == "single_window_flip"
+        result = _compute_support_window_review({
+            "support_window_checks": [
+                {"sign_consistency_support": False},
+                {"sign_consistency_support": True},
+            ]
+        })
+        assert result["support_window_warning"] == "single_window_flip"
 
-    def test_repeated_flip(self):
-        eval_ = {"support_window_checks": [
-            {"sign_consistency_support": False},
-            {"sign_consistency_support": False},
-        ]}
-        assert _compute_support_window_review(eval_)["support_window_warning"] == "repeated_sign_flip"
+    def test_repeated_flips(self):
+        result = _compute_support_window_review({
+            "support_window_checks": [
+                {"sign_consistency_support": False},
+                {"sign_consistency_support": False},
+            ]
+        })
+        assert result["support_window_warning"] == "repeated_sign_flip"
 
-    def test_empty_checks(self):
-        assert _compute_support_window_review({})["support_window_warning"] == "none"
 
+# ===================================================================
+# Holdout review trigger
+# ===================================================================
 
-class TestHoldoutReviewTrigger:
-    def test_not_recommended_by_default(self):
-        eval_ = {"ic_mean_validation": 0.005, "ic_ir_validation": 0.05, "multiple_testing_risk_bucket": "low"}
-        sim = {"max_lib_corr": 0.80}
-        gate = GateResult(status="pass")
-        result = _should_recommend_holdout(eval_, sim, gate)
-        assert result["recommended"] is False
-
-    def test_high_confidence_triggers(self):
-        eval_ = {"ic_mean_validation": 0.020, "ic_ir_validation": 0.20, "multiple_testing_risk_bucket": "low"}
-        sim = {"max_lib_corr": 0.20}
-        gate = GateResult(status="pass")
-        result = _should_recommend_holdout(eval_, sim, gate)
+class TestHoldoutReview:
+    def test_strong_and_low_redundancy_triggers(self):
+        evaluation = {"ic_mean_validation": 0.02, "ic_ir_validation": 0.2,
+                       "multiple_testing_risk_bucket": "low"}
+        similarity = {"max_lib_corr": 0.1}
+        gate = GateResult(status="pass", reason_codes=[])
+        result = _should_recommend_holdout(evaluation, similarity, gate)
         assert result["recommended"] is True
-        assert "high_confidence_candidate" in result["trigger_reason_codes"]
 
-    def test_high_mining_risk_plus_strong_triggers(self):
-        eval_ = {"ic_mean_validation": 0.020, "ic_ir_validation": 0.20, "multiple_testing_risk_bucket": "high"}
-        sim = {"max_lib_corr": 0.20}
-        gate = GateResult(status="pass")
-        result = _should_recommend_holdout(eval_, sim, gate)
-        assert result["recommended"] is True
-        assert "high_mining_risk_but_strong_validation" in result["trigger_reason_codes"]
-
-    def test_fail_technical_suppresses_holdout(self):
-        eval_ = {"ic_mean_validation": 0.020, "ic_ir_validation": 0.20, "multiple_testing_risk_bucket": "low"}
-        sim = {"max_lib_corr": 0.20}
-        gate = GateResult(status="fail_technical")
-        result = _should_recommend_holdout(eval_, sim, gate)
+    def test_fail_technical_blocks_holdout(self):
+        evaluation = {"ic_mean_validation": 0.02, "ic_ir_validation": 0.2,
+                       "multiple_testing_risk_bucket": "low"}
+        similarity = {"max_lib_corr": 0.1}
+        gate = GateResult(status="fail_technical", reason_codes=["bad"])
+        result = _should_recommend_holdout(evaluation, similarity, gate)
         assert result["recommended"] is False

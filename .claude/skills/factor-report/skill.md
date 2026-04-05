@@ -4,389 +4,81 @@ description: 为已录取因子生成 Obsidian Markdown 分析报告（含 LLM �
 user_invocable: true
 ---
 
-# 因子报告生成器（Obsidian Vault 版）
+# Factor Report — 资产报告生成
 
-生成包含 7 章分析 + LLM 叙事的 Obsidian Markdown 因子报告，输出到 `storage/evidence/vault/`。
+## 目标
+
+仅对 **已录取因子**（admit / replace）生成正式 Obsidian Markdown 报告。reject / near_miss 不生成正式报告。
 
 ## 用法
 
-```
-/factor-report 001          # 单因子报告
-/factor-report all          # 所有因子报告
-```
+单因子：`/factor-report 001`
+全部因子：`/factor-report all`
+批次摘要：`/factor-report summary batch_042`
 
-## 管道流程
+## 流程
 
-### 第1阶段：构建报告数据 + 导出 PNG（Python）
+### Phase 1：构建报告数据 + PNG
 
-**单因子：**
 ```bash
-cd /Users/xinzhan/.openclaw/workspace/quant_factor_system
 PYTHONPATH=src python3 -m report.builder --factor-id FACTOR_ID --vault
 ```
 
-**全部因子：**
-```bash
-cd /Users/xinzhan/.openclaw/workspace/quant_factor_system
-# Registry detail YAML (factor_XXX.yaml) is now the primary metadata source.
-# DB factor_meta is a derived cache / fallback only.
-for id in $(ls storage/registry/factors/factor_*.yaml | sed 's/.*factor_//;s/.yaml//'); do
-  echo "Building F${id}..." && PYTHONPATH=src python3 -m report.builder --factor-id "$id" --vault
-done
-```
+输出：
+- `storage/evidence/vault/assets/FXXX/report_data.json`
+- `storage/evidence/vault/assets/FXXX/*.png`（18+ 张图表）
 
-这会在 `storage/evidence/vault/assets/FXXX/` 下生成 18 张 PNG 图表和 `report_data.json`。
+### Phase 2：生成 Obsidian Markdown
 
-### 第2阶段：生成 Obsidian Markdown（LLM）
+读取 `report_data.json` + factor registry + judge_report + logic card，生成：
 
-对每个因子，读取 `storage/evidence/vault/assets/FXXX/report_data.json`，然后用 Write 工具生成 Obsidian Markdown 文件。
+`storage/evidence/vault/factors/FXXX <name>.md`
 
-**文件路径**: `storage/evidence/vault/factors/FXXX <name>.md`
-
-**report_data.json 结构（v2 schema）：**
-```
-factor            — 基本元数据
-predictive_power  — IC 分析 (ICAnalyzer)
-profitability     — 分组收益 (ProfitAnalyzer)
-risk_attribution  — 风险归因 (L0 时为 null)
-conditional       — 条件分析 (ConditionalAnalyzer)
-decay_tradability — 衰减与可交易性 (DecayAnalyzer)
-uniqueness        — 独特性 (UniquenessAnalyzer)
-composite         — 综合评分 (CompositeScorer)
-```
-
-**Markdown 模板结构：**
-
-```markdown
----
+#### Frontmatter
+```yaml
 id: "XXX"
-name: <factor_name>
+name: <name>
 category: <category>
-expression: "<qlib_expression>"
+source_type: <dsl|python>
+logic_id: <logic_id>
+route_type: <route_type>
+experiment_lineage_tag: <ELT>
+family_id: <family_id>
+expression: "<expression>"
 batch: <batch>
 admitted_at: <date>
-data_level: L0
-ic_mean_is: <predictive_power.summary.is.rank_ic_mean>
-ic_mean_oos: <predictive_power.summary.oos.rank_ic_mean>
-icir_is: <predictive_power.summary.is.icir>
-icir_oos: <predictive_power.summary.oos.icir>
-monotonicity: <profitability.monotonicity>
-ls_sharpe: <profitability.ls_stats.sharpe>
-composite_score: <composite.composite_score>
-composite_grade: <composite.composite_grade>
-tags:
-  - factor
-  - <category>
----
-
-# FXXX <factor_name>
-
-> [!info] 基本信息
-> **表达式**：`<qlib_expression>`
-> **类别**：<category> | **批次**：<batch> | **录取日期**：<date>
-> **数据等级**：L0（OHLCV）| **综合评分**：<composite_score> (<composite_grade>)
-
-## KPI 摘要
-
-| 指标 | IS | OOS |
-|------|-----|-----|
-| RankIC (Spearman) | <is.rank_ic_mean> ± <is.rank_ic_std> | <oos.rank_ic_mean> ± <oos.rank_ic_std> |
-| IC (Pearson) | <is.ic_mean> ± <is.ic_std> | <oos.ic_mean> ± <oos.ic_std> |
-| ICIR | <is.icir> | <oos.icir> |
-| IC > 0 Win Rate | <is.win_rate> | <oos.win_rate> |
-| t-statistic | <is.t_stat> (p=<is.p_value>) | <oos.t_stat> (p=<oos.p_value>) |
-| 多空 Sharpe | — | <ls_stats.sharpe> |
-| 单调性 | — | <monotonicity> |
-| 综合评分 | — | <composite_score> (<composite_grade>) |
-
-## 构造逻辑与经济解读
-
-### 表达式拆解
-
-（逐步拆解 Qlib 表达式的每个操作符和参数，200+ 字）
-
-### 经济理论
-
-（因子背后的学术理论和市场机制，200+ 字，3-4 个不同理论角度）
-
-### A股市场背景
-
-（T+1、涨跌停、融券限制等制度因素如何影响该因子，150+ 字）
-
----
-
-## 1. 预测能力 — "这个信号有多强？"
-
-![[FXXX/ic_timeseries.png]]
-![[FXXX/ic_distribution.png]]
-![[FXXX/rolling_ic.png]]
-![[FXXX/cumulative_ic.png]]
-![[FXXX/monthly_heatmap.png]]
-
-> [!note]- 年度明细
-> | 年份 | RankIC Mean | ICIR | Win Rate | 市场环境 |
-> |------|------------|------|----------|----------|
-> | (从 predictive_power.annual 数据填充，regime 来自 conditional 的 merge) |
-
-（LLM 叙事：对比 IS 与 OOS 的 IC 和 ICIR，解读 t 检验显著性结果，分析时序趋势、年度波动和月度规律。必须引用具体数字。）
-
-**结论**：（一句话回答"这个信号有多强？"）
-
----
-
-## 2. 盈利能力 — "信号能稳定赚钱吗？"
-
-![[FXXX/quintile_bar.png]]
-![[FXXX/cumulative_returns.png]]
-![[FXXX/long_short.png]]
-![[FXXX/is_vs_oos_bar.png]]
-![[FXXX/annual_group_returns.png]]
-
-> [!note]- 分组统计
-> | 指标 | Q1 | Q2 | Q3 | Q4 | Q5 | L/S |
-> |------|----|----|----|----|----|----|
-> | 年化收益 | | | | | | |
-> | Sharpe | | | | | | |
-> | 最大回撤 | | | | | | |
-> | (从 profitability.stats 填充) |
-
-（LLM 叙事：分析 L/S 收益来源（long vs short contribution），讨论 A 股融券限制对空头端的影响，评估单调性和 IS/OOS 一致性。必须引用具体数字。）
-
-**结论**：（一句话回答"信号能稳定赚钱吗？"）
-
----
-
-## 3. 风险归因 — "这是 Alpha 还是 Beta？"
-
-**若 risk_attribution.has_industry=true，嵌入：**
-
-![[FXXX/industry_ic.png]]
-
-> [!note]- 行业 IC 明细（Top 10）
-> | 行业 | IC Mean | 股票数 |
-> |------|---------|-------|
-> | (从 risk_attribution.industry_ic 填充，取 abs(IC) 最大的 10 个) |
-
-**若 risk_attribution.has_size=true，嵌入：**
-
-![[FXXX/size_exposure.png]]
-
-> [!note]- 市值分位 IC
-> | 分位 | IC |
-> |------|----|
-> | Q1 (小市值) | |
-> | Q2 | |
-> | Q3 | |
-> | Q4 | |
-> | Q5 (大市值) | |
-> | (从 risk_attribution.size_exposure.ic_by_quintile 填充) |
->
-> **因子-市值相关性**：<risk_attribution.size_exposure.factor_size_corr>（正值=大市值偏向，负值=小市值偏向）
-
-**若 risk_attribution.has_style=true，嵌入：**
-
-![[FXXX/style_corr.png]]
-
-> [!note]- 风格因子暴露
-> | 风格因子 | 相关系数 |
-> |---------|---------|
-> | market_cap（市值） | |
-> | pb_ratio（市净率） | |
-> | pe_ratio（市盈率） | |
-> | (从 risk_attribution.style_corr 填充) |
-
-**若所有 has_* 均为 false（数据加载失败），改为输出：**
-
-> [!info] 风险归因数据不可用
-> 行业/市值数据加载失败，以下为基于因子表达式的定性分析。
-
-（定性分析：分析因子表达式可能暴露的风格因子，推断行业偏好。150+ 字。）
-
----
-
-**LLM 叙事（当有数据时）**：
-- 行业IC分解：识别 IC 最高/最低的行业，判断因子是否行业中性或存在明显行业偏向
-- 市值暴露：`factor_size_corr > 0.2` 表示大市值偏向，`< -0.2` 表示小市值偏向；结合 ic_by_quintile 判断信号在哪个规模段最强
-- 风格相关：pb/pe 相关性大说明 value/growth 暴露；market_cap 相关与 factor_size_corr 应一致
-- 最终判断：这些暴露是否可以用已知系统性因子解释，还是存在残余 Alpha
-- 必须引用具体数字（IC 值、相关系数等）
-
-**结论**：（一句话回答"这是 Alpha 还是 Beta？"）
-
----
-
-## 4. 条件分析 — "信号什么时候管用？"
-
-![[FXXX/conditional_ic.png]]
-![[FXXX/annual_ic.png]]
-
-> [!note]- 市场环境 IC
-> | 环境 | IC Mean | 观察天数 |
-> |------|---------|---------|
-> | 牛市 | | |
-> | 震荡 | | |
-> | 熊市 | | |
-> | (从 conditional.regime_ic 填充) |
-
-> [!note]- 波动率环境 IC
-> | 环境 | IC Mean | 观察天数 |
-> |------|---------|---------|
-> | 高波动 | | |
-> | 低波动 | | |
-> | (从 conditional.vol_regime_ic 填充) |
-
-（LLM 叙事：给出具体的使用建议——什么市场环境下应该加仓/减仓该因子，而非仅描述现象。必须引用具体数字。）
-
-**结论**：（一句话回答"什么时候应该使用/回避这个因子？"）
-
----
-
-## 5. 衰减与可交易性 — "信号能撑多久？"
-
-![[FXXX/ic_decay.png]]
-![[FXXX/autocorrelation.png]]
-![[FXXX/distribution.png]]
-![[FXXX/coverage.png]]
-
-> [!note]- IC 衰减表
-> | 持仓周期 | IC | IC 比率 (vs 1d) |
-> |---------|-----|-----------------|
-> | 1d | | 1.00 |
-> | 2d | | |
-> | 5d | | |
-> | 10d | | |
-> | 20d | | |
-> | 60d | | |
-> | (从 decay_tradability.ic_by_period 填充) |
-
-（LLM 叙事：基于半衰期给出明确的换仓频率建议，分析因子自相关对换手率的影响，评估因子值分布和覆盖率。必须引用具体数字。）
-
-**结论**：推荐换仓频率：X 天
-
----
-
-## 6. 独特性 — "因子库还需要这个因子吗？"
-
-![[FXXX/correlation_bar.png]]
-
-> [!note]- 库内相关性
-> | 因子 | 相关系数 |
-> |------|---------|
-> | (从 uniqueness.top5 填充) |
->
-> **最大相关性**：<max_corr> (与 <max_corr_factor>)
-
-（LLM 叙事：评估该因子是否提供增量信息，与最相关因子的区别何在。如果 max_corr 接近 0.7 阈值，讨论风险。）
-
-**结论**：（一句话回答"因子库还需要这个因子吗？"）
-
----
-
-## 7. 综合评分
-
-![[FXXX/radar.png]]
-
-> [!note]- 评分明细
-> | 维度 | 得分 | 权重 | 数据可用 |
-> |------|------|------|---------|
-> | 预测能力 | | 25% | |
-> | 信号稳定性 | | 20% | |
-> | 盈利能力 | | 15% | |
-> | 单调性 | | 10% | |
-> | OOS 稳健性 | | 15% | |
-> | 独特性 | | 10% | |
-> | 衰减抗性 | | 5% | |
-> | (从 composite.dimensions 填充) |
->
-> **综合评分**：<composite_score> / 100 (<composite_grade>)
-
-（LLM 叙事：解读雷达图形态，分析该因子的核心优势和最大短板。）
-
----
-
-## 批判性审查
-
-> [!danger] 一句话毒舌
-> （一句尖锐的总结，必须提及具体数字）
-
-（3-4 段实质性批评，必须引用报告中的具体数字。涵盖：实际信号强度评估、因子拥挤度风险、结构性弱点、IS/OOS 一致性。300+ 字。）
-
-> [!warning]- 关键弱点
-> - **弱点1**：具体数字说明
-> - **弱点2**：具体数字说明
-> - **弱点3**：具体数字说明
-
-> [!tip]- 改进方向
-> - 可操作的建议1
-> - 可操作的建议2
-> - 可操作的建议3
+decision: <admit|replace>
+sample_policy_version: research_sample_v3
+validation_window_id: val_2022_2023
+ic_mean_validation: <value>
+ic_ir_validation: <value>
+risk_model_review_bucket: <acceptable|borderline|poor>
 ```
 
-**图表名称对照（最多 21 张 PNG）：**
+#### 章节结构
+1. **基本信息** — 因子 ID / 表达式 / 类别 / ELT / route_type
+2. **研究脉络** — logic hypothesis / research question / 为什么是这个 route_type
+3. **评估制度** — universe / tradability / preprocess / neutralization / sample_policy
+4. **KPI 摘要** — Train vs Validation 表格（IC/ICIR/胜率/Sharpe/单调性）
+5. **预测能力** — IC 时序 / 分布 / rolling / expanding / 月度热力图
+6. **盈利能力** — 分组收益 / 累积收益 / 多空 / 年度
+7. **风险归因** — raw IC / cap-neutral IC / Barra 残差 IC / alpha_survival / dominant style
+8. **条件分析** — regime IC / vol regime
+9. **衰减与可交易性** — IC decay / autocorrelation / coverage / turnover
+10. **独特性** — max_lib_corr / family_overlap / subspace_redundancy / residual_incremental_ic
+11. **综合评分** — 雷达图 + 各维度分解
+12. **批判性审查** — 一句话毒舌 + 关键弱点 + 改进方向
+13. **系统意义** — 验证了什么 / 后续方向
 
-| 章节 | 图表名称 | 来源 |
-|------|---------|------|
-| Ch1 预测能力 | ic_timeseries, ic_distribution, rolling_ic, cumulative_ic, monthly_heatmap | ICAnalyzer |
-| Ch2 盈利能力 | quintile_bar, cumulative_returns, long_short, is_vs_oos_bar, annual_group_returns | ProfitAnalyzer |
-| Ch3 风险归因 | industry_ic, size_exposure, style_corr（可选，数据可用时生成） | RiskAttributionAnalyzer |
-| Ch4 条件分析 | conditional_ic, annual_ic | ConditionalAnalyzer |
-| Ch5 衰减 | ic_decay, autocorrelation, distribution, coverage | DecayAnalyzer |
-| Ch6 独特性 | correlation_bar | UniquenessAnalyzer |
-| Ch7 综合评分 | radar | CompositeScorer |
+### Phase 3：更新 Factor Library 总览页
 
-**LLM 叙事质量关键规则：**
-- 以**资深量化分析师**视角撰写，所有叙事用**中文**，技术术语保留英文
-- 每段必须引用 report_data.json 中的具体数字（IC 值、Sharpe、回撤等）
-- 每章以决策问题开头，叙事围绕回答该问题展开
-- 经济解释提供 3-4 个不同的理论角度
-- 包含 A 股市场特定背景（T+1、涨跌停、融券限制）
-- 批评审查必须尖锐、机智、有数据支撑
-- 图片嵌入用 `![[FXXX/chart_name.png]]`（Obsidian wikilink 语法）
-- **只嵌入** report_data.json 中各章节 charts 字段实际存在的图片
+`storage/evidence/vault/Factor Library.md`
 
-### 第3阶段：重建总览页（LLM）
+## 关键约束
 
-读取所有因子的 report_data.json，用 Write 工具生成/更新 `storage/evidence/vault/Factor Library.md`。
-
-**总览页结构：**
-
-```markdown
----
-title: Factor Library
-tags:
-  - index
----
-
-# Factor Library
-
-> <N> factors | Last updated: <date>
-
-## 汇总表
-
-| ID | Name | Category | IC (OOS) | ICIR | Grade | Score | Link |
-|----|------|----------|----------|------|-------|-------|------|
-| (从各因子 report_data.json 聚合) |
-
-## 按类别分布
-
-| Category | Count | Avg |IC| | Best Factor |
-|----------|-------|----------|-------------|
-| (按类别聚合统计) |
-
-## 评分分布
-
-| Grade | Count | Factors |
-|-------|-------|---------|
-| S | | |
-| A | | |
-| B | | |
-| C | | |
-| D | | |
-```
-
-### 第4阶段：报告完成
-
-告知用户：
-- 因子报告路径：`storage/evidence/vault/factors/FXXX <name>.md`
-- 总览页路径：`storage/evidence/vault/Factor Library.md`
-- 提示用户在 Obsidian 中打开 `storage/evidence/vault/` 作为 vault
+- report 不重新计算评估，只消费上游结构化结果
+- frontmatter 只放稳定索引字段，不放 narrative
+- 数值字段必须来自结构化结果，不由 LLM 总结
+- composite_score 不进 frontmatter，只在正文展示
+- report 只读取 **guarded_writer 落地后的最终状态**（不是中间 recommendation）
+- quick_execute / freeze_recommendation 只作为研究脉络说明，不作为 admit 证据

@@ -10,7 +10,6 @@ DIRS = [
     "state",
     "logic/proposals", "logic/reviews", "logic/cards", "logic/snapshots",
     "registry/factors", "registry/families",
-    "policy",
     "ledger",
     "packets",
     "memory",
@@ -23,60 +22,17 @@ DIRS = [
 
 SEED_FILES = {
     "state/research_state.yaml": {
-        "research_state": {
-            "current_batch": None,
-            "sample_policy": {
-                "version": "research_sample_v3",
-                "data_start": "2015-01-01",
-                "active_train_range": ["2015-01-01", "2021-12-31"],
-                "active_validation_range": ["2022-01-01", "2023-12-31"],
-                "support_validation_windows": [
-                    {"window_id": "val_2020_2021", "range": ["2020-01-01", "2021-12-31"]},
-                    {"window_id": "val_2021_2022", "range": ["2021-01-01", "2022-12-31"]},
-                    {"window_id": "val_2022_2023", "range": ["2022-01-01", "2023-12-31"]},
-                ],
-                "holdout_pool_range": ["2024-01-01", "2025-12-31"],
-            },
-            "active_logic_ids": [],
-            "active_experiment_groups": [],
-            "current_focus": [],
-            "current_bottlenecks": [],
-            "current_validation_window_id": "val_2022_2023",
-            "policy_flags": {"prefer_dsl": True, "vectorization_required": True},
-            "last_updated_at": None,
-        }
+        "current_batch": None,
+        "current_batch_phase": None,
+        "active_logic_ids": [],
+        "pending_holdout_count": 0,
+        "last_completed_batch": None,
+        "last_updated_at": None,
     },
     "state/pending_holdout_queue.yaml": {"pending_holdout_queue": []},
     "logic/registry.yaml": {"logics": []},
     "registry/factors/index.yaml": {"factors": []},
     "registry/families/family_registry.yaml": {"families": []},
-    "policy/capability_registry.yaml": {
-        "dsl_operators": [
-            "Ref", "Mean", "Sum", "Std", "Var", "Rank", "Count", "Delta",
-            "Max", "Min", "Corr", "Cov", "Abs", "Log", "Mul", "Add", "Sub",
-            "Div", "Greater", "Less", "If", "IdxMax", "IdxMin", "WMA", "EMA",
-        ],
-        "base_fields": [
-            "$open", "$high", "$low", "$close", "$volume", "$amount",
-            "$pe_ratio", "$pb_ratio", "$ps_ratio",
-            "$market_cap", "$circ_market_cap", "$turnover_rate",
-        ],
-        "python_constraints": {"max_lines": 30, "max_branches": 3, "max_params": 3},
-    },
-    "policy/implementation_policy.yaml": {
-        "prefer_dsl": True,
-        "vectorization_required": True,
-        "neutralization_default": "cap_industry",
-    },
-    "policy/failure_taxonomy.yaml": {
-        "failure_types": [
-            "weak_validation_effect", "high_pairwise_overlap", "high_family_overlap",
-            "implementation_blocked", "performance_rejected", "validation_instability",
-            "size_drift", "style_repackaging", "sign_flip_detected",
-            "feasibility_poor", "mechanism_drifted",
-        ]
-    },
-    "policy/policy_upgrade_ledger.yaml": {"policy_upgrade_candidates": []},
     "ledger/search_ledger.yaml": {
         "search_ledger": {
             "by_logic": {},

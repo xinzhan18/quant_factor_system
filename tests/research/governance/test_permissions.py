@@ -40,8 +40,6 @@ class TestTargetObjectEnum:
             "route_card",
             "research_state",
             "forbidden",
-            "implementation_policy",
-            "policy_upgrade_ledger",
             "judge_report",
             "search_ledger",
             "batch_result",
@@ -66,11 +64,6 @@ class TestWritePermissionsMap:
     def test_guarded_writer_cannot_write_judge_report(self):
         assert not actor_can_write(
             Actor.guarded_writer, TargetObject.judge_report, "create"
-        )
-
-    def test_judge_can_write_policy_upgrade_ledger(self):
-        assert actor_can_write(
-            Actor.judge, TargetObject.policy_upgrade_ledger, "append"
         )
 
     def test_judge_cannot_write_factor_registry(self):
@@ -106,12 +99,6 @@ class TestRequiredLevel:
 
     def test_forbidden_is_level_2(self):
         lvl = required_level(Actor.guarded_writer, TargetObject.forbidden)
-        assert lvl == WriteLevel.level_2
-
-    def test_implementation_policy_is_level_2(self):
-        lvl = required_level(
-            Actor.guarded_writer, TargetObject.implementation_policy
-        )
         assert lvl == WriteLevel.level_2
 
     def test_no_permission_returns_none(self):

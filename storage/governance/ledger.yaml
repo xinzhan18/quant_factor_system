@@ -1,0 +1,139 @@
+# 研究治理账本 — 单一事实源
+# 读写边界见各 skill 定义，所有更新必须 append-only（不删历史条目）
+
+# ── 搜索强度累计 ──
+search_ledger:
+  by_logic:
+    L001:
+      logic_attempt_count_to_date: 2
+      admitted_count_to_date: 1
+      reserve_count_to_date: 1
+    L002:
+      logic_attempt_count_to_date: 2
+      admitted_count_to_date: 2
+      reserve_count_to_date: 0
+    L003:
+      logic_attempt_count_to_date: 2
+      admitted_count_to_date: 1
+      reserve_count_to_date: 1
+
+  by_family:
+    PF_pv_correlation:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 1
+    PF_ret_vol_covariance:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 0
+    PF_amount_concentration:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 1
+    PF_turnover_volatility:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 1
+    PF_intraday_range:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 1
+    PF_range_liquidity_cross:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 0
+
+  by_experiment_tag:
+    ELT_L001_genesis_pv_corr_vol_v1:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L001_genesis_ret_vol_cov_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 1
+      latest_verdict: continue
+    ELT_L002_genesis_amount_cv_v1:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L002_genesis_turnover_vol_v1:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L003_genesis_atr_ratio_v1:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L003_crossover_range_turnover_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 1
+      latest_verdict: pause
+
+  discovery_candidates: []
+
+# ── 批次样本使用记录 ──
+batch_usage:
+  batches:
+    - batch_id: batch_002
+      train_range: ["2015-01-01", "2021-12-31"]
+      validation_range: ["2022-01-01", "2023-12-31"]
+      validation_window_id: val_2022_2023
+      holdout_used: false
+      logic_ids: [L001, L002, L003]
+      candidate_count: 6
+      phase: judged
+
+# ── Holdout 复审记录 ──
+holdout_reviews:
+  - review_id: HR001
+    batch_id: batch_002
+    target_id: C002_02
+    trigger_reason: low_alpha_survival
+    status: pending
+    outcome: null
+  - review_id: HR002
+    batch_id: batch_002
+    target_id: C002_06
+    trigger_reason: low_alpha_survival
+    status: pending
+    outcome: null
+
+# ── 写操作审计日志 ──
+write_audit_log:
+  entries:
+    - timestamp: "2026-04-05T18:40:00"
+      actor: factor-judge
+      action: admit
+      target: C002_01
+      level: 1
+      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
+    - timestamp: "2026-04-05T18:40:00"
+      actor: factor-judge
+      action: reserve
+      target: C002_02
+      level: 1
+      reason_codes: [mechanism_aligned, low_alpha_survival]
+    - timestamp: "2026-04-05T18:40:00"
+      actor: factor-judge
+      action: admit
+      target: C002_03
+      level: 1
+      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
+    - timestamp: "2026-04-05T18:40:00"
+      actor: factor-judge
+      action: admit
+      target: C002_04
+      level: 1
+      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
+    - timestamp: "2026-04-05T18:40:00"
+      actor: factor-judge
+      action: admit
+      target: C002_05
+      level: 1
+      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
+    - timestamp: "2026-04-05T18:40:00"
+      actor: factor-judge
+      action: reserve
+      target: C002_06
+      level: 1
+      reason_codes: [style_dominance_detected, low_alpha_survival]

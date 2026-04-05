@@ -12,7 +12,6 @@ Per-mechanism unlock thresholds (from logic_plan.md):
     * family_overlap   -- requires family size >= 3
     * subspace          -- requires basis >= 2
     * promote_family    -- requires 2 completed batches
-    * policy_upgrade    -- requires ledger threshold entries
     * productive        -- cumulative admit threshold
     * saturated         -- cumulative no-progress threshold
     * dead              -- cumulative failure threshold
@@ -39,7 +38,6 @@ class MechanismCounts:
     family_size: int = 0
     subspace_basis: int = 0
     promote_family_batches: int = 0
-    policy_upgrade_ledger_entries: int = 0
     cumulative_admits: int = 0
     cumulative_no_progress_batches: int = 0
     cumulative_failure_batches: int = 0
@@ -50,7 +48,6 @@ _DEFAULT_THRESHOLDS: Dict[str, int] = {
     "family_overlap": 3,        # family_size >= 3
     "subspace": 2,              # subspace_basis >= 2
     "promote_family": 2,        # completed batches within family >= 2
-    "policy_upgrade": 3,        # ledger entries >= 3
     "productive": 3,            # cumulative_admits >= 3
     "saturated": 5,             # cumulative_no_progress >= 5
     "dead": 8,                  # cumulative_failure >= 8
@@ -143,7 +140,6 @@ class ColdStartPolicy:
             "family_overlap": mc.family_size,
             "subspace": mc.subspace_basis,
             "promote_family": mc.promote_family_batches,
-            "policy_upgrade": mc.policy_upgrade_ledger_entries,
             "productive": mc.cumulative_admits,
             "saturated": mc.cumulative_no_progress_batches,
             "dead": mc.cumulative_failure_batches,

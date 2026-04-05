@@ -4,13 +4,13 @@ Replaces the old ``MiningConfig`` with a cleaner, layered structure.
 ``ResearchConfig`` is the top-level entry point.  Sub-configs for
 evaluation profiles, universe, and preprocessing are broken out so
 they can be versioned and stored independently in
-``storage/evaluation_profiles/``.
+``storage/governance/``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 
 
 # ======================================================================
@@ -65,7 +65,7 @@ class EvaluationProfile:
 
     Each profile bundles a universe, preprocessing, neutralization, and
     pipeline specification.  Profiles are stored as YAML in
-    ``storage/evaluation_profiles/evaluation/``.
+    ``storage/governance/``.
     """
 
     profile_id: str = "standard_eval_v2"
@@ -89,9 +89,6 @@ class EvaluationProfile:
 
     # Tradability
     tradability_profile: str = "china_a_daily_tradeable_v1"
-
-    # Style / Barra
-    style_profile: Optional[str] = None  # e.g. "barra_cn_v1"
 
 
 # ======================================================================
@@ -132,37 +129,15 @@ class ResearchConfig:
 
     # ---- Batching ----
     candidates_per_batch: int = 8
-    max_expression_depth: int = 10
 
     # ---- Correlation check ----
     corr_check_years: int = 2
 
-    # ---- Available base fields ----
-    base_fields: List[str] = field(
-        default_factory=lambda: [
-            "$open", "$high", "$low", "$close", "$volume", "$amount",
-            "$pe_ratio", "$pb_ratio", "$ps_ratio",
-            "$market_cap", "$circ_market_cap", "$turnover_rate",
-        ]
-    )
-
-    # ---- Categories ----
-    categories: List[str] = field(
-        default_factory=lambda: [
-            "volume_price", "momentum", "volatility", "volume",
-            "regime", "efficiency", "distribution", "trend",
-            "candlestick", "fundamental", "liquidity", "other",
-        ]
-    )
-
     # ---- Storage paths (relative to project root) ----
     state_dir: str = "storage/state"
     logic_dir: str = "storage/logic"
-    routes_dir: str = "storage/routes"
     registry_dir: str = "storage/registry"
-    policy_dir: str = "storage/policy"
-    history_dir: str = "storage/history"
-    reports_dir: str = "storage/reports"
-    memory_dir: str = "storage/memory"
+    governance_dir: str = "storage/governance"
+    batches_dir: str = "storage/batches"
     vault_dir: str = "storage/evidence/vault"
     cache_dir: str = "storage/runtime/cache"

@@ -88,17 +88,19 @@ The system supports mining on different stock universes (full market, CSI 300, C
 
 ```
 storage/
-  registry/     — Factor registry: library.yaml index + factors/factor_*.yaml per factor
-  mining/       — Pipeline artifacts
-    candidates/ — Batch YAML files and evaluation results
-    memory/     — Mining memory: directions, state, history
-    logic/      — Market logics (outer loop)
-    python_factors/ — Generated Python factor code
+  state/        — Runtime state: research_state.yaml, pending_holdout_queue.yaml
+  logic/        — Hypothesis lifecycle: registry.yaml, cards/, proposals/, reviews/, snapshots/
+  registry/     — Factor registry: factors/index.yaml + factor_*.yaml, families/
+  governance/   — Governance config + ledger + forbidden + eval profile + mining lessons
+    policy/     — capability_registry, implementation_policy, failure_taxonomy, policy_upgrade_ledger
+  batches/      — Per-batch lifecycle: batches/batch_XXX/{manifest, idea_report, research_result, judge_packet, judge_report, ...}
   evidence/     — Derivation layer (deletable, rebuildable)
     vault/      — Obsidian vault: reports + PNG charts
   runtime/      — Ephemeral cache (gitignored)
-    cache/      — Library factor value caches
+    cache/      — Factor value caches
 ```
+
+Operator/field whitelists: single source of truth in `src/research/execute/precheck.py`. Query via `PYTHONPATH=src python3 -m research capabilities`.
 
 ### Mining Pipeline Stages
 

@@ -1,0 +1,24 @@
+proposal_id: P002
+proposed_logic_id: L002
+name: liquidity_microstructure
+category: liquidity
+proposed_status: active
+priority: high
+
+hypothesis:
+  condition: "流动性结构出现异常：换手率集中度变化、成交量分布偏移、流动性冲击"
+  behavior: "流动性异常后，股价短期内向流动性均衡回归，产生可预测的收益模式"
+  timeframe: "5-20d"
+  mechanism: >
+    CSI 1000 成分股日均换手率波动大，流动性冲击（突然放量或缩量）
+    往往反映机构调仓或事件驱动。换手率的时序特征（CV、偏度、自相关）
+    可以捕捉流动性状态切换，而这些状态切换与短期收益有系统性关联。
+
+rationale: >
+  旧系统中 amount_cv_10_60 (F043, Grade A!)、amount_cv_5_20 (F045, Grade A!)、
+  turnover_vol_10 (F027, Grade B) 等流动性因子表现突出。
+  CSI 1000 中小盘股流动性信号价值更高。
+
+feasibility_notes: >
+  所需字段: $turnover_rate, $amount, $volume — 全部可用。
+  核心算子: Std, Mean, Div, CsRank, TsAutoCorr, HHI — 全部可用。

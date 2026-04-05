@@ -1,9 +1,9 @@
 """ResearchResult, ExecuteReport, and JudgeReport read/write.
 
-Manages per-batch files under ``results/``:
-- ``<batch_id>_result.yaml``
-- ``<batch_id>_execute_report.yaml``
-- ``<batch_id>_judge_report.yaml``
+Manages per-batch files under ``batches/<batch_id>/``:
+- ``research_result.yaml``
+- ``execute_report.yaml``
+- ``judge_report.yaml``
 """
 
 from __future__ import annotations
@@ -59,10 +59,11 @@ class ResultStore:
 
     def list_results(self) -> list[str]:
         """Return batch_ids that have a result file."""
-        d = self._paths.results_dir
+        d = self._paths.batches_dir
         if not d.exists():
             return []
         return sorted(
-            p.stem.replace("_result", "")
-            for p in d.glob("*_result.yaml")
+            p.name
+            for p in d.iterdir()
+            if p.is_dir() and (p / "research_result.yaml").exists()
         )

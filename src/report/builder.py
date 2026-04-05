@@ -177,9 +177,13 @@ class ReportDataBuilder:
 
         logger.info("[TIMING] TOTAL build(): %.2fs", time.perf_counter() - t0_total)
 
+        # ---- Load execute evidence (pre-computed metrics from execute pipeline) ----
+        execute_evidence = self._load_execute_evidence(meta)
+
         # ---- Assemble report_data ----
         return {
             "factor": {**meta, "data_level": "L0"},
+            "execute_evidence": execute_evidence,
             "predictive_power": {
                 **self._strip_internal(ic_result),
                 "charts": {k: all_charts[k] for k in ic_charts},
@@ -231,6 +235,50 @@ class ReportDataBuilder:
             register_custom_operators()
         except ImportError:
             pass
+
+    # ---- Execute evidence reuse ----
+
+    def _load_execute_evidence(self, meta: dict) -> dict:
+        """Load pre-computed metrics from research_result.yaml if available.
+
+        Returns a dict with execute pipeline evidence (IC, quintile, Barra, etc.)
+        or empty dict if not found.  This avoids discarding expensive computations
+        that the execute pipeline already performed.
+        """
+        import yaml
+
+        batch_id = meta.get("batch", "") or meta.get("admitted_batch", "")
+        candidate_id = meta.get("candidate_id", "")
+        factor_id = meta.get("id", self.factor_id)
+
+        if not batch_id:
+            return {}
+
+        result_path = Path("storage/batches") / batch_id / "research_result.yaml"
+        if not result_path.exists():
+            return {}
+
+        try:
+            with open(result_path, "r") as f:
+                result_data = yaml.safe_load(f)
+        except Exception:
+            return {}
+
+        # Find this factor's candidate result
+        for cr in result_data.get("candidate_results", []):
+            cid = cr.get("candidate_id", "")
+            if cid == candidate_id or cid == factor_id:
+                logger.info("Loaded execute evidence from %s for %s", result_path, cid)
+                return {
+                    "evaluation": cr.get("evaluation", {}),
+                    "risk_review": cr.get("risk_review", {}),
+                    "feasibility": cr.get("feasibility", {}),
+                    "similarity": cr.get("similarity", {}),
+                    "diagnostics": cr.get("diagnostics", {}),
+                    "execution_gate": cr.get("execution_gate", {}),
+                }
+
+        return {}
 
     # ---- Data Loading (IO boundary) ----
 
