@@ -4,7 +4,7 @@ Pure vectorized functions. No I/O, no Qlib.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd

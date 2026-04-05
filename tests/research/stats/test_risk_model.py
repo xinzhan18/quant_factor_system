@@ -6,28 +6,7 @@ import pandas as pd
 import pytest
 
 from research.stats.risk_model import compute_risk_views
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_panel(
-    n_dates: int,
-    n_symbols: int,
-    start: str,
-    rng: np.random.Generator,
-    signal: np.ndarray | None = None,
-) -> pd.DataFrame:
-    dates = pd.bdate_range(start, periods=n_dates, freq="B")
-    symbols = [f"S{i:03d}" for i in range(n_symbols)]
-    rows = []
-    for i, d in enumerate(dates):
-        for j, s in enumerate(symbols):
-            val = signal[i, j] if signal is not None else rng.normal()
-            rows.append({"time": d, "symbol": s, "value": val})
-    return pd.DataFrame(rows)
+from tests.research.stats.conftest import make_panel
 
 
 # ---------------------------------------------------------------------------
@@ -48,9 +27,9 @@ class TestComputeRiskViews:
         cap_signal[:, s // 2 :] = 1e8
 
         start = "2020-01-01"
-        fv = _make_panel(n, s, start, rng, factor)
-        fr = _make_panel(n, s, start, rng, returns)
-        mc = _make_panel(n, s, start, rng, cap_signal)
+        fv = make_panel(n, s, start, rng, factor)
+        fr = make_panel(n, s, start, rng, returns)
+        mc = make_panel(n, s, start, rng, cap_signal)
 
         result = compute_risk_views(fv, fr, mc)
 
@@ -72,9 +51,9 @@ class TestComputeRiskViews:
         returns_signal = np.log(cap_signal) * 0.001 + rng.normal(0, 0.01, (n, s))
 
         start = "2019-01-01"
-        fv = _make_panel(n, s, start, rng, factor_signal)
-        fr = _make_panel(n, s, start, rng, returns_signal)
-        mc = _make_panel(n, s, start, rng, cap_signal)
+        fv = make_panel(n, s, start, rng, factor_signal)
+        fr = make_panel(n, s, start, rng, returns_signal)
+        mc = make_panel(n, s, start, rng, cap_signal)
 
         result = compute_risk_views(fv, fr, mc)
 
@@ -103,10 +82,10 @@ class TestComputeRiskViews:
         ind_codes = np.tile(np.repeat([1.0, 2.0, 3.0], [s // 3, s // 3, s - 2 * (s // 3)]), (n, 1))
 
         start = "2020-01-01"
-        fv = _make_panel(n, s, start, rng, factor)
-        fr = _make_panel(n, s, start, rng, returns)
-        mc = _make_panel(n, s, start, rng, cap)
-        ind = _make_panel(n, s, start, rng, ind_codes)
+        fv = make_panel(n, s, start, rng, factor)
+        fr = make_panel(n, s, start, rng, returns)
+        mc = make_panel(n, s, start, rng, cap)
+        ind = make_panel(n, s, start, rng, ind_codes)
 
         result = compute_risk_views(fv, fr, mc, industry=ind)
         assert "neutral_ic" in result
