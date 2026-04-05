@@ -6,28 +6,7 @@ import pandas as pd
 import pytest
 
 from research.stats.support_windows import check_support_windows
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_panel(
-    n_dates: int,
-    n_symbols: int,
-    start: str,
-    rng: np.random.Generator,
-    signal: np.ndarray | None = None,
-) -> pd.DataFrame:
-    dates = pd.bdate_range(start, periods=n_dates, freq="B")
-    symbols = [f"S{i:03d}" for i in range(n_symbols)]
-    rows = []
-    for i, d in enumerate(dates):
-        for j, s in enumerate(symbols):
-            val = signal[i, j] if signal is not None else rng.normal()
-            rows.append({"time": d, "symbol": s, "value": val})
-    return pd.DataFrame(rows)
+from tests.research.stats.conftest import make_panel
 
 
 # ---------------------------------------------------------------------------
@@ -44,8 +23,8 @@ class TestCheckSupportWindows:
         factor = rng.normal(size=(n, s))
         returns = factor * 0.3 + rng.normal(size=(n, s)) * 0.7
 
-        fv = _make_panel(n, s, "2019-01-01", rng, factor)
-        fr = _make_panel(n, s, "2019-01-01", rng, returns)
+        fv = make_panel(n, s, "2019-01-01", rng, factor)
+        fr = make_panel(n, s, "2019-01-01", rng, returns)
 
         windows = [
             {"window_id": "w1", "range": ["2020-01-01", "2021-12-31"]},
@@ -65,8 +44,8 @@ class TestCheckSupportWindows:
         factor = rng.normal(size=(n, s))
         returns = factor * 0.3 + rng.normal(size=(n, s)) * 0.7
 
-        fv = _make_panel(n, s, "2019-01-01", rng, factor)
-        fr = _make_panel(n, s, "2019-01-01", rng, returns)
+        fv = make_panel(n, s, "2019-01-01", rng, factor)
+        fr = make_panel(n, s, "2019-01-01", rng, returns)
 
         windows = [
             {"window_id": "w1", "range": ["2020-01-01", "2021-12-31"]},
@@ -85,8 +64,8 @@ class TestCheckSupportWindows:
         factor = rng.normal(size=(n, s))
         returns = factor * 0.3 + rng.normal(size=(n, s)) * 0.7
 
-        fv = _make_panel(n, s, "2019-01-01", rng, factor)
-        fr = _make_panel(n, s, "2019-01-01", rng, returns)
+        fv = make_panel(n, s, "2019-01-01", rng, factor)
+        fr = make_panel(n, s, "2019-01-01", rng, returns)
 
         windows = [
             {"window_id": "w1", "range": ["2020-01-01", "2021-06-30"]},
@@ -113,8 +92,8 @@ class TestCheckSupportWindows:
         """Verify output structure."""
         rng = np.random.default_rng(11)
         n, s = 300, 40
-        fv = _make_panel(n, s, "2020-01-01", rng)
-        fr = _make_panel(n, s, "2020-01-01", rng)
+        fv = make_panel(n, s, "2020-01-01", rng)
+        fr = make_panel(n, s, "2020-01-01", rng)
 
         windows = [
             {"window_id": "w1", "range": ["2020-06-01", "2021-06-01"]},

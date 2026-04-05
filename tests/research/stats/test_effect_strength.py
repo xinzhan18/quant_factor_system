@@ -6,29 +6,7 @@ import pandas as pd
 import pytest
 
 from research.stats.effect_strength import compute_effect_strength
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_panel(
-    n_dates: int,
-    n_symbols: int,
-    start: str,
-    rng: np.random.Generator,
-    signal: np.ndarray | None = None,
-) -> pd.DataFrame:
-    """Build a flat [time, symbol, value] panel with controlled properties."""
-    dates = pd.bdate_range(start, periods=n_dates, freq="B")
-    symbols = [f"S{i:03d}" for i in range(n_symbols)]
-    rows = []
-    for i, d in enumerate(dates):
-        for j, s in enumerate(symbols):
-            val = signal[i, j] if signal is not None else rng.normal()
-            rows.append({"time": d, "symbol": s, "value": val})
-    return pd.DataFrame(rows)
+from tests.research.stats.conftest import make_panel
 
 
 # ---------------------------------------------------------------------------
@@ -48,8 +26,8 @@ class TestComputeEffectStrength:
         returns_signal = factor_signal * 0.3 + rng.normal(size=(n_dates, n_sym)) * 0.7
 
         start = "2018-01-01"
-        fv = _make_panel(n_dates, n_sym, start, rng, factor_signal)
-        fr = _make_panel(n_dates, n_sym, start, rng, returns_signal)
+        fv = make_panel(n_dates, n_sym, start, rng, factor_signal)
+        fr = make_panel(n_dates, n_sym, start, rng, returns_signal)
 
         dates = sorted(fv["time"].unique())
         mid = dates[n_dates // 2]
@@ -74,8 +52,8 @@ class TestComputeEffectStrength:
         returns_signal = -factor_signal * 0.3 + rng.normal(size=(n_dates, n_sym)) * 0.7
 
         start = "2017-01-01"
-        fv = _make_panel(n_dates, n_sym, start, rng, factor_signal)
-        fr = _make_panel(n_dates, n_sym, start, rng, returns_signal)
+        fv = make_panel(n_dates, n_sym, start, rng, factor_signal)
+        fr = make_panel(n_dates, n_sym, start, rng, returns_signal)
 
         dates = sorted(fv["time"].unique())
         mid = dates[n_dates // 2]
@@ -97,8 +75,8 @@ class TestComputeEffectStrength:
         returns_signal = rng.normal(size=(n_dates, n_sym))
 
         start = "2019-01-01"
-        fv = _make_panel(n_dates, n_sym, start, rng, factor_signal)
-        fr = _make_panel(n_dates, n_sym, start, rng, returns_signal)
+        fv = make_panel(n_dates, n_sym, start, rng, factor_signal)
+        fr = make_panel(n_dates, n_sym, start, rng, returns_signal)
 
         dates = sorted(fv["time"].unique())
         mid = dates[n_dates // 2]
@@ -121,8 +99,8 @@ class TestComputeEffectStrength:
         returns_signal = factor_signal * 0.5 + rng.normal(size=(n_dates, n_sym)) * 0.5
 
         start = "2020-01-01"
-        fv = _make_panel(n_dates, n_sym, start, rng, factor_signal)
-        fr = _make_panel(n_dates, n_sym, start, rng, returns_signal)
+        fv = make_panel(n_dates, n_sym, start, rng, factor_signal)
+        fr = make_panel(n_dates, n_sym, start, rng, returns_signal)
 
         dates = sorted(fv["time"].unique())
         mid = dates[n_dates // 2]

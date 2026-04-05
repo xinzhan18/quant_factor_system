@@ -10,28 +10,7 @@ from research.stats.reliability import (
     compute_bootstrap_stability,
     compute_purged_walk_forward,
 )
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_panel(
-    n_dates: int,
-    n_symbols: int,
-    start: str,
-    rng: np.random.Generator,
-    signal: np.ndarray | None = None,
-) -> pd.DataFrame:
-    dates = pd.bdate_range(start, periods=n_dates, freq="B")
-    symbols = [f"S{i:03d}" for i in range(n_symbols)]
-    rows = []
-    for i, d in enumerate(dates):
-        for j, s in enumerate(symbols):
-            val = signal[i, j] if signal is not None else rng.normal()
-            rows.append({"time": d, "symbol": s, "value": val})
-    return pd.DataFrame(rows)
+from tests.research.stats.conftest import make_panel
 
 
 # ---------------------------------------------------------------------------
@@ -49,8 +28,8 @@ class TestExpandingWindowIC:
         returns = factor * 0.3 + rng.normal(size=(n, s)) * 0.7
 
         start = "2017-01-01"
-        fv = _make_panel(n, s, start, rng, factor)
-        fr = _make_panel(n, s, start, rng, returns)
+        fv = make_panel(n, s, start, rng, factor)
+        fr = make_panel(n, s, start, rng, returns)
 
         result = compute_expanding_window_ic(fv, fr, start=start, step_months=6)
 
@@ -67,8 +46,8 @@ class TestExpandingWindowIC:
     def test_short_data(self):
         """Data shorter than one step yields no pass."""
         rng = np.random.default_rng(10)
-        fv = _make_panel(30, 50, "2022-01-01", rng)
-        fr = _make_panel(30, 50, "2022-01-01", rng)
+        fv = make_panel(30, 50, "2022-01-01", rng)
+        fr = make_panel(30, 50, "2022-01-01", rng)
         result = compute_expanding_window_ic(fv, fr, start="2022-01-01", step_months=6)
         assert result["pass"] is False
 
@@ -127,8 +106,8 @@ class TestPurgedWalkForward:
         factor = rng.normal(size=(n, s))
         returns = factor * 0.3 + rng.normal(size=(n, s)) * 0.7
 
-        fv = _make_panel(n, s, "2016-01-01", rng, factor)
-        fr = _make_panel(n, s, "2016-01-01", rng, returns)
+        fv = make_panel(n, s, "2016-01-01", rng, factor)
+        fr = make_panel(n, s, "2016-01-01", rng, returns)
 
         result = compute_purged_walk_forward(fv, fr, purge_days=5, n_splits=5)
         assert result["status"] == "sufficient"
@@ -137,8 +116,8 @@ class TestPurgedWalkForward:
     def test_insufficient_data(self):
         """Very short data -> low_power."""
         rng = np.random.default_rng(5)
-        fv = _make_panel(50, 40, "2022-01-01", rng)
-        fr = _make_panel(50, 40, "2022-01-01", rng)
+        fv = make_panel(50, 40, "2022-01-01", rng)
+        fr = make_panel(50, 40, "2022-01-01", rng)
         result = compute_purged_walk_forward(fv, fr)
         assert result["status"] == "low_power"
         assert result["pass"] is False

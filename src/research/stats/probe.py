@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from core.factor_stats import daily_cross_sectional_ic, ic_summary
+from core.factor_stats import daily_cross_sectional_ic
 
 
 def run_probe(
@@ -54,7 +54,7 @@ def run_probe(
     # 1. Computable
     computable = not factor_values.empty and len(factor_values) > 0
     if not computable:
-        return _fail("not_computable", reasons=["not_computable"])
+        return _build_result(verdict="fail", reasons=["not_computable"])
 
     # 2. Valid ratio
     total = len(factor_values)
@@ -89,23 +89,14 @@ def run_probe(
         if depth > max_complexity:
             complexity_ok = False
             reasons.append("expression_too_complex")
-    else:
-        depth = 0
 
     # Early fail: hard checks
     if not computable or valid_ratio < valid_ratio_threshold or not variance_ok or forbidden_hit:
-        return {
-            "computable": computable,
-            "valid_ratio": round(valid_ratio, 4),
-            "variance_ok": variance_ok,
-            "forbidden_hit": forbidden_hit,
-            "complexity_ok": complexity_ok,
-            "signal_strength_hint": "none",
-            "split_consistency_hint": "broken",
-            "duplicate_risk_hint": "unknown",
-            "verdict": "fail",
-            "reasons": reasons,
-        }
+        return _build_result(
+            computable=computable, valid_ratio=valid_ratio,
+            variance_ok=variance_ok, forbidden_hit=forbidden_hit,
+            complexity_ok=complexity_ok, verdict="fail", reasons=reasons,
+        )
 
     # 6. Signal strength hint (IC across all train data combined)
     all_ic_values: List[float] = []
@@ -126,18 +117,12 @@ def run_probe(
             split_signs.append(np.sign(split_mean))
 
     if not all_ic_values:
-        return {
-            "computable": True,
-            "valid_ratio": round(valid_ratio, 4),
-            "variance_ok": variance_ok,
-            "forbidden_hit": forbidden_hit,
-            "complexity_ok": complexity_ok,
-            "signal_strength_hint": "none",
-            "split_consistency_hint": "broken",
-            "duplicate_risk_hint": "unknown",
-            "verdict": "fail",
-            "reasons": reasons + ["no_ic_computed"],
-        }
+        return _build_result(
+            computable=True, valid_ratio=valid_ratio,
+            variance_ok=variance_ok, forbidden_hit=forbidden_hit,
+            complexity_ok=complexity_ok, verdict="fail",
+            reasons=reasons + ["no_ic_computed"],
+        )
 
     overall_ic = float(np.mean(all_ic_values))
     abs_ic = abs(overall_ic)
@@ -176,19 +161,44 @@ def run_probe(
     if not complexity_ok:
         verdict = "reserve" if verdict == "pass" else verdict
 
-    return {
-        "computable": True,
+    return _build_result(
+        computable=True, valid_ratio=valid_ratio,
+        variance_ok=variance_ok, forbidden_hit=forbidden_hit,
+        complexity_ok=complexity_ok,
+        signal_strength_hint=strength, split_consistency_hint=consistency,
+        verdict=verdict, reasons=reasons, overall_ic=round(overall_ic, 6),
+    )
+
+
+def _build_result(
+    *,
+    computable: bool = False,
+    valid_ratio: float = 0.0,
+    variance_ok: bool = False,
+    forbidden_hit: bool = False,
+    complexity_ok: bool = True,
+    signal_strength_hint: str = "none",
+    split_consistency_hint: str = "broken",
+    verdict: str = "fail",
+    reasons: Optional[List[str]] = None,
+    overall_ic: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Build a probe result dict with consistent keys."""
+    result: Dict[str, Any] = {
+        "computable": computable,
         "valid_ratio": round(valid_ratio, 4),
         "variance_ok": variance_ok,
         "forbidden_hit": forbidden_hit,
         "complexity_ok": complexity_ok,
-        "signal_strength_hint": strength,
-        "split_consistency_hint": consistency,
+        "signal_strength_hint": signal_strength_hint,
+        "split_consistency_hint": split_consistency_hint,
         "duplicate_risk_hint": "unknown",
         "verdict": verdict,
-        "reasons": reasons,
-        "overall_ic": round(overall_ic, 6),
+        "reasons": reasons or [],
     }
+    if overall_ic is not None:
+        result["overall_ic"] = overall_ic
+    return result
 
 
 def _nesting_depth(expression: str) -> int:
@@ -202,18 +212,3 @@ def _nesting_depth(expression: str) -> int:
         elif ch == ")":
             depth -= 1
     return max_depth
-
-
-def _fail(reason: str, reasons: Optional[List[str]] = None) -> Dict[str, Any]:
-    return {
-        "computable": False,
-        "valid_ratio": 0.0,
-        "variance_ok": False,
-        "forbidden_hit": False,
-        "complexity_ok": True,
-        "signal_strength_hint": "none",
-        "split_consistency_hint": "broken",
-        "duplicate_risk_hint": "unknown",
-        "verdict": "fail",
-        "reasons": reasons or [reason],
-    }
