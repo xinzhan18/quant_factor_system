@@ -23,8 +23,21 @@ PYTHONPATH=src python3 -m mining memory
 # Report generation
 PYTHONPATH=src python3 -m report.builder --factor-id 001 --vault
 
+# Research CLI (new system — all commands require PYTHONPATH=src)
+PYTHONPATH=src python3 -m research probe "Rank($close)"   # Lightweight IC probe
+PYTHONPATH=src python3 -m research execute batch_001       # Run evaluation pipeline
+PYTHONPATH=src python3 -m research logic                   # Logic management
+PYTHONPATH=src python3 -m research state                   # Show research state
+PYTHONPATH=src python3 -m research library                 # Factor library overview
+PYTHONPATH=src python3 -m research batch                   # Batch management
+
 # Database management
 ./scripts/db.sh start|stop|shell
+
+# Storage migration (run in order for new system setup)
+python scripts/archive_old_storage.py     # Move storage/ → storage_archive/
+python scripts/init_new_storage.py        # Create new storage/ tree with seed YAMLs
+python scripts/migrate_factor_registry.py # Convert old library.yaml → new format
 
 # Install (editable)
 pip install -e .
@@ -38,10 +51,11 @@ Note: `pytest` does NOT need `PYTHONPATH=src` — `pytest.ini` sets `pythonpath 
 
 All source code lives under `src/` with bare imports (e.g., `from mining.config import MiningConfig`). The `package_dir={"": "src"}` in `setup.py` and `pythonpath = src` in `pytest.ini` enable this.
 
-Five modules:
+Six modules:
 
 - **`core/`** — Shared utilities: `factor_stats.py` (pure stat functions used by both mining and report), `metrics.py`, `constants.py`
 - **`mining/`** — Factor mining pipeline (the "Ralph Loop"). CLI entry via `__main__.py` → `cli.py`. Key classes: `FactorMiningEvaluator` (3-stage IC filtering), `FactorLibrary` (YAML persistence), `ExperienceMemory` (direction-based memory)
+- **`research/`** — Next-generation factor research system. Logic-driven outer loop with structured memory (state/logic/registry/policy/ledger). CLI entry via `__main__.py` → `cli/main.py`. Replaces `mining/` incrementally.
 - **`report/`** — Factor report generation. Pipeline: 6 analyzers (`analytics/`) → `CompositeScorer` (7-dim S-curve) → `ReportDataBuilder` (thin orchestrator) → Obsidian Markdown + 18 PNG charts
 - **`data/`** — Data layer. `storage/timescale_db.py` (DB ops), `qlib_sync.py` (DB → Qlib binary), `loaders.py` (factor/price data loading)
 - **`dashboard/`** — Streamlit multi-page app (legacy)
@@ -57,7 +71,28 @@ RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Mini
                factor_meta (28 rows)
 ```
 
-### Storage Layout (`storage/`)
+### Storage Layout (`storage/`) — New Research System
+
+```
+storage/
+  state/              — Global research state (research_state.yaml, pending_holdout_queue.yaml)
+  logic/              — Market logic lifecycle (registry.yaml + proposals/reviews/cards/snapshots)
+  registry/
+    factors/          — Factor index + per-factor detail YAMLs
+    families/         — Family registry
+  policy/             — Capability, implementation, failure taxonomy, upgrade ledger
+  ledger/             — Search ledger, batch usage, holdout reviews, audit log
+  packets/            — Batch packet files
+  memory/             — Forbidden patterns
+  results/            — Evaluation result artifacts
+  candidates/         — Candidate batch YAMLs
+  notes/              — Narrative notes (mining-lessons.md)
+  evaluation_profiles/ — Evaluation profile definitions
+  evidence/
+    vault/            — Obsidian vault: factor/asset/batch reports + PNG charts
+```
+
+### Storage Layout (`storage/`) — Legacy Mining System
 
 ```
 storage/
