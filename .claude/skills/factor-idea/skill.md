@@ -1,271 +1,243 @@
 ---
 name: factor-idea
-description: 发散探索方向 → 探针验证 → 收敛生成候选因子
+description: 消费 logic schedule，将市场逻辑拆成 research routes，用训练期内 probe 过滤垃圾，并生成正式候选批次
 user_invocable: true
 ---
 
-# 因子创意生成 — /idea
+# 因子创意生成 — /idea v2
 
-通过三阶段流程生成候选因子：Strategy（发散方向）→ Probe（探针验证）→ Decide（收敛生成）。
+`factor-idea` 是整个自动因子研究系统的**中层执行器**。
+它不负责创建新的市场逻辑，而负责：
 
-## 第1步：确定批次编号
+- 读取 `/logic schedule` 给出的 exploration contract
+- 将 active logic 拆成本轮 research routes
+- 为每条 route 设计 probe forms
+- 在训练期内用轻量 probe 过滤垃圾
+- 选择值得继续投资的 routes
+- 将通过的 routes 展开成正式 candidates
+- 输出 batch manifest 与 idea report
 
-扫描 `storage/mining/candidates/` 目录，找到现有 `batch_XXX.yaml` 中最大的编号，+1 作为本批次编号。如果目录为空，从 `batch_001` 开始。
+---
 
-## 第1.5步：Scheduler & Mode Selection
+## 核心原则
 
-在探索方向之前，先检查调度器和进化引擎的建议：
+1. **idea 不决定研究主题** — 研究主题由 `/logic schedule` 决定
+2. **idea 的基本单位是 route** — 每条 route 回答一个具体研究问题
+3. **idea 必须受预算控制** — `direction_quota` 和 `candidate_quota`
+4. **probe 只负责过滤垃圾** — 不做正式评估，不碰样本外
+5. **probe 只能使用训练期** — 2024 及之后数据禁止用于 probe
+6. **candidate expansion 必须模板化** — 按 `route_type` 使用预定义模板
+7. **默认优先 DSL** — Python 只在 DSL 无法自然表达时允许
+8. **idea 不负责长期状态治理** — 不修改 logic 生命周期或全局 state
+
+---
+
+## Step 0：读取本轮上下文
+
+读取：
 
 ```bash
-PYTHONPATH=src python3 -m mining logic schedule
-PYTHONPATH=src python3 -m mining logic coverage
+PYTHONPATH=src python3 -m research logic schedule
+PYTHONPATH=src python3 -m research library
+cat storage/state/research_state.yaml
+cat storage/logic/registry.yaml
+cat storage/policy/capability_registry.yaml
+cat storage/memory/forbidden.yaml
+cat storage/memory/mining-lessons.md
 ```
 
-如果调度器返回 "all scores non-positive"，说明所有逻辑已饱和，应运行 `/logic new`（外循环）而非继续内循环。
+对每个 `eligible_this_round: true` 的 logic，读取：
+- `logic_id`, `priority`, `direction_quota`, `candidate_quota`
+- `preferred_families`, `suggested_ops`, `required_fields`
+- `avoid_patterns`, `current_focus_question`
 
-基于因子库规模，决定生成模式配比：
-- 因子库 < 30: 60% genesis（从逻辑新生成），30% mutate，10% crossover
-- 因子库 30-60: 40% genesis，40% mutate，20% crossover
-- 因子库 60+: 20% genesis，50% mutate，30% crossover
+---
 
-对 **mutate** 候选：从库中选高 IC 因子，修改其结构（替换算子、添加条件、改变组合方式）
-对 **crossover** 候选：选两个低相关、来自不同类别的因子，合并其信号逻辑
+## Step 1：确定本轮 research budget
 
-## 第2步：Strategy — 发散候选方向
+### 推荐默认策略
 
-从三个知识通道收集候选方向。
+| 库规模 | 展开 logic 数 |
+|--------|--------------|
+| < 20   | 最多 1 个    |
+| 20-50  | 1 主 + 1 副  |
+| >= 50  | 最多 2-3 个  |
 
-### 2a. 通道1：记忆（必选）
+全局预算：总 route 数不超过 3，总 candidate 数不超过 6-8。
 
-读取以下文件：
+---
 
-**方向索引：**
-```
-storage/mining/memory/directions.yaml
-```
+## Step 2：为每个 logic 规划 routes
 
-**全局状态：**
-```
-storage/mining/memory/state.yaml
-```
-特别关注 `next_round_hint` 字段 — 上一轮 judge 留下的建议。
+对每个被选中的 logic，按 `direction_quota` 生成 route。
 
-**最近批次历史（最近2个）：**
-```
-ls storage/mining/memory/history/
-```
-
-**当前因子库：**
-```
-storage/registry/library.yaml
-```
-
-**工程经验：**
-```
-storage/mining/memory/mining-lessons.md
-```
-
-从记忆中提取：
-- 哪些方向是 `active` 或 `new`（优先选择）
-- 哪些方向是 `exhausted` 或 `dead`（避开）
-- 因子库的覆盖空白（哪些类别因子少）
-- 上轮建议（next_round_hint）
-
-#### 扩展上下文（5 层提示组装）
-
-读取以下额外上下文源：
-1. **覆盖地图**: `PYTHONPATH=src python3 -m mining logic coverage` — 哪些类别探索不足
-2. **禁区**: `cat storage/mining/memory/forbidden.yaml` — 应避免的模式
-3. **活跃逻辑**: `PYTHONPATH=src python3 -m mining logic list --status active` — 当前假设及其统计
-4. **谱系**: 检查哪些因子已被变异及结果
-
-综合所有 5 层信息决定下一步探索方向。
-
-### 2b. 通道2：Web 搜索（可选）
-
-**触发条件**：`active` + `new` 状态的方向少于 3 个，OR 用户指定了新主题。
-
-如果触发：
-1. 根据当前缺口构造搜索词（如 "A股 日频 OHLCV 因子 新方法"、"Alpha191 公式"）
-2. 执行 web search
-3. 从结果中提取可操作的因子公式或思路
-4. 为每个有价值的线索创建新的方向文件（status=new）：
-   ```
-   storage/mining/memory/directions/{slug}.md
-   ```
-
-### 2c. 通道3：变异分析（自动）
-
-1. 读取因子库中 IC 绝对值 top 5 的因子
-2. 对每个因子，读取对应方向文件（如果存在），检查是否已做过变异
-3. 未做过变异的因子 → 生成变异方向（窗口扫描、Rank 变换、组合）
-4. 如果变异方向不存在，创建新方向文件（status=new）
-
-### 2d. Strategy 输出
-
-综合三个通道，选出 6-8 个候选方向。每个方向需要：
-- 方向名称
-- 来源（memory / search / mutation）
-- 理由（一句话）
-- 探针表达式（一个 Qlib 表达式）
-
-**验证清单**（检查每个探针表达式）：
-- [ ] 所有算子都可用？（参考 mining-lessons.md 中的可用/不可用列表）
-- [ ] 所有字段都可用？参考 `src/mining/config.py` 中 `base_fields`。
-      已知限制：`$vwap` 数据为零。其余字段（含 $amount、基本面字段）均可用。
-      算子限制见 `storage/mining/memory/mining-lessons.md`。
-- [ ] 与 dead 方向不重叠？
-
-## 第3步：打印上下文摘要（强制）
-
-```
-=== 挖掘上下文 (批次 XXX) ===
-
-因子库状态：
-- 规模：X/100 个因子
-- IC 均值：0.0XXX
-- 覆盖：[按类别列出数量]
-
-方向状态：
-- Active: N 个 [列出名称]
-- New: N 个 [列出名称]
-- Exhausted: N 个
-- Dead: N 个
-- Blocked: N 个
-
-上轮建议：
-[next_round_hint 内容]
-
-知识通道：
-- 记忆：已读取 [列出文件]
-- 搜索：[触发/未触发]，[如触发，列出搜索词和结果摘要]
-- 变异：[分析了哪些因子]
-
-候选方向（6-8 个）：
-1. [名称] (来源: xxx) — [理由] — 探针: [表达式]
-2. ...
-```
-
-## 第4步：Probe — 探针验证
-
-对所有候选方向的探针表达式**并行运行**轻量评估（全量股票，2024年数据，只算IC）。
-
-**执行方式**：使用 Bash 工具的 `run_in_background` 参数，同时启动所有探针���在一条消息中发出所有 Bash 调用：
-
-```
-Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式1' --start 2022-01-01 --end 2023-12-31", run_in_background=true)
-Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式2' --start 2022-01-01 --end 2023-12-31", run_in_background=true)
-Bash(command="PYTHONPATH=src python3 -m mining probe '探针表达式3' --start 2022-01-01 --end 2023-12-31", run_in_background=true)
-... 所有探针同时启动
-```
-
-每个探针约 15 秒，全部并行总共约 15-20 秒。完成后系统会自动通知结果。收集所有结果后继续下一步。
-
-打印探针结果：
-```
-=== 探针结果 ===
-方向1: williams_r_window_7    IC=+0.061  ✓ 强信号
-方向2: alpha191_045           IC=-0.002  ✗ 无信号
-方向3: volume_regime_cross    IC=-0.015  ✗ 弱信号
-方向4: trend_resi_combo       IC=-0.038  ✓ 中等信号
-...
-```
-
-信号分类：
-- |IC| >= 0.03: 强信号 ✓
-- 0.01 <= |IC| < 0.03: 中等信号 ~
-- |IC| < 0.01: 无信号 ✗
-
-## 第5步：Decide — 收敛生成
-
-基于探针 IC 选择 top 2-3 个方向。选择时综合考虑：
-1. 探针 IC 强度（主要依据）
-2. 方向在记忆中的历史（连续失败 → 降权）
-3. 与已有因子的预期相关性（结构相似 → 降权）
-4. 方向多样性（不要全选同类）
-
-**排除**：探针 IC 为"无信号"(|IC| < 0.01) 的方向直接排除。
-
-对选中的每个方向，展开为 2-3 个正式候选：
-- 窗口变异：探针用的 N=X，展开为 N=X/2, X, X*1.5
-- 结构变异：加 Rank 变换、与其他信号组合
-- 参数微调
-
-**验证清单**（检查每个正式候选）：
-- [ ] 所有算子都可用？（见 mining-lessons.md）
-- [ ] 所有字段都可用？（见 config.py base_fields，$vwap 为零）
-- [ ] 表达式深度 ≤ 10？
-- [ ] 与因子库中的因子不是近似重复？
-
-## 第6步：写入候选文件
-
-将候选写入 `storage/mining/candidates/batch_XXX.yaml`：
+### Route Schema
 
 ```yaml
-batch_id: "batch_XXX"
-timestamp: "YYYY-MM-DDTHH:MM:SS"
-candidates:
-  - name: "descriptive_name"
-    expression: "Qlib_expression_here"
-    category: "category"
-    rationale: "该因子应该有效的原因"
-    direction: "所属方向名称"
+route_id: R021_01
+logic_id: L021
+family_id: FM_breakout
+route_type: genesis   # genesis / mutate / crossover / repair / decorrelate
+research_question: "量能压缩条件是否能显著提升 breakout 的独立性"
+probe_plan:
+  core_probe_form: "..."
+  neighbor_probe_form: "..."
 ```
 
-注意新增 `direction` 字段 — 标记每个候选来自哪个方向，供 judge 阶段按方向聚合。
+### route_type 判定
 
-每个候选**必须**包含 `logic_id` 字段，关联到 `storage/mining/logic/` 中的市场逻辑。如果没有对应的逻辑，使用 `logic_id: legacy`。
+| 来源 | route_type |
+|------|-----------|
+| logic-native hypothesis | `genesis` |
+| 已有 factor 局部变形 | `mutate` |
+| 两个已有结构组合 | `crossover` |
+| 已有 route 修复缺陷 | `repair` |
+| 降低与已有因子重叠 | `decorrelate` |
 
-#### Python 因子候选
+---
 
-对于需要条件逻辑、多状态或算法组合的复杂因子，使用 `type: python`：
+## Step 3：为每条 route 设计 probe forms
+
+每条 route 至少设计两个 probe：
+- `core_probe_form`：反映 route 核心研究问题
+- `neighbor_probe_form`：局部邻近变体
+
+### 实现形式选择
+
+参考 `storage/policy/capability_registry.yaml` 中的 `implementation_policy`。
+
+**DSL 优先场景**：breakout, reversal, momentum, rank_spread, rolling_corr, volatility_proxy 等，
+且不需要多阶段 pipeline、不需要多状态切换。
+
+**允许 Python 的场景**：
+- `requires_multi_stage_pipeline = true`
+- `requires_multi_state_logic = true`
+- `dsl_naturalness = low`
+- route_type 为 `repair` 或 `decorrelate`
+
+---
+
+## Step 4：运行 probe（只在训练期内）
+
+### 数据范围
+
+probe **只能使用训练期**：
+- 训练期全段：`2019-01-01 ~ 2023-12-31`
+- 分段 A：`2019-01-01 ~ 2021-12-31`
+- 分段 B：`2022-01-01 ~ 2023-12-31`
+
+### 并行运行
+
+```
+PYTHONPATH=src python3 -m research probe 'core_probe' --start 2019-01-01 --end 2023-12-31
+PYTHONPATH=src python3 -m research probe 'neighbor_probe' --start 2019-01-01 --end 2023-12-31
+```
+
+使用 Bash 工具的 `run_in_background` 参数并行启动所有 probe。
+
+### Fail 规则
+
+满足任一条则 `route_verdict = fail`：
+- `computable = false`
+- `valid_ratio < 0.30`
+- `abs(ic_mean_full) < 0.01`
+- 分段 A / B 明显反向且都不强
+- neighbor probe 完全崩掉
+- 命中 forbidden
+
+Verdict: `pass` / `borderline` / `fail`
+
+---
+
+## Step 5：选择要继续展开的 routes
+
+### 5a. 硬过滤
+
+去掉 `route_verdict = fail`、不符合 contract、命中 forbidden 的 route。
+
+### 5b. 打分
+
+```
+route_select_score =
+  0.35 * probe_quality_score
++ 0.20 * contract_alignment_score
++ 0.15 * novelty_score
++ 0.15 * local_robustness_score
++ 0.10 * logic_priority_score
++ 0.05 * diversity_bonus
+```
+
+### 5c. 按 quota 选
+
+每个 logic 最多选前 `direction_quota` 条 route。
+
+---
+
+## Step 6：模板化展开正式 candidates
+
+只对通过 Step 5 的 route 展开 candidate。
+
+### 按 route_type 的默认模板
+
+| route_type | 展开策略 | 数量上限 |
+|------------|---------|---------|
+| genesis    | 2 窗口变体 + 1 rank 变体 | 3 |
+| mutate     | 1 参数 + 1 稳定性修复 + 1 decorrelate | 3 |
+| crossover  | 1 additive + 1 gated + 1 interaction | 3 |
+| repair     | 降复杂度 / 调阈值 / 换 proxy | 2 |
+| decorrelate| residualization / 替换条件变量 | 2 |
+
+### Candidate Schema
 
 ```yaml
-- name: conditional_vol_trend
-  type: python
-  source: python
-  logic_id: L003
-  params: {window: 20, vol_thresh: 0.8}
-  param_space: {window: [5, 60], vol_thresh: [0.5, 0.95]}
-  code: |
-    vol_regime = ops.cs_rank(ops.realized_vol(df["close"], params["window"]))
-    trend = ops.ts_decay(df["close"].pct_change(), 10)
-    high_vol = vol_regime > params["vol_thresh"]
-    result = trend.copy()
-    result[~high_vol] = -result[~high_vol]
-    return result
-  category: volatility
-  rationale: "High vol → trend following, low vol → mean reversion"
+candidate_id: C042_03
+logic_id: L021
+route_id: R021_01
+family_id: FM_breakout
+route_type: genesis
+source_type: dsl   # dsl / python
+name: "compression_rank_breakout_10"
+expression: "..."
+rationale: "..."
+implementation_reason: "..."
+lineage:
+  parent_logic: L021
+  parent_routes: [R021_01]
+  parent_factors: []
+  mutation_type: genesis
 ```
 
-**Python 因子规则：**
-- 使用 `ops.*` 进行所有计算（ops.std, ops.cs_rank 等）— 不要使用原始 pandas rolling/groupby
-- `params` 字典声明参数值；`param_space` 声明 Optuna 搜索范围
-- LLM 只写代码体和 param_space — Optuna 优化实际参数值
-- 简单因子仍应使用 `type: dsl` — Python 仅用于需要 if/else、循环或多状态逻辑的情况
+---
 
-## 第7步：更新方向状态
+## Step 7：Batch-level sanity check
 
-将本轮参与 probe 的方向状态从 `new` 更新为 `probing` → 基于探针结果更新为 `active` 或 `dead`：
-- 读取方向文件
-- 更新 frontmatter 中的 status
-- 在 Probe Records 部分追加本次探针结果
-- 更新 directions.yaml 索引
+检查：
+- 每个 logic 未超过 `candidate_quota`
+- 总 candidate 未超过全局预算
+- family 分布不过度集中
+- Python candidate 不过多
+- 无近似重复候选
 
-## 第8步：完成提示
+---
 
+## Step 8：写正式候选文件
+
+写入 `storage/candidates/batch_XXX.yaml`。
+
+```bash
+PYTHONPATH=src python3 -m research batch next-id
 ```
-候选已生成：storage/mining/candidates/batch_XXX.yaml（N 个候选，来自 M 个方向）
-方向分布：[方向1] x 3, [方向2] x 3, [方向3] x 2
-运行 /execute 开始评估，或 /mine 继续完整流程。
-```
+
+---
+
+## Step 9：写 idea report
+
+写入 `storage/candidates/batch_XXX_idea_report.yaml`。
+
+记录：本轮 logic schedule、route 规划、probe 结果、route 选择原因、candidate 展开分布。
 
 ---
 
 ## 预处理说明
 
-评估器会自动对因子值和收益率进行预处理后再计算 IC。**不需要在因子表达式中添加 Winsorize/Zscore/Scale** — 管道会统一处理：
-
-1. **股票池过滤**：排除停牌股（成交量=0）和涨跌停股
-2. **因子清洗**：inf→NaN，MAD 缩尾（5倍），zscore 标准化
-3. **收益率遮罩**：不可交易股票的前向收益率设为 NaN
+评估器会自动对因子值和收益率进行预处理后再计算 IC。**不需要在因子表达式中添加 Winsorize/Zscore/Scale** — 管道会统一处理。
