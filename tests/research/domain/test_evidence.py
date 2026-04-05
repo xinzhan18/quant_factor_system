@@ -18,7 +18,6 @@ from research.domain.evidence import (
     ProbeResult,
     RedundancyEvidence,
     RegimeStabilityResult,
-    RiskReviewEvidence,
     SearchAdjustedStrength,
     SplitStabilityResult,
     SubspaceRedundancyView,
@@ -219,19 +218,6 @@ class TestMechanismAlignmentResult:
         )
         assert res.alignment_score == 0.85
         assert res.size_proxy_risk is False
-
-
-class TestRiskReviewEvidence:
-    def test_construction(self):
-        ev = RiskReviewEvidence(
-            factor_size_corr=-0.31,
-            barra_residual_ic=0.005,
-            dominant_barra_style="size",
-            alpha_survival_ratio=0.38,
-            style_warning=True,
-        )
-        assert ev.style_warning is True
-        assert ev.dominant_barra_style == "size"
 
 
 class TestSupportWindowCheck:

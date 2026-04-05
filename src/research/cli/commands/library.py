@@ -1,62 +1,33 @@
-"""CLI command: library — factor library status overview.
-
-Shows library size, grade distribution, category coverage, and
-optionally detailed per-factor metrics.
-"""
+"""CLI command: library — factor library status overview."""
 
 from __future__ import annotations
 
-from mining.config import MiningConfig
-from mining.registry import FactorLibrary
+import argparse
+import logging
+
+from research.storage.paths import StoragePaths
+from research.storage.yaml_io import load_yaml
+
+logger = logging.getLogger(__name__)
 
 
-def cmd_library(args):
-    """Show factor library status."""
-    config = MiningConfig()
-    lib = FactorLibrary(config)
-    factors = lib.list_factors()
+def add_parser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser("library", help="Factor library status")
+    p.set_defaults(func=cmd_library)
 
+
+def cmd_library(args: argparse.Namespace) -> None:
+    paths = StoragePaths()
+    index = load_yaml(paths.factor_index_file)
+    factors = index.get("factors", [])
+
+    print(f"Factor Library: {len(factors)} factors")
     if not factors:
-        print("Library is empty.")
+        print("  (empty)")
         return
 
-    # Summary
-    print(f"Library: {len(factors)} factors")
-
-    # Grade distribution
-    grades = {}
     for f in factors:
-        grade = f.get("grade", "?")
-        grades[grade] = grades.get(grade, 0) + 1
-    if grades:
-        print("\nGrade distribution:")
-        for g in ["S", "A", "B", "C", "D", "?"]:
-            if g in grades:
-                print(f"  {g}: {grades[g]}")
-
-    # Category coverage
-    categories = {}
-    for f in factors:
-        cat = f.get("category", "unknown")
-        categories[cat] = categories.get(cat, 0) + 1
-    if categories:
-        print("\nCategory coverage:")
-        for cat, count in sorted(categories.items()):
-            bar = "#" * count
-            print(f"  {cat:20s} {count:3d} {bar}")
-
-    # Avg IC
-    ics = [abs(f.get("ic_mean", 0)) for f in factors if f.get("ic_mean")]
-    if ics:
-        avg = sum(ics) / len(ics)
-        print(f"\nAvg |IC|: {avg:.4f}")
-
-    # Verbose per-factor listing
-    if getattr(args, "verbose", False):
-        print("\nPer-factor details:")
-        for f in factors:
-            fid = f.get("id", "?")
-            name = f.get("name", "?")
-            ic = f.get("ic_mean", "N/A")
-            grade = f.get("grade", "?")
-            print(f"  [{fid}] {name}: IC={ic}, Grade={grade}")
+        fid = f.get("factor_id", "?")
+        name = f.get("name", "?")
+        cat = f.get("category", "?")
+        print(f"  {fid}: {name} [{cat}]")

@@ -91,6 +91,8 @@ def _build_candidate_brief(result: Dict[str, Any]) -> Dict[str, Any]:
     holdout = result.get("holdout_review", {})
     support_review = result.get("support_window_review", {})
 
+    risk_review = result.get("risk_review", {})
+
     return {
         "candidate_id": result.get("candidate_id"),
         "logic_id": result.get("logic_id"),
@@ -103,6 +105,9 @@ def _build_candidate_brief(result: Dict[str, Any]) -> Dict[str, Any]:
         "stability_bucket": _stability_bucket(evaluation),
         "redundancy_bucket": _redundancy_bucket(similarity),
         "feasibility_bucket": _feasibility_bucket(feasibility),
+        "risk_model_review_bucket": risk_review.get(
+            "risk_model_review_bucket", "acceptable"
+        ),
         "support_window_warning": support_review.get(
             "support_window_warning", "none"
         ),

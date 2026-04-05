@@ -1,49 +1,37 @@
-"""CLI command: execute — run the evaluation pipeline on a batch of candidates.
-
-Reads a batch YAML file, runs multi-stage evaluation (precheck, dedup,
-correlation, hard gates, metrics), and writes the result + judge_packet.
-"""
+"""CLI command: execute — run research pipeline on a frozen batch."""
 
 from __future__ import annotations
 
+import argparse
 import logging
-import sys
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
-def cmd_execute(args):
-    """Execute the evaluation pipeline on a candidate batch."""
-    batch_path = Path(args.batch_file)
-    if not batch_path.exists():
-        print(f"ERROR: batch file not found: {batch_path}")
-        sys.exit(1)
+def add_parser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser("execute", help="Run research execute pipeline on batch")
+    p.add_argument("batch_file", help="Path to batch_XXX.yaml")
+    p.add_argument("--universe", default="csi1000")
+    p.add_argument("--profile", default="storage/evaluation_profiles/research_eval_v1.yaml")
+    p.set_defaults(func=cmd_execute)
 
-    import warnings
-    warnings.filterwarnings("ignore")
 
-    import os
-    os.environ["JOBLIB_START_METHOD"] = "fork"
-    import multiprocessing
-    try:
-        multiprocessing.set_start_method("fork", force=True)
-    except RuntimeError:
-        pass
+def cmd_execute(args: argparse.Namespace) -> None:
+    from research.execute.batch_runner import BatchRunner
 
-    from mining.application.qlib_runtime import init_qlib, resolve_full_universe
-    from mining.config import MiningConfig
+    print(f"Executing batch: {args.batch_file}")
+    print(f"Universe: {args.universe}")
 
-    init_qlib(args.qlib_dir)
-    all_instruments = resolve_full_universe()
-
-    config = MiningConfig(
-        custom_universe=all_instruments,
-        train_start=args.train_start,
-        train_end=args.train_end,
-        test_start=args.test_start,
-        test_end=args.test_end,
+    runner = BatchRunner(
+        profile_path=args.profile,
+        results_dir="storage/results",
+        packets_dir="storage/packets",
     )
+    result = runner.run(args.batch_file)
 
-    from mining.application.batch_service import run_batch
-    run_batch(batch_path, config, skip_stage1=args.skip_stage1)
+    summary = result.get("summary", {})
+    print(f"\nTotal candidates: {summary.get('total_candidates', 0)}")
+    print(f"Gate pass:        {summary.get('gate_pass', 0)}")
+    print(f"Gate warn:        {summary.get('gate_warn', 0)}")
+    print(f"Gate fail:        {summary.get('gate_fail_technical', 0)}")
+    print(f"Precheck failed:  {summary.get('precheck_failed', 0)}")

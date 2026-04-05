@@ -80,7 +80,10 @@ class ComputeRedundancy(Protocol):
 
 
 class ComputeRiskReview(Protocol):
-    """Compute risk model review (raw, neutral, barra views)."""
+    """DEPRECATED — use RiskEngine injection instead.
+
+    Kept only for backward compat during transition; will be removed.
+    """
 
     def __call__(self, signal_result: Dict[str, Any], profile: EvaluationProfile) -> Dict[str, Any]:
         """Return risk_review dict."""
@@ -154,15 +157,10 @@ def _stub_redundancy(signal_result: Dict[str, Any], candidate: Dict[str, Any]) -
     }
 
 
-def _stub_risk_review(signal_result: Dict[str, Any], profile: EvaluationProfile) -> Dict[str, Any]:
-    return {
-        "raw_view_ic": 0.0,
-        "cap_industry_neutral_ic": 0.0,
-        "barra_residual_ic": 0.0,
-        "alpha_survival_ratio": 1.0,
-        "dominant_style_exposure": None,
-        "style_crowding_risk": "low",
-    }
+def _stub_risk_review_dict() -> Dict[str, Any]:
+    """Default stub risk review — used when no RiskEngine is injected."""
+    from research.risk.schema import RiskReview
+    return RiskReview.stub().to_dict()
 
 
 def _stub_feasibility(signal_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -254,6 +252,7 @@ class ResearchExecutePipeline:
         compute_redundancy: Optional[ComputeRedundancy] = None,
         compute_risk_review: Optional[ComputeRiskReview] = None,
         compute_feasibility: Optional[ComputeFeasibility] = None,
+        risk_engine: Optional[Any] = None,
     ):
         self.profile = profile or load_evaluation_profile()
         self.sample_policy = sample_policy or load_sample_policy()
@@ -261,8 +260,10 @@ class ResearchExecutePipeline:
         self._preprocess_signal = preprocess_signal or _stub_preprocess
         self._compute_stat_evidence = compute_stat_evidence or _stub_stat_evidence
         self._compute_redundancy = compute_redundancy or _stub_redundancy
-        self._compute_risk_review = compute_risk_review or _stub_risk_review
         self._compute_feasibility = compute_feasibility or _stub_feasibility
+        self._risk_engine = risk_engine
+        # Legacy callable fallback (will be removed)
+        self._compute_risk_review_legacy = compute_risk_review
         self._gate = ExecutionGate()
         self._packet_builder = JudgePacketBuilder()
 
@@ -318,8 +319,19 @@ class ResearchExecutePipeline:
         result["similarity"] = similarity
 
         # Step 6: Risk model review
-        risk_review = self._compute_risk_review(signal, self.profile)
-        result["risk_review"] = risk_review
+        if self._risk_engine is not None:
+            eval_signal = signal.get("evaluation_ready_signal")
+            if eval_signal is not None:
+                risk_obj = self._risk_engine.compute_risk_review(
+                    eval_signal, self.sample_policy, self.profile,
+                )
+                result["risk_review"] = risk_obj.to_dict()
+            else:
+                result["risk_review"] = _stub_risk_review_dict()
+        elif self._compute_risk_review_legacy is not None:
+            result["risk_review"] = self._compute_risk_review_legacy(signal, self.profile)
+        else:
+            result["risk_review"] = _stub_risk_review_dict()
 
         # Step 7: Feasibility
         feasibility = self._compute_feasibility(signal)

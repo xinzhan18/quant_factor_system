@@ -191,17 +191,6 @@ class MechanismAlignmentResult:
 
 
 @dataclass(frozen=True)
-class RiskReviewEvidence:
-    """Style / risk factor diagnostics."""
-
-    factor_size_corr: Optional[float] = None
-    barra_residual_ic: Optional[float] = None
-    dominant_barra_style: Optional[str] = None
-    alpha_survival_ratio: Optional[float] = None
-    style_warning: bool = False
-
-
-@dataclass(frozen=True)
 class SupportWindowCheck:
     """Result of evaluating a candidate on a support validation window."""
 
@@ -248,7 +237,7 @@ class CandidateExecuteResult:
     effect: Optional[EffectStrengthEvidence] = None
     redundancy: Optional[RedundancyEvidence] = None
     feasibility: Optional[FeasibilityEvidence] = None
-    risk_review: Optional[RiskReviewEvidence] = None
+    risk_review: Optional[dict] = None  # RiskReview.to_dict() from research.risk
     mechanism_alignment: Optional[MechanismAlignmentResult] = None
 
     # Stability evidence
