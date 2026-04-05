@@ -1,181 +1,102 @@
 ---
 name: factor-mine
-description: 双速编排器：快速循环（working_theme -> draft -> quick_execute -> rerun）与正式循环（logic_schedule -> /idea -> /execute -> /judge -> /report）
+description: 双速编排器：快速循环（working_theme → draft → quick_execute → rerun）与正式循环（logic_schedule → /idea → /execute → /judge → /report）
 user_invocable: true
 ---
 
-# 因子挖掘 — /mine v2
+# Factor Mine — 双速研究循环编排器
 
-双速编排器，根据场景自动选择快速循环或正式循环。
+## 总览
 
-可选参数：`/mine [主题]` — 指定主题时优先围绕该主题展开。
+`/mine` 编排完整的因子挖掘迭代。系统有两条回路：
 
-四个阶段也可独立调用：`/idea`、`/execute`、`/judge`、`/factor-report`。
+1. **快速回路**（会话内）：working_theme → expression draft → quick execute（train-only）→ feedback → rerun
+2. **正式回路**（跨会话）：logic schedule → /idea → 评估阶段（`/execute` + `/judge`）→ /report
 
----
+快速回路用于半小时内反复试错。只有被冻结进 `batch_XXX/manifest.yaml` 的 candidate 才进入正式回路。
 
-## 速度选择
+## 正式回路流程
 
-### 快速循环（within session）
+### Phase 0：调度前检查
 
-适用场景：用户给出明确主题或上一轮 judge 留下 `next_round_hint`，且不需要正式 logic 审查。
-
-流程：
-1. **Working Theme** — 从用户输入或 `research_state.yaml` 的 `current_focus` 确定主题
-2. **Draft** — 快速设计 2-3 个 probe 表达式
-3. **Quick Execute** — probe 验证 + 构建 mini batch (2-4 candidates)
-4. **Rerun** — 如果 probe 全灭，换变体重试一次
-
+读取经验教训（**每轮第一步**）：
 ```
-working_theme -> draft -> probe -> mini_batch -> execute -> judge
+storage/governance/research_lessons.md
 ```
 
-### 正式循环（formal loop）
-
-适用场景：无明确主题、所有 logic 饱和、或用户显式要求。
-
-流程：
-1. `/logic schedule` — 检查调度器
-2. `/idea` — 消费 logic contract，生成正式 batch
-3. `/execute` — 评估 batch
-4. `/judge` — 审判 + 回写 memory
-5. `/report` — 为录取因子生成报告
-
----
-
-## 阶段零：Pre-flight
-
-在启动任何循环之前：
-
+读取研究状态：
 ```bash
 PYTHONPATH=src python3 -m research state
-PYTHONPATH=src python3 -m research logic schedule
 ```
 
-### 决策树
+根据输出决定：
+- **current_batch 不为空** → 上一轮未完成，先完成它（继续 /execute 或 /judge）
+- **pending_holdout_count > 0** → 优先处理 holdout review
+- **两者都为空** → 可以开始新一轮
 
-1. 如果 `research_state.yaml` 有 `current_focus` 且用户未否决 -> 快速循环
-2. 如果用户传入了明确 `[主题]` -> 快速循环
-3. 如果所有 logic 分数非正 -> 告诉用户建议 `/logic propose`，若同意则进入正式循环
-4. 否则 -> 正式循环
-
----
-
-## 快速循环详细流程
-
-### Step 1: Working Theme
-
-从以下来源确定主题（优先级递减）：
-- 用户显式传入的 `[主题]`
-- `research_state.yaml` -> `current_focus[0]`
-- 最近 judge_report 的 `next_round_hint`
-
-输出一句话主题描述。
-
-### Step 2: Draft
-
-基于主题，设计 2-3 个 probe 表达式。
-
-检查清单：
-- [ ] 算子可用？（参考 `storage/memory/mining-lessons.md`）
-- [ ] 字段可用？（$vwap 为零，其余可用）
-- [ ] 不命中 forbidden？
-
-### Step 3: Probe + Mini Batch
-
-并行运行所有 probe（**注意：只使用训练期**）：
-
-```
-PYTHONPATH=src python3 -m research probe '表达式' --start 2019-01-01 --end 2023-12-31
-```
-
-信号分类：
-- |IC| >= 0.03: 强信号 STRONG
-- 0.01 <= |IC| < 0.03: 中等信号 MODERATE
-- |IC| < 0.01: 无信号 WEAK
-
-对 |IC| >= 0.01 的 probe，展开为 2-3 个候选（窗口变异 + rank 变换），写入 mini batch。
-
-### Step 4: Execute + Judge
-
-```bash
-PYTHONPATH=src python3 -m research execute storage/candidates/batch_XXX.yaml --skip-stage1
-```
-
-然后进入 `/judge` 流程。
-
-### Step 5: Rerun（可选）
-
-如果 Step 3 所有 probe 全灭（|IC| < 0.01），换一组变体重试一次。
-如果重试仍全灭，建议切换到正式循环。
-
----
-
-## 正式循环详细流程
-
-### 阶段一：Logic Schedule
-
+确认可以开始后，读取调度：
 ```bash
 PYTHONPATH=src python3 -m research logic schedule
 ```
 
-如果所有分数非正，建议 `/logic propose`。
+### Phase 1：/factor-idea（候选生成）
 
-### 阶段二：创意生成（/idea）
+调用 `/factor-idea` skill：
+- 读取 logic schedule → 设计 batch-local routes（带 experiment_lineage_tag）
+- Probe 过滤垃圾（train-only）：`PYTHONPATH=src python3 -m research probe "expression"`
+- Quick execute overlay → freeze boundary 判断
+- 冻结 candidates → 写入 `storage/batches/batch_XXX/manifest.yaml`
 
-按 `factor-idea` skill 执行全部步骤。输出 `storage/candidates/batch_XXX.yaml`。
+### Phase 2：/factor-execute（正式评估）
 
-### 阶段三：评估执行（/execute）
-
-按 `factor-execute` skill 执行。
-
+调用 `/factor-execute` skill：
 ```bash
-PYTHONPATH=src python3 -m research execute storage/candidates/batch_XXX.yaml --skip-stage1
+PYTHONPATH=src python3 -m research execute storage/batches/batch_XXX/manifest.yaml
+```
+产出：`storage/batches/batch_XXX/research_result.yaml` + `storage/batches/batch_XXX/judge_packet.yaml`
+
+### Phase 3：/factor-judge（结构化裁决）
+
+调用 `/factor-judge` skill：
+- 读取 judge_packet（主输入）
+- 6 维度裁决：mechanism_alignment, statistical_strength, stability, redundancy, feasibility, risk_model_review
+- 候选 verdict: admit / reserve / reject / replace
+- 路线 verdict: continue / pause / kill / promote_family
+- 所有写入通过 guarded_writer
+
+### Phase 4：/factor-report（仅在有 admit 时）
+
+如果 `admitted_count > 0`，调用 `/factor-report`：
+```bash
+PYTHONPATH=src python3 -m report.builder --factor-id XXX --vault
 ```
 
-### 阶段四：审判（/judge）
+## 快速回路
 
-按 `factor-judge` skill 执行全部步骤。
+在 Phase 1 之前或期间，可以随时进入快速回路：
 
-### 阶段五：报告生成（/report）
+1. 给出 working_theme（基于 logic contract）
+2. 设计表达式草稿
+3. Quick execute：`PYTHONPATH=src python3 -m research probe "expression"`
+4. 检查 IC hint、coverage、turnover
+5. 迭代修改 → 直到 freeze_recommendation = freeze_candidate
+6. 冻结进 batch manifest
 
-**仅在本轮有因子被录取时执行。** 如果本轮 0 录取，跳过此阶段。
+## Ledger 生命周期
 
-按 `factor-report` skill 为每个**本轮新录取**的因子生成报告：
+`storage/governance/ledger.yaml` 贯穿正式回路全流程，各 phase 的读写职责：
 
-1. **并行生成报告数据**：
-   ```
-   Bash(command="PYTHONPATH=src python3 -m report.builder --factor-id {id} --vault", run_in_background=true)
-   ```
-2. 读取 `storage/evidence/vault/assets/F{id}/report_data.json`
-3. 用 Write 工具生成 Obsidian Markdown 报告到 `storage/evidence/vault/factors/`
-4. 更新总览页 `storage/evidence/vault/Factor Library.md`
+| Phase | 读 | 写 |
+|---|---|---|
+| Phase 0 (调度) | search_ledger（预算消耗）, holdout_reviews（pending 检查） | — |
+| Phase 1 (/idea) | search_ledger（避免重复 ELT/family） | batch_usage（新建 frozen 条目） |
+| Phase 2 (/execute) | — | batch_usage（phase → executed） |
+| Phase 3 (/judge) | 全部 4 sections | search_ledger（累计计数）, batch_usage（phase → judged）, holdout_reviews（如触发）, write_audit_log（审计 receipt） |
+| Phase 4 (/report) | — | — |
 
----
+## 关键约束
 
-## CLI 快速参考
-
-```bash
-# 探针（训练期内，轻量 IC 检查）
-PYTHONPATH=src python3 -m research probe "Rank($close, 20)" --start 2019-01-01 --end 2023-12-31
-
-# 批次评估（跳过 Stage1）
-PYTHONPATH=src python3 -m research execute storage/candidates/batch_XXX.yaml --skip-stage1
-
-# 研究状态
-PYTHONPATH=src python3 -m research state
-
-# 因子库状态
-PYTHONPATH=src python3 -m research library
-
-# 批次生命周期
-PYTHONPATH=src python3 -m research batch list
-PYTHONPATH=src python3 -m research batch next-id
-
-# 市场逻辑
-PYTHONPATH=src python3 -m research logic list
-PYTHONPATH=src python3 -m research logic schedule
-
-# 报告生成
-PYTHONPATH=src python3 -m report.builder --factor-id 025 --vault
-```
+- 快速回路只能看 **train**，不能看 validation/holdout
+- 冻结后进入正式回路，不可回退修改
+- 宇宙、日期范围等从 `storage/governance/research_config.yaml` 读取，不 hardcode
+- judge 不直接修改治理对象，必须通过 guarded_writer

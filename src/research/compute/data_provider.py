@@ -23,6 +23,27 @@ from research.compute.universe import UniverseManager
 
 logger = logging.getLogger(__name__)
 
+_qlib_initialized = False
+
+
+def ensure_qlib_init(qlib_dir: str = "~/.qlib/qlib_data/cn_data_1d") -> None:
+    """Lazily initialize Qlib + register custom operators.  No-op after first call."""
+    global _qlib_initialized
+    if _qlib_initialized:
+        return
+    import os
+    import qlib
+    from qlib.config import C
+
+    qlib.init(provider_uri=os.path.expanduser(qlib_dir))
+    C.kernels = 1
+
+    from research.compute.operators import register_custom_operators
+    register_custom_operators()
+
+    _qlib_initialized = True
+    logger.info("Qlib initialized (provider_uri=%s)", qlib_dir)
+
 
 class DataProvider:
     """Fetch Qlib features with transparent parquet caching.
@@ -42,7 +63,9 @@ class DataProvider:
         universe: Optional[UniverseManager] = None,
         cache: Optional[FactorValueCache] = None,
         use_cache: bool = True,
+        qlib_dir: str = "~/.qlib/qlib_data/cn_data_1d",
     ) -> None:
+        ensure_qlib_init(qlib_dir)
         self.universe = universe or UniverseManager()
         self.cache = cache or FactorValueCache()
         self.use_cache = use_cache
@@ -81,14 +104,25 @@ class DataProvider:
     ) -> pd.DataFrame:
         """Compute a Qlib DSL expression and return a DataFrame.
 
+        Cache hierarchy: parquet cache → DB factor_values → Qlib compute.
+
         Returns a DataFrame with (datetime, instrument) MultiIndex and a
         single column named after the expression.
-
-        Results are cached to parquet when ``use_cache`` is True.
         """
         key = self.cache.make_key(expression, start, end)
 
         def _fetch() -> pd.DataFrame:
+            # Try DB factor_values first (pre-computed admitted factors)
+            try:
+                from research.storage.factor_db import read_factor_values
+                db_df = read_factor_values(expression, start, end)
+                if db_df is not None and not db_df.empty:
+                    logger.debug("Factor values loaded from DB for '%s'", expression[:50])
+                    return db_df
+            except Exception:
+                pass  # DB unavailable, fall through to Qlib
+
+            # Fall back to Qlib computation
             from qlib.data import D
 
             inst_dict = self.universe.resolve()

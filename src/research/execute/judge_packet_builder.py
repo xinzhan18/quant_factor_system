@@ -168,20 +168,14 @@ class JudgePacketBuilder:
             agg_warning = "none"
 
         packet: Dict[str, Any] = {
-            "judge_packet": {
-                "batch_id": batch_id,
-                "sample_policy_version": sample_policy_version,
-                "evaluation_profile_id": evaluation_profile_id,
-                "active_logic_ids": active_logic_ids,
-                "candidate_briefs": briefs,
-                "policy_snapshot_ref": {
-                    "implementation_policy": "policy/implementation_policy.yaml",
-                    "forbidden": "memory/forbidden.yaml",
-                },
-                "search_context": search_context or {},
-                "support_window_review": {
-                    "support_window_warning": agg_warning,
-                },
-            }
+            "batch_id": batch_id,
+            "sample_policy_version": sample_policy_version,
+            "evaluation_profile_id": evaluation_profile_id,
+            "active_logic_ids": active_logic_ids,
+            "candidate_briefs": briefs,
+            "search_context": search_context or {},
+            "support_window_review": {
+                "support_window_warning": agg_warning,
+            },
         }
         return packet

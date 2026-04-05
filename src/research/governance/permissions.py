@@ -17,7 +17,7 @@ class WriteLevel(enum.Enum):
     level_1: Direct execution with audit receipt.  Covers routine
              objects such as factor_registry, logic_card, research_state.
     level_2: Requires repeated evidence before writing.  Used for
-             high-impact objects like forbidden and implementation_policy.
+             high-impact objects like forbidden.
     """
 
     level_1 = "level_1"
@@ -45,8 +45,6 @@ class TargetObject(enum.Enum):
     route_card = "route_card"
     research_state = "research_state"
     forbidden = "forbidden"
-    implementation_policy = "implementation_policy"
-    policy_upgrade_ledger = "policy_upgrade_ledger"
     judge_report = "judge_report"
     search_ledger = "search_ledger"
     batch_result = "batch_result"
@@ -96,19 +94,9 @@ _GUARDED_WRITER_PERMISSIONS: List[PermissionEntry] = [
         level=WriteLevel.level_2,
         allowed_actions=frozenset({"add", "reassess", "retire", "reactivate"}),
     ),
-    PermissionEntry(
-        target=TargetObject.implementation_policy,
-        level=WriteLevel.level_2,
-        allowed_actions=frozenset({"update"}),
-    ),
 ]
 
 _JUDGE_PERMISSIONS: List[PermissionEntry] = [
-    PermissionEntry(
-        target=TargetObject.policy_upgrade_ledger,
-        level=WriteLevel.level_1,
-        allowed_actions=frozenset({"append"}),
-    ),
     PermissionEntry(
         target=TargetObject.judge_report,
         level=WriteLevel.level_1,

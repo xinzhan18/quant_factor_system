@@ -16,24 +16,22 @@ def main():
     # probe
     p_probe = sub.add_parser("probe", help="Lightweight IC check (train only)")
     p_probe.add_argument("expression", help="Qlib expression")
-    p_probe.add_argument("--universe", default="all",
-                         help="Universe: all | csi1000 (default: all)")
-    p_probe.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
-    p_probe.add_argument("--start", default="2019-01-01",
-                         help="Probe start date (train period only, default: 2019-01-01)")
-    p_probe.add_argument("--end", default="2023-12-31",
-                         help="Probe end date (train period only, default: 2023-12-31)")
+    p_probe.add_argument("--universe", default=None,
+                         help="Override universe (default: from config)")
+    p_probe.add_argument("--qlib-dir", default=None)
+    p_probe.add_argument("--start", default=None,
+                         help="Override probe start date (default: from config)")
+    p_probe.add_argument("--end", default=None,
+                         help="Override probe end date (default: from config)")
 
     # execute
     p_exec = sub.add_parser("execute", help="Run execute pipeline on a batch")
     p_exec.add_argument("batch_file", help="Batch YAML file path")
-    p_exec.add_argument("--universe", default="all",
-                        help="Universe: all | csi1000 (default: all)")
-    p_exec.add_argument("--qlib-dir", default="~/.qlib/qlib_data/cn_data_1d")
-    p_exec.add_argument("--train-start", default="2015-01-01")
-    p_exec.add_argument("--train-end", default="2023-12-31")
-    p_exec.add_argument("--test-start", default="2024-01-01")
-    p_exec.add_argument("--test-end", default="2024-12-31")
+    p_exec.add_argument("--universe", default=None,
+                        help="Override universe (default: from config)")
+    p_exec.add_argument("--qlib-dir", default=None)
+    p_exec.add_argument("--profile", default=None,
+                        help="Override evaluation profile YAML")
     p_exec.add_argument("--skip-stage1", action="store_true",
                         help="Skip Stage 1 fast screen (candidates already probed)")
 
@@ -61,7 +59,15 @@ def main():
                        help="Show detailed per-factor info")
 
     # state
-    _p_state = sub.add_parser("state", help="Research state overview")
+    p_state = sub.add_parser("state", help="Research state overview + mutations")
+    state_sub = p_state.add_subparsers(dest="state_action")
+    p_state_set = state_sub.add_parser("set", help="Set a state key")
+    p_state_set.add_argument("key", help="Key to set (e.g. current_batch)")
+    p_state_set.add_argument("value", help="Value (e.g. batch_042, null, 3)")
+    state_sub.add_parser("clear-batch", help="Clear batch fields after cycle")
+
+    # capabilities
+    _p_caps = sub.add_parser("capabilities", help="Available operators, fields, constraints")
 
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(name)s - %(message)s")
@@ -84,6 +90,9 @@ def main():
     elif args.command == "state":
         from research.cli.commands.state import cmd_state
         cmd_state(args)
+    elif args.command == "capabilities":
+        from research.cli.commands.capabilities import cmd_capabilities
+        cmd_capabilities(args)
     else:
         parser.print_help()
 

@@ -1,12 +1,9 @@
-"""Cap neutralization: per-date OLS on log(market_cap).
+"""Cap neutralization: vectorized row-wise OLS on log(market_cap).
 
 Pure function. No I/O, no Qlib.
-Extracted from the old stats/risk_model.py._neutralize_cross_section().
 """
 
 from __future__ import annotations
-
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -19,6 +16,9 @@ def neutralize_cap(
 ) -> pd.DataFrame:
     """Cross-sectionally regress out log(market_cap) per date.
 
+    Univariate regression: y = a + b * log(cap) + residual.
+    Computed analytically (slope = cov/var) with row-wise vectorized ops.
+
     Parameters
     ----------
     factor_wide : (date x symbol) DataFrame of factor values.
@@ -28,36 +28,51 @@ def neutralize_cap(
     Returns
     -------
     Residual DataFrame, same shape as *factor_wide*.
-
-    Note: This is cap-only neutralization. Industry neutralization
-    requires a DataProvider extension that does not yet exist.
     """
-    result = factor_wide.copy()
-    result[:] = np.nan
+    log_cap = np.log(market_cap_wide.where(market_cap_wide > 0))
 
-    for date in factor_wide.index:
-        y = factor_wide.loc[date].values.astype(float)
+    # Align dates and symbols
+    common_dates = factor_wide.index.intersection(log_cap.index)
+    common_syms = factor_wide.columns.intersection(log_cap.columns)
+    if len(common_dates) == 0 or len(common_syms) == 0:
+        return pd.DataFrame(np.nan, index=factor_wide.index, columns=factor_wide.columns)
 
-        if date not in market_cap_wide.index:
-            continue
-        cap = market_cap_wide.loc[date].values.astype(float)
+    y = factor_wide.loc[common_dates, common_syms]
+    x = log_cap.loc[common_dates, common_syms]
 
-        valid = np.isfinite(y) & np.isfinite(cap) & (cap > 0)
-        if valid.sum() < min_obs:
-            continue
+    # Valid mask: both y and x finite
+    valid = y.notna() & x.notna()
+    n_valid = valid.sum(axis=1)
+    enough = n_valid >= min_obs
 
-        log_cap = np.log(cap[valid])
-        y_v = y[valid]
+    # Mask invalid cells
+    y_masked = y.where(valid)
+    x_masked = x.where(valid)
 
-        X = np.column_stack([np.ones(valid.sum()), log_cap])
-        try:
-            beta, _, _, _ = np.linalg.lstsq(X, y_v, rcond=None)
-            resid = y_v - X @ beta
-        except np.linalg.LinAlgError:
-            continue
+    # Row-wise means
+    y_mean = y_masked.mean(axis=1)
+    x_mean = x_masked.mean(axis=1)
 
-        full_resid = np.full(len(y), np.nan)
-        full_resid[valid] = resid
-        result.loc[date] = full_resid
+    # Centered values
+    y_c = y_masked.sub(y_mean, axis=0)
+    x_c = x_masked.sub(x_mean, axis=0)
 
+    # Slope = cov(y, x) / var(x) per row
+    cov_xy = (y_c * x_c).mean(axis=1)
+    var_x = (x_c ** 2).mean(axis=1)
+    slope = cov_xy / var_x.where(var_x > 1e-12)
+
+    # Intercept = y_mean - slope * x_mean
+    intercept = y_mean - slope * x_mean
+
+    # Residual = y - predicted
+    predicted = x_masked.mul(slope, axis=0).add(intercept, axis=0)
+    residual = y_masked - predicted
+
+    # Mask dates with insufficient observations
+    residual = residual.where(enough, axis=0, other=np.nan)
+
+    # Reindex back to original shape
+    result = pd.DataFrame(np.nan, index=factor_wide.index, columns=factor_wide.columns)
+    result.loc[common_dates, common_syms] = residual
     return result

@@ -1,74 +1,90 @@
 ---
 name: factor-execute
-description: 评估最新的候选因子批次，运行多阶段筛选管道
+description: 对冻结的候选因子批次运行正式研究评估管道，生成结构化证据和 judge_packet
 user_invocable: true
 ---
 
-# 因子评估执行 — /execute
+# Factor Execute — 正式研究评估
 
-找到待评估的候选批次，运行评估管道，生成结果文件。
+## 目标
 
-## 第1步：查找待评估批次
+对冻结在 `manifest.yaml` 中的候选因子运行完整评估管道，产出结构化统计证据和压缩的 judge_packet。
 
-扫描 `storage/mining/candidates/` 目录：
-- 找编号最大的 `batch_XXX.yaml`，且不存在对应的 `batch_XXX_result.yaml`
-- 如果所有批次都已评估 → 提示用户："没有待评估的批次。请先运行 `/idea` 生成候选。"
+## 流程
 
-## 第2步：运行评估
+### Step 1：找到最新未评估批次
 
-执行 CLI 命令（**注意：不加 `--admit`，加 `--skip-stage1`**）：
+读取 state 确认当前 batch：
+```bash
+PYTHONPATH=src python3 -m research state
+```
+
+如果 `current_batch` 有值且 `current_batch_phase = frozen`，直接用它。
+否则扫描 `storage/batches/` ��到有 manifest 但无 research_result 的批次。
+
+### Step 2：���行评估管道
 
 ```bash
-PYTHONPATH=src python3 -m mining batch storage/mining/candidates/batch_XXX.yaml --skip-stage1
+PYTHONPATH=src python3 -m research execute storage/batches/batch_XXX/manifest.yaml
 ```
 
-**`--skip-stage1` 说明**：候选因子在 `/idea` 的 Probe 阶段已经用全量股票 + 1年数据验证过 IC，不需要再用 50 只股票做快筛。跳过 Stage 1 直接进入 Stage 2（相关性检查）。
+管道内部步骤：
+1. **Precheck**：DSL 语法/算子白名单/字段白名单/深度/forbidden pattern；Python 语法/白名单/向量化检查
+2. **Base signal**：通过 Qlib 计算因子值
+3. **预处理**：universe mask → tradability → winsorize → zscore → neutralization
+4. **统计证据**（6 维）：
+   - Effect strength (IC/ICIR/胜率/单调性，train + validation)
+   - Stability (split 4 段稳定性 / regime 稳定性 / train-validation 衰减)
+   - Reliability (expanding window IC / bootstrap / purged walk-forward)
+   - Support window checks (辅助 window sign flip 检测)
+   - Multiple testing context (搜索强度风险 bucket)
+5. **冗余分析**（3 层）：pairwise / family / subspace ridge
+6. **风险评审**：raw IC / cap-neutral IC / Barra 残差 IC / alpha_survival_ratio / dominant style / crowding risk
+7. **可实现性**：turnover / coverage / half_life / liquidity_coverage / tail_concentration / rebalance_stress
+8. **Execution gate**：pass / warn / fail_technical
+9. **Holdout review trigger**
+10. **构建 judge_packet**
 
-**其他参数：**
-- `--train-start` / `--train-end` — 训练期（默认 2015-01-01 ~ 2023-12-31）
-- `--test-start` / `--test-end` — 测试期（默认 2024-01-01 ~ 2024-12-31）
+### Step 3：验证输出
 
-评估管道执行：
-1. **Stage 0**：表达式语法验证
-2. ~~Stage 1：快速 IC 筛选~~ — 已跳过（Probe 已验证）
-3. **Stage 1.5：批内去重** — 始终运行（即使跳过 Stage 1）
-4. **Stage 2**：与因子库相关性检查（阈值 0.7）
-5. **Stage 2.5**：替换检查（被拒因子是否能替换库中弱因子）
-6. **Stage 3**：6 维报告卡计算（30 个指标）
-7. **Hard Gates**：自动拒绝（ic_sign_flip, oos_decay < 0.2, coverage < 0.3, mono_flip, ic_oos < 0.008）
+确认生成：
+- `storage/batches/batch_XXX/research_result.yaml`
+- `storage/batches/batch_XXX/judge_packet.yaml`
 
-## 第3步：验证结果
+### Step 4：更新 Ledger + State
 
-检查 `storage/mining/candidates/batch_XXX_result.yaml` 已生成。
+在 `storage/governance/ledger.yaml` 中更新对应 batch 的 `batch_usage` 条���：
+- 将 `phase` 从 `frozen` 更新为 `executing`��开始时）→ `executed`（完成时）
+- 如果 idea 阶段没有写入 batch_usage 条目，则在此补写完整条目
 
-## 第4步：打印摘要
-
+**更新 research state**：
+```bash
+# 管道开始前
+PYTHONPATH=src python3 -m research state set current_batch_phase executing
+# 管道完成后
+PYTHONPATH=src python3 -m research state set current_batch_phase executed
 ```
-=== 评估完成: 批次 XXX ===
-筛选通过: N 个
-淘汰: M 个
-替换候选: K 个
-结果文件: storage/mining/candidates/batch_XXX_result.yaml
-```
 
-**注意**：评估同时会生成 `batch_XXX_values.pkl` 缓存文件，存储 screened 因子的完整因子值。此缓存供 `/judge` 录取时写入 DB，judge 完成后会自动删除。
+### Step 5：打印摘要
 
-提示用户：
+- 总候选数
+- Precheck 失败数
+- Gate pass / warn / fail 分布
 
-> 评估完成。运行 `/judge` 进行 LLM 审判，或 `/mine` 继续完整流程。
+## 样本制度
 
----
+所有日期范围、宇宙、阈值从 `storage/governance/research_config.yaml` 读取：
+- **universe**: `config.universe`
+- **Train**: `config.sample_policy.active_train_range`
+- **Validation (primary)**: `config.sample_policy.active_validation_range`
+- **Support windows**: `config.sample_policy.support_validation_windows`
+- **Holdout**: `config.sample_policy.holdout_pool_range`
 
-## 预处理说明
+CLI 命令不需要传 `--universe` 或日期参数，除非要 override。
 
-评估器自动进行预处理，无需手动配置：
+## 关键约束
 
-- **股票池过滤**：排除停牌股和涨跌停股
-- **因子清洗**：inf→NaN，MAD 缩尾（5倍），zscore 标准化
-- **收益率遮罩**：不可交易股票的前向收益率设为 NaN
-
-可通过 `MiningConfig` 调整：
-- `filter_suspend` / `filter_limit` — 股票池过滤（默认 True）
-- `winsorize_method` / `winsorize_n` — 异常值处理（默认 "mad" / 5.0）
-- `standardize_method` — "zscore" 或 "rank"（默认 "zscore"）
-- `neutralize_mode` — "none", "market_cap", "industry", "both"（默认 "market_cap"）
+- execute 不做 admit/reject 决策，只产出证据
+- risk_model_review_bucket 由 RiskEngine 子系统产出，不由下游重算
+- 所有计算向量化（numpy/pandas），无逐行循环
+- 因子数据通过 parquet 缓存加速

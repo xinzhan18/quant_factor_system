@@ -124,37 +124,29 @@ class Preprocessor:
     def _winsorize(self, df: pd.DataFrame) -> pd.DataFrame:
         """Cross-sectional winsorization: clip to mean +/- sigma*std per date."""
         col = df.columns[0]
-
-        def _clip_group(group: pd.DataFrame) -> pd.DataFrame:
-            vals = group[col]
-            mean = vals.mean()
-            std = vals.std()
-            if std == 0 or np.isnan(std):
-                return group
-            lower = mean - self.sigma * std
-            upper = mean + self.sigma * std
-            out = group.copy()
-            out[col] = vals.clip(lower=lower, upper=upper)
-            return out
-
-        return df.groupby(level="datetime", group_keys=False).apply(_clip_group)
+        g = df[col].groupby(level="datetime")
+        mean = g.transform("mean")
+        std = g.transform("std")
+        lower = mean - self.sigma * std
+        upper = mean + self.sigma * std
+        result = df.copy()
+        result[col] = df[col].clip(lower=lower, upper=upper)
+        return result
 
     def _zscore(self, df: pd.DataFrame) -> pd.DataFrame:
         """Cross-sectional z-score: (x - mean) / std per date."""
         col = df.columns[0]
-
-        def _zscore_group(group: pd.DataFrame) -> pd.DataFrame:
-            vals = group[col]
-            mean = vals.mean()
-            std = vals.std()
-            out = group.copy()
-            if std == 0 or np.isnan(std):
-                out[col] = 0.0
-            else:
-                out[col] = (vals - mean) / std
-            return out
-
-        return df.groupby(level="datetime", group_keys=False).apply(_zscore_group)
+        original_nan = df[col].isna()
+        g = df[col].groupby(level="datetime")
+        mean = g.transform("mean")
+        std = g.transform("std")
+        result = df.copy()
+        safe_std = std.replace(0, np.nan)
+        result[col] = (df[col] - mean) / safe_std
+        # Fill zero-std group NaN with 0.0, but preserve original NaN
+        zero_std_fill = result[col].isna() & ~original_nan
+        result.loc[zero_std_fill, col] = 0.0
+        return result
 
     def _neutralize(
         self,

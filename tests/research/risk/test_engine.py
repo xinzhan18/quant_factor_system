@@ -2,7 +2,7 @@
 
 import numpy as np
 import pandas as pd
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from research.risk.engine import RiskEngine, _extend_start, _trim_to_range
 from research.risk.schema import RiskReview
@@ -36,12 +36,18 @@ def _mock_provider(n_dates=100, n_stocks=50, seed=42):
     return provider
 
 
+def _make_signal(n_dates=100, n_stocks=50, seed=99):
+    rng = np.random.default_rng(seed)
+    dates = pd.bdate_range("2022-01-01", periods=n_dates)
+    stocks = [f"S{i:03d}" for i in range(n_stocks)]
+    idx = pd.MultiIndex.from_product([dates, stocks], names=["datetime", "instrument"])
+    return pd.DataFrame({"factor": rng.normal(size=len(idx))}, index=idx)
+
+
 class TestRiskEngine:
     def test_stub_returns_acceptable(self):
         stub = RiskEngine.stub()
-        review = stub.compute_risk_review(
-            pd.DataFrame(), {}, {}
-        )
+        review = stub.compute_risk_review(pd.DataFrame(), {}, {})
         assert isinstance(review, RiskReview)
         assert review.risk_model_review_bucket == "acceptable"
 
@@ -49,12 +55,7 @@ class TestRiskEngine:
         provider = _mock_provider()
         engine = RiskEngine(data_provider=provider)
 
-        rng = np.random.default_rng(99)
-        dates = pd.bdate_range("2022-01-01", periods=100)
-        stocks = [f"S{i:03d}" for i in range(50)]
-        idx = pd.MultiIndex.from_product([dates, stocks], names=["datetime", "instrument"])
-        signal = pd.DataFrame({"factor": rng.normal(size=len(idx))}, index=idx)
-
+        signal = _make_signal()
         sample_policy = {"active_validation_range": ["2022-01-01", "2022-12-31"]}
         profile = {"holding_horizon": 5}
 
@@ -65,10 +66,62 @@ class TestRiskEngine:
     def test_empty_signal_returns_stub(self):
         provider = _mock_provider()
         engine = RiskEngine(data_provider=provider)
-        signal = pd.DataFrame()
-        review = engine.compute_risk_review(signal, {"active_validation_range": []}, {})
+        review = engine.compute_risk_review(
+            pd.DataFrame(), {"active_validation_range": []}, {}
+        )
         assert review.risk_model_review_bucket == "acceptable"
         assert review.raw_view_ic is None
+
+    def test_factor_flat_param_skips_conversion(self):
+        """When factor_flat is provided, engine uses it directly."""
+        from core.factor_stats import multiindex_to_flat
+        provider = _mock_provider()
+        engine = RiskEngine(data_provider=provider)
+
+        signal = _make_signal()
+        factor_flat = multiindex_to_flat(signal)
+        sample_policy = {"active_validation_range": ["2022-01-01", "2022-12-31"]}
+        profile = {"holding_horizon": 5}
+
+        review = engine.compute_risk_review(
+            signal, sample_policy, profile, factor_flat=factor_flat
+        )
+        assert isinstance(review, RiskReview)
+
+    def test_prepare_batch_uses_cached_returns(self):
+        """After prepare_batch, engine doesn't call provider.get_returns."""
+        from core.factor_stats import multiindex_to_flat
+        provider = _mock_provider()
+        engine = RiskEngine(data_provider=provider)
+
+        signal = _make_signal()
+        factor_flat = multiindex_to_flat(signal)
+        sample_policy = {"active_validation_range": ["2022-01-01", "2022-12-31"]}
+        profile = {"holding_horizon": 5}
+
+        # Pre-fetch returns
+        ret_mi = provider.get_returns("2022-01-01", "2022-12-31", horizon=5)
+        returns_flat = multiindex_to_flat(ret_mi)
+        shared_returns = {("2022-01-01", "2022-12-31", 5): returns_flat}
+        shared_cap = provider.get_market_data(["$circ_market_cap"], "2022-01-01", "2022-12-31")
+
+        # Reset call counts
+        provider.get_returns.reset_mock()
+        provider.get_market_data.reset_mock()
+
+        engine.prepare_batch(shared_returns, shared_cap)
+        engine.compute_risk_review(signal, sample_policy, profile, factor_flat=factor_flat)
+
+        # Provider should NOT be called for returns or cap
+        provider.get_returns.assert_not_called()
+        # get_market_data may still be called for style matrix (different fields)
+        # but NOT for $circ_market_cap alone
+        for c in provider.get_market_data.call_args_list:
+            assert c[0][0] != ["$circ_market_cap"]
+
+    def test_stub_engine_has_prepare_batch(self):
+        stub = RiskEngine.stub()
+        stub.prepare_batch({}, None)  # should not raise
 
 
 class TestHelpers:

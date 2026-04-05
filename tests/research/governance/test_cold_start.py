@@ -73,14 +73,6 @@ class TestMechanismUnlock:
         mc = MechanismCounts(promote_family_batches=2)
         assert policy.is_unlocked("promote_family", self._system_ready(), mc) is True
 
-    def test_policy_upgrade_locked(self, policy):
-        mc = MechanismCounts(policy_upgrade_ledger_entries=2)
-        assert policy.is_unlocked("policy_upgrade", self._system_ready(), mc) is False
-
-    def test_policy_upgrade_unlocked(self, policy):
-        mc = MechanismCounts(policy_upgrade_ledger_entries=3)
-        assert policy.is_unlocked("policy_upgrade", self._system_ready(), mc) is True
-
     def test_productive_locked(self, policy):
         mc = MechanismCounts(cumulative_admits=2)
         assert policy.is_unlocked("productive", self._system_ready(), mc) is False
@@ -117,7 +109,6 @@ class TestColdStartBlocksAll:
             family_size=100,
             subspace_basis=100,
             promote_family_batches=100,
-            policy_upgrade_ledger_entries=100,
             cumulative_admits=100,
             cumulative_no_progress_batches=100,
             cumulative_failure_batches=100,

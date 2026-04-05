@@ -1,8 +1,8 @@
 """BatchManifest and IdeaReport read/write.
 
-Manages per-batch files under ``candidates/``:
-- ``<batch_id>.yaml`` (batch manifest / candidate list)
-- ``<batch_id>_idea_report.yaml``
+Manages per-batch files under ``batches/<batch_id>/``:
+- ``manifest.yaml`` (batch manifest / candidate list)
+- ``idea_report.yaml``
 """
 
 from __future__ import annotations
@@ -47,12 +47,11 @@ class CandidateStore:
 
     def list_manifests(self) -> list[str]:
         """Return batch_ids that have a manifest file."""
-        d = self._paths.candidates_dir
+        d = self._paths.batches_dir
         if not d.exists():
             return []
-        # Match files like batch_042.yaml but not batch_042_idea_report.yaml
         return sorted(
-            p.stem
-            for p in d.glob("batch_*.yaml")
-            if "_idea_report" not in p.stem
+            p.name
+            for p in d.iterdir()
+            if p.is_dir() and (p / "manifest.yaml").exists()
         )

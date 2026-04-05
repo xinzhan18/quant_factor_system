@@ -1,9 +1,9 @@
 """Tests for CycleController -- combined scheduler + holdout queue."""
 from datetime import datetime, timedelta
 
-from research.controller.batch_scheduler import BatchScheduler, MIN_BATCH_GAP_DAYS
-from research.controller.holdout_queue import HoldoutQueue, DEFAULT_DEADLINE_DAYS
-from research.controller.cycle_controller import CycleController, NextActions
+from research.governance.batch_scheduler import BatchScheduler, MIN_BATCH_GAP_DAYS
+from research.governance.holdout_queue import HoldoutQueue, DEFAULT_DEADLINE_DAYS
+from research.governance.cycle_controller import CycleController, NextActions
 from research.judge.candidate_judge import CandidateVerdict
 from research.judge.route_judge import RouteVerdict
 from research.judge.verdict_builder import BatchJudgeReport

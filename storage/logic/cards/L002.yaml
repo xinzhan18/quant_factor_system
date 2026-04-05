@@ -1,0 +1,34 @@
+logic_id: L002
+name: liquidity_microstructure
+category: liquidity
+status: active
+priority: high
+created: "2026-04-05"
+proposal_id: P002
+
+hypothesis:
+  condition: "流动性结构出现异常：换手率集中度变化、成交量分布偏移"
+  behavior: "流动性异常后股价向均衡回归"
+  timeframe: "5-20d"
+
+contract:
+  current_focus_question: "换手率和成交额的时序分布特征中，哪些在 CSI 1000 上有独立预测力"
+  direction_quota: 3
+  candidate_quota: 6
+  preferred_families:
+    - turnover_volatility
+    - amount_concentration
+    - liquidity_shock
+  suggested_ops: [Std, Mean, Div, CsRank, TsAutoCorr, HHI, AmihudIlliq]
+  required_fields: [$turnover_rate, $amount, $volume]
+  avoid_patterns:
+    - simple_turnover_rank
+    - market_cap_proxy
+
+discovery_budget:
+  adjacent_discovery_route_quota: 1
+
+evidence_summary:
+  productive_families: []
+  failed_families: []
+  current_bottleneck: null

@@ -1,0 +1,48 @@
+batch_id: batch_002
+created: "2026-04-05"
+schedule_snapshot_date: "2026-04-05"
+
+routes:
+  - route_id: R1
+    logic_id: L001
+    route_type: genesis
+    research_question: "量价背离的哪种度量方式在 CSI 1000 上产生最稳定预测信号"
+    candidates_frozen: 2
+    ELTs:
+      - ELT_L001_genesis_pv_corr_vol_v1
+      - ELT_L001_genesis_ret_vol_cov_v1
+  - route_id: R2
+    logic_id: L002
+    route_type: genesis
+    research_question: "换手率和成交额的时序分布特征中哪些有独立预测力"
+    candidates_frozen: 2
+    ELTs:
+      - ELT_L002_genesis_amount_cv_v1
+      - ELT_L002_genesis_turnover_vol_v1
+  - route_id: R3
+    logic_id: L003
+    route_type: genesis
+    research_question: "K 线结构衍生量在 CSI 1000 上是否有稳定截面预测力"
+    candidates_frozen: 1
+    ELTs:
+      - ELT_L003_genesis_atr_ratio_v1
+  - route_id: R3x
+    logic_id: L003
+    route_type: crossover
+    research_question: "价格结构 × 流动性波动的交叉信号是否有增量 alpha"
+    candidates_frozen: 1
+    ELTs:
+      - ELT_L003_crossover_range_turnover_v1
+
+probe_summary:
+  total_probed: 8
+  pass: 7
+  reserve: 1
+  fail: 0
+
+freeze_summary:
+  total_frozen: 6
+  by_logic:
+    L001: 2
+    L002: 2
+    L003: 2

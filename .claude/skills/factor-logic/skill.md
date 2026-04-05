@@ -1,84 +1,124 @@
 ---
 name: factor-logic
-description: 创建或查看市场逻辑假设（L4 外循环）
+description: 管理研究命题 hypothesis：提案、审查、立项、调度、生命周期管理
 user_invocable: true
 ---
 
-# /logic — Market Logic Management
+# Factor Logic — Hypothesis 管理
 
-## /logic new — 生成新的市场逻辑（外循环）
+> 边界说明：`logic` 是一级入口；`discovery` 只是其异常升级子流程，不应继续作为平行系统扩张。
 
-### Step 1: 读取当前状态
+## 目标
+
+管理市场机制假设的生命周期：提案 → 审查 → 立项 → 调度 → lifecycle 更新。
+
+## 子命令
+
+### `/logic list`
 
 ```bash
-PYTHONPATH=src python3 -m mining logic coverage
-PYTHONPATH=src python3 -m mining logic list
-cat storage/mining/memory/forbidden.yaml
+PYTHONPATH=src python3 -m research logic list
 ```
 
-### Step 2: 识别空白区域
+显示所有 logic 及其状态（proposed / active / warm / productive / saturated / parked / dead）。
 
-基于 coverage map，找出哪些 taxonomy categories 覆盖不足：
-- market_structure, volume_price, volatility, microstructure, cross_sectional, tail_risk, multi_scale
+### `/logic schedule`
 
-优先为覆盖为 0 的 category 生成逻辑。
+**调度前必读经验教训**：
+```
+storage/governance/research_lessons.md
+```
 
-### Step 3: 生成市场逻辑
+```bash
+PYTHONPATH=src python3 -m research logic schedule
+```
 
-对每个空白 category，提出 2-3 个具体的市场逻辑假设，结构化为：
-- **condition**: 什么市场状态会触发这个信号
-- **behavior**: 触发后会发生什么
-- **timeframe**: 在什么时间尺度上
-- **direction**: 做多还是做空
+生成 schedule snapshot，确定本轮：
+- active_pool（带 direction_quota, candidate_quota）
+- warm_pool, parked_pool, blocked_pool
+- adjacent discovery 预算
 
-示例:
+**产出后更新 state**（将 active pool 的 logic ID 写入）：
+```bash
+PYTHONPATH=src python3 -m research state set active_logic_ids '["L001","L002"]'
+```
+
+调度维度（7 项）：priority, lifecycle, productivity, saturation, bottleneck, discovery_need, validation_exposure。
+
+调度前必读 `storage/governance/ledger.yaml`：
+- `search_ledger.by_logic` — 各 logic 的累计搜索预算消耗，用于 saturation 判断
+- `search_ledger.by_experiment_tag` — ELT 的 verdict 分布，kill 的不再分配预算
+- `holdout_reviews` — 是否有 pending holdout review 需优先处理
+- `search_ledger.discovery_candidates` — escalated 的异常是否需要新 logic 立项
+
+### `/logic new`
+
+创建新 logic 提案流程：
+
+1. **评估覆盖** — 读取 `storage/logic/registry.yaml`，识别空白类别
+1b. **消费异常发现** — 读取 `ledger.yaml` 的 `search_ledger.discovery_candidates` 中 `escalation_status=escalated` 的条目，作为 logic proposal 的候选输入。对每个 escalated 异常决定：ignore / 合并到已有 logic 的新 direction / 立项为新 logic proposal
+2. **生成 Proposal** — 为每个空白类别（及 escalated 异常）设计 hypothesis（condition, behavior, timeframe）
+3. **4 维审查**：
+   - mechanism_review: 是否有独立市场机制
+   - feasibility_review: 当前字段/DSL 能否支撑
+   - novelty_review: 与已有 logic 是否过度重叠
+   - research_value_review: 是否值得占预算
+4. **裁决**: create_logic / downgrade_to_direction / park / reject
+5. **写入**：
+   - `storage/logic/proposals/proposal_XXX.yaml`
+   - `storage/logic/reviews/review_XXX.yaml`
+   - `storage/logic/cards/logic_LXXX.yaml`（如果 create_logic）
+   - 更新 `storage/logic/registry.yaml`
+
+## Logic Card Schema
+
 ```yaml
-name: 缩量横盘后放量突破
+logic_id: L021
+name: compression_breakout
 category: volume_price
+status: active
+priority: high
 hypothesis:
-  condition: "成交量连续 N 天低于均值，价格振幅收窄"
-  behavior: "后续放量突破，方向跟随突破方向"
-  timeframe: "5-20 交易日"
-  direction: long_on_breakout
-constraints:
-  required_fields: [volume, close, high, low]
-  suggested_ops: [Std, Mean, CsRank, TsDecay]
-  window_range: [5, 60]
+  condition: "量能压缩、波动收敛"
+  behavior: "后续突破延续"
+  timeframe: "5-20d"
+contract:
+  current_focus_question: "压缩条件是否提升 breakout 的独立性"
+  direction_quota: 2
+  candidate_quota: 4
+  preferred_families: [breakout, compression_spread]
+  suggested_ops: [Mean, Std, Rank, TsDecay]
+  required_fields: [$volume, $close, $high, $low]
+  avoid_patterns: [pure_price_only_breakout]
+discovery_budget:
+  adjacent_discovery_route_quota: 1
+evidence_summary:
+  productive_families: []
+  failed_families: []
+  current_bottleneck: null
 ```
 
-### Step 4: 写入逻辑文件
+## Lifecycle 状态机
 
-对每个审批通过的逻辑，通过 CLI 创建：
+- proposed → active（审查通过）
+- active → warm（暂时非主方向）
+- active → productive（跨 batch 持续 admit）
+- productive → saturated（边际价值下降）
+- active/warm → parked（当前不值得投预算）
+- any → dead（长期无产出）
+- parked → active（新证据出现）
 
-```bash
-cat <<'EOF' | PYTHONPATH=src python3 -m mining logic create
-name: 缩量横盘后放量突破
-category: volume_price
-hypothesis:
-  condition: "成交量连续 N 天低于均值，价格振幅收窄"
-  behavior: "后续放量突破，方向跟随突破方向"
-  timeframe: "5-20 交易日"
-  direction: long_on_breakout
-constraints:
-  required_fields: [volume, close, high, low]
-  suggested_ops: [Std, Mean, CsRank, TsDecay]
-  window_range: [5, 60]
-EOF
-```
+## Family 渐进治理
 
-### Step 5: 确认
+- `FM_*`: 已注册 family（完整冗余分析）
+- `PF_*`: 临时 family（弱比较）
+- `FM_unknown`: 未知（仅 pairwise）
 
-```bash
-PYTHONPATH=src python3 -m mining logic list
-PYTHONPATH=src python3 -m mining logic coverage
-```
+Family 不是 admission 的硬前提。
 
-## /logic review — 查看逻辑状态
+## 关键约束
 
-```bash
-PYTHONPATH=src python3 -m mining logic schedule
-PYTHONPATH=src python3 -m mining logic list
-PYTHONPATH=src python3 -m mining logic coverage
-```
-
-展示调度器建议，帮助用户决定下一步行动。
+- Logic 是 lifecycle 最终裁决者（judge 只推荐）
+- 单轮 validation 不直接升级全局 policy（需重复证据）
+- 必须保留 adjacent discovery 预算（防路径依赖）
+- 冷启动期不启用 productive / saturated / dead

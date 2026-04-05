@@ -1,75 +1,98 @@
-"""CLI command: state — research state overview.
+"""CLI command: state — research state overview + mutations.
 
-Reads research_state.yaml and prints a consolidated view of the
-current research system status: active logics, active routes,
-current focus, bottlenecks, and policy flags.
+Reads/writes storage/state/research_state.yaml.
+
+Usage:
+    research state              # print current state
+    research state set KEY VAL  # update a single key
+    research state clear-batch  # reset batch fields after cycle completes
 """
 
 from __future__ import annotations
 
-from pathlib import Path
+import json
 
-import yaml
+from research.storage.state_store import StateStore
+from research.storage.paths import StoragePaths
 
-
-STATE_PATH = Path("storage/state/research_state.yaml")
+_store = StateStore(StoragePaths())
 
 
 def cmd_state(args):
-    """Show the current research state overview."""
-    if not STATE_PATH.exists():
-        print(f"Research state file not found: {STATE_PATH}")
-        print("Hint: initialize with /logic schedule or /mine.")
-        return
+    """Dispatch state subcommands."""
+    action = getattr(args, "state_action", None)
 
-    with open(STATE_PATH) as f:
-        state = yaml.safe_load(f)
+    if action == "set":
+        _cmd_set(args.key, args.value)
+    elif action == "clear-batch":
+        _cmd_clear_batch()
+    else:
+        _cmd_show()
+
+
+def _cmd_show():
+    """Print the current research state."""
+    state = _store.load_state()
 
     if not state:
         print("Research state is empty.")
+        print("Hint: initialize with `python scripts/init_new_storage.py`")
         return
-
-    rs = state.get("research_state", state)
 
     print("=== Research State ===\n")
 
-    # Current batch
-    batch = rs.get("current_batch", "N/A")
-    print(f"Current batch: {batch}")
+    print(f"Current batch:       {state.get('current_batch') or '(idle)'}")
+    print(f"Batch phase:         {state.get('current_batch_phase') or '-'}")
+    print(f"Last completed:      {state.get('last_completed_batch') or '-'}")
 
-    # Active logics
-    active_logics = rs.get("active_logic_ids", [])
-    print(f"\nActive logics ({len(active_logics)}):")
-    for lid in active_logics:
+    holdout = state.get("pending_holdout_count", 0)
+    if holdout:
+        print(f"Pending holdout:     {holdout}  *** ACTION REQUIRED ***")
+    else:
+        print(f"Pending holdout:     0")
+
+    active = state.get("active_logic_ids", [])
+    print(f"\nActive logics ({len(active)}):")
+    for lid in active:
         print(f"  - {lid}")
 
-    # Active routes
-    active_routes = rs.get("active_route_ids", [])
-    print(f"\nActive routes ({len(active_routes)}):")
-    for rid in active_routes:
-        print(f"  - {rid}")
-
-    # Current focus
-    focus = rs.get("current_focus", [])
-    if focus:
-        print("\nCurrent focus:")
-        for item in focus:
-            print(f"  - {item}")
-
-    # Bottlenecks
-    bottlenecks = rs.get("current_bottlenecks", [])
-    if bottlenecks:
-        print("\nBottlenecks:")
-        for bn in bottlenecks:
-            print(f"  - {bn}")
-
-    # Policy flags
-    flags = rs.get("policy_flags", {})
-    if flags:
-        print("\nPolicy flags:")
-        for key, val in flags.items():
-            print(f"  {key}: {val}")
-
-    # Last updated
-    updated = rs.get("last_updated_at", "N/A")
+    updated = state.get("last_updated_at", "-")
     print(f"\nLast updated: {updated}")
+
+
+def _cmd_set(key: str, value: str):
+    """Set a single key in research state."""
+    # Auto-parse value types
+    parsed = _parse_value(value)
+    _store.update_state({key: parsed})
+    print(f"state.{key} = {parsed}")
+
+
+def _cmd_clear_batch():
+    """Clear batch fields after a cycle completes."""
+    state = _store.load_state()
+    last = state.get("current_batch")
+    patch = {
+        "current_batch": None,
+        "current_batch_phase": None,
+    }
+    if last:
+        patch["last_completed_batch"] = last
+    _store.update_state(patch)
+    print(f"Batch cleared. last_completed_batch = {last}")
+
+
+def _parse_value(value: str):
+    """Best-effort parse: null, int, list, or string."""
+    if value in ("null", "None", "none"):
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    if value.startswith("["):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            pass
+    return value

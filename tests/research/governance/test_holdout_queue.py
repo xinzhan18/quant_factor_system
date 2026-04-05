@@ -3,7 +3,7 @@ import os
 import tempfile
 from datetime import datetime, timedelta
 
-from research.controller.holdout_queue import (
+from research.governance.holdout_queue import (
     HoldoutEntry,
     HoldoutQueue,
     DEFAULT_DEADLINE_DAYS,

@@ -6,7 +6,7 @@ The writer enforces two access levels:
 * **level_2** -- validate that *repeated evidence* exists
   (>= ``min_batches`` batches, >= ``min_routes`` routes, consistent
   reason codes) before writing to high-impact objects
-  (``forbidden``, ``implementation_policy``).
+  (``forbidden``).
 
 Every request -- accepted or rejected -- is recorded in the
 :class:`~research.governance.audit.WriteAuditLog`.
@@ -215,7 +215,75 @@ class GuardedWriter:
         self, target: TargetObject, request: WriteRequest
     ) -> List[str]:
         """Execute the write and return a list of written file paths."""
+        if target == TargetObject.factor_registry:
+            return self._write_factor_registry(request)
         return self._write_generic(target, request)
+
+    def _write_factor_registry(self, request: WriteRequest) -> List[str]:
+        """Write to the factor registry via RegistryStore."""
+        from research.storage.paths import StoragePaths
+        from research.storage.registry_store import RegistryStore
+
+        paths = StoragePaths(self._base_dir)
+        store = RegistryStore(paths)
+        payload = request.payload
+        action = request.action
+        factor_id = request.target_ref or payload.get("factor_id", "")
+
+        written: List[str] = []
+
+        if action == "admit":
+            # Upsert into index
+            index_entry = {
+                "factor_id": factor_id,
+                "name": payload.get("name", ""),
+                "expression": payload.get("expression", ""),
+                "status": "active",
+                "admitted_batch": payload.get("batch_id", ""),
+            }
+            store.upsert_factor_entry(factor_id, index_entry)
+            written.append(str(paths.factor_index_file))
+
+            # Save detail file
+            store.save_factor_detail(factor_id, payload)
+            written.append(str(paths.factor_detail_file(factor_id)))
+
+            # Persist to DB: factor_meta + factor_values
+            self._persist_factor_to_db(factor_id, payload)
+
+        elif action == "retire":
+            index = store.load_factor_index()
+            for f in index.get("factors", []):
+                if f.get("factor_id") == factor_id:
+                    f["status"] = "retired"
+            store.save_factor_index(index)
+            written.append(str(paths.factor_index_file))
+
+        elif action == "replace":
+            old_id = payload.get("replaced_factor_id")
+            if old_id:
+                # Retire old
+                index = store.load_factor_index()
+                for f in index.get("factors", []):
+                    if f.get("factor_id") == old_id:
+                        f["status"] = "retired"
+                store.save_factor_index(index)
+            # Admit new (reuse admit logic)
+            request_copy = WriteRequest(
+                actor=request.actor,
+                write_level=request.write_level,
+                target_object=request.target_object,
+                action="admit",
+                payload=payload,
+                target_ref=factor_id,
+            )
+            written.extend(self._write_factor_registry(request_copy))
+
+        elif action == "update":
+            store.save_factor_detail(factor_id, payload)
+            written.append(str(paths.factor_detail_file(factor_id)))
+
+        return written
 
     def _write_generic(
         self, target: TargetObject, request: WriteRequest
@@ -227,6 +295,59 @@ class GuardedWriter:
         out_path = target_dir / f"{ref}.yaml"
         atomic_yaml_write(out_path, request.payload)
         return [str(out_path)]
+
+    # ------------------------------------------------------------------
+    # DB persistence (best-effort, non-blocking)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _persist_factor_to_db(factor_id: str, payload: Dict[str, Any]) -> None:
+        """Write factor_meta + factor_values to TimescaleDB.
+
+        Best-effort: logs warning on failure but does not raise.
+        """
+        from research.storage.factor_db import write_factor_meta, write_factor_values
+
+        expression = payload.get("expression", "")
+        name = payload.get("name", "")
+        metrics = payload.get("metrics", {})
+        # Also check top-level keys (judge may flatten metrics)
+        if not metrics:
+            metrics = {k: payload.get(k) for k in [
+                "ic_mean_train", "ic_mean_validation", "ic_ir_validation",
+                "ic_win_rate_validation", "monotonicity_validation",
+                "max_lib_corr", "nearest_factor_id",
+            ] if payload.get(k) is not None}
+
+        try:
+            write_factor_meta(
+                factor_id=factor_id,
+                name=name,
+                expression=expression,
+                metrics=metrics,
+                batch_id=payload.get("batch_id", ""),
+            )
+        except Exception as exc:
+            logger.warning("DB factor_meta write failed for %s: %s", factor_id, exc)
+
+        if not expression:
+            return
+
+        try:
+            from research.compute.data_provider import DataProvider, ensure_qlib_init
+            from research.execute.config import load_research_config
+
+            config = load_research_config()
+            sp = config.get("sample_policy", {})
+            start = sp.get("data_start", "2015-01-01")
+            end = sp.get("active_validation_range", ["2022-01-01", "2023-12-31"])[1]
+
+            ensure_qlib_init()
+            provider = DataProvider(use_cache=True)
+            factor_df = provider.get_factor_values(expression, start, end)
+            write_factor_values(factor_id, factor_df)
+        except Exception as exc:
+            logger.warning("DB factor_values write failed for %s: %s", factor_id, exc)
 
     # ------------------------------------------------------------------
     # Audit helpers

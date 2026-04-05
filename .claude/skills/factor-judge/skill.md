@@ -1,302 +1,215 @@
 ---
 name: factor-judge
-description: 对评估结果进行 LLM 审判，决定录取/淘汰，按方向更新挖掘记忆
+description: 读取 judge_packet，对候选因子进行结构化 6 维裁决，通过 guarded_writer 回写治理对象
 user_invocable: true
 ---
 
-# 因子审判 — /judge
+# Factor Judge — 结构化裁决
 
-读取评估结果，对每个筛选通过的因子进行 6 维审判，执行录取，按方向维度更新记忆。
+## 目标
 
-## 第1步：查找待审判结果
+读取 `judge_packet`（主输入），对每个候选因子进行 6 维度结构化裁决，产出 admit/reserve/reject/replace verdict + reason codes。所有治理对象写入通过 guarded_writer。
 
-扫描 `storage/mining/candidates/` 目录：
-- 找编号最大的 `batch_XXX_result.yaml`
-- 如果没有结果文件 → 提示用户："没有待审判的结果。请先运行 `/execute` 评估候选。"
+## 输入
 
-读取 `batch_XXX_result.yaml`。
-
-## 第2步：LLM 审判（强制 — 不得跳过）
-
-对每个 `screened` 因子，打印报告卡并做出判断：
-
+**每轮必读**（按顺序）：
 ```
-=== 因子审判: {name} ===
-表达式: {expression}
-类别: {category}
-方向: {direction}
-
-预测力: IC={ic_mean:.4f}, ICIR={ic_ir:.2f}, 胜率={ic_win_rate:.1%}
-  逐年: {ic_by_year}
-稳健性: OOS衰减比={oos_decay_ratio:.2f}, 最差季度={worst_quarter_ic:.4f}, IC回撤={ic_max_drawdown:.4f}
-经济性: 单调性IS={monotonicity_is:.2f}/OOS={monotonicity_oos:.2f}, 多空t={ls_tstat:.2f}, 符号一致={ic_sign_consistent}
-衰减:   半衰期={half_life_days:.1f}天, 换手率={factor_turnover:.3f}
-分布:   覆盖率={coverage:.1%}, 零值={zero_ratio:.1%}, 偏度={factor_skew:.2f}
-唯一性: 最大库相关={max_lib_corr:.3f}({max_corr_factor_id}), 增量IC={incremental_ic:.4f}
-
-判定: [录取 / 淘汰 / 替换 factor_XXX]
-理由: [2-3句具体理由，引用报告卡中的数字]
+storage/governance/research_lessons.md   # 禁忌 + 经验（必须先读，影响裁决标准）
+storage/governance/ledger.yaml           # search_ledger + batch_usage + holdout + audit
+storage/batches/batch_XXX/judge_packet.yaml  # 主输入
 ```
 
-### Hard Gates（代码强制 — 已在评估管道中自动执行）
+Drill-down（仅在需要时）：
+```
+storage/batches/batch_XXX/research_result.yaml
+storage/batches/batch_XXX/execute_report.yaml
+storage/batches/batch_XXX/manifest.yaml
+storage/logic/cards/*.yaml
+```
 
-以下条件由 `evaluator._apply_hard_gates()` 强制执行。触发任一条件的因子**不会出现在 screened 列表中**：
+## 裁决流程
 
-| 条件 | 阈值 | 配置项 |
-|------|------|--------|
-| `ic_sign_consistent = False` | — | 不可配置 |
-| `oos_decay_ratio < X` | 0.2 | `hard_gate_oos_decay_min` |
-| `coverage < X` | 0.3 | `hard_gate_coverage_min` |
-| `monotonicity` IS/OOS 符号相反 | — | 不可配置 |
-| `abs(ic_mean_oos) < X` | 0.008 | `hard_gate_ic_oos_min` |
+### Step 1：构建 CandidateEvidence
 
-如果在 `screened` 中仍看到触发上述条件的因子，说明代码层 hard gate 未生效，必须手动拒绝。
-
-### 红旗（LLM 裁量 — Hard Gate 之上的额外判断）
-
-- `oos_decay_ratio < 0.5` — 衰减较大（0.2 以下已被 hard gate 拦截）
-- `coverage < 0.5` — 覆盖率偏低（0.3 以下已被 hard gate 拦截）
-- `half_life_days < 1` — 信号存活不到一天
-
-### 强信号（倾向录取）
-
-- `ic_ir > 0.15` 且 `oos_decay_ratio > 0.7`
-- `ls_tstat > 2.0` — 统计显著
-- `monotonicity_is > 0.8` 且 `monotonicity_oos > 0.5`
-- `incremental_ic > 0.02` — 真正的新信息
-- 低 `expression_depth` + 高 IC — 奥卡姆剃刀
-
-这些是**指导方针**而非硬规则。综合权衡所有维度做最终判断。
-
-## 第3步：执行录取
-
-## 强制步骤：录取前写 admission_history
+对 judge_packet 中每个 candidate_brief，使用 Python 工厂方法构建结构化证据：
 
 ```python
-from mining.memory import ExperienceMemory
-from mining.config import MiningConfig
-
-mem = ExperienceMemory(MiningConfig())
-mem.save_admission_history(batch_id, {
-    'factor_id': factor['factor_id'],
-    'name': factor['name'],
-    'expression': factor['expression'],
-    'decision': 'admit',  # or 'replace' or 'reject'
-    'reason': '...',
-    'metrics': report_card,
-})
+from research.judge.candidate_judge import CandidateEvidence
+evidence = CandidateEvidence.from_judge_packet_brief(brief)
 ```
 
-此步骤不可跳过。必须在 `lib.admit()` / `lib.replace()` 之前执行。
+这确保 brief → evidence 映射在代码层闭环，不依赖 prompt 手动映射。
 
----
+### Step 2：6 维度裁决
 
-对判定**录取**的因子：
+对每个 candidate 检查 6 个维度：
 
-```python
-from mining.registry import FactorLibrary
-from mining.config import MiningConfig
+1. **Mechanism Alignment**（aligned / unclear / drifted）
+   - logic_thesis_match: candidate 是否回答 logic hypothesis
+   - route_question_match: 是否回答本批实验问题
+   - sign_and_behavior_match: 方向/触发/行为是否一致
+   - non_style_only_explanation: 不能主要由风格残留解释
 
-lib = FactorLibrary(MiningConfig())
-factor['metrics'] = {
-    'ic_mean': report_card['ic_mean'],
-    'ic_ir': report_card['ic_ir'],
-    'ic_win_rate': report_card['ic_win_rate'],
-    'ic_mean_oos': report_card['ic_mean_oos'],
-    'ic_ir_oos': report_card['ic_ir_oos'],
-    'quantile_returns': report_card['quantile_returns_is'],
-    'ls_return': report_card['ls_return'],
-    'monotonicity': report_card['monotonicity_is'],
-}
-lib.admit(factor)
-# admit() 会自动从 pickle 缓存加载因子值并写入 DB，不需要手动传 _factor_values
-```
+2. **Statistical Strength**（strong / borderline / weak）
+   - IC mean, ICIR, win_rate, monotonicity (validation)
+   - expanding_window_pass 必须为 true
 
-对判定**替换**的因子：
+3. **Stability**（good / borderline / poor）
+   - split_stability / regime_stability 不能为 low
+   - support_window_warning ≠ repeated_sign_flip
 
-```python
-lib.replace(old_id, new_factor)
-# replace() 同样自动从 pickle 缓存加载因子值
-```
+4. **Redundancy**（low / acceptable / high）
+   - max_lib_corr, family_overlap, subspace_redundancy
 
-#### Python 因子录取
+5. **Feasibility**（ok / borderline / poor）
+   - turnover, liquidity_coverage, rebalance_stress
 
-对 `source: python` 的因子，向 `lib.admit()` 传递以下额外字段：
-- `source`: "python"
-- `code`: 因子代码体
-- `logic_id`: 市场逻辑 ID
-- `lineage`: `{"parents": [...], "mutation_type": "genesis|macro|crossover", "generation": N}`
-- `params`: 优化后的参数值
-- `param_space`: 参数搜索范围
+6. **Risk Model Review**（acceptable / borderline / poor）
+   - alpha_survival_ratio, style_crowding_risk
+   - poor → reason code `style_dominance_detected` (HIGH severity)
+   - borderline → `moderate_style_exposure` (MEDIUM)
 
-## 第4步：Direction Feedback（强制 — 不得跳过）
+### Step 3：Candidate Verdict
 
-### 4a. 按方向聚合结果
+- **admit**: gate pass + validation strong + expanding pass + stability ok + redundancy acceptable + feasibility ok + mechanism aligned + risk acceptable
+- **reserve**: borderline + 或 multiple_testing_risk=high + 或 needs holdout review
+- **reject**: gate fail + 或 validation collapse + 或 mechanism drifted + 或 feasibility poor
+- **replace**: 与已有因子高度相近 + 无致命 regression + 5 维离散比较（stability/redundancy/mechanism 为主维，strength/feasibility 为辅）
 
-读取 `batch_XXX.yaml`（原始候选文件），提取每个候选的 `direction` 字段。将结果按方向分组：
+### Step 4：Route Verdict
 
-```
-=== 方向反馈 ===
-方向 williams_r_mutation: 3个候选, 1个录取(IC=0.055), 2个淘汰
-方向 alpha191_batch1: 3个候选, 0个录取, 最好IC=0.018
-方向 trend_new: 2个候选, 0个录取, 最好IC=0.008
-```
+每个 batch-local 实验组：
+- **continue**: ≥1 admit 或高质量 reserve
+- **pause**: 证据不足但未证伪
+- **kill**: 系统性失败
+- **promote_family**: 跨 batch 持续产出
 
-如果候选文件中没有 `direction` 字段（旧格式兼容），根据因子名称和类别推断方向，或跳过方向反馈。
+### Step 5：Logic Recommendation
 
-### 4b. 更新方向文件
+**仅推荐**，不是最终裁决（logic 有最终权）：
+active / warm / productive / saturated / parked / dead
 
-对每个参与本轮的方向，更新 `storage/mining/memory/directions/{方向名}.md`：
+### Step 6：回写（通过 guarded_writer）
 
-**Frontmatter 更新：**
-- `attempts`: +1
-- `best_ic`: 如果本轮有更好的 IC，更新
-- `last_batch`: 当前批次编号
+**一级回写**（直接，附 audit receipt）：
+- candidate verdict + route verdict + batch judge report
+- Ledger 更新（见 Step 6a）
 
-**Body 追加（Candidate History 部分）：**
-```
-- batch_XXX (YYYY-MM-DD): N个候选, M个录取
-  - admitted: [因子名 IC=xxx, ...]
-  - rejected: [因子名 IC=xxx 原因, ...]
-```
+**二级回写**（需重复证据，由 guarded_writer 校验）：
+- forbidden.yaml 升级
+- logic lifecycle 最终状态
 
-### 4c. 自动状态流转
+### Step 6a：Ledger 更新（`storage/governance/ledger.yaml`）
 
-对每个方向，检查并执行状态流转：
+裁决完成后，**必须**更新以下 sections：
 
-| 条件 | 转换 |
-|------|------|
-| 本轮有录取 | 维持 `active`，如果 priority 不是 high 则提升为 high |
-| 0 录取但最好 IC > 0.02 | 维持 `active` |
-| 连续 2 轮 0 录取且最好 IC < 0.02 | → `exhausted` |
-| 累计 3 轮 0 录取 | → `dead` |
-
-"连续轮数"从方向文件的 Candidate History 部分计算。
-
-### 4d. 更新 directions.yaml 索引
-
-读取所有方向文件的 frontmatter，重建 `storage/mining/memory/directions.yaml`。
-
-或者使用 Python：
-```python
-from mining.memory import ExperienceMemory
-from mining.config import MiningConfig
-
-mem = ExperienceMemory(MiningConfig())
-# update_direction 会自动同步索引
-mem.update_direction("方向名", status="exhausted", attempts=3, last_batch="batch_XXX")
-```
-
-### 4e. 更新 state.yaml
-
-更新全局统计：
-- `library.size`, `library.avg_ic`
-- `mining.total_batches` +1, `mining.total_candidates` +N, `mining.total_admitted` +M
-- `mining.yield_rate` 重算
-- `mining.last_batch_time`
-
-**生成 next_round_hint：**
+**search_ledger.by_logic**：对涉及的每个 logic_id 递增计数
 ```yaml
-next_round_hint: "williams_r 变异录取1个(IC=0.055)，继续 rank 变换。alpha191 本批全灭(best IC=0.018)，尝试下一组。trend 方向接近 dead(连续2轮0录取)。"
+L021:
+  logic_attempt_count_to_date: +N    # 本批该 logic 下的 candidate 数
+  admitted_count_to_date: +M         # 本批 admit 数
+  reserve_count_to_date: +K          # 本批 reserve 数
 ```
 
-### 4f. 保存批次历史
+**search_ledger.by_family**：对涉及的每个 family_id 递增计数（同上结构）
 
-保存到 `storage/mining/memory/history/batch_XXX.yaml`：
-
+**search_ledger.by_experiment_tag**：对每个 ELT 更新
 ```yaml
-batch_id: batch_XXX
-timestamp: "YYYY-MM-DDTHH:MM:SS"
-candidates: 8
-admitted: N
-rejected: M
-replacements: K
-yield_rate: N/8
-
-direction_summary:
-  - direction: williams_r_mutation
-    candidates: 3
-    admitted: 1
-    best_ic: 0.055
-  - direction: alpha191_batch1
-    candidates: 3
-    admitted: 0
-    best_ic: 0.018
-
-rejected_summary:
-  - name: factor_name
-    reason: "Stage X reject: ..."
-
-key_learnings:
-  - "..."
+ELT_L021_breakout_compression_gate_v1:
+  batches_seen: +1
+  admitted_count_to_date: +M
+  reserve_count_to_date: +K
+  continue_count_to_date: +1         # 根据 route_verdict
+  latest_verdict: continue           # continue / pause / kill / promote_family
 ```
 
-### 4g. 更新挖掘经验教训（如有新工程发现）
+**batch_usage**：将对应 batch 的 `phase` 更新为 `judged`
 
-如果本轮遇到了新的工程问题、算子发现、或市场洞察，追加到：
-```
-storage/mining/memory/mining-lessons.md
-```
-
-### 4j. Logic Feedback
-
-审判完所有因子后，更新市场逻辑统计：
-```python
-from mining.logic import MarketLogicLibrary
-logic_lib = MarketLogicLibrary("storage/mining/logic")
-# 对本批次中的每个 logic_id：
-logic_lib.update_stats(logic_id,
-    factors_generated=N_generated,
-    factors_admitted=N_admitted,
-    best_ic=max_ic,
-    rounds_without_admit=0 if N_admitted > 0 else current+1)
-# 如果 rounds_without_admit >= 3：标记为 saturated
-if rounds_without_admit >= 3:
-    logic_lib.update_status(logic_id, "saturated")
+**holdout_reviews**：如果任何 candidate 触发 holdout review，追加条目：
+```yaml
+- review_id: HR_auto_increment
+  batch_id: batch_XXX
+  target_id: C_XXX_NN
+  trigger_reason: high_data_mining_risk  # 或 reserve_for_replace_review
+  status: pending
+  outcome: null
 ```
 
-### 4k. Forbidden Region 自动检测
-
-如果相同的表达式模式在多个批次中被拒绝 3 次以上，将其加入禁区：
-```python
-from mining.memory import ExperienceMemory
-mem = ExperienceMemory(config)
-mem.add_forbidden(pattern, reason)
+**write_audit_log.entries**：每次写入治理对象时追加 receipt：
+```yaml
+- timestamp: "2026-04-05T10:00:00"
+  actor: factor-judge
+  action: admit                      # admit / reject / reserve / replace
+  target: F076                       # 或 candidate_id
+  level: 1
+  reason_codes: [mechanism_aligned, feasibility_ok]
 ```
 
-### 4l. 谱系记录
+### Step 7：保存报告 + 关闭 State 周期
 
-对每个候选（录取或淘汰），记录其谱系：
-- Genesis 因子：`parents: [], mutation_type: "genesis"`
-- 变异因子：`parents: [parent_id], mutation_type: "macro"`
-- 交叉因子：`parents: [id1, id2], mutation_type: "crossover"`
+```
+storage/batches/batch_XXX/judge_report.yaml
+```
 
-### 4h. 清理缓存
-
-删除 evaluate 阶段生成的 pickle 缓存文件（因子值已写入 DB，不再需要）：
-
+**裁决完成后必须关闭 state 周期**：
 ```bash
-rm -f storage/mining/candidates/batch_XXX_values.pkl
+# 如果有 holdout review 触发，先更新计数
+PYTHONPATH=src python3 -m research state set pending_holdout_count N
+
+# 关闭当前 batch（自动记录 last_completed_batch）
+PYTHONPATH=src python3 -m research state clear-batch
 ```
 
-### 4i. 验证
+### Step 8：异常发现检查（Discovery）
 
-更新后，重新读取 `directions.yaml` 并确认：
-- 状态流转正确
-- 所有参与方向已更新
-- next_round_hint 反映本轮结果
+裁决完成后，检查是否有重复异常模式需要升级：
 
-## 第5步：最终摘要
+**检查 3 类异常：**
+1. **repeated_residual_anomaly** — 不可解释的残留 alpha 重复出现
+2. **repeated_near_miss_cluster** — 反复接近但未通过的同类 candidate
+3. **unexplained_family_edge** — family 边缘的异常表现
 
+**升级规则：**
+- **watch**（单次异常）：写入 `ledger.yaml` 的 `search_ledger.discovery_candidates`，status=watch
+- **escalate**（≥2 batch 出现）：更新 status=escalated，在下一轮 `/factor-logic` review 时作为 logic_proposal 输入
+
+**escalation_note 格式：**
+```yaml
+- anomaly_type: repeated_near_miss_cluster
+  first_seen_batch: batch_002
+  description: "..."
+  likely_mechanism: "..."
+  style_repackaging_risk: low/medium/high
+  explainable_by_existing_logic: full/partial/no
+  escalation_status: watch/escalated
 ```
-=== 批次 XXX 审判完成 ===
-录取: N 个 [列出名称]
-淘汰: M 个
-替换: K 个
-因子库规模: X/100
 
-方向更新:
-- [方向1]: active → active (录取1个)
-- [方向2]: active → exhausted (连续2轮0录取)
-- [方向3]: new → dead (探针无信号)
-```
+**写回经验教训**：如果本轮裁决发现了新的 forbidden pattern、style trap 或 near-miss 教训，追加到 `storage/governance/research_lessons.md` 对应的 section。
+
+关键约束：discovery 不直接立项 logic、不单独经营预算——只负责观察和升级到 ledger。
+
+## Reason Codes
+
+| Code | Severity | 触发条件 |
+|------|----------|---------|
+| sign_flip_detected | fatal | validation sign flip |
+| known_bad_pattern | fatal | 命中 forbidden |
+| mechanism_drifted | fatal | thesis/route 不匹配 |
+| style_dominance_detected | high | risk bucket = poor |
+| poor_split_stability | high | split stability = poor |
+| high_subspace_redundancy | high | subspace redundancy = high |
+| weak_validation_effect | high | IC/ICIR 过弱 |
+| moderate_style_exposure | medium | risk bucket = borderline |
+| regime_instability | medium | regime stability weak |
+| feasibility_borderline | medium | feasibility borderline |
+| high_data_mining_risk | medium | multiple testing = high |
+| mechanism_aligned | info | mechanism ok |
+| feasibility_ok | info | feasibility ok |
+| risk_model_acceptable | info | risk bucket = acceptable |
+
+## 关键约束
+
+- judge 基于 **validation** 证据裁决，不做新实验
+- Score/bucket 不能单独触发 admit/reject，只能辅助排序
+- judge 不直接修改 forbidden / final logic status
+- 冷启动期（<5 batch 或 <10 因子）：不输出 promote_family / productive / saturated

@@ -195,8 +195,6 @@ class TestJudgePacketBuilder:
         assert len(packet["judge_packet"]["candidate_briefs"]) == 0
         assert packet["judge_packet"]["active_logic_ids"] == []
 
-    def test_policy_snapshot_refs(self):
+    def test_no_policy_snapshot_ref(self):
         packet = self.builder.build("batch_001", [self._make_result()])
-        refs = packet["judge_packet"]["policy_snapshot_ref"]
-        assert "implementation_policy" in refs
-        assert "forbidden" in refs
+        assert "policy_snapshot_ref" not in packet["judge_packet"]

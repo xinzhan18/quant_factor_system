@@ -1,8 +1,13 @@
-"""Evaluation profile loader for research execute pipeline.
+"""Research configuration loader.
 
-Reads ``research_eval_v1.yaml`` (or similar) from the evaluation_profiles
-directory and returns a typed ``EvaluationProfile`` dict that the pipeline
-uses for universe, preprocessing, neutralization, and sample policy settings.
+Single source of truth: ``storage/governance/research_config.yaml``.
+
+All skills, CLI commands, and pipeline code should call
+``load_research_config()`` to get the full config, then extract
+the section they need (evaluation_profile, sample_policy, etc.).
+
+``load_evaluation_profile()`` and ``load_sample_policy()`` are
+convenience wrappers that extract their respective sections.
 """
 
 from __future__ import annotations
@@ -16,106 +21,143 @@ import yaml
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Type alias -- keeps downstream code readable without adding a runtime dep
+# Type alias
 # ---------------------------------------------------------------------------
 EvaluationProfile = Dict[str, Any]
 
 # ---------------------------------------------------------------------------
-# Defaults -- used when no YAML file is available (tests, bootstrap)
+# Canonical config path
 # ---------------------------------------------------------------------------
-DEFAULT_PROFILE: EvaluationProfile = {
-    "profile_id": "research_eval_v1",
-    "universe_profile": "cn_all_tradable_v1",
-    "tradability_profile": "cn_t1_limit_v1",
-    "preprocess_profile": "default_rank_v1",
-    "neutralization_profile": "cap_industry_barra_v1",
-    "delay": 1,
-    "holding_horizon": 5,
-    "primary_pipeline": [
-        "universe_mask",
-        "tradability_mask",
-        "winsorize",
-        "zscore_or_rank",
-        "neutralization",
-    ],
-    "auxiliary_views": [
-        "raw_view",
-        "cap_industry_neutral_view",
-        "barra_residual_view",
-    ],
+RESEARCH_CONFIG_PATH = Path("storage/governance/research_config.yaml")
+
+# ---------------------------------------------------------------------------
+# Hardcoded fallbacks — used ONLY when the YAML file is missing (tests, CI)
+# ---------------------------------------------------------------------------
+_FALLBACK_CONFIG: Dict[str, Any] = {
+    "universe": "csi1000",
+    "qlib_data_dir": "~/.qlib/qlib_data/cn_data_1d",
+    "evaluation_profile": {
+        "profile_id": "research_eval_v1",
+        "delay": 1,
+        "holding_horizon": 5,
+    },
+    "sample_policy": {
+        "data_start": "2015-01-01",
+        "active_train_range": ["2015-01-01", "2021-12-31"],
+        "active_validation_range": ["2022-01-01", "2023-12-31"],
+        "support_validation_windows": [
+            {"window_id": "val_2020_2021", "range": ["2020-01-01", "2021-12-31"]},
+            {"window_id": "val_2021_2022", "range": ["2021-01-01", "2022-12-31"]},
+            {"window_id": "val_2022_2023", "range": ["2022-01-01", "2023-12-31"]},
+        ],
+        "holdout_pool_range": ["2024-01-01", "2025-12-31"],
+        "holdout_used": False,
+        "validation_policy_version": "research_sample_v3",
+    },
+    "thresholds": {
+        "ic_threshold": 0.01,
+        "correlation_threshold": 0.7,
+    },
+    "probe": {
+        "start": "2019-01-01",
+        "end": "2023-12-31",
+    },
 }
 
-DEFAULT_SAMPLE_POLICY: Dict[str, Any] = {
-    "data_start": "2015-01-01",
-    "active_train_range": ["2015-01-01", "2021-12-31"],
-    "active_validation_range": ["2022-01-01", "2023-12-31"],
-    "support_validation_windows": [
-        {"window_id": "val_2020_2021", "range": ["2020-01-01", "2021-12-31"]},
-        {"window_id": "val_2021_2022", "range": ["2021-01-01", "2022-12-31"]},
-        {"window_id": "val_2022_2023", "range": ["2022-01-01", "2023-12-31"]},
-    ],
-    "holdout_pool_range": ["2024-01-01", "2025-12-31"],
-    "holdout_used": False,
-    "validation_policy_version": "research_sample_v3",
-    "validation_window_id": "val_2022_2023",
-}
+# Module-level cache so the file is read at most once per process
+_cached_config: Optional[Dict[str, Any]] = None
 
+
+def load_research_config(
+    path: Optional[str | Path] = None,
+) -> Dict[str, Any]:
+    """Load the unified research config from YAML.
+
+    Parameters
+    ----------
+    path : str | Path, optional
+        Explicit path.  When *None*, uses ``RESEARCH_CONFIG_PATH``.
+
+    Returns
+    -------
+    dict — full research config with all sections.
+    """
+    global _cached_config
+    if _cached_config is not None and path is None:
+        return _cached_config
+
+    filepath = Path(path) if path else RESEARCH_CONFIG_PATH
+    if filepath.exists():
+        with open(filepath, "r") as fh:
+            raw = yaml.safe_load(fh) or {}
+        # Merge with fallbacks so missing keys are filled
+        config = _deep_merge(_FALLBACK_CONFIG, raw)
+        logger.info("Loaded research config from %s", filepath)
+    else:
+        logger.warning("Research config not found at %s; using fallbacks", filepath)
+        config = dict(_FALLBACK_CONFIG)
+
+    if path is None:
+        _cached_config = config
+    return config
+
+
+# ---------------------------------------------------------------------------
+# Convenience accessors (used by existing code)
+# ---------------------------------------------------------------------------
 
 def load_evaluation_profile(
     path: Optional[str | Path] = None,
 ) -> EvaluationProfile:
-    """Load an evaluation profile from a YAML file.
+    """Load the evaluation profile section from research config.
 
-    Parameters
-    ----------
-    path:
-        Path to the YAML file.  When *None* the built-in default profile
-        is returned (useful for tests and bootstrap).
-
-    Returns
-    -------
-    EvaluationProfile
-        A dictionary matching the schema described in
-        ``docs/refacor_logic/research_execute.md`` section 4.1.
+    If *path* points to a standalone profile YAML, load that instead.
     """
-    if path is None:
-        logger.debug("No evaluation profile path given; returning default profile")
-        return dict(DEFAULT_PROFILE)
+    config = load_research_config()
+    profile = dict(config.get("evaluation_profile", {}))
+    # Inject top-level universe into profile for backward compat
+    profile.setdefault("universe", config.get("universe", "csi1000"))
 
-    filepath = Path(path)
-    if not filepath.exists():
-        logger.warning(
-            "Evaluation profile not found at %s; using defaults", filepath
-        )
-        return dict(DEFAULT_PROFILE)
+    # If an explicit path is given, overlay its contents
+    if path is not None:
+        filepath = Path(path)
+        if filepath.exists():
+            with open(filepath, "r") as fh:
+                raw = yaml.safe_load(fh) or {}
+            overlay = raw.get("evaluation_profile", raw)
+            profile.update(overlay)
 
-    with open(filepath, "r") as fh:
-        raw = yaml.safe_load(fh) or {}
-
-    # The file may nest the profile under a top-level key
-    profile = raw.get("evaluation_profile", raw)
-
-    # Merge with defaults so optional keys always exist
-    merged: EvaluationProfile = {**DEFAULT_PROFILE, **profile}
-    logger.info("Loaded evaluation profile '%s' from %s", merged.get("profile_id"), filepath)
-    return merged
+    return profile
 
 
 def load_sample_policy(
     path: Optional[str | Path] = None,
 ) -> Dict[str, Any]:
-    """Load sample policy from YAML, falling back to built-in defaults."""
-    if path is None:
-        return dict(DEFAULT_SAMPLE_POLICY)
+    """Load the sample policy section from research config."""
+    config = load_research_config()
+    policy = dict(config.get("sample_policy", {}))
 
-    filepath = Path(path)
-    if not filepath.exists():
-        logger.warning("Sample policy not found at %s; using defaults", filepath)
-        return dict(DEFAULT_SAMPLE_POLICY)
+    if path is not None:
+        filepath = Path(path)
+        if filepath.exists():
+            with open(filepath, "r") as fh:
+                raw = yaml.safe_load(fh) or {}
+            overlay = raw.get("sample_policy", raw)
+            policy.update(overlay)
 
-    with open(filepath, "r") as fh:
-        raw = yaml.safe_load(fh) or {}
+    return policy
 
-    policy = raw.get("sample_policy", raw)
-    merged = {**DEFAULT_SAMPLE_POLICY, **policy}
-    return merged
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+def _deep_merge(base: Dict, overlay: Dict) -> Dict:
+    """Recursively merge overlay into base (overlay wins on conflict)."""
+    result = dict(base)
+    for k, v in overlay.items():
+        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = _deep_merge(result[k], v)
+        else:
+            result[k] = v
+    return result

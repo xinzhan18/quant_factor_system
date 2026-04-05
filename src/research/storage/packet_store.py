@@ -1,8 +1,8 @@
 """JudgePacket and ContextSnapshot read/write.
 
-Manages per-batch files under ``packets/``:
-- ``<batch_id>_judge_packet.yaml``
-- ``<batch_id>_context_snapshot.yaml``
+Manages per-batch files under ``batches/<batch_id>/``:
+- ``judge_packet.yaml``
+- ``context_snapshot.yaml``
 """
 
 from __future__ import annotations
@@ -47,10 +47,11 @@ class PacketStore:
 
     def list_packets(self) -> list[str]:
         """Return batch_ids that have judge packets."""
-        d = self._paths.packets_dir
+        d = self._paths.batches_dir
         if not d.exists():
             return []
         return sorted(
-            p.stem.replace("_judge_packet", "")
-            for p in d.glob("*_judge_packet.yaml")
+            p.name
+            for p in d.iterdir()
+            if p.is_dir() and (p / "judge_packet.yaml").exists()
         )

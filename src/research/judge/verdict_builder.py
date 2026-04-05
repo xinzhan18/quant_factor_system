@@ -45,7 +45,7 @@ class BatchJudgeReport:
     """Full judge report for a batch.
 
     This is the primary output file:
-        storage/results/batch_XXX_judge_report.yaml
+        storage/batches/batch_XXX/judge_report.yaml
     """
 
     batch_id: str = ""

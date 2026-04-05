@@ -28,8 +28,7 @@ class BatchRunner:
         self,
         profile_path: Optional[str | Path] = None,
         sample_policy_path: Optional[str | Path] = None,
-        results_dir: Optional[str | Path] = None,
-        packets_dir: Optional[str | Path] = None,
+        batches_dir: Optional[str | Path] = None,
         *,
         compute_signal: Optional[Callable] = None,
         preprocess_signal: Optional[Callable] = None,
@@ -37,23 +36,55 @@ class BatchRunner:
         compute_redundancy: Optional[Callable] = None,
         compute_feasibility: Optional[Callable] = None,
         risk_engine: Optional[Any] = None,
+        use_real_compute: bool = True,
+        qlib_dir: str = "~/.qlib/qlib_data/cn_data_1d",
+        universe_override: Optional[str] = None,
     ):
         self._profile = load_evaluation_profile(profile_path)
         self._sample_policy = load_sample_policy(sample_policy_path)
-        self._results_dir = Path(results_dir) if results_dir else None
-        self._packets_dir = Path(packets_dir) if packets_dir else None
+        self._batches_dir = Path(batches_dir) if batches_dir else None
         self._risk_engine = risk_engine
         self._compute_kwargs: Dict[str, Any] = {}
-        if compute_signal is not None:
-            self._compute_kwargs["compute_signal"] = compute_signal
-        if preprocess_signal is not None:
-            self._compute_kwargs["preprocess_signal"] = preprocess_signal
-        if compute_stat_evidence is not None:
-            self._compute_kwargs["compute_stat_evidence"] = compute_stat_evidence
-        if compute_redundancy is not None:
-            self._compute_kwargs["compute_redundancy"] = compute_redundancy
-        if compute_feasibility is not None:
-            self._compute_kwargs["compute_feasibility"] = compute_feasibility
+
+        # Universe: CLI override > profile > default
+        universe = universe_override or self._profile.get("universe", "csi1000")
+
+        # If no explicit callables provided and use_real_compute is True,
+        # wire up the real implementations automatically.
+        any_explicit = any(x is not None for x in [
+            compute_signal, preprocess_signal, compute_stat_evidence,
+            compute_redundancy, compute_feasibility,
+        ])
+
+        if not any_explicit and use_real_compute:
+            from research.compute.data_provider import DataProvider
+            from research.compute.universe import UniverseManager
+            from research.execute.compute_implementations import build_real_callables
+
+            provider = DataProvider(
+                universe=UniverseManager(universe),
+                qlib_dir=qlib_dir,
+            )
+            self._compute_kwargs = build_real_callables(
+                provider,
+                sample_policy=self._sample_policy,
+            )
+
+            # Also wire up real RiskEngine if not explicitly provided
+            if risk_engine is None:
+                from research.risk.engine import RiskEngine
+                self._risk_engine = RiskEngine(data_provider=provider)
+        else:
+            if compute_signal is not None:
+                self._compute_kwargs["compute_signal"] = compute_signal
+            if preprocess_signal is not None:
+                self._compute_kwargs["preprocess_signal"] = preprocess_signal
+            if compute_stat_evidence is not None:
+                self._compute_kwargs["compute_stat_evidence"] = compute_stat_evidence
+            if compute_redundancy is not None:
+                self._compute_kwargs["compute_redundancy"] = compute_redundancy
+            if compute_feasibility is not None:
+                self._compute_kwargs["compute_feasibility"] = compute_feasibility
 
     def run(
         self,
@@ -126,11 +157,18 @@ class BatchRunner:
             )
         return data
 
+    def _batch_out_dir(self, batch_id: str) -> Optional[Path]:
+        if self._batches_dir is None:
+            return None
+        d = self._batches_dir / batch_id
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
     def _save_result(self, batch_id: str, result: Dict[str, Any]) -> None:
-        if self._results_dir is None:
+        d = self._batch_out_dir(batch_id)
+        if d is None:
             return
-        self._results_dir.mkdir(parents=True, exist_ok=True)
-        out = self._results_dir / f"{batch_id}_research_result.yaml"
+        out = d / "research_result.yaml"
         with open(out, "w") as fh:
             yaml.dump(
                 _strip_non_serializable(result),
@@ -141,10 +179,10 @@ class BatchRunner:
         logger.info("Saved research result to %s", out)
 
     def _save_packet(self, batch_id: str, packet: Dict[str, Any]) -> None:
-        if self._packets_dir is None:
+        d = self._batch_out_dir(batch_id)
+        if d is None:
             return
-        self._packets_dir.mkdir(parents=True, exist_ok=True)
-        out = self._packets_dir / f"{batch_id}_judge_packet.yaml"
+        out = d / "judge_packet.yaml"
         with open(out, "w") as fh:
             yaml.dump(
                 _strip_non_serializable(packet),

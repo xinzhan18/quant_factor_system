@@ -1,7 +1,7 @@
-"""SearchLedger, BatchUsage, HoldoutReviewLedger, and WriteAuditLog CRUD.
+"""Unified ledger CRUD — search, batch usage, holdout review, audit log.
 
-Provides append-only and section-based operations for the four ledger files
-under ``ledger/``.
+All four sections live in a single ``governance/ledger.yaml`` file.
+Each public method operates on its own section without touching others.
 """
 
 from __future__ import annotations
@@ -20,14 +20,26 @@ class LedgerStore:
         self._paths = paths
 
     # ------------------------------------------------------------------
-    # search_ledger.yaml — by_logic / by_family / by_experiment_tag
+    # Private: full-file read/write
+    # ------------------------------------------------------------------
+
+    def _load_ledger(self) -> dict[str, Any]:
+        return load_yaml(self._paths.ledger_file)
+
+    def _save_ledger(self, data: dict[str, Any]) -> None:
+        save_yaml(self._paths.ledger_file, data)
+
+    # ------------------------------------------------------------------
+    # search_ledger section — by_logic / by_family / by_experiment_tag
     # ------------------------------------------------------------------
 
     def load_search_ledger(self) -> dict[str, Any]:
-        return load_yaml(self._paths.search_ledger_file)
+        return self._load_ledger().get("search_ledger", {})
 
     def save_search_ledger(self, data: dict[str, Any]) -> None:
-        save_yaml(self._paths.search_ledger_file, data)
+        ledger = self._load_ledger()
+        ledger["search_ledger"] = data
+        self._save_ledger(ledger)
 
     def increment_search(
         self,
@@ -44,26 +56,27 @@ class LedgerStore:
             raise ValueError(
                 f"section must be by_logic, by_family, or by_experiment_tag; got {section!r}"
             )
-        ledger = self.load_search_ledger()
-        sec = ledger.setdefault(section, {})
+        search = self.load_search_ledger()
+        sec = search.setdefault(section, {})
         old = sec.get(key, 0)
         sec[key] = old + count
-        self.save_search_ledger(ledger)
+        self.save_search_ledger(search)
         return sec[key]
 
     def get_search_count(self, section: str, key: str) -> int:
-        ledger = self.load_search_ledger()
-        return ledger.get(section, {}).get(key, 0)
+        return self.load_search_ledger().get(section, {}).get(key, 0)
 
     # ------------------------------------------------------------------
-    # batch_usage.yaml
+    # batch_usage section
     # ------------------------------------------------------------------
 
     def load_batch_usage(self) -> dict[str, Any]:
-        return load_yaml(self._paths.batch_usage_file)
+        return self._load_ledger().get("batch_usage", {})
 
     def save_batch_usage(self, data: dict[str, Any]) -> None:
-        save_yaml(self._paths.batch_usage_file, data)
+        ledger = self._load_ledger()
+        ledger["batch_usage"] = data
+        self._save_ledger(ledger)
 
     def record_batch_usage(self, batch_id: str, entry: dict[str, Any]) -> None:
         """Record usage information for a batch."""
@@ -73,30 +86,34 @@ class LedgerStore:
         self.save_batch_usage(data)
 
     # ------------------------------------------------------------------
-    # holdout_review_ledger.yaml
+    # holdout_reviews section
     # ------------------------------------------------------------------
 
     def load_holdout_review_ledger(self) -> dict[str, Any]:
-        return load_yaml(self._paths.holdout_review_ledger_file)
+        return self._load_ledger().get("holdout_reviews", {})
 
     def save_holdout_review_ledger(self, data: dict[str, Any]) -> None:
-        save_yaml(self._paths.holdout_review_ledger_file, data)
+        ledger = self._load_ledger()
+        ledger["holdout_reviews"] = data
+        self._save_ledger(ledger)
 
     def append_holdout_review(self, entry: dict[str, Any]) -> None:
-        ledger = self.load_holdout_review_ledger()
-        items = ledger.setdefault("reviews", [])
+        data = self.load_holdout_review_ledger()
+        items = data.setdefault("reviews", [])
         items.append(entry)
-        self.save_holdout_review_ledger(ledger)
+        self.save_holdout_review_ledger(data)
 
     # ------------------------------------------------------------------
-    # write_audit_log.yaml
+    # write_audit_log section
     # ------------------------------------------------------------------
 
     def load_audit_log(self) -> dict[str, Any]:
-        return load_yaml(self._paths.write_audit_log_file)
+        return self._load_ledger().get("write_audit_log", {})
 
     def save_audit_log(self, data: dict[str, Any]) -> None:
-        save_yaml(self._paths.write_audit_log_file, data)
+        ledger = self._load_ledger()
+        ledger["write_audit_log"] = data
+        self._save_ledger(ledger)
 
     def append_audit_entry(
         self,

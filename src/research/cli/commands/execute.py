@@ -8,25 +8,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def add_parser(subparsers: argparse._SubParsersAction) -> None:
-    p = subparsers.add_parser("execute", help="Run research execute pipeline on batch")
-    p.add_argument("batch_file", help="Path to batch_XXX.yaml")
-    p.add_argument("--universe", default="csi1000")
-    p.add_argument("--profile", default="storage/evaluation_profiles/research_eval_v1.yaml")
-    p.set_defaults(func=cmd_execute)
-
-
 def cmd_execute(args: argparse.Namespace) -> None:
     from research.execute.batch_runner import BatchRunner
 
-    print(f"Executing batch: {args.batch_file}")
-    print(f"Universe: {args.universe}")
-
+    from research.execute.config import load_research_config
+    config = load_research_config()
+    qlib_dir = getattr(args, "qlib_dir", None) or config.get("qlib_data_dir", "~/.qlib/qlib_data/cn_data_1d")
     runner = BatchRunner(
         profile_path=args.profile,
-        results_dir="storage/results",
-        packets_dir="storage/packets",
+        batches_dir="storage/batches",
+        universe_override=args.universe,  # None means read from profile
+        qlib_dir=qlib_dir,
     )
+
+    universe_src = f"override={args.universe}" if args.universe else f"profile={runner._profile.get('universe', 'csi1000')}"
+    print(f"Executing batch: {args.batch_file}")
+    print(f"Universe: {universe_src}")
+
     result = runner.run(args.batch_file)
 
     summary = result.get("summary", {})
