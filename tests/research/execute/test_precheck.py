@@ -64,7 +64,7 @@ class TestDSLPrecheck:
     def test_unknown_operator(self):
         result = self.checker.check("FooBar($close)")
         assert not result.passed
-        assert any("unknown_operator:FooBar" in c for c in codes)
+        assert any("unknown_operator:FooBar" in c for c in result.reason_codes)
 
     def test_unknown_operator_codes(self):
         result = self.checker.check("FooBar($close)")
