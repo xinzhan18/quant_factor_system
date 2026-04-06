@@ -6,7 +6,6 @@ import argparse
 import logging
 
 from research.storage.paths import StoragePaths
-from research.storage.yaml_io import load_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -15,25 +14,47 @@ def cmd_logic(args: argparse.Namespace) -> None:
     paths = StoragePaths()
 
     if args.logic_action == "list":
-        registry = load_yaml(paths.logic_registry_file)
-        logics = registry.get("logics", [])
-        print(f"Logic Registry: {len(logics)} logics")
-        for lg in logics:
-            lid = lg.get("logic_id", "?")
-            name = lg.get("name", "?")
-            status = lg.get("status", "?")
-            print(f"  {lid}: {name} [{status}]")
-        if not logics:
-            print("  (empty — use /factor-logic to create)")
+        from research.logic.cards import LogicCardStore
+
+        store = LogicCardStore(paths.root)
+        cards = store.list_cards()
+        if hasattr(args, "status") and args.status:
+            cards = [c for c in cards if c.status == args.status]
+        label = f" [{args.status}]" if hasattr(args, "status") and args.status else ""
+        print(f"Logic Cards{label}: {len(cards)} found")
+        for card in cards:
+            print(f"  {card.logic_id}: {card.name} [{card.status}] priority={card.priority}")
+        if not cards:
+            print("  (none — use /factor-logic to create)")
 
     elif args.logic_action == "schedule":
-        snap_dir = paths.logic_dir / "snapshots"
-        latest = snap_dir / "latest_schedule_snapshot.yaml"
-        if latest.exists():
-            schedule = load_yaml(latest)
-            active = schedule.get("schedule_snapshot", {}).get("active_pool", [])
-            print(f"Active pool: {len(active)} logics")
-            for entry in active:
-                print(f"  {entry.get('logic_id')}: quota={entry.get('candidate_quota', '?')}")
-        else:
-            print("No schedule snapshot found. Run /factor-logic schedule first.")
+        from research.logic.cards import LogicCardStore
+        from research.logic.scheduler import LogicScheduler
+        from research.storage.yaml_io import save_yaml
+
+        store = LogicCardStore(paths.root)
+        cards = store.list_cards()
+        if not cards:
+            print("No logic cards found. Use /factor-logic to create.")
+            return
+
+        scheduler = LogicScheduler()
+        result = scheduler.generate_schedule(cards)
+        snapshot_path = scheduler.save_schedule(paths.root, result)
+
+        # Atomic write latest for downstream consumers (/factor-idea)
+        latest = paths.logic_dir / "snapshots" / "latest_schedule_snapshot.yaml"
+        latest.parent.mkdir(parents=True, exist_ok=True)
+        save_yaml(latest, {"schedule_snapshot": result.to_dict()})
+
+        print(f"Schedule generated at {result.generated_at}")
+        print(f"\nActive pool ({len(result.active_pool)}):")
+        for b in result.active_pool:
+            print(f"  {b.logic_id}: score={b.score:.4f} quota={b.candidate_quota}")
+        print(f"\nWarm pool ({len(result.warm_pool)}):")
+        for b in result.warm_pool:
+            print(f"  {b.logic_id}: score={b.score:.4f}")
+        if result.parked_pool or result.blocked_pool:
+            print(f"\nParked ({len(result.parked_pool)}), Blocked ({len(result.blocked_pool)})")
+        if result.global_saturation_signal:
+            print(f"\n** GLOBAL SATURATION: {result.global_saturation_signal['reason']}")

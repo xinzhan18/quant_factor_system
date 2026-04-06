@@ -31,7 +31,7 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
     return data
 
 
-def save_yaml(path: str | Path, data: dict[str, Any]) -> None:
+def save_yaml(path: str | Path, data: Any) -> None:
     """Atomically write *data* as YAML.
 
     Writes to a temporary file in the same directory and then does an

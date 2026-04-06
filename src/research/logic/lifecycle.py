@@ -6,18 +6,26 @@ Key operations:
 - transition():        Move a logic card between states
 - promote_family():    Consume 2-batch evidence to promote a family
 - record_arbitration(): Record judge recommendation vs logic decision
+
+Pure functions (P0-b cognitive loop extraction):
+- validate_transition():      Check legality of a status transition (no I/O)
+- build_transition_record():  Build a transition history dict (no I/O)
+- validate_promotion():       Check family promotion eligibility (no I/O)
+- build_promotion_record():   Build a promotion history dict (no I/O)
 """
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
-from research.logic._yaml_utils import dump_yaml, now_ts
+from research.logic._yaml_utils import now_ts
 from research.logic.cards import LogicCard, LogicCardStore, VALID_STATUSES
+from research.storage.yaml_io import save_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +45,92 @@ MIN_BATCHES_FOR_PROMOTION = 2
 
 # Maximum subspace redundancy allowed for family promotion
 MAX_SUBSPACE_REDUNDANCY = 0.7
+
+
+# ------------------------------------------------------------------
+# Pure functions (no I/O) — used by reflect.apply_belief_delta()
+# ------------------------------------------------------------------
+
+
+def validate_transition(current_status: str, to_status: str) -> str:
+    """Check legality of a status transition.
+
+    Returns *to_status* unchanged on success so callers can chain.
+    Raises ValueError if *to_status* is invalid or the transition is
+    not allowed from *current_status*.
+
+    This function performs NO disk I/O.
+    """
+    if to_status not in VALID_STATUSES:
+        raise ValueError(
+            f"Invalid target status {to_status!r}; "
+            f"must be one of {sorted(VALID_STATUSES)}"
+        )
+    allowed = ALLOWED_TRANSITIONS.get(current_status, frozenset())
+    if to_status not in allowed:
+        raise ValueError(
+            f"Cannot transition from {current_status!r} to "
+            f"{to_status!r}. Allowed targets: {sorted(allowed)}"
+        )
+    return to_status
+
+
+def build_transition_record(
+    from_status: str, to_status: str, reason: str
+) -> Dict[str, str]:
+    """Build a transition history entry dict.
+
+    This function performs NO disk I/O.
+    """
+    return {
+        "from": from_status,
+        "to": to_status,
+        "reason": reason,
+        "at": now_ts(),
+    }
+
+
+def validate_promotion(
+    batch_evidence: List[Dict[str, Any]],
+    subspace_redundancy: float,
+) -> Tuple[bool, str]:
+    """Check whether family promotion requirements are met.
+
+    Returns ``(True, "ok")`` when eligible, or ``(False, reason_string)``
+    when a requirement is not satisfied.
+
+    This function performs NO disk I/O.
+    """
+    if len(batch_evidence) < MIN_BATCHES_FOR_PROMOTION:
+        return (
+            False,
+            f"Need {MIN_BATCHES_FOR_PROMOTION} batches, "
+            f"got {len(batch_evidence)}",
+        )
+    if subspace_redundancy > MAX_SUBSPACE_REDUNDANCY:
+        return (
+            False,
+            f"Subspace redundancy {subspace_redundancy:.2f} exceeds "
+            f"max {MAX_SUBSPACE_REDUNDANCY:.2f}",
+        )
+    return (True, "ok")
+
+
+def build_promotion_record(
+    family_id: str,
+    batch_evidence: List[Dict[str, Any]],
+    subspace_redundancy: float,
+) -> Dict[str, Any]:
+    """Build a promotion history entry dict.
+
+    This function performs NO disk I/O.
+    """
+    return {
+        "family_id": family_id,
+        "batch_count": len(batch_evidence),
+        "subspace_redundancy": subspace_redundancy,
+        "promoted_at": now_ts(),
+    }
 
 
 @dataclass
@@ -103,39 +197,34 @@ class LifecycleManager:
     ) -> LogicCard:
         """Transition a logic card to a new status.
 
+        .. deprecated::
+            Use :func:`reflect.apply_belief_delta` together with the
+            module-level pure functions :func:`validate_transition` and
+            :func:`build_transition_record` instead.
+
         Raises ValueError if the transition is not allowed.
         Raises KeyError if the logic card is not found.
         """
-        if to_status not in VALID_STATUSES:
-            raise ValueError(
-                f"Invalid target status {to_status!r}; "
-                f"must be one of {sorted(VALID_STATUSES)}"
-            )
+        warnings.warn(
+            "LifecycleManager.transition() is deprecated for production use. "
+            "Use reflect.apply_belief_delta() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         card = self._store.get(logic_id)
         if card is None:
             raise KeyError(f"Logic card {logic_id!r} not found")
 
-        allowed = ALLOWED_TRANSITIONS.get(card.status, frozenset())
-        if to_status not in allowed:
-            raise ValueError(
-                f"Cannot transition {logic_id} from {card.status!r} to "
-                f"{to_status!r}. Allowed targets: {sorted(allowed)}"
-            )
+        # Pure validation (no I/O)
+        validate_transition(card.status, to_status)
 
         old_status = card.status
         card.status = to_status
 
-        # Record transition in evidence_summary
+        # Record transition in evidence_summary (pure build, no I/O)
         transitions = card.evidence_summary.setdefault("transitions", [])
-        transitions.append(
-            {
-                "from": old_status,
-                "to": to_status,
-                "reason": reason,
-                "at": now_ts(),
-            }
-        )
+        transitions.append(build_transition_record(old_status, to_status, reason))
 
         self._store.update(card)
         logger.info(
@@ -168,39 +257,37 @@ class LifecycleManager:
     ) -> Tuple[bool, str]:
         """Attempt to promote a family within a logic's evidence.
 
+        .. deprecated::
+            Use :func:`reflect.apply_belief_delta` together with the
+            module-level pure functions :func:`validate_promotion` and
+            :func:`build_promotion_record` instead.
+
         Requirements:
         - At least MIN_BATCHES_FOR_PROMOTION batches of evidence
         - Subspace redundancy must be below MAX_SUBSPACE_REDUNDANCY
 
         Returns (success, reason) tuple.
         """
+        warnings.warn(
+            "LifecycleManager.promote_family() is deprecated for production use. "
+            "Use reflect.apply_belief_delta() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         card = self._store.get(logic_id)
         if card is None:
             raise KeyError(f"Logic card {logic_id!r} not found")
 
-        if len(batch_evidence) < MIN_BATCHES_FOR_PROMOTION:
-            return (
-                False,
-                f"Need {MIN_BATCHES_FOR_PROMOTION} batches, "
-                f"got {len(batch_evidence)}",
-            )
+        # Pure validation (no I/O)
+        ok, reason = validate_promotion(batch_evidence, subspace_redundancy)
+        if not ok:
+            return (False, reason)
 
-        if subspace_redundancy > MAX_SUBSPACE_REDUNDANCY:
-            return (
-                False,
-                f"Subspace redundancy {subspace_redundancy:.2f} exceeds "
-                f"max {MAX_SUBSPACE_REDUNDANCY:.2f}",
-            )
-
-        # Record promotion
+        # Record promotion (pure build, no I/O)
         promoted = card.evidence_summary.setdefault("promoted_families", [])
         promoted.append(
-            {
-                "family_id": family_id,
-                "batch_count": len(batch_evidence),
-                "subspace_redundancy": subspace_redundancy,
-                "promoted_at": now_ts(),
-            }
+            build_promotion_record(family_id, batch_evidence, subspace_redundancy)
         )
 
         self._store.update(card)
@@ -250,7 +337,7 @@ class LifecycleManager:
 
         existing.append(record.to_dict())
 
-        dump_yaml(arb_file, {"logic_id": logic_id, "records": existing})
+        save_yaml(arb_file, {"logic_id": logic_id, "records": existing})
 
         if record.is_override:
             logger.warning(

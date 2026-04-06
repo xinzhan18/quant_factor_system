@@ -34,7 +34,7 @@ user_invocable: true
 ```
 storage/batches/{batch}/judge_report.yaml
 storage/logic/cards/*.yaml
-storage/logic/registry.yaml
+storage/logic/registry.yaml  (derived cache — 权威源是 cards/*.yaml)
 storage/logic/snapshots/latest_schedule_snapshot.yaml
 storage/governance/research_lessons.md
 storage/governance/research_config.yaml
@@ -84,7 +84,7 @@ PYTHONPATH=src python3 -m research state set active_logic_ids '["L001","L002"]'
 
 创建新 logic 提案流程：
 
-1. **评估覆盖** — 读取 `storage/logic/registry.yaml`，识别空白类别
+1. **评估覆盖** — 读取 `storage/logic/cards/*.yaml`（权威源），识别空白类别
 1b. **消费异常发现** — 读取 `ledger.yaml` 的 `search_ledger.discovery_candidates` 中 `escalation_status=escalated` 的条目，作为 logic proposal 的候选输入。对每个 escalated 异常决定：ignore / 合并到已有 logic 的新 direction / 立项为新 logic proposal
 2. **生成 Proposal** — 为每个空白类别（及 escalated 异常）设计 hypothesis（condition, behavior, timeframe）
 3. **4 维审查**：
@@ -96,8 +96,8 @@ PYTHONPATH=src python3 -m research state set active_logic_ids '["L001","L002"]'
 5. **写入**：
    - `storage/logic/proposals/proposal_XXX.yaml`
    - `storage/logic/reviews/review_XXX.yaml`
-   - `storage/logic/cards/logic_LXXX.yaml`（如果 create_logic）
-   - 更新 `storage/logic/registry.yaml`
+   - `storage/logic/cards/LXXX.yaml`（如果 create_logic）
+   - `storage/logic/registry.yaml` 由 `LogicCardStore.create()` 自动维护，无需手工更新
 
 ## Logic Card Schema
 

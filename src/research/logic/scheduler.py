@@ -21,8 +21,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from research.logic._yaml_utils import dump_yaml, now_ts
+from research.logic._yaml_utils import now_ts
 from research.logic.cards import LogicCard
+from research.storage.yaml_io import save_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,8 @@ class LogicBudget:
     pool: str  # active / warm / parked / blocked
     direction_quota: int = DEFAULT_DIRECTION_QUOTA
     candidate_quota: int = DEFAULT_CANDIDATE_QUOTA
+    active_thread_count: int = 0
+    has_clear_next_action: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -75,6 +78,8 @@ class LogicBudget:
             "pool": self.pool,
             "direction_quota": self.direction_quota,
             "candidate_quota": self.candidate_quota,
+            "active_thread_count": self.active_thread_count,
+            "has_clear_next_action": self.has_clear_next_action,
         }
 
 
@@ -87,6 +92,7 @@ class ScheduleResult:
     parked_pool: List[LogicBudget] = field(default_factory=list)
     blocked_pool: List[LogicBudget] = field(default_factory=list)
     global_constraints: Dict[str, Any] = field(default_factory=dict)
+    global_saturation_signal: Optional[Dict[str, Any]] = None
     generated_at: str = ""
 
     def __post_init__(self) -> None:
@@ -103,7 +109,7 @@ class ScheduleResult:
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "generated_at": self.generated_at,
             "active_pool": [b.to_dict() for b in self.active_pool],
             "warm_pool": [b.to_dict() for b in self.warm_pool],
@@ -111,6 +117,9 @@ class ScheduleResult:
             "blocked_pool": [b.to_dict() for b in self.blocked_pool],
             "global_constraints": self.global_constraints,
         }
+        if self.global_saturation_signal is not None:
+            d["global_saturation_signal"] = self.global_saturation_signal
+        return d
 
 
 class LogicScheduler:
@@ -169,6 +178,15 @@ class LogicScheduler:
 
         active_count = 0
         for card, score in scored:
+            # Compute structured thread/action metadata
+            threads = getattr(card, "deepening_threads", []) or []
+            atc = sum(
+                1
+                for t in threads
+                if isinstance(t, dict) and t.get("status") == "active"
+            )
+            hna = bool(getattr(card, "next_actions", None))
+
             # Dead/parked cards go directly to their pools
             if card.status in ("dead", "parked"):
                 budget = LogicBudget(
@@ -177,6 +195,8 @@ class LogicScheduler:
                     pool=card.status,
                     direction_quota=0,
                     candidate_quota=0,
+                    active_thread_count=atc,
+                    has_clear_next_action=hna,
                 )
                 if card.status == "dead":
                     result.blocked_pool.append(budget)
@@ -194,6 +214,8 @@ class LogicScheduler:
                     pool="active",
                     direction_quota=direction_q,
                     candidate_quota=candidate_q,
+                    active_thread_count=atc,
+                    has_clear_next_action=hna,
                 )
                 result.active_pool.append(budget)
                 active_count += 1
@@ -204,6 +226,8 @@ class LogicScheduler:
                     pool="warm",
                     direction_quota=1,
                     candidate_quota=2,
+                    active_thread_count=atc,
+                    has_clear_next_action=hna,
                 )
                 result.warm_pool.append(budget)
             else:
@@ -213,8 +237,30 @@ class LogicScheduler:
                     pool="parked",
                     direction_quota=0,
                     candidate_quota=0,
+                    active_thread_count=atc,
+                    has_clear_next_action=hna,
                 )
                 result.parked_pool.append(budget)
+
+        # Check for global saturation: all active logics stuck
+        if result.active_pool:
+            all_stuck = all(
+                b.active_thread_count == 0 and not b.has_clear_next_action
+                for b in result.active_pool
+            )
+            all_dry = all(
+                card.evidence_summary.get("rounds_without_admit", 0) >= 2
+                for card in cards
+                if card.status == "active"
+            )
+            if all_stuck and all_dry:
+                result.global_saturation_signal = {
+                    "affected_logics": [b.logic_id for b in result.active_pool],
+                    "reason": (
+                        "All active logics have no threads, no next actions, "
+                        "and >=2 rounds without admits"
+                    ),
+                }
 
         return result
 
@@ -226,7 +272,7 @@ class LogicScheduler:
         snapshots_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = snapshots_dir / f"schedule_{ts}.yaml"
-        dump_yaml(path, result.to_dict())
+        save_yaml(path, result.to_dict())
         logger.info("Saved schedule snapshot at %s", path)
         return path
 
@@ -285,6 +331,29 @@ class LogicScheduler:
             dims["validation_exposure"] = 0.5
         else:
             dims["validation_exposure"] = 1.0
+
+        # 7.5. Deepening threads (structured signal, no text parsing)
+        threads = getattr(card, "deepening_threads", []) or []
+        active_high = sum(
+            1
+            for t in threads
+            if isinstance(t, dict)
+            and t.get("status") == "active"
+            and t.get("priority") == "high"
+        )
+        active_total = sum(
+            1
+            for t in threads
+            if isinstance(t, dict) and t.get("status") == "active"
+        )
+        has_next_action = bool(getattr(card, "next_actions", None))
+
+        # Has clear high-priority direction -> less blocked
+        if active_high > 0:
+            dims["bottleneck"] = min(dims.get("bottleneck", 0.5) + 0.15, 1.0)
+        # No threads AND no next actions -> approaching exhaustion
+        if active_total == 0 and not has_next_action:
+            dims["saturation"] = max(dims.get("saturation", 0.5) - 0.20, 0.0)
 
         # Weighted sum
         total = sum(WEIGHTS[k] * dims[k] for k in WEIGHTS)

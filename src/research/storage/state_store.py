@@ -7,6 +7,7 @@ and ``state/pending_holdout_queue.yaml``.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from .paths import StoragePaths
@@ -63,6 +64,30 @@ class StateStore:
         entry = items.pop(0)
         self.save_holdout_queue(queue)
         return entry
+
+    def recompute_from_cards(self, cards_dir: Path) -> dict[str, Any]:
+        """Recompute derived state fields (active/warm logic IDs) from card files.
+
+        Only updates active_logic_ids and warm_logic_ids.
+        Preserves all other state fields (current_batch, pending_holdout, etc.).
+        """
+        from .yaml_io import load_yaml
+
+        active = []
+        warm = []
+        for card_file in sorted(cards_dir.glob("L*.yaml")):
+            card = load_yaml(card_file)
+            lid = card.get("logic_id", "")
+            status = card.get("status", "")
+            if status == "active":
+                active.append(lid)
+            elif status == "warm":
+                warm.append(lid)
+
+        return self.update_state({
+            "active_logic_ids": active,
+            "warm_logic_ids": warm,
+        })
 
 
 def _now_iso() -> str:
