@@ -111,6 +111,7 @@ class StoragePaths:
     # logic/
     @property
     def logic_registry_file(self) -> Path:
+        """Derived cache — authoritative source is cards/*.yaml."""
         return self.logic_dir / "registry.yaml"
 
     # registry/
@@ -146,6 +147,17 @@ class StoragePaths:
 
     def logic_snapshot_file(self, snapshot_name: str) -> Path:
         return self.logic_snapshots_dir / f"{snapshot_name}.yaml"
+
+    @property
+    def logic_reflections_dir(self) -> Path:
+        return self.logic_dir / "reflections"
+
+    def logic_reflection_file(self, logic_id: str) -> Path:
+        return self.logic_reflections_dir / f"{logic_id}.md"
+
+    @property
+    def global_escalation_file(self) -> Path:
+        return self.root / "state" / "global_escalation.yaml"
 
     def factor_detail_file(self, factor_id: str) -> Path:
         return self.factors_dir / f"factor_{factor_id}.yaml"
@@ -188,6 +200,7 @@ class StoragePaths:
             self.logic_reviews_dir,
             self.logic_cards_dir,
             self.logic_snapshots_dir,
+            self.logic_reflections_dir,
             self.registry_dir,
             self.factors_dir,
             self.families_dir,

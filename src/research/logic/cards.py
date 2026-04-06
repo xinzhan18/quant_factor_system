@@ -10,11 +10,12 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
-from research.logic._yaml_utils import dump_yaml, now_ts
+from research.logic._yaml_utils import now_ts
+from research.storage.yaml_io import save_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -28,20 +29,20 @@ VALID_PRIORITIES = frozenset({"high", "medium", "low"})
 class ExplorationContract:
     """Defines what /idea is allowed to explore under this logic."""
 
-    focus_question: str = ""
+    current_focus_question: str = ""
     direction_quota: int = 2
     candidate_quota: int = 4
-    families: List[str] = field(default_factory=list)
+    preferred_families: List[str] = field(default_factory=list)
     suggested_ops: List[str] = field(default_factory=list)
     required_fields: List[str] = field(default_factory=list)
     avoid_patterns: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "focus_question": self.focus_question,
+            "current_focus_question": self.current_focus_question,
             "direction_quota": self.direction_quota,
             "candidate_quota": self.candidate_quota,
-            "families": self.families,
+            "preferred_families": self.preferred_families,
             "suggested_ops": self.suggested_ops,
             "required_fields": self.required_fields,
             "avoid_patterns": self.avoid_patterns,
@@ -50,10 +51,14 @@ class ExplorationContract:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ExplorationContract":
         return cls(
-            focus_question=data.get("focus_question", ""),
+            current_focus_question=data.get(
+                "current_focus_question", data.get("focus_question", "")
+            ),
             direction_quota=data.get("direction_quota", 2),
             candidate_quota=data.get("candidate_quota", 4),
-            families=data.get("families", []),
+            preferred_families=data.get(
+                "preferred_families", data.get("families", [])
+            ),
             suggested_ops=data.get("suggested_ops", []),
             required_fields=data.get("required_fields", []),
             avoid_patterns=data.get("avoid_patterns", []),
@@ -69,14 +74,17 @@ class LogicCard:
     category: str
     status: str  # one of VALID_STATUSES
     priority: str  # high / medium / low
-    hypothesis: str
+    hypothesis: Union[str, Dict[str, Any]] = field(default_factory=dict)
     contract: ExplorationContract = field(default_factory=ExplorationContract)
-    discovery_budget: int = 10
+    discovery_budget: Union[int, Dict[str, Any]] = field(default_factory=dict)
     evidence_summary: Dict[str, Any] = field(default_factory=dict)
     search_ledger_ref: str = ""
     origin_proposal_id: Optional[str] = None
     created_at: str = ""
     updated_at: str = ""
+    deepening_threads: List[Dict[str, Any]] = field(default_factory=list)
+    next_actions: List[str] = field(default_factory=list)
+    last_reflected_batch: str = ""
 
     def __post_init__(self) -> None:
         if self.status not in VALID_STATUSES:
@@ -107,11 +115,13 @@ class LogicCard:
             "discovery_budget": self.discovery_budget,
             "evidence_summary": self.evidence_summary,
             "search_ledger_ref": self.search_ledger_ref,
+            "origin_proposal_id": self.origin_proposal_id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "deepening_threads": self.deepening_threads,
+            "next_actions": self.next_actions,
+            "last_reflected_batch": self.last_reflected_batch,
         }
-        if self.origin_proposal_id:
-            d["origin_proposal_id"] = self.origin_proposal_id
         return d
 
     @classmethod
@@ -122,28 +132,42 @@ class LogicCard:
             if contract_data
             else ExplorationContract()
         )
+
+        # hypothesis: accept both str and dict gracefully
+        hypothesis_raw = data.get("hypothesis", {})
+
+        # discovery_budget: accept both int and dict gracefully
+        discovery_budget_raw = data.get("discovery_budget", {})
+
         return cls(
             logic_id=data["logic_id"],
             name=data["name"],
             category=data["category"],
             status=data["status"],
             priority=data["priority"],
-            hypothesis=data["hypothesis"],
+            hypothesis=hypothesis_raw,
             contract=contract,
-            discovery_budget=data.get("discovery_budget", 10),
+            discovery_budget=discovery_budget_raw,
             evidence_summary=data.get("evidence_summary", {}),
             search_ledger_ref=data.get("search_ledger_ref", ""),
-            origin_proposal_id=data.get("origin_proposal_id"),
-            created_at=data.get("created_at", ""),
+            origin_proposal_id=data.get(
+                "origin_proposal_id", data.get("proposal_id")
+            ),
+            created_at=data.get("created_at", data.get("created", "")),
             updated_at=data.get("updated_at", ""),
+            deepening_threads=data.get("deepening_threads", []),
+            next_actions=data.get("next_actions", []),
+            last_reflected_batch=data.get("last_reflected_batch", ""),
         )
 
 
 class LogicCardStore:
     """YAML-backed CRUD store for LogicCard objects.
 
-    Cards are stored at ``<cards_dir>/logic_<logic_id>.yaml``.
-    A registry index is maintained at ``<storage_dir>/logic/registry.yaml``.
+    Cards are stored at ``<cards_dir>/<logic_id>.yaml``.
+    A registry index is maintained at ``<storage_dir>/logic/registry.yaml``
+    as a **derived cache** (rebuilt on every card write).  The authoritative
+    source of truth is always the individual card files under ``cards/``.
     """
 
     def __init__(self, storage_dir: Path) -> None:
@@ -156,13 +180,13 @@ class LogicCardStore:
     # ------------------------------------------------------------------
 
     def _card_path(self, logic_id: str) -> Path:
-        return self._cards_dir / f"logic_{logic_id}.yaml"
+        return self._cards_dir / f"{logic_id}.yaml"
 
     def _registry_path(self) -> Path:
         return self._storage_dir / "logic" / "registry.yaml"
 
     def _scan_ids(self) -> List[str]:
-        pattern = re.compile(r"^logic_(L\d+)\.yaml$")
+        pattern = re.compile(r"^(L\d+)\.yaml$")
         ids: List[str] = []
         for p in self._cards_dir.iterdir():
             m = pattern.match(p.name)
@@ -195,7 +219,7 @@ class LogicCardStore:
         registry = {"logics": entries, "count": len(entries)}
         registry_path = self._registry_path()
         registry_path.parent.mkdir(parents=True, exist_ok=True)
-        dump_yaml(registry_path, registry)
+        save_yaml(registry_path, registry)
 
     # ------------------------------------------------------------------
     # Public API
@@ -208,9 +232,9 @@ class LogicCardStore:
         category: str,
         status: str = "active",
         priority: str = "medium",
-        hypothesis: str,
+        hypothesis: Union[str, Dict[str, Any]] = "",
         contract: Optional[ExplorationContract] = None,
-        discovery_budget: int = 10,
+        discovery_budget: Union[int, Dict[str, Any]] = 10,
         origin_proposal_id: Optional[str] = None,
     ) -> LogicCard:
         """Create a new LogicCard with auto-incremented ID."""
@@ -272,5 +296,5 @@ class LogicCardStore:
 
     def _save(self, card: LogicCard) -> None:
         """Write card YAML and update registry index."""
-        dump_yaml(self._card_path(card.logic_id), card.to_dict())
+        save_yaml(self._card_path(card.logic_id), card.to_dict())
         self._update_registry()

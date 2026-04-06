@@ -12,31 +12,53 @@ user_invocable: true
 
 ## 输入
 
-**每轮必读**（按顺序）：
-```
-storage/governance/research_lessons.md   # 禁忌模式 + 经验教训（必须先读，避免重复踩坑）
-storage/governance/research_config.yaml  # universe, 日期范围, 阈值
-storage/governance/ledger.yaml           # search_ledger + batch_usage
-storage/logic/snapshots/latest_schedule_snapshot.yaml
-storage/logic/cards/*.yaml
-storage/registry/factors/index.yaml
-```
+当前 workflow 下，`/idea` 的输入已经收敛为 **logic 级编译态上下文**，不再散读旧 ledger /
+snapshot / factor index。
 
 可用算子/字段查询：`PYTHONPATH=src python3 -m research capabilities`
 
 ## 流程
 
-### Step 1：读取 Logic Schedule + Ledger 上下文
+### Step 1：读取认知状态（编译后上下文）
 
-读取最新 schedule snapshot，获取 active logic 列表及其 contract：
-- `current_focus_question`
-- `direction_quota` / `candidate_quota`
-- `preferred_families` / `suggested_ops` / `avoid_patterns`
+**必读（按顺序）：**
+```
+storage/logic/cards/LXXX.yaml                  # 执行态：contract, threads, next_actions, bottleneck
+storage/logic/reflections/LXXX.md              # 认知叙事：为什么相信/不相信，机制洞察
+storage/governance/research_config.yaml        # universe, thresholds, forbidden_patterns
+```
 
-读取 `storage/governance/ledger.yaml` 中的 `search_ledger` section：
-- `by_logic[logic_id].logic_attempt_count_to_date` — 判断该 logic 已消耗的搜索预算
-- `by_experiment_tag[ELT].latest_verdict` — 跳过已被 kill 的 ELT，优先 continue 的 ELT
-- `by_family[FM_*].admitted_count_to_date` — 评估 family 饱和度
+**限读（仅在 card 信息不够时）：**
+```
+storage/batches/batch_XXX/judge_report.yaml    # 最近一轮的详细裁决
+```
+
+**不再读取：**
+- ~~storage/governance/ledger.yaml~~ — 预算消耗信息已编译进 card.evidence_summary
+- ~~storage/logic/snapshots/latest_schedule_snapshot.yaml~~ — 调度信息已编译进 card.contract
+
+从 card.yaml 提取：
+- `contract.current_focus_question` — 本轮的研究问题
+- `contract.preferred_families` / `suggested_ops` / `avoid_patterns` — 约束边界
+- `evidence_summary.current_bottleneck` — 当前阻塞点
+- `deepening_threads` — 持久化的研究问题（核心消费对象）
+- `next_actions` — reflect 建议的下一步
+
+#### Thread 消费协议
+
+1. 筛选 `deepening_threads` 中 `status: active` 的 threads，按 `priority` 排序（high > medium > low）
+2. 每个 active thread 的 `next_probes` → **直接作为候选表达式来源**
+3. 每个 thread 的 `stop_condition` → 影响 route 设计（试图回答 stop_condition 中的判别问题）
+4. 如果所有 threads 都 parked/answered → 降级到 `next_actions`
+5. 如果 `next_actions` 也为空 → 基于 `current_bottleneck` 自由探索
+
+#### 深度 vs 广度决策
+
+| 条件 | 策略 |
+|------|------|
+| 有 active thread 且 next_probes 非空 | **deepen** — 围绕 thread 设计 route |
+| threads 全 parked + contract 还有空间 | **broaden** — 试新 family |
+| contract 空间也耗尽 | **escape** — 向 reflect 报告 saturated 信号 |
 
 ### Step 2：设计 Routes（batch-local 实验组）
 
@@ -94,6 +116,31 @@ storage/batches/batch_XXX/idea_report.yaml
 ```
 
 每个 candidate 必须包含：candidate_id, logic_id, route_id, family_id, route_type, experiment_lineage_tag, source_type, expression, rationale, implementation_reason, lineage。
+
+### Step 7a：记录策略决策
+
+在 `idea_report.yaml` 中追加 `strategy_decision` section：
+
+```yaml
+strategy_decision:
+  selected_strategy: deepen|broaden|pivot|escape      # 枚举
+  decision_basis_codes:                                 # 枚举列表
+    - active_thread_has_clear_probe
+    - expected_information_gain_high
+    - no_strong_pivot_signal
+    - all_threads_parked
+    - contract_space_exhausted
+    - escalation_signal_present
+  selected_threads: [T001]
+  rejected_threads_with_reason:
+    - thread_id: T002
+      reason_code: low_marginal_value|stop_condition_near|insufficient_evidence|superseded
+      note: "可选自由文本"
+  selected_families: [volume_distribution]
+  why_now: "自由文本解释"
+```
+
+**decision_basis_codes 必须是枚举**，不能自由发挥。这保证了策略决策可审计、可统计。
 
 **冻结后必须更新 research state**：
 ```bash

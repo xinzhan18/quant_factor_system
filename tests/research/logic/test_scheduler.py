@@ -21,6 +21,8 @@ def _make_card(
     rounds_without_admit: int = 0,
     direction_quota: int = 2,
     candidate_quota: int = 4,
+    deepening_threads: list = None,
+    next_actions: list = None,
 ) -> LogicCard:
     return LogicCard(
         logic_id=logic_id,
@@ -38,6 +40,8 @@ def _make_card(
             "factors_admitted": factors_admitted,
             "rounds_without_admit": rounds_without_admit,
         },
+        deepening_threads=deepening_threads or [],
+        next_actions=next_actions or [],
     )
 
 
@@ -149,6 +153,78 @@ class TestLogicScheduler:
         budget = result.active_pool[0]
         assert budget.direction_quota == 3
         assert budget.candidate_quota == 6
+
+    def test_score_card_with_active_threads(self):
+        """Card with active high-priority threads gets a bottleneck boost."""
+        with_threads = _make_card(
+            logic_id="L001",
+            deepening_threads=[
+                {"id": "T001", "status": "active", "priority": "high", "question": "test"},
+            ],
+        )
+        without_threads = _make_card(
+            logic_id="L002",
+            deepening_threads=[],
+        )
+        sched = LogicScheduler()
+        result = sched.generate_schedule([with_threads, without_threads])
+        scores = {b.logic_id: b.score for b in result.all_budgets}
+        assert scores["L001"] > scores["L002"]
+
+    def test_score_card_no_threads_no_actions(self):
+        """Card with no threads and no next_actions gets saturation penalty."""
+        bare = _make_card(
+            logic_id="L001",
+            deepening_threads=[],
+            next_actions=[],
+        )
+        with_actions = _make_card(
+            logic_id="L002",
+            deepening_threads=[],
+            next_actions=["try wider windows"],
+        )
+        sched = LogicScheduler()
+        result = sched.generate_schedule([bare, with_actions])
+        scores = {b.logic_id: b.score for b in result.all_budgets}
+        # bare gets saturation penalty, with_actions does not
+        assert scores["L002"] > scores["L001"]
+
+    def test_global_saturation_signal_emitted(self):
+        """When all active logics are stuck, global_saturation_signal fires."""
+        cards = [
+            _make_card(
+                logic_id=f"L{i:03d}",
+                category=f"cat_{i}",
+                deepening_threads=[],
+                next_actions=[],
+                rounds_without_admit=3,
+            )
+            for i in range(1, 4)
+        ]
+        sched = LogicScheduler(max_active=3)
+        result = sched.generate_schedule(cards)
+        assert result.global_saturation_signal is not None
+        assert set(result.global_saturation_signal["affected_logics"]) == {
+            "L001", "L002", "L003"
+        }
+
+    def test_budget_includes_thread_count(self):
+        """LogicBudget.active_thread_count reflects card threads."""
+        card = _make_card(
+            logic_id="L001",
+            deepening_threads=[
+                {"id": "T001", "status": "active", "priority": "high", "question": "q1"},
+                {"id": "T002", "status": "active", "priority": "medium", "question": "q2"},
+                {"id": "T003", "status": "active", "priority": "low", "question": "q3"},
+                {"id": "T004", "status": "resolved", "priority": "high", "question": "q4"},
+            ],
+            next_actions=["something to do"],
+        )
+        sched = LogicScheduler()
+        result = sched.generate_schedule([card])
+        budget = result.active_pool[0]
+        assert budget.active_thread_count == 3  # only 3 active, not the resolved one
+        assert budget.has_clear_next_action is True
 
 
 class TestSaveSchedule:

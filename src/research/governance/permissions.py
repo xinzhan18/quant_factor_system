@@ -32,6 +32,7 @@ class Actor(enum.Enum):
     idea = "idea"
     execute = "execute"
     report = "report"
+    reflect = "reflect"
 
 
 # ---------------------------------------------------------------------------
@@ -74,19 +75,9 @@ _JUDGE_PERMISSIONS: List[PermissionEntry] = [
         allowed_actions=frozenset({"admit", "retire", "replace", "update"}),
     ),
     PermissionEntry(
-        target=TargetObject.logic_card,
-        level=WriteLevel.level_1,
-        allowed_actions=frozenset({"create", "update", "transition"}),
-    ),
-    PermissionEntry(
         target=TargetObject.route_card,
         level=WriteLevel.level_1,
         allowed_actions=frozenset({"create", "update", "transition"}),
-    ),
-    PermissionEntry(
-        target=TargetObject.research_state,
-        level=WriteLevel.level_1,
-        allowed_actions=frozenset({"update"}),
     ),
     PermissionEntry(
         target=TargetObject.forbidden,
@@ -123,6 +114,19 @@ _IDEA_PERMISSIONS: List[PermissionEntry] = [
     ),
 ]
 
+_REFLECT_PERMISSIONS: List[PermissionEntry] = [
+    PermissionEntry(
+        target=TargetObject.logic_card,
+        level=WriteLevel.level_1,
+        allowed_actions=frozenset({"update"}),
+    ),
+    PermissionEntry(
+        target=TargetObject.research_state,
+        level=WriteLevel.level_1,
+        allowed_actions=frozenset({"update"}),
+    ),
+]
+
 _EXECUTE_PERMISSIONS: List[PermissionEntry] = [
     PermissionEntry(
         target=TargetObject.batch_result,
@@ -143,6 +147,7 @@ _EXECUTE_PERMISSIONS: List[PermissionEntry] = [
 WRITE_PERMISSIONS: Dict[Actor, List[PermissionEntry]] = {
     Actor.judge: _JUDGE_PERMISSIONS,
     Actor.idea: _IDEA_PERMISSIONS,
+    Actor.reflect: _REFLECT_PERMISSIONS,
     Actor.execute: _EXECUTE_PERMISSIONS,
 }
 

@@ -13,7 +13,13 @@ from research.logic.proposals import LogicProposal, create_proposal
 from research.logic.reviews import LogicReview, review_proposal
 from research.logic.cards import LogicCard, LogicCardStore
 from research.logic.scheduler import LogicScheduler, ScheduleResult
-from research.logic.lifecycle import LifecycleManager
+from research.logic.lifecycle import (
+    LifecycleManager,
+    validate_transition,
+    build_transition_record,
+    validate_promotion,
+    build_promotion_record,
+)
 from research.logic.family_registry import FamilyRegistry, FamilyRecord
 
 __all__ = [
@@ -26,6 +32,10 @@ __all__ = [
     "LogicScheduler",
     "ScheduleResult",
     "LifecycleManager",
+    "validate_transition",
+    "build_transition_record",
+    "validate_promotion",
+    "build_promotion_record",
     "FamilyRegistry",
     "FamilyRecord",
 ]

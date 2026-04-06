@@ -196,78 +196,87 @@ PYTHONPATH=src python3 -m research state sync-holdout
 PYTHONPATH=src python3 -m research state clear-batch
 ```
 
-### Step 7a：治理反馈回写（Governance Feedback Sync）
+### Step 7a：为 Reflect 准备（Prepare for Reflect）
 
-**这是闭环的关键步骤**。judge_report 中的 recommendations 必须立即回写到上游对象，不能留待下一轮手动处理。
+Judge **不更新**任何长期状态。所有长期状态更新由 `/factor-reflect` 负责。
 
-#### 7a-1：Logic Card evidence_summary 回写
+Judge 需确保 `judge_report.yaml` 包含 reflect 需要的全部信息：
+- `logic_recommendations`（含 recommended_status 和 reason）
+- `new_lessons`（含 ST/FP/NM 标识符）
+- `discovery_flags`（含 escalation_status）
+- `route_verdicts`（含 verdict: continue/pause/kill 和 reason）
+- `candidate_verdicts`（含 reason_codes 和 detail）
+- `batch_summary`（含 total/admitted/rejected 计数）
+- `logic_diagnostics`（每个 logic 的厚诊断 memo，供 reflect 编译）
 
-对每个涉及的 logic_id，更新 `storage/logic/cards/LXXX.yaml` 的 `evidence_summary`：
+Judge **仍然写** discovery_candidates 到 ledger（现有模式不变）：
+- 通过 `LedgerStore.append_discovery_candidate()` 追加到 `search_ledger.discovery_candidates`
 
-```yaml
-evidence_summary:
-  productive_families:
-    - family_id: PF_xxx
-      admitted: [R001, R002]
-      notes: "简要说明"
-  failed_families:
-    - family_id: PF_yyy
-      notes: "失败原因 + 对应 ST/FP 编号"
-  exhausted_routes:
-    - tag: ELT_xxx
-      verdict: kill/pause
-      reason: "一句话"
-  current_bottleneck: "当前阻塞点描述"
-  batches_participated: [batch_002, batch_003, ...]
-  total_attempts: N
-  total_admits: M
-```
+#### `logic_diagnostics` — Judge 的研究诊断层
 
-#### 7a-2：Logic Status 变更
+Judge 不能只给出 20 个字的短评。为了让下一轮模型知道“我们到底在闻什么”，
+每个涉及的 logic 都必须在 `judge_report.yaml` 中输出一份 **研究诊断 memo**。
 
-根据 judge_report 的 `logic_recommendations`，**直接执行**状态变更：
-- 更新 `storage/logic/cards/LXXX.yaml` 的 `status` 和 `priority` 字段
-- 更新 `storage/logic/registry.yaml` 保持一致
-- 更新 `storage/state/research_state.yaml` 的 `active_logic_ids`（仅包含 status=active 的 logic）
+目标不是写漂亮 report，而是给 reflect 和下一轮 /idea 提供足够厚的研究上下文：
+- 这个 logic 当前最像什么机制
+- 证据支持和反对什么判断
+- 哪些边界已经证伪，不能再试
+- 哪些问题还没回答完
+- 下一轮最值得做的 probes 是什么
 
-**例外**：如果 recommendation 是 dead 或 productive，仍仅标记为推荐——这些需要跨 batch 重复证据。冷启动期（<5 batch）不执行 dead/productive 变更。
-
-#### 7a-3：Schedule Snapshot 更新
-
-更新 `storage/logic/snapshots/latest_schedule_snapshot.yaml`：
-- 反映最新的 active_pool / warm_pool / parked_pool
-- 更新每个 logic 的 `saturation`（= attempts / quota_estimate）
-- 更新 `admits_to_date` 和 `attempts_to_date`
-- 在 `notes` 中写明当前瓶颈和下一步方向
-
-#### 7a-4：Forbidden Patterns 编码
-
-如果 judge_report 的 `new_lessons` 中包含确认的失败模式（ST* confirmed、route killed），**立即**编码到 `storage/governance/research_config.yaml` 的 `forbidden_patterns`：
+格式：
 
 ```yaml
-forbidden_patterns:
-  - id: FP00X
-    pattern: "regex"               # 用于 precheck 自动拦截
-    description: "失败原因简述"
-    status: active
-    added_batch: batch_XXX
+logic_diagnostics:
+  L001:
+    thesis_update: |
+      当前证据表明 PF_pv_timing 更像“事件位置编码”而不是量价幅度信号。
+      R005 证明 timing 维度有独立信息，但 alpha 仍部分寄生于短期动量，
+      且收益高度依赖空头端，因此它不是纯净的独立 alpha。
+
+    evidence_for:
+      - "R005 alpha_surv=0.498, style_r2=0.083"
+      - "corr(R005, R001)=0.002，说明与幅度类 pv 信号近乎正交"
+
+    evidence_against:
+      - "73.2% 的 long-short 收益来自 short 端"
+      - "Barra residual IC 仅 -0.0087，独立 alpha 边际化"
+      - "与 F067 corr=0.627，存在显著组合共线风险"
+
+    failure_boundary: |
+      不再继续做跨量纲的 IdxMax(amount/turnover_rate) decorrelate；
+      它们已被证明与 R005 高度同构。纯 amplitude pv 路线也继续受 style 吸收，
+      不应再作为 L001 的主方向。
+
+    open_questions:
+      - "有效的是 peak timing 本身，还是更一般的 event-position encoding？"
+      - "timing 家族能否降低对 short-side 的依赖？"
+      - "与 F067 的重叠是表达式层面的，还是机制层面的？"
+
+    next_best_probes:
+      - expr: "IdxMin($volume, 20)"
+        why: "验证 timing encoding 是否从 peak 扩展到 trough"
+      - expr: "Sub(IdxMax($volume, 20), IdxMin($volume, 20))"
+        why: "验证峰谷间距是否比单点 timing 更 fundamental"
+
+    factor_roles:
+      - factor_id: R005
+        role: core_positive_anchor
+        summary: "证明 timing encoding 是 L001 唯一明确成立的正交工具"
+      - candidate_id: C004_01
+        role: failed_cross_dimension_variant
+        summary: "amount 维度 IdxMax 未 decorrelate，说明机制未变"
 ```
 
-同时更新 `storage/governance/research_lessons.md` 的 Forbidden Patterns section。
+字段约束：
+- `thesis_update` / `failure_boundary`：允许长文本，必须是完整段落
+- `evidence_for` / `evidence_against`：每条都必须引用具体指标或已观测事实
+- `open_questions`：必须是尚未回答的问题，不能只是“继续优化”
+- `next_best_probes`：必须带 `expr` 和 `why`
+- `factor_roles`：用于把关键因子/候选在当前 logic 中的意义讲清楚
 
-#### 7a-5：Family Registry 同步
-
-更新 `storage/registry/families/family_registry.yaml`：
-- 递增 attempt_count / admitted_count
-- 更新 admitted_factors 列表
-- 对 killed route 对应的 family 标记 status=dead
-- 对 saturated family 标记 status=saturated
-
-#### 7a-6：Discovery Candidates 同步
-
-将 judge_report 中的 `discovery_flags` 写入 `storage/governance/ledger.yaml` 的 `search_ledger.discovery_candidates`：
-- 新异常：追加 status=watch
-- 已存在异常重复出现：更新 status=escalated
+Judge 的这层输出是 **research-grade diagnostic memo**，不是 marketing 文案。
+如果 diagnosis 不足以支持下一轮 /idea 设计 probes，就说明写得不够厚。
 
 ### Step 8：异常发现检查（Discovery）
 
@@ -292,8 +301,6 @@ forbidden_patterns:
   explainable_by_existing_logic: full/partial/no
   escalation_status: watch/escalated
 ```
-
-**写回经验教训**：如果本轮裁决发现了新的 forbidden pattern、style trap 或 near-miss 教训，追加到 `storage/governance/research_lessons.md` 对应的 section。
 
 关键约束：discovery 不直接立项 logic、不单独经营预算——只负责观察和升级到 ledger。
 
@@ -320,6 +327,7 @@ forbidden_patterns:
 
 - judge 基于 **validation** 证据裁决，不做新实验
 - Score/bucket 不能单独触发 admit/reject，只能辅助排序
-- judge **必须执行** Step 7a 治理回写（logic card、schedule、forbidden patterns、family registry、discovery candidates）
+- **judge 只写 batch artifacts + ledger**（search_ledger 计数、audit_log、holdout_reviews、batch_usage、discovery_candidates）
+- **judge 不写** logic cards、research_state、research_config、research_lessons
+- 所有长期状态更新由 /factor-reflect 负责
 - 冷启动期（<5 batch 或 <10 因子）：不输出 promote_family / productive / saturated / dead
-- Logic status 变更（active↔warm↔parked）由 judge 直接执行；仅 dead/productive 需要跨 batch 重复证据

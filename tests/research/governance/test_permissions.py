@@ -55,8 +55,18 @@ class TestWritePermissionsMap:
             Actor.judge, TargetObject.factor_registry, "admit"
         )
 
-    def test_judge_can_write_logic_card(self):
+    def test_reflect_can_write_logic_card(self):
         assert actor_can_write(
+            Actor.reflect, TargetObject.logic_card, "update"
+        )
+
+    def test_reflect_can_write_research_state(self):
+        assert actor_can_write(
+            Actor.reflect, TargetObject.research_state, "update"
+        )
+
+    def test_judge_cannot_write_logic_card(self):
+        assert not actor_can_write(
             Actor.judge, TargetObject.logic_card, "create"
         )
 

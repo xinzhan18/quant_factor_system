@@ -66,6 +66,13 @@ class LedgerStore:
     def get_search_count(self, section: str, key: str) -> int:
         return self.load_search_ledger().get(section, {}).get(key, 0)
 
+    def append_discovery_candidate(self, entry: dict[str, Any]) -> None:
+        """Append a discovery candidate to search_ledger.discovery_candidates."""
+        search = self.load_search_ledger()
+        candidates = search.setdefault("discovery_candidates", [])
+        candidates.append(entry)
+        self.save_search_ledger(search)
+
     # ------------------------------------------------------------------
     # batch_usage section
     # ------------------------------------------------------------------
