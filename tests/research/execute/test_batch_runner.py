@@ -65,6 +65,7 @@ def _noop_stat(signal, sample_policy):
 
 def _noop_redundancy(signal, candidate):
     return {"max_lib_corr": 0.0, "nearest_factor_id": None,
+            "is_near_duplicate": False,
             "family_overlap_score": 0.0, "subspace_redundancy_score": 0.0,
             "residual_incremental_ic": 0.0, "replacement_candidate_hint": False,
             "family_redundancy_view": {}, "subspace_redundancy_view": {}}

@@ -29,6 +29,24 @@ discovery_budget:
   adjacent_discovery_route_quota: 1
 
 evidence_summary:
-  productive_families: []
-  failed_families: []
-  current_bottleneck: null
+  productive_families:
+    - family_id: PF_pv_correlation
+      admitted: [R001]
+      notes: "pv_corr_times_vol_20 admitted batch_002, alpha_surv=0.23"
+    - family_id: PF_pv_timing
+      admitted: [R005]
+      notes: "vol_peak_timing_20 admitted batch_003, alpha_surv=0.50, IdxMax encoding"
+  failed_families:
+    - family_id: PF_ret_vol_covariance
+      notes: "C002_02 reserved then holdout rejected (alpha_surv=5.2%, no independent alpha)"
+  exhausted_routes:
+    - tag: ELT_L001_decorrelate_pv_timing_v1
+      verdict: pause
+      reason: "C003_01 near-duplicate of R005 (corr=1.0)"
+    - tag: ELT_L001_decorrelate_pv_timing_v2
+      verdict: pause
+      reason: "IdxMax(amount/turnover) corr 0.92-0.99 vs R005, no decorrelation"
+  current_bottleneck: "IdxMax timing encoding exhausted across quantity dimensions. Need new mechanism beyond timing/correlation for volume-price divergence."
+  batches_participated: [batch_002, batch_003, batch_004]
+  total_attempts: 7
+  total_admits: 2

@@ -9,7 +9,6 @@ Design reference: ``docs/refacor_logic/research_execute.md`` section 6 Step 1.
 
 from __future__ import annotations
 
-import ast
 import logging
 import re
 from dataclasses import dataclass, field
@@ -59,17 +58,6 @@ FORBIDDEN_PATTERNS: List[re.Pattern] = [
 
 MAX_EXPRESSION_DEPTH = 10
 
-# ---------------------------------------------------------------------------
-# Python candidate whitelists
-# ---------------------------------------------------------------------------
-PYTHON_HELPER_WHITELIST: Set[str] = {
-    "np", "numpy", "pd", "pandas",
-    "rolling", "shift", "rank", "pct_change", "diff",
-    "mean", "std", "var", "sum", "min", "max", "median",
-    "corr", "cov", "apply", "groupby", "transform",
-    "clip", "abs", "log", "exp", "sign", "sqrt", "power",
-    "fillna", "dropna", "isna", "isnull",
-}
 
 
 # ---------------------------------------------------------------------------
@@ -167,86 +155,34 @@ class DSLPrecheck:
 
 
 # ---------------------------------------------------------------------------
-# Python precheck
+# Python precheck (file-based)
 # ---------------------------------------------------------------------------
 class PythonPrecheck:
-    """Validate a Python factor implementation before execution."""
+    """Validate a Python factor .py file before execution."""
 
-    def __init__(
-        self,
-        helper_whitelist: Optional[Set[str]] = None,
-    ):
-        self._helpers = helper_whitelist or PYTHON_HELPER_WHITELIST
-
-    def check(self, code: str, params: Optional[Dict[str, Any]] = None) -> PrecheckResult:
-        """Run all Python precheck rules and return a combined result."""
-        reason_codes: List[str] = []
-
-        if not code or not code.strip():
-            return PrecheckResult(status="failed", reason_codes=["empty_code"])
-
-        # --- syntax_check ---
-        try:
-            tree = ast.parse(code)
-        except SyntaxError as exc:
-            return PrecheckResult(
-                status="failed",
-                reason_codes=[f"syntax_error:{exc.msg}"],
-            )
-
-        # --- vectorization_check: look for explicit Python for-loops ---
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.For, ast.While)):
-                reason_codes.append("non_vectorized_loop")
-                break
-
-        # --- param_schema_check ---
-        if params is not None:
-            for key, val in params.items():
-                if not isinstance(key, str):
-                    reason_codes.append(f"invalid_param_key:{key}")
-                if val is None:
-                    reason_codes.append(f"null_param_value:{key}")
-
-        # --- forbidden_pattern_check (imports of disallowed modules) ---
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name not in self._helpers:
-                        reason_codes.append(f"disallowed_import:{alias.name}")
-            elif isinstance(node, ast.ImportFrom):
-                if node.module and node.module.split(".")[0] not in self._helpers:
-                    reason_codes.append(f"disallowed_import:{node.module}")
-
-        status = "failed" if reason_codes else "passed"
-        return PrecheckResult(status=status, reason_codes=reason_codes)
+    def check(self, module_path: str) -> PrecheckResult:
+        """Check that the module file exists and is readable."""
+        import os
+        if not module_path or not module_path.strip():
+            return PrecheckResult(status="failed", reason_codes=["empty_module_path"])
+        if not os.path.isfile(module_path):
+            return PrecheckResult(status="failed", reason_codes=[f"module_not_found:{module_path}"])
+        return PrecheckResult(status="passed")
 
 
 # ---------------------------------------------------------------------------
 # Convenience dispatcher
 # ---------------------------------------------------------------------------
 def run_precheck(candidate: Dict[str, Any]) -> PrecheckResult:
-    """Dispatch to the appropriate precheck based on ``source_type``.
-
-    Parameters
-    ----------
-    candidate:
-        A candidate dict that must contain ``source_type`` (``"dsl"`` or
-        ``"python"``) and either ``expression`` or ``code``.
-
-    Returns
-    -------
-    PrecheckResult
-    """
+    """Dispatch to the appropriate precheck based on ``source_type``."""
     source_type = candidate.get("source_type", "dsl")
 
     if source_type == "dsl":
         expr = candidate.get("expression", "")
         return DSLPrecheck().check(expr)
     elif source_type == "python":
-        code = candidate.get("code", "")
-        params = candidate.get("params")
-        return PythonPrecheck().check(code, params)
+        module_path = candidate.get("module_path", "")
+        return PythonPrecheck().check(module_path)
     else:
         return PrecheckResult(
             status="failed",

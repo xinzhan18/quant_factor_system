@@ -129,60 +129,21 @@ class TestPythonPrecheck:
     def setup_method(self):
         self.checker = PythonPrecheck()
 
-    def test_valid_python_code(self):
-        code = "result = df['close'].rolling(20).std()"
-        result = self.checker.check(code)
+    def test_valid_file(self, tmp_path):
+        f = tmp_path / "factor.py"
+        f.write_text("def compute(df, params): return df['close']")
+        result = self.checker.check(str(f))
         assert result.passed
 
-    def test_empty_code(self):
+    def test_empty_path(self):
         result = self.checker.check("")
         assert not result.passed
-        assert "empty_code" in result.reason_codes
+        assert "empty_module_path" in result.reason_codes
 
-    def test_syntax_error(self):
-        result = self.checker.check("def foo(:")
+    def test_missing_file(self):
+        result = self.checker.check("/nonexistent/factor.py")
         assert not result.passed
-        assert any("syntax_error" in c for c in result.reason_codes)
-
-    def test_non_vectorized_loop(self):
-        code = "for i in range(10):\n    x = i * 2"
-        result = self.checker.check(code)
-        assert not result.passed
-        assert "non_vectorized_loop" in result.reason_codes
-
-    def test_while_loop_detected(self):
-        code = "while True:\n    break"
-        result = self.checker.check(code)
-        assert not result.passed
-        assert "non_vectorized_loop" in result.reason_codes
-
-    def test_null_param_value(self):
-        code = "x = 1"
-        result = self.checker.check(code, params={"window": None})
-        assert not result.passed
-        assert any("null_param_value" in c for c in result.reason_codes)
-
-    def test_disallowed_import(self):
-        code = "import os\nx = os.getcwd()"
-        result = self.checker.check(code)
-        assert not result.passed
-        assert any("disallowed_import:os" in c for c in result.reason_codes)
-
-    def test_allowed_import(self):
-        code = "import numpy as np\nx = np.mean([1, 2])"
-        result = self.checker.check(code)
-        assert result.passed
-
-    def test_disallowed_from_import(self):
-        code = "from pathlib import Path"
-        result = self.checker.check(code)
-        assert not result.passed
-        assert any("disallowed_import:pathlib" in c for c in result.reason_codes)
-
-    def test_valid_params(self):
-        code = "x = 1"
-        result = self.checker.check(code, params={"window": 20})
-        assert result.passed
+        assert any("module_not_found" in c for c in result.reason_codes)
 
 
 # ===================================================================
@@ -194,8 +155,10 @@ class TestRunPrecheck:
         result = run_precheck(candidate)
         assert result.passed
 
-    def test_python_dispatch(self):
-        candidate = {"source_type": "python", "code": "x = 1"}
+    def test_python_dispatch(self, tmp_path):
+        f = tmp_path / "factor.py"
+        f.write_text("def compute(df, params): return df['close']")
+        candidate = {"source_type": "python", "module_path": str(f)}
         result = run_precheck(candidate)
         assert result.passed
 

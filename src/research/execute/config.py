@@ -51,7 +51,7 @@ _FALLBACK_CONFIG: Dict[str, Any] = {
             {"window_id": "val_2022_2023", "range": ["2022-01-01", "2023-12-31"]},
         ],
         "holdout_pool_range": ["2024-01-01", "2025-12-31"],
-        "holdout_used": False,
+        "holdout_used": True,
         "validation_policy_version": "research_sample_v3",
     },
     "thresholds": {

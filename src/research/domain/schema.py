@@ -159,28 +159,6 @@ class FactorRecord:
     report_path: Optional[str] = None
     replacement_history: List[str] = field(default_factory=list)
 
-    # ------------------------------------------------------------------
-    # Factory methods
-    # ------------------------------------------------------------------
-
-    @classmethod
-    def for_new_admission(
-        cls,
-        factor_id: str,
-        name: str,
-        expression: Optional[str] = None,
-        **kwargs: Any,
-    ) -> FactorRecord:
-        """Create a new active v3 factor record."""
-        return cls(
-            factor_id=factor_id,
-            name=name,
-            expression=expression,
-            status="active",
-            evaluation_version="v3",
-            admitted_at=datetime.now().isoformat(),
-            **kwargs,
-        )
 
 
 # ======================================================================

@@ -23,7 +23,7 @@ def writer(base_dir):
 
 def _level1_request(**overrides) -> WriteRequest:
     defaults = dict(
-        actor="guarded_writer",
+        actor="judge",
         write_level="level_1",
         target_object="factor_registry",
         action="admit",
@@ -35,7 +35,7 @@ def _level1_request(**overrides) -> WriteRequest:
 
 def _level2_request(evidence_refs=None, **overrides) -> WriteRequest:
     defaults = dict(
-        actor="guarded_writer",
+        actor="judge",
         write_level="level_2",
         target_object="forbidden",
         action="add",
@@ -67,10 +67,12 @@ class TestLevel1Write:
         req = _level1_request()
         receipt = writer.write(req)
         assert receipt.status == "accepted"
-        assert len(receipt.written_paths) == 1
-        path = receipt.written_paths[0]
-        assert "factor_registry" in path
-        data = yaml.safe_load(open(path))
+        # admit writes index.yaml + factor detail file
+        assert len(receipt.written_paths) == 2
+        paths = receipt.written_paths
+        assert any("index.yaml" in p for p in paths)
+        detail_path = next(p for p in paths if "factor_F099.yaml" in p)
+        data = yaml.safe_load(open(detail_path))
         assert data["factor_id"] == "F099"
 
     def test_audit_entry_created(self, writer, base_dir):
@@ -174,7 +176,7 @@ class TestPermissionEnforcement:
     def test_level_mismatch_rejected(self, writer):
         # forbidden requires level_2, but request says level_1
         req = WriteRequest(
-            actor="guarded_writer",
+            actor="judge",
             write_level="level_1",
             target_object="forbidden",
             action="add",

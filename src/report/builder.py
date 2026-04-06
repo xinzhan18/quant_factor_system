@@ -31,8 +31,19 @@ from report.analytics.uniqueness import UniquenessAnalyzer
 from report.scorer import CompositeScorer
 from report.data_prep import merge_factor_price
 from report.charts.theme import PNG_WIDTH, PNG_HEIGHT, PNG_SCALE
+from report.analytics import execute_evidence_charts
 
 logger = logging.getLogger(__name__)
+
+
+def _get_db_connection_string() -> str:
+    """Build TimescaleDB connection string from environment variables."""
+    host = os.environ.get("TIMESCALE_HOST", "localhost")
+    port = os.environ.get("TIMESCALE_PORT", "5432")
+    database = os.environ.get("TIMESCALE_DB", "quant_data")
+    user = os.environ.get("TIMESCALE_USER", "postgres")
+    password = os.environ.get("TIMESCALE_PASSWORD", "postgres")
+    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
 
 
 class ReportDataBuilder:
@@ -132,9 +143,12 @@ class ReportDataBuilder:
             ic_20d=ic_20d,
         )
 
+        # ---- Load execute evidence (pre-computed metrics from execute pipeline) ----
+        execute_evidence = self._load_execute_evidence(meta)
+
         # ---- Parallel chart generation ----
         t0 = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=5) as _pool:
+        with ThreadPoolExecutor(max_workers=6) as _pool:
             _f_ic_ch = _pool.submit(ic_analyzer.generate_charts, ic_result)
             _f_profit_ch = _pool.submit(profit_analyzer.generate_charts, profit_result)
             _f_decay_ch = _pool.submit(
@@ -142,16 +156,18 @@ class ReportDataBuilder:
             )
             _f_uniq_ch = _pool.submit(uniq_analyzer.generate_charts, uniq_result)
             _f_score_ch = _pool.submit(scorer.generate_charts, composite)
+            _f_evidence_ch = _pool.submit(execute_evidence_charts.generate_charts, execute_evidence)
 
             ic_charts = _f_ic_ch.result()
             profit_charts = _f_profit_ch.result()
             decay_charts = _f_decay_ch.result()
             uniq_charts = _f_uniq_ch.result()
             score_charts = _f_score_ch.result()
+            evidence_charts = _f_evidence_ch.result()
         logger.info("[TIMING] parallel chart generation: %.2fs", time.perf_counter() - t0)
 
         # ---- Export charts (parallel PNG rendering via Kaleido) ----
-        chart_groups = [ic_charts, profit_charts, decay_charts, uniq_charts, score_charts]
+        chart_groups = [ic_charts, profit_charts, decay_charts, uniq_charts, score_charts, evidence_charts]
         all_fig_items = [
             (chart_name, fig)
             for chart_dict in chart_groups
@@ -177,9 +193,6 @@ class ReportDataBuilder:
 
         logger.info("[TIMING] TOTAL build(): %.2fs", time.perf_counter() - t0_total)
 
-        # ---- Load execute evidence (pre-computed metrics from execute pipeline) ----
-        execute_evidence = self._load_execute_evidence(meta)
-
         # ---- Assemble report_data ----
         return {
             "factor": {**meta, "data_level": "L0"},
@@ -204,6 +217,7 @@ class ReportDataBuilder:
                 **composite,
                 "charts": {k: all_charts[k] for k in score_charts},
             },
+            "evidence_charts": {k: all_charts[k] for k in evidence_charts},
         }
 
     # ---- Helpers ----
@@ -264,10 +278,19 @@ class ReportDataBuilder:
         except Exception:
             return {}
 
-        # Find this factor's candidate result
+        # Find this factor's candidate result by candidate_id, factor_id,
+        # name, or expression match (registry YAML uses different IDs than batch)
+        factor_name = meta.get("name", "")
+        factor_expr = meta.get("expression", "")
+
         for cr in result_data.get("candidate_results", []):
             cid = cr.get("candidate_id", "")
-            if cid == candidate_id or cid == factor_id:
+            cname = cr.get("name", "")
+            cexpr = cr.get("expression", "")
+            if (cid == candidate_id and candidate_id) or \
+               (cid == factor_id) or \
+               (cname and cname == factor_name) or \
+               (cexpr and cexpr == factor_expr):
                 logger.info("Loaded execute evidence from %s for %s", result_path, cid)
                 return {
                     "evaluation": cr.get("evaluation", {}),
@@ -288,24 +311,24 @@ class ReportDataBuilder:
         Falls back to DB factor_meta table if YAML not found.
         """
         # Primary: registry detail YAML
-        detail_path = Path(self.config.library_dir) / "factors" / f"factor_{self.factor_id}.yaml"
+        detail_path = Path(self.config.registry_dir) / "factors" / f"factor_{self.factor_id}.yaml"
         if detail_path.exists():
             import yaml
             with open(detail_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
             return {
-                "id": data["id"],
-                "name": data.get("name", f"factor_{data['id']}"),
+                "id": data.get("factor_id", data.get("id", self.factor_id)),
+                "name": data.get("name", f"factor_{data.get('factor_id', self.factor_id)}"),
                 "expression": data.get("expression", ""),
                 "category": data.get("category", "other"),
-                "batch": data.get("batch", ""),
+                "batch": data.get("batch_id", data.get("batch", "")),
                 "admitted_at": data.get("admitted_at", ""),
             }
 
         # Fallback: DB factor_meta (for factors not yet in registry)
         try:
             import psycopg2
-            conn = psycopg2.connect(self.config.system.database.connection_string)
+            conn = psycopg2.connect(_get_db_connection_string())
             try:
                 sql = (
                     "SELECT factor_id, name, expression, category, batch_id, admitted_at "
@@ -367,7 +390,7 @@ class ReportDataBuilder:
         # Load price data from market_daily
         import psycopg2
         try:
-            conn = psycopg2.connect(self.config.system.database.connection_string)
+            conn = psycopg2.connect(_get_db_connection_string())
         except psycopg2.Error as exc:
             raise RuntimeError(f"Failed to connect to database: {exc}") from exc
         try:
@@ -445,7 +468,7 @@ class ReportDataBuilder:
         """
         import psycopg2
         try:
-            conn = psycopg2.connect(self.config.system.database.connection_string)
+            conn = psycopg2.connect(_get_db_connection_string())
         except psycopg2.Error as exc:
             logger.warning("Failed to connect to DB for library factors: %s", exc)
             return {}
@@ -590,7 +613,7 @@ def main():
 
     config = MiningConfig()
     if args.qlib_dir:
-        config.system.qlib_data_dir = args.qlib_dir
+        config.qlib_data_dir = args.qlib_dir
 
     builder = ReportDataBuilder(args.factor_id, config=config)
     try:

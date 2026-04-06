@@ -77,23 +77,6 @@ class TestFactorRecord:
         assert rec.metrics_snapshot == {}
         assert isinstance(rec.lineage, Lineage)
 
-    def test_for_new_admission(self):
-        rec = FactorRecord.for_new_admission(
-            factor_id="F099",
-            name="test_factor",
-            expression="Rank($close)",
-            category="momentum",
-            logic_id="L001",
-        )
-        assert rec.factor_id == "F099"
-        assert rec.name == "test_factor"
-        assert rec.expression == "Rank($close)"
-        assert rec.status == "active"
-        assert rec.evaluation_version == "v3"
-        assert rec.admitted_at is not None
-        assert rec.category == "momentum"
-        assert rec.logic_id == "L001"
-
     def test_factor_record_is_mutable(self):
         rec = FactorRecord(factor_id="F001")
         rec.status = "retired"

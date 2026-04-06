@@ -27,7 +27,6 @@ class WriteLevel(enum.Enum):
 class Actor(enum.Enum):
     """Known actors in the research system."""
 
-    guarded_writer = "guarded_writer"
     judge = "judge"
     logic = "logic"
     idea = "idea"
@@ -68,7 +67,7 @@ class PermissionEntry:
 # The canonical permission map  (memory.md §7)
 # ---------------------------------------------------------------------------
 
-_GUARDED_WRITER_PERMISSIONS: List[PermissionEntry] = [
+_JUDGE_PERMISSIONS: List[PermissionEntry] = [
     PermissionEntry(
         target=TargetObject.factor_registry,
         level=WriteLevel.level_1,
@@ -94,9 +93,6 @@ _GUARDED_WRITER_PERMISSIONS: List[PermissionEntry] = [
         level=WriteLevel.level_2,
         allowed_actions=frozenset({"add", "reassess", "retire", "reactivate"}),
     ),
-]
-
-_JUDGE_PERMISSIONS: List[PermissionEntry] = [
     PermissionEntry(
         target=TargetObject.judge_report,
         level=WriteLevel.level_1,
@@ -145,7 +141,6 @@ _EXECUTE_PERMISSIONS: List[PermissionEntry] = [
 # ---------------------------------------------------------------------------
 
 WRITE_PERMISSIONS: Dict[Actor, List[PermissionEntry]] = {
-    Actor.guarded_writer: _GUARDED_WRITER_PERMISSIONS,
     Actor.judge: _JUDGE_PERMISSIONS,
     Actor.idea: _IDEA_PERMISSIONS,
     Actor.execute: _EXECUTE_PERMISSIONS,

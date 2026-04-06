@@ -44,6 +44,11 @@ class BatchSharedData:
     returns_flat: Dict[Tuple[str, str, int], pd.DataFrame] = field(default_factory=dict)
     market_cap_mi: Optional[pd.DataFrame] = None
     library_signals_flat: Dict[str, pd.DataFrame] = field(default_factory=dict)
+    # Family redundancy support
+    library_signals_mi: Dict[str, pd.DataFrame] = field(default_factory=dict)
+    library_meta: Dict[str, Dict] = field(default_factory=dict)
+    family_registry: Dict[str, Dict] = field(default_factory=dict)
+    returns_mi_val: Optional[pd.DataFrame] = None
 
 
 # ---------------------------------------------------------------------------
@@ -82,10 +87,15 @@ class ComputeContext:
         """Pre-fetch all batch-shared data."""
         train_range = sample_policy.get("active_train_range", ["2015-01-01", "2021-12-31"])
         val_range = sample_policy.get("active_validation_range", ["2022-01-01", "2023-12-31"])
-        full_start, full_end = train_range[0], val_range[1]
         val_start, val_end = val_range[0], val_range[1]
 
-        # 1. Pre-fetch 5 unique returns, convert to flat once
+        # Extend full range to cover holdout when enabled
+        holdout_range = sample_policy.get("holdout_pool_range")
+        holdout_enabled = holdout_range and sample_policy.get("holdout_used", False)
+        full_start = train_range[0]
+        full_end = holdout_range[1] if holdout_enabled else val_range[1]
+
+        # 1. Pre-fetch returns, convert to flat once
         returns_flat: Dict[Tuple[str, str, int], pd.DataFrame] = {}
         for start, end, h in [
             (full_start, full_end, 5),
@@ -99,13 +109,24 @@ class ComputeContext:
                 ret_mi = self.provider.get_returns(start, end, horizon=h)
                 returns_flat[key] = multiindex_to_flat(ret_mi)
 
+        # Pre-fetch holdout-period horizon returns
+        if holdout_enabled:
+            ho_start, ho_end = holdout_range[0], holdout_range[1]
+            for h in [1, 5, 10, 20]:
+                key = (ho_start, ho_end, h)
+                if key not in returns_flat:
+                    ret_mi = self.provider.get_returns(ho_start, ho_end, horizon=h)
+                    returns_flat[key] = multiindex_to_flat(ret_mi)
+
         # 2. Pre-fetch market cap for risk cap-neutral IC
         market_cap_mi = self.provider.get_market_data(
             ["$circ_market_cap"], val_start, val_end
         )
 
-        # 3. Pre-build library factor signals for redundancy
+        # 3. Pre-build library factor signals + metadata for redundancy
         library_flat: Dict[str, pd.DataFrame] = {}
+        library_mi: Dict[str, pd.DataFrame] = {}
+        library_meta: Dict[str, Dict] = {}
         try:
             from research.storage.paths import StoragePaths
             from research.storage.registry_store import RegistryStore
@@ -116,19 +137,43 @@ class ComputeContext:
                 expr = detail.get("expression", "")
                 if not expr:
                     continue
+                library_meta[fid] = {
+                    "family_id": detail.get("family_id", ""),
+                    "logic_id": detail.get("logic_id", ""),
+                }
                 try:
-                    lib_mi = self.engine.compute_dsl(expr, val_start, val_end)
-                    lib_processed = self.preprocessor.run(lib_mi, tradability_check=False)
+                    lib_processed_mi = self.engine.compute_dsl(expr, val_start, val_end)
+                    lib_processed = self.preprocessor.run(lib_processed_mi, tradability_check=False)
                     library_flat[fid] = multiindex_to_flat(lib_processed)
+                    library_mi[fid] = lib_processed
                 except Exception:
                     continue
         except Exception:
             logger.warning("Failed to pre-build library signals for redundancy")
 
+        # 4. Load family registry
+        family_registry_dict: Dict[str, Dict] = {}
+        try:
+            from research.logic.family_registry import FamilyRegistry
+            from research.storage.paths import StoragePaths
+
+            fam_reg = FamilyRegistry(StoragePaths().root)
+            for rec in fam_reg.list_families():
+                family_registry_dict[rec.family_id] = rec.to_dict()
+        except Exception:
+            logger.warning("Failed to load family registry")
+
+        # 5. Keep validation returns in MultiIndex format for subspace layer
+        returns_mi_val = self.provider.get_returns(val_start, val_end, horizon=5)
+
         self._shared = BatchSharedData(
             returns_flat=returns_flat,
             market_cap_mi=market_cap_mi,
             library_signals_flat=library_flat,
+            library_signals_mi=library_mi,
+            library_meta=library_meta,
+            family_registry=family_registry_dict,
+            returns_mi_val=returns_mi_val,
         )
 
         # 4. Prepare risk engine with shared data
@@ -147,19 +192,23 @@ class ComputeContext:
         """Compute base factor signal + diagnostics."""
         source_type = candidate.get("source_type", "dsl")
         expression = candidate.get("expression", "")
-        code = candidate.get("code", "")
+        module_path = candidate.get("module_path", "")
 
         train_range = self._sample_policy.get("active_train_range", ["2015-01-01", "2021-12-31"])
         val_range = self._sample_policy.get("active_validation_range", ["2022-01-01", "2023-12-31"])
         start = train_range[0]
-        end = val_range[1]
+        holdout_range = self._sample_policy.get("holdout_pool_range")
+        if holdout_range and self._sample_policy.get("holdout_used", False):
+            end = holdout_range[1]
+        else:
+            end = val_range[1]
 
         try:
             if source_type == "dsl" and expression:
                 signal_df = self.engine.compute_dsl(expression, start, end)
-            elif source_type == "python" and code:
+            elif source_type == "python" and module_path:
                 params = candidate.get("params", {})
-                signal_df = self.engine.compute_python(code, start, end, params=params)
+                signal_df = self.engine.compute_python(module_path, start, end, params=params)
             else:
                 return {
                     "base_signal": None,
@@ -224,7 +273,10 @@ class ComputeContext:
 
         train_range = sample_policy.get("active_train_range", ["2015-01-01", "2021-12-31"])
         val_range = sample_policy.get("active_validation_range", ["2022-01-01", "2023-12-31"])
-        full_start, full_end = train_range[0], val_range[1]
+        holdout_range = sample_policy.get("holdout_pool_range")
+        holdout_enabled = holdout_range and sample_policy.get("holdout_used", False)
+        full_start = train_range[0]
+        full_end = holdout_range[1] if holdout_enabled else val_range[1]
 
         # Get returns from shared data
         returns_flat = self._shared.returns_flat.get((full_start, full_end, 5))
@@ -283,7 +335,7 @@ class ComputeContext:
             primary_ic_sign=val_sign,
         )
 
-        return {
+        result = {
             "ic_mean_train": ic_train_stats.get("ic_mean", 0.0),
             "ic_ir_train": ic_train_stats.get("ic_ir", 0.0),
             "ic_mean_validation": ic_val_stats.get("ic_mean", 0.0),
@@ -311,8 +363,41 @@ class ComputeContext:
             "long_short_stats": ls_stats,
         }
 
+        # Holdout metrics (when enabled and data available)
+        if holdout_enabled:
+            ho_start_ts = pd.Timestamp(holdout_range[0])
+            ho_end_ts = pd.Timestamp(holdout_range[1])
+
+            factor_ho = factor_flat[
+                (factor_flat["time"] >= ho_start_ts) & (factor_flat["time"] <= ho_end_ts)
+            ]
+            returns_ho = returns_flat[
+                (returns_flat["time"] >= ho_start_ts) & (returns_flat["time"] <= ho_end_ts)
+            ]
+
+            if not factor_ho.empty and not returns_ho.empty:
+                ic_ho_stats = ic_summary(daily_cross_sectional_ic(factor_ho, returns_ho))
+                qr_ho, daily_ls_ho = quintile_returns(factor_ho, returns_ho, n_quantiles=5)
+                mono_ho = monotonicity(qr_ho)
+
+                ic_val_abs = abs(ic_val_stats.get("ic_mean", 0) or 0)
+                ic_ho_abs = abs(ic_ho_stats.get("ic_mean", 0) or 0)
+                ho_decay = float(ic_ho_abs / ic_val_abs) if ic_val_abs > 1e-8 else 1.0
+
+                result.update({
+                    "ic_mean_holdout": ic_ho_stats.get("ic_mean", 0.0),
+                    "ic_ir_holdout": ic_ho_stats.get("ic_ir", 0.0),
+                    "ic_win_rate_holdout": ic_ho_stats.get("ic_win_rate", 0.5),
+                    "monotonicity_holdout": mono_ho if np.isfinite(mono_ho) else 0.0,
+                    "validation_holdout_decay_ratio": round(ho_decay, 4),
+                    "quintile_returns_holdout": qr_ho,
+                    "long_short_stats_holdout": _long_short_stats(daily_ls_ho),
+                })
+
+        return result
+
     # ------------------------------------------------------------------
-    # 4. compute_redundancy — uses pre-built library signals
+    # 4. compute_redundancy — 3-layer via RedundancyEngine
     # ------------------------------------------------------------------
 
     def compute_redundancy(
@@ -320,38 +405,45 @@ class ComputeContext:
         signal_result: Dict[str, Any],
         candidate: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Compare candidate against library factors using pre-built signals."""
-        factor_flat = signal_result.get("factor_flat")
-        if factor_flat is None or factor_flat.empty:
+        """3-layer redundancy: pairwise + family overlap + subspace."""
+        from research.redundancy.engine import RedundancyEngine
+
+        eval_signal = signal_result.get("evaluation_ready_signal")
+        if eval_signal is None or (hasattr(eval_signal, "empty") and eval_signal.empty):
             return _empty_redundancy()
 
-        if not self._shared.library_signals_flat:
+        if not self._shared.library_signals_mi:
             return _empty_redundancy()
 
-        # Time-slice to validation range
-        val_range = self._sample_policy.get("active_validation_range", ["2022-01-01", "2023-12-31"])
-        factor_corr = factor_flat[
-            (factor_flat["time"] >= pd.Timestamp(val_range[0]))
-            & (factor_flat["time"] <= pd.Timestamp(val_range[1]))
-        ]
+        # Family is LLM-specified, not code-derived
+        candidate_meta = {
+            "family_id": candidate.get("family_id", "FM_unknown"),
+            "logic_id": candidate.get("logic_id", ""),
+        }
 
-        max_corr = 0.0
-        nearest_id = None
-        for fid, lib_flat in self._shared.library_signals_flat.items():
-            corr = pairwise_cross_sectional_corr(factor_corr, lib_flat)
-            if corr is not None and abs(corr) > abs(max_corr):
-                max_corr = abs(corr)
-                nearest_id = fid
+        result = RedundancyEngine().analyze(
+            candidate_signal=eval_signal,
+            candidate_meta=candidate_meta,
+            library_signals=self._shared.library_signals_mi,
+            library_meta=self._shared.library_meta,
+            family_registry=self._shared.family_registry,
+            forward_returns=self._shared.returns_mi_val,
+        )
+
+        pw = result.get("pairwise", {})
+        fv = result.get("family_view") or {}
+        sv = result.get("subspace_view") or {}
 
         return {
-            "max_lib_corr": round(max_corr, 4),
-            "nearest_factor_id": nearest_id,
-            "family_overlap_score": 0.0,
-            "subspace_redundancy_score": 0.0,
-            "residual_incremental_ic": 0.0,
-            "replacement_candidate_hint": max_corr >= 0.5,
-            "family_redundancy_view": {},
-            "subspace_redundancy_view": {},
+            "max_lib_corr": pw.get("max_lib_corr", 0.0),
+            "nearest_factor_id": pw.get("nearest_factor_id"),
+            "is_near_duplicate": pw.get("is_near_duplicate", False),
+            "family_overlap_score": fv.get("family_overlap_score") or 0.0,
+            "subspace_redundancy_score": sv.get("subspace_redundancy_score") or 0.0,
+            "residual_incremental_ic": sv.get("residual_incremental_ic") or 0.0,
+            "replacement_candidate_hint": pw.get("max_lib_corr", 0.0) >= 0.5,
+            "family_redundancy_view": fv,
+            "subspace_redundancy_view": sv,
         }
 
     # ------------------------------------------------------------------
@@ -521,6 +613,7 @@ def _empty_stat_evidence() -> Dict[str, Any]:
 def _empty_redundancy() -> Dict[str, Any]:
     return {
         "max_lib_corr": 0.0, "nearest_factor_id": None,
+        "is_near_duplicate": False,
         "family_overlap_score": 0.0, "subspace_redundancy_score": 0.0,
         "residual_incremental_ic": 0.0, "replacement_candidate_hint": False,
         "family_redundancy_view": {}, "subspace_redundancy_view": {},

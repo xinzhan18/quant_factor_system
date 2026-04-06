@@ -1,22 +1,17 @@
-# 研究治理账本 — 单一事实源
-# 读写边界见各 skill 定义，所有更新必须 append-only（不删历史条目）
-
-# ── 搜索强度累计 ──
 search_ledger:
   by_logic:
     L001:
-      logic_attempt_count_to_date: 2
-      admitted_count_to_date: 1
+      logic_attempt_count_to_date: 8
+      admitted_count_to_date: 2
       reserve_count_to_date: 1
     L002:
-      logic_attempt_count_to_date: 2
-      admitted_count_to_date: 2
-      reserve_count_to_date: 0
+      logic_attempt_count_to_date: 8
+      admitted_count_to_date: 3
+      reserve_count_to_date: 2
     L003:
-      logic_attempt_count_to_date: 2
-      admitted_count_to_date: 1
-      reserve_count_to_date: 1
-
+      logic_attempt_count_to_date: 8
+      admitted_count_to_date: 3
+      reserve_count_to_date: 2
   by_family:
     PF_pv_correlation:
       family_attempt_count_to_date: 1
@@ -25,18 +20,29 @@ search_ledger:
       family_attempt_count_to_date: 1
       admitted_count_to_date: 0
     PF_amount_concentration:
-      family_attempt_count_to_date: 1
+      family_attempt_count_to_date: 2
       admitted_count_to_date: 1
     PF_turnover_volatility:
       family_attempt_count_to_date: 1
       admitted_count_to_date: 1
     PF_intraday_range:
-      family_attempt_count_to_date: 1
-      admitted_count_to_date: 1
+      family_attempt_count_to_date: 3
+      admitted_count_to_date: 3
     PF_range_liquidity_cross:
       family_attempt_count_to_date: 1
       admitted_count_to_date: 0
-
+    PF_pv_timing:
+      family_attempt_count_to_date: 5
+      admitted_count_to_date: 1
+    PF_liquidity_persistence:
+      family_attempt_count_to_date: 2
+      admitted_count_to_date: 0
+    PF_liquidity_asymmetry:
+      family_attempt_count_to_date: 3
+      admitted_count_to_date: 1
+    PF_shadow_ratio:
+      family_attempt_count_to_date: 3
+      admitted_count_to_date: 0
   by_experiment_tag:
     ELT_L001_genesis_pv_corr_vol_v1:
       batches_seen: 1
@@ -68,72 +74,402 @@ search_ledger:
       admitted_count_to_date: 0
       reserve_count_to_date: 1
       latest_verdict: pause
-
-  discovery_candidates: []
-
-# ── 批次样本使用记录 ──
+    ELT_L001_decorrelate_pv_timing_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      latest_verdict: pause
+    ELT_L002_genesis_liq_persistence_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 1
+      latest_verdict: continue
+    ELT_L002_genesis_liq_asymmetry_v1:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L003_genesis_shadow_ratio_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      latest_verdict: kill
+    ELT_L001_decorrelate_pv_timing_v2:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L002_genesis_amount_cv_v2:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L002_genesis_liq_asymmetry_v2:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L003_decorrelate_candlestick_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      latest_verdict: continue
+    ELT_L001_decorrelate_pv_corr_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: continue
+    ELT_L002_genesis_amihud_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: continue
+    ELT_L002_genesis_volatility_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: continue
+    ELT_L003_decorrelate_volatility_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: continue
+  discovery_candidates:
+  - anomaly_type: repeated_style_dominance_cluster
+    first_seen_batch: batch_003
+    description: All 6 candidates in batch_003 have dominant_style_exposure in {str_1m,
+      turnover_20d, vol_20d}
+    likely_mechanism: All genesis and decorrelate routes converge on short-term reversal/volatility
+      style
+    style_repackaging_risk: high
+    explainable_by_existing_logic: partial
+    escalation_status: watch
+  - anomaly_type: idxmax_dimension_exhaustion
+    first_seen_batch: batch_004
+    description: "IdxMax of amount and turnover_rate both near-duplicates of IdxMax of volume (corr 0.92-0.99)"
+    likely_mechanism: "IdxMax captures attention exhaustion pattern which is similar across volume/amount/turnover due to price-volume correlation"
+    style_repackaging_risk: medium
+    explainable_by_existing_logic: full
+    escalation_status: resolved
+  - anomaly_type: systemic_style_dominance
+    first_seen_batch: batch_002
+    description: "All 18 candidates across 3 batches have risk_model_review_bucket=poor or borderline. No candidate achieved acceptable risk review. All admitted factors carry style_dominance_detected."
+    likely_mechanism: "L001/L002/L003 all converge on vol/turnover/str_1m style space"
+    style_repackaging_risk: high
+    explainable_by_existing_logic: full
+    escalation_status: escalated
+    recommended_action: "New Logic IDs targeting non-vol/non-reversal mechanisms (fundamental, event-driven, cross-sectional structure)"
 batch_usage:
   batches:
-    - batch_id: batch_002
-      train_range: ["2015-01-01", "2021-12-31"]
-      validation_range: ["2022-01-01", "2023-12-31"]
-      validation_window_id: val_2022_2023
-      holdout_used: false
-      logic_ids: [L001, L002, L003]
-      candidate_count: 6
-      phase: judged
-
-# ── Holdout 复审记录 ──
+  - batch_id: batch_002
+    train_range:
+    - '2015-01-01'
+    - '2021-12-31'
+    validation_range:
+    - '2022-01-01'
+    - '2023-12-31'
+    validation_window_id: val_2022_2023
+    holdout_used: false
+    logic_ids:
+    - L001
+    - L002
+    - L003
+    candidate_count: 6
+    phase: judged
+  - batch_id: batch_003
+    train_range:
+    - '2015-01-01'
+    - '2021-12-31'
+    validation_range:
+    - '2022-01-01'
+    - '2023-12-31'
+    holdout_range:
+    - '2024-01-01'
+    - '2025-12-31'
+    validation_window_id: val_2022_2023
+    holdout_used: true
+    logic_ids:
+    - L001
+    - L002
+    - L003
+    candidate_count: 6
+    phase: judged
+  - batch_id: batch_004
+    train_range:
+    - '2015-01-01'
+    - '2021-12-31'
+    validation_range:
+    - '2022-01-01'
+    - '2023-12-31'
+    holdout_range:
+    - '2024-01-01'
+    - '2025-12-31'
+    validation_window_id: val_2022_2023
+    holdout_used: true
+    logic_ids:
+    - L001
+    - L002
+    - L003
+    candidate_count: 6
+    phase: judged
+  - batch_id: batch_005
+    train_range:
+    - '2015-01-01'
+    - '2021-12-31'
+    validation_range:
+    - '2022-01-01'
+    - '2023-12-31'
+    validation_window_id: val_2022_2023
+    holdout_used: false
+    logic_ids:
+    - L001
+    - L002
+    - L003
+    candidate_count: 5
+    phase: judged
 holdout_reviews:
-  - review_id: HR001
-    batch_id: batch_002
-    target_id: C002_02
-    trigger_reason: low_alpha_survival
-    status: pending
-    outcome: null
-  - review_id: HR002
-    batch_id: batch_002
-    target_id: C002_06
-    trigger_reason: low_alpha_survival
-    status: pending
-    outcome: null
-
-# ── 写操作审计日志 ──
+- review_id: HR001
+  batch_id: batch_002
+  target_id: C002_02
+  trigger_reason: low_alpha_survival
+  status: superseded
+  outcome: null
+- review_id: HR002
+  batch_id: batch_002
+  target_id: C002_06
+  trigger_reason: low_alpha_survival
+  status: rejected
+  outcome: alpha_survival=5.2%, barra_residual_ic=-0.004, no independent alpha
+  resolved_at: '2026-04-06'
+- review_id: HR003
+  batch_id: batch_003
+  target_id: C003_01
+  trigger_reason: high_confidence_candidate
+  status: rejected
+  outcome: high redundancy (max_corr=1.0 vs R005), near-duplicate, barra_residual_ic=-0.0087
+  resolved_at: '2026-04-06'
+- review_id: HR004
+  batch_id: batch_003
+  target_id: C003_04
+  trigger_reason: high_confidence_candidate
+  status: admitted
+  outcome: strong validation (IC=-0.035, ls_t=-2.68), positive barra_residual_ic=+0.0157,
+    holdout confirms
+  resolved_at: '2026-04-06'
+- review_id: HR005
+  batch_id: batch_003
+  target_id: C003_05
+  trigger_reason: high_confidence_candidate
+  status: rejected
+  outcome: holdout_signal_vanished (IC=-0.0006, ICIR=-0.006), decay_ratio=0.025
+  resolved_at: '2026-04-06'
 write_audit_log:
   entries:
-    - timestamp: "2026-04-05T18:40:00"
-      actor: factor-judge
-      action: admit
-      target: C002_01
-      level: 1
-      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
-    - timestamp: "2026-04-05T18:40:00"
-      actor: factor-judge
-      action: reserve
-      target: C002_02
-      level: 1
-      reason_codes: [mechanism_aligned, low_alpha_survival]
-    - timestamp: "2026-04-05T18:40:00"
-      actor: factor-judge
-      action: admit
-      target: C002_03
-      level: 1
-      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
-    - timestamp: "2026-04-05T18:40:00"
-      actor: factor-judge
-      action: admit
-      target: C002_04
-      level: 1
-      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
-    - timestamp: "2026-04-05T18:40:00"
-      actor: factor-judge
-      action: admit
-      target: C002_05
-      level: 1
-      reason_codes: [mechanism_aligned, feasibility_ok, style_dominance_detected]
-    - timestamp: "2026-04-05T18:40:00"
-      actor: factor-judge
-      action: reserve
-      target: C002_06
-      level: 1
-      reason_codes: [style_dominance_detected, low_alpha_survival]
+  - timestamp: '2026-04-05T18:40:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R001
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+    - style_dominance_detected
+  - timestamp: '2026-04-05T18:40:00'
+    actor: judge
+    action: reserve
+    target: search_ledger
+    target_ref: C002_02
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - low_alpha_survival
+  - timestamp: '2026-04-05T18:40:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R002
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+    - style_dominance_detected
+  - timestamp: '2026-04-05T18:40:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R003
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+    - style_dominance_detected
+  - timestamp: '2026-04-05T18:40:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R004
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+    - style_dominance_detected
+  - timestamp: '2026-04-05T18:40:00'
+    actor: judge
+    action: reserve
+    target: search_ledger
+    target_ref: C002_06
+    status: accepted
+    reason_codes:
+    - style_dominance_detected
+    - low_alpha_survival
+  - timestamp: '2026-04-06T02:30:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R005
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+    - moderate_style_exposure
+  - timestamp: '2026-04-06T02:30:00'
+    actor: judge
+    action: reject
+    target: search_ledger
+    target_ref: C003_02
+    status: accepted
+    reason_codes:
+    - style_dominance_detected
+    - weak_validation_effect
+  - timestamp: '2026-04-06T02:30:00'
+    actor: judge
+    action: reserve
+    target: search_ledger
+    target_ref: C003_03
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - weak_validation_effect
+    - regime_instability
+  - timestamp: '2026-04-06T02:30:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R006
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+    - strong_validation_effect
+  - timestamp: '2026-04-06T02:30:00'
+    actor: judge
+    action: reject
+    target: search_ledger
+    target_ref: C003_05
+    status: accepted
+    reason_codes:
+    - holdout_signal_vanished
+    - regime_instability
+  - timestamp: '2026-04-06T02:30:00'
+    actor: judge
+    action: reject
+    target: search_ledger
+    target_ref: C003_06
+    status: accepted
+    reason_codes:
+    - weak_validation_effect
+  - timestamp: '2026-04-06T03:30:00'
+    actor: judge
+    action: reject
+    target: search_ledger
+    target_ref: C004_01
+    status: accepted
+    reason_codes:
+    - high_subspace_redundancy
+    - known_bad_pattern
+  - timestamp: '2026-04-06T03:30:00'
+    actor: judge
+    action: reject
+    target: search_ledger
+    target_ref: C004_02
+    status: accepted
+    reason_codes:
+    - high_subspace_redundancy
+    - known_bad_pattern
+  - timestamp: '2026-04-06T03:30:00'
+    actor: judge
+    action: reject
+    target: search_ledger
+    target_ref: C004_03
+    status: accepted
+    reason_codes:
+    - style_dominance_detected
+  - timestamp: '2026-04-06T03:30:00'
+    actor: judge
+    action: reject
+    target: search_ledger
+    target_ref: C004_04
+    status: accepted
+    reason_codes:
+    - weak_validation_effect
+  - timestamp: '2026-04-06T03:30:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R007
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+  - timestamp: '2026-04-06T03:30:00'
+    actor: judge
+    action: admit
+    target: factor_registry
+    target_ref: R008
+    status: accepted
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+  - timestamp: '2026-04-06T04:15:00'
+    actor: factor-judge
+    action: reject
+    target: C005_01
+    level: 1
+    reason_codes:
+    - style_dominance_detected
+    - moderate_style_exposure
+  - timestamp: '2026-04-06T04:15:00'
+    actor: factor-judge
+    action: reject
+    target: C005_02
+    level: 1
+    reason_codes:
+    - style_dominance_detected
+    - weak_validation_effect
+  - timestamp: '2026-04-06T04:15:00'
+    actor: factor-judge
+    action: reject
+    target: C005_03
+    level: 1
+    reason_codes:
+    - weak_validation_effect
+  - timestamp: '2026-04-06T04:15:00'
+    actor: factor-judge
+    action: reject
+    target: C005_04
+    level: 1
+    reason_codes:
+    - style_dominance_detected
+    - weak_validation_effect
+  - timestamp: '2026-04-06T04:15:00'
+    actor: factor-judge
+    action: reject
+    target: C005_05
+    level: 1
+    reason_codes:
+    - style_dominance_detected

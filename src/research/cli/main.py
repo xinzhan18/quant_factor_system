@@ -65,6 +65,7 @@ def main():
     p_state_set.add_argument("key", help="Key to set (e.g. current_batch)")
     p_state_set.add_argument("value", help="Value (e.g. batch_042, null, 3)")
     state_sub.add_parser("clear-batch", help="Clear batch fields after cycle")
+    state_sub.add_parser("sync-holdout", help="Sync ledger holdout_reviews → queue + state count")
 
     # capabilities
     _p_caps = sub.add_parser("capabilities", help="Available operators, fields, constraints")

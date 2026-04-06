@@ -26,6 +26,8 @@ def cmd_state(args):
         _cmd_set(args.key, args.value)
     elif action == "clear-batch":
         _cmd_clear_batch()
+    elif action == "sync-holdout":
+        _cmd_sync_holdout()
     else:
         _cmd_show()
 
@@ -80,6 +82,44 @@ def _cmd_clear_batch():
         patch["last_completed_batch"] = last
     _store.update_state(patch)
     print(f"Batch cleared. last_completed_batch = {last}")
+
+
+def _cmd_sync_holdout():
+    """Sync pending holdout reviews from ledger → queue + state count."""
+    import yaml
+    from research.governance.holdout_queue import HoldoutQueue
+
+    # Read ledger
+    ledger_path = StoragePaths().ledger_file
+    with open(ledger_path) as f:
+        ledger = yaml.safe_load(f) or {}
+
+    reviews = ledger.get("holdout_reviews", [])
+    pending = [r for r in reviews if r.get("status") == "pending"]
+
+    # Load existing queue, enqueue missing entries
+    queue_path = str(StoragePaths().pending_holdout_queue_file)
+    queue = HoldoutQueue.load_yaml(queue_path)
+    existing_ids = {e.candidate_id for e in queue.entries}
+
+    added = 0
+    for r in pending:
+        cid = r.get("target_id", "")
+        if cid and cid not in existing_ids:
+            queue.enqueue(
+                candidate_id=cid,
+                logic_id=r.get("logic_id", ""),
+                family_id=r.get("family_id", ""),
+                batch_id=r.get("batch_id", ""),
+            )
+            added += 1
+
+    queue.save_yaml(queue_path)
+
+    # Update state count
+    _store.update_state({"pending_holdout_count": len(queue.pending())})
+
+    print(f"Synced: {added} new entries enqueued, {len(queue.pending())} total pending")
 
 
 def _parse_value(value: str):
