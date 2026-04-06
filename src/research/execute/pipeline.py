@@ -137,6 +137,87 @@ class ResearchExecutePipeline:
 
         return result
 
+    # ----- analysis (thread-safe, no Qlib) ---------------------------------
+    def _analyze_candidate(
+        self,
+        candidate: Dict[str, Any],
+        precheck,
+        signal: Optional[Dict[str, Any]],
+        base: Optional[Dict[str, Any]],
+        search_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Run steps 4-10 for a single candidate. Thread-safe (no Qlib calls)."""
+        cid = candidate.get("candidate_id") or candidate.get("name", "unknown")
+
+        result: Dict[str, Any] = {
+            "candidate_id": cid,
+            "name": candidate.get("name", cid),
+            "expression": candidate.get("expression", ""),
+            "direction": candidate.get("direction"),
+            "logic_id": candidate.get("logic_id"),
+            "route_id": candidate.get("route_id"),
+            "experiment_lineage_tag": candidate.get("experiment_lineage_tag"),
+            "family_id": candidate.get("family_id"),
+            "route_type": candidate.get("route_type"),
+            "source_type": candidate.get("source_type", "dsl"),
+            "rationale": candidate.get("rationale"),
+            "probe_ic": candidate.get("probe_ic"),
+        }
+
+        result["precheck"] = precheck.to_dict()
+
+        if not precheck.passed:
+            result.update(self._empty_evaluation_sections())
+            gate = self._gate.evaluate(result)
+            result["execution_gate"] = gate.to_dict()
+            result["search_context"] = search_context or {}
+            result["holdout_review"] = {"recommended": False, "trigger_reason_codes": []}
+            result["support_window_review"] = {"support_window_warning": "none"}
+            return result
+
+        result["diagnostics"] = base.get("diagnostics", {}) if base else {}
+
+        # Step 4: Statistical evidence
+        evaluation = self._compute_stat_evidence(signal, self.sample_policy)
+        result["evaluation"] = evaluation
+
+        # Step 5: Redundancy
+        similarity = self._compute_redundancy(signal, candidate)
+        result["similarity"] = similarity
+
+        # Step 6: Risk model review
+        if self._risk_engine is not None:
+            eval_signal = signal.get("evaluation_ready_signal") if signal else None
+            factor_flat = signal.get("factor_flat") if signal else None
+            if eval_signal is not None:
+                risk_obj = self._risk_engine.compute_risk_review(
+                    eval_signal, self.sample_policy, self.profile,
+                    factor_flat=factor_flat,
+                )
+                result["risk_review"] = risk_obj.to_dict()
+            else:
+                from research.risk.schema import RiskReview
+                result["risk_review"] = RiskReview.stub().to_dict()
+        else:
+            from research.risk.schema import RiskReview
+            result["risk_review"] = RiskReview.stub().to_dict()
+
+        # Step 7: Feasibility
+        result["feasibility"] = self._compute_feasibility(signal)
+
+        # Step 8: Execution gate
+        gate = self._gate.evaluate(result)
+        result["execution_gate"] = gate.to_dict()
+
+        # Step 9: Support window review
+        result["support_window_review"] = _compute_support_window_review(evaluation)
+
+        # Step 10: Holdout review trigger
+        result["holdout_review"] = _should_recommend_holdout(evaluation, similarity, gate)
+
+        result["search_context"] = search_context or {}
+        return result
+
     # ----- batch -----------------------------------------------------------
     def execute_batch(
         self,
@@ -151,11 +232,29 @@ class ResearchExecutePipeline:
         if self._prepare_batch is not None:
             self._prepare_batch(self.sample_policy, self._risk_engine)
 
-        candidate_results: List[Dict[str, Any]] = []
+        # Phase A: compute signals sequentially (Qlib not thread-safe)
+        signals: List[Dict[str, Any]] = []
         for candidate in candidates:
-            result = self.execute_candidate(candidate)
-            result["search_context"] = search_context or {}
-            candidate_results.append(result)
+            cid = candidate.get("candidate_id") or candidate.get("name", "unknown")
+            precheck = run_precheck(candidate)
+            if not precheck.passed:
+                signals.append({"candidate": candidate, "precheck": precheck, "signal": None, "base": None})
+                continue
+            base = self._compute_signal(candidate, self.profile)
+            signal = self._preprocess_signal(base, self.profile)
+            signals.append({"candidate": candidate, "precheck": precheck, "signal": signal, "base": base})
+
+        # Phase B: analyze in parallel (pure numpy, no Qlib)
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _analyze(item: Dict[str, Any]) -> Dict[str, Any]:
+            return self._analyze_candidate(
+                item["candidate"], item["precheck"], item["signal"], item["base"],
+                search_context,
+            )
+
+        with ThreadPoolExecutor(max_workers=min(len(candidates), 4)) as pool:
+            candidate_results = list(pool.map(_analyze, signals))
 
         # Build judge packet
         packet = self._packet_builder.build(
@@ -236,6 +335,16 @@ def _should_recommend_holdout(
         trigger_codes.append("high_confidence_candidate")
     if mt_bucket == "high" and effect_strong:
         trigger_codes.append("high_mining_risk_but_strong_validation")
+
+    # If holdout was actually computed, add holdout-specific trigger codes
+    ic_ho = evaluation.get("ic_mean_holdout")
+    if ic_ho is not None:
+        icir_ho = abs(evaluation.get("ic_ir_holdout", 0) or 0)
+        ic_ho_abs = abs(ic_ho)
+        if ic_ho_abs >= 0.01 and icir_ho >= 0.10:
+            trigger_codes.append("holdout_confirms_signal")
+        elif ic_ho_abs < 0.005:
+            trigger_codes.append("holdout_signal_vanished")
 
     recommended = len(trigger_codes) > 0 and gate.status != "fail_technical"
     return {

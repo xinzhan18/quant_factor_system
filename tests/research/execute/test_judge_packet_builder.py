@@ -9,6 +9,7 @@ from research.execute.judge_packet_builder import (
     _stability_bucket,
     _redundancy_bucket,
     _feasibility_bucket,
+    _holdout_effect_bucket,
 )
 
 
@@ -54,7 +55,7 @@ class TestRedundancyBucket:
         assert _redundancy_bucket({"max_lib_corr": 0.90}) == "high"
 
     def test_high_due_to_family(self):
-        sim = {"max_lib_corr": 0.50, "family_redundancy_view": {"overlap_bucket": "high"}}
+        sim = {"max_lib_corr": 0.50, "family_redundancy_view": {"family_overlap_bucket": "high"}}
         assert _redundancy_bucket(sim) == "high"
 
     def test_medium(self):
@@ -82,6 +83,20 @@ class TestFeasibilityBucket:
 
     def test_acceptable_high_turnover(self):
         assert _feasibility_bucket({"rebalance_stress_proxy": "low", "liquidity_coverage_ratio": 0.80, "turnover": 2.0}) == "acceptable"
+
+
+class TestHoldoutEffectBucket:
+    def test_strong(self):
+        assert _holdout_effect_bucket({"ic_mean_holdout": 0.020, "ic_ir_holdout": 0.20, "monotonicity_holdout": 0.40}) == "strong"
+
+    def test_none_when_missing(self):
+        assert _holdout_effect_bucket({}) is None
+
+    def test_weak(self):
+        assert _holdout_effect_bucket({"ic_mean_holdout": 0.005, "ic_ir_holdout": 0.03, "monotonicity_holdout": 0.10}) == "weak"
+
+    def test_borderline(self):
+        assert _holdout_effect_bucket({"ic_mean_holdout": 0.010, "ic_ir_holdout": 0.10, "monotonicity_holdout": 0.20}) == "borderline"
 
 
 # ===================================================================
@@ -118,12 +133,47 @@ class TestBuildCandidateBrief:
         assert brief["feasibility_bucket"] == "good"
         assert brief["execution_gate_status"] == "pass"
         assert brief["holdout_review_recommended"] is False
+        assert brief["holdout_effect_bucket"] is None  # no holdout data in evaluation
         assert brief["support_window_warning"] == "none"
+
+    def test_brief_with_holdout_data(self):
+        result = {
+            "candidate_id": "C042_02",
+            "logic_id": "L021",
+            "route_id": "R021_02",
+            "route_type": "genesis",
+            "family_id": "FM_breakout",
+            "experiment_lineage_tag": "ELT_01",
+            "evaluation": {
+                "ic_mean_validation": 0.020,
+                "ic_ir_validation": 0.20,
+                "monotonicity_validation": 0.40,
+                "split_stability": "high",
+                "regime_stability": "high",
+                "expanding_window_pass": True,
+                "ic_mean_holdout": 0.018,
+                "ic_ir_holdout": 0.16,
+                "monotonicity_holdout": 0.35,
+                "validation_holdout_decay_ratio": 0.90,
+            },
+            "similarity": {"max_lib_corr": 0.30},
+            "feasibility": {"rebalance_stress_proxy": "low", "liquidity_coverage_ratio": 0.80, "turnover": 0.30},
+            "execution_gate": {"status": "pass"},
+            "holdout_review": {"recommended": True},
+            "support_window_review": {"support_window_warning": "none"},
+        }
+        brief = _build_candidate_brief(result)
+        assert brief["holdout_effect_bucket"] == "strong"
+        assert brief["holdout_ic_mean"] == 0.018
+        assert brief["holdout_ic_ir"] == 0.16
+        assert brief["holdout_monotonicity"] == 0.35
+        assert brief["holdout_decay_ratio"] == 0.90
 
     def test_minimal_result_no_crash(self):
         brief = _build_candidate_brief({})
         assert brief["candidate_id"] is None
         assert brief["validation_effect_bucket"] == "weak"
+        assert brief["holdout_effect_bucket"] is None
 
 
 # ===================================================================

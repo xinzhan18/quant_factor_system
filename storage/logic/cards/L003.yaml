@@ -29,6 +29,23 @@ discovery_budget:
   adjacent_discovery_route_quota: 0
 
 evidence_summary:
-  productive_families: []
-  failed_families: []
-  current_bottleneck: null
+  productive_families:
+    - family_id: PF_intraday_range
+      admitted: [R004, R007, R008]
+      notes: "atr_ratio_20 (batch_002), price_position_range + lower_shadow_ratio_20 (batch_004)"
+  failed_families:
+    - family_id: PF_shadow_ratio
+      notes: "upper_shadow_ratio_10 holdout_signal_vanished (IC=-0.0006, ST005). upper_shadow_vol_20 weak. Route killed."
+    - family_id: PF_range_liquidity_cross
+      notes: "range_x_turnover_vol alpha_surv=5.2%, essentially pure vol_20d style"
+  exhausted_routes:
+    - tag: ELT_L003_genesis_shadow_ratio_v1
+      verdict: kill
+      reason: "Both upper shadow candidates rejected. Extreme regime instability confirmed."
+    - tag: ELT_L003_crossover_range_turnover_v1
+      verdict: pause
+      reason: "alpha_survival too low (5.2%), pure style"
+  current_bottleneck: "Upper shadow direction dead (ST005). Lower shadow + price position productive. Explore body ratio, gap patterns, or other candlestick features."
+  batches_participated: [batch_002, batch_003, batch_004]
+  total_attempts: 7
+  total_admits: 3

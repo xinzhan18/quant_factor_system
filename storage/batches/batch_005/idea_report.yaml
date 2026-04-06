@@ -1,0 +1,39 @@
+batch_id: batch_005
+idea_generated_at: "2026-04-06T03:45:00"
+
+routes:
+  - route_id: R1
+    logic_id: L001
+    experiment_lineage_tag: ELT_L001_decorrelate_pv_corr_v1
+    family_id: PF_pv_correlation
+    route_type: decorrelate
+    research_question: "Pure correlation without volume-weighting + price/MA — do these decorrelate from existing R001/R005?"
+    candidates: [C005_01, C005_02]
+
+  - route_id: R2
+    logic_id: L002
+    experiment_lineage_tag: ELT_L002_genesis_amihud_v1
+    family_id: PF_liquidity_asymmetry
+    route_type: genesis
+    research_question: "Amihud-style illiquidity + price CV — novel liquidity/volatility mechanisms?"
+    candidates: [C005_03, C005_04]
+
+  - route_id: R3
+    logic_id: L003
+    experiment_lineage_tag: ELT_L003_decorrelate_volatility_v1
+    family_id: PF_intraday_range
+    route_type: decorrelate
+    research_question: "Normalized ATR via price MA normalizer — decorrelated from R004 ATR?"
+    candidates: [C005_05]
+
+probe_summary:
+  C005_01 Corr($close,$volume,20): IC=-0.045, ICIR=-0.436 (strong)
+  C005_02 Div($close,Mean($close,20)): IC=-0.044, ICIR=-0.313 (strong)
+  C005_03 Div(Sub($close,$open),$volume): IC=-0.021, ICIR=-0.184 (moderate)
+  C005_04 Div(Std($close,20),Mean($close,20)): IC=-0.049, ICIR=-0.341 (strong)
+  C005_05 Div(Sub($high,$low),Mean($close,20)): IC=-0.068, ICIR=-0.498 (exceptional)
+
+freezing_summary:
+  total_probed: 6
+  passed: 5
+  frozen: 5

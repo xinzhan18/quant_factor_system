@@ -82,7 +82,12 @@ def _make_pipeline(**overrides):
         "compute_signal": lambda c, p: {"base_signal": pd.DataFrame({"f": [1.0]}), "diagnostics": {}},
         "preprocess_signal": lambda b, p: _make_signal_result(),
         "compute_stat_evidence": _make_stat_evidence(),
-        "compute_redundancy": lambda s, c: {"max_lib_corr": 0.1, "nearest_factor_id": None},
+        "compute_redundancy": lambda s, c: {
+            "max_lib_corr": 0.1, "nearest_factor_id": None, "is_near_duplicate": False,
+            "family_overlap_score": 0.0, "subspace_redundancy_score": 0.0,
+            "residual_incremental_ic": 0.0, "replacement_candidate_hint": False,
+            "family_redundancy_view": {}, "subspace_redundancy_view": {},
+        },
         "compute_feasibility": lambda s: {"turnover": 0.2, "coverage": 0.9, "half_life": 5.0,
                                            "holding_period_proxy": "medium",
                                            "liquidity_coverage_ratio": 0.9,
@@ -103,8 +108,9 @@ class TestExecuteCandidate:
         pipeline = _make_pipeline()
         result = pipeline.execute_candidate(_dsl_candidate())
         expected_keys = {
-            "candidate_id", "logic_id", "route_id", "experiment_lineage_tag",
-            "family_id", "route_type", "source_type", "sample_policy",
+            "candidate_id", "name", "expression", "direction",
+            "logic_id", "route_id", "experiment_lineage_tag",
+            "family_id", "route_type", "source_type",
             "precheck", "diagnostics", "evaluation", "similarity",
             "risk_review", "feasibility", "execution_gate",
             "support_window_review", "holdout_review",
@@ -222,3 +228,25 @@ class TestHoldoutReview:
         gate = GateResult(status="fail_technical", reason_codes=["bad"])
         result = _should_recommend_holdout(evaluation, similarity, gate)
         assert result["recommended"] is False
+
+    def test_holdout_confirms_signal(self):
+        evaluation = {
+            "ic_mean_validation": 0.02, "ic_ir_validation": 0.2,
+            "multiple_testing_risk_bucket": "low",
+            "ic_mean_holdout": 0.015, "ic_ir_holdout": 0.12,
+        }
+        similarity = {"max_lib_corr": 0.1}
+        gate = GateResult(status="pass", reason_codes=[])
+        result = _should_recommend_holdout(evaluation, similarity, gate)
+        assert "holdout_confirms_signal" in result["trigger_reason_codes"]
+
+    def test_holdout_signal_vanished(self):
+        evaluation = {
+            "ic_mean_validation": 0.02, "ic_ir_validation": 0.2,
+            "multiple_testing_risk_bucket": "low",
+            "ic_mean_holdout": 0.003, "ic_ir_holdout": 0.02,
+        }
+        similarity = {"max_lib_corr": 0.1}
+        gate = GateResult(status="pass", reason_codes=[])
+        result = _should_recommend_holdout(evaluation, similarity, gate)
+        assert "holdout_signal_vanished" in result["trigger_reason_codes"]

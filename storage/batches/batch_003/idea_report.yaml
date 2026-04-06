@@ -1,0 +1,55 @@
+batch_id: batch_003
+idea_date: "2026-04-06"
+strategy: "decorrelate + genesis — 降低 batch_002 的高风格暴露问题"
+
+route_design:
+  - route_id: R1
+    logic_id: L001
+    route_type: decorrelate
+    family_id: PF_pv_timing
+    experiment_lineage_tag: ELT_L001_decorrelate_pv_timing_v1
+    research_question: "量价背离的时序/排名形式能否降低 vol_20d 风格暴露？"
+    rationale: >
+      batch_002 的 R001(pv_corr_times_vol) alpha_survival=23%，dominant=turnover_20d。
+      本轮尝试两种去风格策略：(1) IdxMax 捕捉时序位置而非幅度，
+      (2) CsRank 去量级后的相关性。两者预期与 vol_20d 正交。
+    candidates_count: 2
+
+  - route_id: R2
+    logic_id: L002
+    route_type: genesis
+    family_ids: [PF_liquidity_persistence, PF_liquidity_asymmetry]
+    experiment_lineage_tag: ELT_L002_genesis_liq_persistence_v1
+    research_question: "流动性持续性和不对称性（而非波动幅度）有独立预测力吗？"
+    rationale: >
+      batch_002 的流动性因子(R002, R003)聚焦波动幅度(Std, CV)，与 vol_20d 高度相关。
+      本轮探索时序结构(autocorrelation=持续性)和方向不对称(上涨日/下跌日换手率占比)，
+      预期捕捉机构交易模式和市场微观结构，而非简单波动。
+    candidates_count: 2
+
+  - route_id: R3
+    logic_id: L003
+    route_type: genesis
+    family_id: PF_shadow_ratio
+    experiment_lineage_tag: ELT_L003_genesis_shadow_ratio_v1
+    research_question: "K线影线结构在截面上有预测力吗？"
+    rationale: >
+      batch_002 的 atr_ratio(R004) 用 (H-L)/C 衡量日内振幅，本质是波动率度量。
+      本轮细化为上影线比例（日内高点到收盘/开盘高者的距离），
+      捕捉更具体的 K 线形态信息（上方抛压）而非泛化波动。
+    candidates_count: 2
+
+probe_summary:
+  total_probed: 9
+  pass: 7
+  reserve: 1
+  fail: 1
+  dropped:
+    - "Amihud illiquidity (IC=0.008, RESERVE, too weak)"
+    - "Body ratio 10d (IC=-0.003, FAIL, no signal)"
+    - "TsAutoCorr($amount, 10) (redundant with turnover version)"
+
+budget_usage:
+  L001: 2 new (4 total / 6 quota)
+  L002: 2 new (4 total / 6 quota)
+  L003: 2 new (4 total / 4 quota — L003 exhausted after this batch)

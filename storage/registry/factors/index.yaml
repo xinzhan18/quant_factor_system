@@ -1,1 +1,43 @@
-factors: []
+factors:
+- factor_id: R001
+  name: pv_corr_times_vol_20
+  expression: Mul(Corr($close, $volume, 20), Std($volume, 20))
+  status: active
+  admitted_batch: batch_002
+- factor_id: R002
+  name: amount_cv_10_60
+  expression: Div(Std($amount, 10), Mean($amount, 60))
+  status: active
+  admitted_batch: batch_002
+- factor_id: R003
+  name: turnover_vol_10
+  expression: Std($turnover_rate, 10)
+  status: active
+  admitted_batch: batch_002
+- factor_id: R004
+  name: atr_ratio_20
+  expression: Mean(Div(Sub($high, $low), $close), 20)
+  status: active
+  admitted_batch: batch_002
+- factor_id: R005
+  name: vol_peak_timing_20
+  expression: IdxMax($volume, 20)
+  status: active
+  admitted_batch: batch_003
+- factor_id: R006
+  name: upday_turnover_ratio_20
+  expression: Div(Sum(Mul($turnover_rate, If(Gt(Sub($close, Ref($close,1)), 0), 1,
+    0)), 20), Sum($turnover_rate, 20))
+  status: active
+  admitted_batch: batch_003
+- factor_id: R007
+  name: price_position_range
+  expression: Div(Sub($close,$low),Sub($high,$low))
+  status: active
+  admitted_batch: ''
+- factor_id: R008
+  name: lower_shadow_ratio_20
+  expression: Mean(Div(Sub($low, If(Lt($open,$close),$open,$close)), Sub($high, $low)),
+    20)
+  status: active
+  admitted_batch: batch_004

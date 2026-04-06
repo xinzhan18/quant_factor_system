@@ -11,7 +11,7 @@ and ``docs/refacor_logic/research_judge.md`` section 2.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def _redundancy_bucket(similarity: Dict[str, Any]) -> str:
     """Classify redundancy into low / medium / high."""
     max_corr = abs(similarity.get("max_lib_corr", 0) or 0)
     family_bucket = similarity.get("family_redundancy_view", {}).get(
-        "overlap_bucket", "low"
+        "family_overlap_bucket", "low"
     )
 
     if max_corr >= 0.85 or family_bucket == "high":
@@ -77,6 +77,21 @@ def _feasibility_bucket(feasibility: Dict[str, Any]) -> str:
     if turnover is not None and turnover > 1.5:
         return "acceptable"
     return "good"
+
+
+def _holdout_effect_bucket(evaluation: Dict[str, Any]) -> Optional[str]:
+    """Classify holdout effect. Returns None if holdout not computed."""
+    ic = evaluation.get("ic_mean_holdout")
+    if ic is None:
+        return None
+    ic = abs(ic)
+    ic_ir = abs(evaluation.get("ic_ir_holdout", 0) or 0)
+    mono = abs(evaluation.get("monotonicity_holdout", 0) or 0)
+    if ic >= 0.015 and ic_ir >= 0.15 and mono >= 0.30:
+        return "strong"
+    if ic < 0.008 or ic_ir < 0.05:
+        return "weak"
+    return "borderline"
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +127,11 @@ def _build_candidate_brief(result: Dict[str, Any]) -> Dict[str, Any]:
             "support_window_warning", "none"
         ),
         "holdout_review_recommended": holdout.get("recommended", False),
+        "holdout_effect_bucket": _holdout_effect_bucket(evaluation),
+        "holdout_ic_mean": evaluation.get("ic_mean_holdout"),
+        "holdout_ic_ir": evaluation.get("ic_ir_holdout"),
+        "holdout_monotonicity": evaluation.get("monotonicity_holdout"),
+        "holdout_decay_ratio": evaluation.get("validation_holdout_decay_ratio"),
     }
 
 
@@ -167,15 +187,16 @@ class JudgePacketBuilder:
         else:
             agg_warning = "none"
 
-        packet: Dict[str, Any] = {
-            "batch_id": batch_id,
-            "sample_policy_version": sample_policy_version,
-            "evaluation_profile_id": evaluation_profile_id,
-            "active_logic_ids": active_logic_ids,
-            "candidate_briefs": briefs,
-            "search_context": search_context or {},
-            "support_window_review": {
-                "support_window_warning": agg_warning,
-            },
+        return {
+            "judge_packet": {
+                "batch_id": batch_id,
+                "sample_policy_version": sample_policy_version,
+                "evaluation_profile_id": evaluation_profile_id,
+                "active_logic_ids": active_logic_ids,
+                "candidate_briefs": briefs,
+                "search_context": search_context or {},
+                "support_window_review": {
+                    "support_window_warning": agg_warning,
+                },
+            }
         }
-        return packet

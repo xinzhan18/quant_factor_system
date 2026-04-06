@@ -7,7 +7,6 @@ Public API:
     UniverseManager   — Stock universe resolution (default: CSI 1000)
     Preprocessor      — Vectorized cross-sectional winsorize / zscore / neutralize
     register_custom_operators — Register custom Qlib operators
-    run_factor_in_sandbox     — Execute Python factor code in an isolated subprocess
 """
 
 from research.compute.universe import UniverseManager
@@ -16,7 +15,6 @@ from research.compute.data_provider import DataProvider
 from research.compute.factor_engine import FactorEngine
 from research.compute.preprocess import Preprocessor
 from research.compute.operators import register_custom_operators
-from research.compute.sandbox import run_factor_in_sandbox, SandboxError
 
 __all__ = [
     "UniverseManager",
@@ -25,6 +23,4 @@ __all__ = [
     "FactorEngine",
     "Preprocessor",
     "register_custom_operators",
-    "run_factor_in_sandbox",
-    "SandboxError",
 ]

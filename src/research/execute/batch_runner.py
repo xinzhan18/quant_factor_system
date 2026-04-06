@@ -59,7 +59,11 @@ class BatchRunner:
         if not any_explicit and use_real_compute:
             from research.compute.data_provider import DataProvider
             from research.compute.universe import UniverseManager
+            from research.compute.cache import FactorValueCache
             from research.execute.compute_implementations import build_real_callables
+
+            # Cleanup stale cache entries before starting
+            FactorValueCache().cleanup(keep_batches=2)
 
             provider = DataProvider(
                 universe=UniverseManager(universe),

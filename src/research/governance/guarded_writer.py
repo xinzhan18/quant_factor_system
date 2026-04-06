@@ -19,6 +19,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from research.governance._yaml_io import atomic_yaml_write
 from research.governance.audit import WriteAuditLog
 from research.governance.permissions import (
@@ -219,6 +223,14 @@ class GuardedWriter:
             return self._write_factor_registry(request)
         return self._write_generic(target, request)
 
+    # Required fields for a complete admission payload
+    _ADMISSION_REQUIRED_FIELDS = [
+        "name", "expression", "direction", "batch_id", "logic_id",
+        "route_id", "family_id", "ic_mean_train", "ic_mean_validation",
+        "ic_ir_validation", "monotonicity_validation", "alpha_survival_ratio",
+        "max_lib_corr",
+    ]
+
     def _write_factor_registry(self, request: WriteRequest) -> List[str]:
         """Write to the factor registry via RegistryStore."""
         from research.storage.paths import StoragePaths
@@ -233,6 +245,13 @@ class GuardedWriter:
         written: List[str] = []
 
         if action == "admit":
+            missing = [f for f in self._ADMISSION_REQUIRED_FIELDS if f not in payload]
+            if missing:
+                logger.warning(
+                    "Admission payload for %s is missing fields: %s. "
+                    "Detail YAML will be incomplete.",
+                    factor_id, missing,
+                )
             # Upsert into index
             index_entry = {
                 "factor_id": factor_id,
@@ -244,12 +263,22 @@ class GuardedWriter:
             store.upsert_factor_entry(factor_id, index_entry)
             written.append(str(paths.factor_index_file))
 
-            # Save detail file
+            # Auto-assign family (sets payload["family_id"])
+            self._assign_family(factor_id, payload)
+
+            # Save detail file (includes family_id)
             store.save_factor_detail(factor_id, payload)
             written.append(str(paths.factor_detail_file(factor_id)))
 
-            # Persist to DB: factor_meta + factor_values
-            self._persist_factor_to_db(factor_id, payload)
+            # Persist to DB in background thread (non-blocking)
+            import threading
+            t = threading.Thread(
+                target=self._persist_factor_to_db,
+                args=(factor_id, dict(payload)),
+                daemon=True,
+            )
+            t.start()
+            logger.info("DB persistence for %s started in background", factor_id)
 
         elif action == "retire":
             index = store.load_factor_index()
@@ -299,6 +328,40 @@ class GuardedWriter:
     # ------------------------------------------------------------------
     # DB persistence (best-effort, non-blocking)
     # ------------------------------------------------------------------
+
+    def _assign_family(self, factor_id: str, payload: Dict[str, Any]) -> None:
+        """Ensure the factor's family exists in the registry.
+
+        Family is specified by LLM at /idea or /judge time via payload["family_id"].
+        If the family doesn't exist yet, create it as provisional.
+        """
+        family_id = payload.get("family_id", "")
+        if not family_id:
+            return
+
+        try:
+            from research.logic.family_registry import FamilyRegistry
+
+            registry = FamilyRegistry(self._base_dir)
+
+            if registry.get(family_id) is None:
+                registry.create(
+                    name=family_id,
+                    status="provisional",
+                    family_id=family_id,
+                )
+
+            registry.add_factor(family_id, factor_id)
+
+            logic_id = payload.get("logic_id", "")
+            if logic_id:
+                try:
+                    registry.add_logic(family_id, logic_id)
+                except KeyError:
+                    pass
+
+        except Exception as exc:
+            logger.warning("Family assignment failed for %s: %s", factor_id, exc)
 
     @staticmethod
     def _persist_factor_to_db(factor_id: str, payload: Dict[str, Any]) -> None:

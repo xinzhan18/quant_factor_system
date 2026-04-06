@@ -64,12 +64,36 @@ PYTHONPATH=src python3 -m research execute storage/batches/batch_XXX/manifest.ya
 - 路线 verdict: continue / pause / kill / promote_family
 - 所有写入通过 guarded_writer
 
-### Phase 4：/factor-report（仅在有 admit 时）
+### Phase 3.5：治理同步检查（Governance Sync Verification）
 
-如果 `admitted_count > 0`，调用 `/factor-report`：
-```bash
-PYTHONPATH=src python3 -m report.builder --factor-id XXX --vault
+**Phase 3 (/judge) 完成后、Phase 4 (/report) 开始前**，验证治理闭环是否完整。
+
+检查清单：
+1. **Admission 写入完整**：每个 admitted factor 的 detail YAML 至少包含 15 个字段（factor_id, name, expression, direction, batch_id, logic_id, route_id, family_id, ic_mean_train, ic_mean_validation, ic_ir_validation, monotonicity_validation, ls_tstat, alpha_survival_ratio, max_lib_corr）。如不完整，从 research_result.yaml 补全。
+2. **research_state.yaml** 中 `pending_admission_count = 0`。如有残留，说明 GuardedWriter 写入中断，需手动补完。
+3. **Logic Card evidence_summary** 已更新（不为空）。
+4. **Logic status** 与 judge_report 中 `logic_recommendations` 一致。
+5. **Schedule snapshot** 的 `generated` 日期 = 今天。
+6. **Family registry** 的 admitted_count 与 factor index 一致。
+7. **Forbidden patterns** 涵盖所有 judge_report 中 killed 的 route 对应的失败模式。
+8. **Discovery candidates** 中包含本轮 judge_report 的 discovery_flags。
+
+如果任何检查失败，**先修复再进入 Phase 4**。这些不应手动补——judge skill 的 Step 7a 应该已经完成。如果遗漏了，说明 Step 7a 执行不完整，需要补做。
+
+### Phase 4：/factor-report（仅在有 admit 时，后台并行）
+
+如果 `admitted_count > 0`，为每个 admitted 因子启动**后台 subagent**：
+
 ```
+对每个 admitted factor_id:
+  Agent(run_in_background=true, description="Report F{id}"):
+    "为因子 F{id}（batch_{batch_id}）生成报告。
+     执行: PYTHONPATH=src python3 -m report.builder --factor-id {id} --vault
+     然后读取 report_data.json 生成 Obsidian Markdown。"
+```
+
+**不要串行等待**——report 每个要 5-8 分钟，后台并行不阻塞主流程。
+完成通知会自动返回。
 
 ## 快速回路
 
@@ -91,7 +115,8 @@ PYTHONPATH=src python3 -m report.builder --factor-id XXX --vault
 | Phase 0 (调度) | search_ledger（预算消耗）, holdout_reviews（pending 检查） | — |
 | Phase 1 (/idea) | search_ledger（避免重复 ELT/family） | batch_usage（新建 frozen 条目） |
 | Phase 2 (/execute) | — | batch_usage（phase → executed） |
-| Phase 3 (/judge) | 全部 4 sections | search_ledger（累计计数）, batch_usage（phase → judged）, holdout_reviews（如触发）, write_audit_log（审计 receipt） |
+| Phase 3 (/judge) | 全部 4 sections | search_ledger（累计计数）, batch_usage（phase → judged）, holdout_reviews（如触发）, write_audit_log（审计 receipt）, **logic cards**（evidence_summary）, **logic registry**（status 变更）, **schedule snapshot**, **forbidden_patterns**, **family_registry**, **discovery_candidates** |
+| Phase 3.5 (验证) | 全部治理对象 | 仅补漏（正常情况无写入） |
 | Phase 4 (/report) | — | — |
 
 ## 关键约束

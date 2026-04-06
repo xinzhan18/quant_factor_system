@@ -119,7 +119,9 @@ class FamilyRegistry:
         """Return sorted list of family IDs from files."""
         ids: List[str] = []
         for p in self._families_dir.iterdir():
-            if p.suffix == ".yaml" and p.name != "families_index.yaml":
+            if p.suffix == ".yaml" and p.name not in (
+                "families_index.yaml", "family_registry.yaml",
+            ):
                 ids.append(p.stem)
         return sorted(ids)
 

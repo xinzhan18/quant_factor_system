@@ -14,6 +14,35 @@ user_invocable: true
 
 ## 子命令
 
+### `/logic sync`
+
+**Post-judge 治理同步**。在 `/factor-judge` 完成后调用，消费 judge_report 中的 recommendations 并回写到 logic 对象。
+
+> 注意：正常流程中，judge 的 Step 7a 已经完成了这些回写。`/logic sync` 是备用入口，用于：
+> (1) 验证 Step 7a 是否完整执行
+> (2) 补做遗漏的回写
+> (3) 跨会话修复历史遗留的不一致
+
+**流程**：
+1. 读取最新 judge_report（`storage/batches/{last_completed_batch}/judge_report.yaml`）
+2. 对比 judge_report 的 `logic_recommendations` 与 `storage/logic/cards/*.yaml` 的当前 status
+3. 对比 judge_report 的 `new_lessons` 与 `storage/governance/research_lessons.md`
+4. 对比 judge_report 的 `discovery_flags` 与 `storage/governance/ledger.yaml` 的 discovery_candidates
+5. 报告差异，如有遗漏则补写
+
+**读取**：
+```
+storage/batches/{batch}/judge_report.yaml
+storage/logic/cards/*.yaml
+storage/logic/registry.yaml
+storage/logic/snapshots/latest_schedule_snapshot.yaml
+storage/governance/research_lessons.md
+storage/governance/research_config.yaml
+storage/governance/ledger.yaml
+storage/registry/families/family_registry.yaml
+storage/state/research_state.yaml
+```
+
 ### `/logic list`
 
 ```bash

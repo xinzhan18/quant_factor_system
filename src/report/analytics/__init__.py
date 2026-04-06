@@ -4,6 +4,7 @@ from .conditional import ConditionalAnalyzer
 from .decay import DecayAnalyzer
 from .uniqueness import UniquenessAnalyzer
 from .risk import RiskAttributionAnalyzer
+from . import execute_evidence_charts
 
 __all__ = [
     "ICAnalyzer",
@@ -12,4 +13,5 @@ __all__ = [
     "DecayAnalyzer",
     "UniquenessAnalyzer",
     "RiskAttributionAnalyzer",
+    "execute_evidence_charts",
 ]

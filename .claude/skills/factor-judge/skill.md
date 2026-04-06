@@ -99,6 +99,42 @@ active / warm / productive / saturated / parked / dead
 - forbidden.yaml 升级
 - logic lifecycle 最终状态
 
+#### Admission Payload 完整性要求
+
+**关键**：GuardedWriter 会将 payload 原样写入 factor detail YAML。admission 的 payload **必须**包含以下全部字段（从 research_result.yaml 提取）：
+
+```yaml
+# 必填字段 — 缺任何一项都是不完整的写入
+factor_id: R00X                          # 分配新 ID
+candidate_id: C004_05                    # 溯源
+name: <name>
+expression: <expression>
+direction: <short|long>
+batch_id: batch_XXX
+logic_id: LXXX
+route_id: RX
+route_type: <genesis|mutate|decorrelate|crossover>
+family_id: <PF_*|FM_*>
+experiment_lineage_tag: <ELT_*>
+rationale: <from manifest>
+# 统计指标 — 从 research_result.yaml 的 evaluation section 提取
+ic_mean_train: <float>
+ic_mean_validation: <float>
+ic_ir_train: <float>
+ic_ir_validation: <float>
+monotonicity_validation: <float>
+ls_tstat: <float>                        # long_short_stats.ls_tstat
+alpha_survival_ratio: <float>            # risk_review.alpha_survival_ratio
+barra_residual_ic: <float>              # risk_review.barra_residual_ic
+max_lib_corr: <float>                   # similarity.max_lib_corr
+# holdout 指标（如果 holdout_computed=true）
+holdout_ic_mean: <float|null>
+holdout_ic_ir: <float|null>
+holdout_decay_ratio: <float|null>
+```
+
+**禁止**只传 name + expression + batch_id。如果 research_result 中缺少某字段，写 `null`，不要省略。
+
 ### Step 6a：Ledger 更新（`storage/governance/ledger.yaml`）
 
 裁决完成后，**必须**更新以下 sections：
@@ -153,12 +189,85 @@ storage/batches/batch_XXX/judge_report.yaml
 
 **裁决完成后必须关闭 state 周期**：
 ```bash
-# 如果有 holdout review 触发，先更新计数
-PYTHONPATH=src python3 -m research state set pending_holdout_count N
+# 同步 holdout reviews 到 queue（从 ledger 读取 pending → 写入 queue + 更新 state 计数）
+PYTHONPATH=src python3 -m research state sync-holdout
 
 # 关闭当前 batch（自动记录 last_completed_batch）
 PYTHONPATH=src python3 -m research state clear-batch
 ```
+
+### Step 7a：治理反馈回写（Governance Feedback Sync）
+
+**这是闭环的关键步骤**。judge_report 中的 recommendations 必须立即回写到上游对象，不能留待下一轮手动处理。
+
+#### 7a-1：Logic Card evidence_summary 回写
+
+对每个涉及的 logic_id，更新 `storage/logic/cards/LXXX.yaml` 的 `evidence_summary`：
+
+```yaml
+evidence_summary:
+  productive_families:
+    - family_id: PF_xxx
+      admitted: [R001, R002]
+      notes: "简要说明"
+  failed_families:
+    - family_id: PF_yyy
+      notes: "失败原因 + 对应 ST/FP 编号"
+  exhausted_routes:
+    - tag: ELT_xxx
+      verdict: kill/pause
+      reason: "一句话"
+  current_bottleneck: "当前阻塞点描述"
+  batches_participated: [batch_002, batch_003, ...]
+  total_attempts: N
+  total_admits: M
+```
+
+#### 7a-2：Logic Status 变更
+
+根据 judge_report 的 `logic_recommendations`，**直接执行**状态变更：
+- 更新 `storage/logic/cards/LXXX.yaml` 的 `status` 和 `priority` 字段
+- 更新 `storage/logic/registry.yaml` 保持一致
+- 更新 `storage/state/research_state.yaml` 的 `active_logic_ids`（仅包含 status=active 的 logic）
+
+**例外**：如果 recommendation 是 dead 或 productive，仍仅标记为推荐——这些需要跨 batch 重复证据。冷启动期（<5 batch）不执行 dead/productive 变更。
+
+#### 7a-3：Schedule Snapshot 更新
+
+更新 `storage/logic/snapshots/latest_schedule_snapshot.yaml`：
+- 反映最新的 active_pool / warm_pool / parked_pool
+- 更新每个 logic 的 `saturation`（= attempts / quota_estimate）
+- 更新 `admits_to_date` 和 `attempts_to_date`
+- 在 `notes` 中写明当前瓶颈和下一步方向
+
+#### 7a-4：Forbidden Patterns 编码
+
+如果 judge_report 的 `new_lessons` 中包含确认的失败模式（ST* confirmed、route killed），**立即**编码到 `storage/governance/research_config.yaml` 的 `forbidden_patterns`：
+
+```yaml
+forbidden_patterns:
+  - id: FP00X
+    pattern: "regex"               # 用于 precheck 自动拦截
+    description: "失败原因简述"
+    status: active
+    added_batch: batch_XXX
+```
+
+同时更新 `storage/governance/research_lessons.md` 的 Forbidden Patterns section。
+
+#### 7a-5：Family Registry 同步
+
+更新 `storage/registry/families/family_registry.yaml`：
+- 递增 attempt_count / admitted_count
+- 更新 admitted_factors 列表
+- 对 killed route 对应的 family 标记 status=dead
+- 对 saturated family 标记 status=saturated
+
+#### 7a-6：Discovery Candidates 同步
+
+将 judge_report 中的 `discovery_flags` 写入 `storage/governance/ledger.yaml` 的 `search_ledger.discovery_candidates`：
+- 新异常：追加 status=watch
+- 已存在异常重复出现：更新 status=escalated
 
 ### Step 8：异常发现检查（Discovery）
 
@@ -211,5 +320,6 @@ PYTHONPATH=src python3 -m research state clear-batch
 
 - judge 基于 **validation** 证据裁决，不做新实验
 - Score/bucket 不能单独触发 admit/reject，只能辅助排序
-- judge 不直接修改 forbidden / final logic status
-- 冷启动期（<5 batch 或 <10 因子）：不输出 promote_family / productive / saturated
+- judge **必须执行** Step 7a 治理回写（logic card、schedule、forbidden patterns、family registry、discovery candidates）
+- 冷启动期（<5 batch 或 <10 因子）：不输出 promote_family / productive / saturated / dead
+- Logic status 变更（active↔warm↔parked）由 judge 直接执行；仅 dead/productive 需要跨 batch 重复证据

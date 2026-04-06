@@ -47,11 +47,14 @@ storage/registry/factors/index.yaml
 - `research_question`: 本组实验回答什么问题
 - `family_id`: 已注册(FM_*) / 临时(PF_*) / 未知(FM_unknown)
 
-### Step 3：Probe 过滤（train-only）
+### Step 3：Probe 过滤（train-only，并行）
 
-对每条 route 的核心 probe form 运行：
+对每条 route 的核心 probe form 运行。**多个 probe 应在同一条消息中并行发出**（每个是独立进程，互不干扰）：
 ```bash
-PYTHONPATH=src python3 -m research probe "expression"
+# 在一条消息里同时发出所有 Bash 调用
+PYTHONPATH=src python3 -m research probe "expression_1"
+PYTHONPATH=src python3 -m research probe "expression_2"
+PYTHONPATH=src python3 -m research probe "expression_3"
 ```
 
 Probe verdict：

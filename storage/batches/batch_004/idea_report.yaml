@@ -1,0 +1,46 @@
+batch_id: batch_004
+idea_generated_at: "2026-04-06T02:45:00"
+
+routes:
+  - route_id: R1
+    logic_id: L001
+    experiment_lineage_tag: ELT_L001_decorrelate_pv_timing_v2
+    family_id: PF_pv_timing
+    route_type: decorrelate
+    research_question: "IdxMax 时序位置编码在 amount/turnover 维度是否仍有 decorrelation 优势？"
+    candidates: [C004_01, C004_02]
+    probe_summary: >
+      IdxMax($amount, 20): IC=-0.027, ICIR=-0.336 (PASS)
+      IdxMax($turnover_rate, 20): IC=-0.024, ICIR=-0.319 (PASS)
+      Both decorrelate from R005 (IdxMax($volume)) via different quantity dimensions.
+
+  - route_id: R2
+    logic_id: L002
+    experiment_lineage_tag: ELT_L002_genesis_amount_cv_v2
+    family_id: PF_amount_concentration
+    route_type: mutate
+    research_question: "Amount 变异系数的超长窗口（20/60）和 amount×换手率相关性是否捕获独立信号？"
+    candidates: [C004_03, C004_04]
+    probe_summary: >
+      amount_cv_20_60: IC=-0.053, ICIR=-0.513 (PASS, exceptional!)
+      amount_turnover_corr_20: IC=+0.009, ICIR=+0.069 (RESERVE, near-zero signal)
+
+  - route_id: R3
+    logic_id: L003
+    experiment_lineage_tag: ELT_L003_decorrelate_candlestick_v1
+    family_id: PF_intraday_range
+    route_type: decorrelate
+    research_question: "收盘位置（下影线/价格位置）是否有独立于 upper_shadow 的预测能力？"
+    candidates: [C004_05, C004_06]
+    probe_summary: >
+      price_position_range: IC=-0.018, ICIR=-0.168 (PASS)
+      lower_shadow_ratio_20: IC=-0.021, ICIR=-0.223 (PASS)
+      Lower shadow different from upper shadow: avoids ST005 regime trap.
+
+freezing_summary:
+  total_probed: 6
+  passed: 5
+  reserved: 1
+  frozen: 5
+  drop_reasons:
+    C004_04: "near-zero IC (0.009), essentially no signal in train period"

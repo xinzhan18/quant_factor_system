@@ -39,7 +39,7 @@ sample_policy:
     - window_id: val_2022_2023
       range: ["2022-01-01", "2023-12-31"]
   holdout_pool_range: ["2024-01-01", "2025-12-31"]
-  holdout_used: false
+  holdout_used: true
   validation_policy_version: research_sample_v3
 
 # ---- Thresholds ----
@@ -66,4 +66,39 @@ probe:
 # ---- Forbidden patterns ----
 # Expressions matching these are auto-rejected by precheck.
 # Managed via ForbiddenManager lifecycle (active → under_review → retired).
-forbidden_patterns: []
+forbidden_patterns:
+  - id: FP001
+    pattern: "TsAutoCorr\\(\\$turnover_rate"
+    description: "换手率自相关零信号 (ST002, batch_003)"
+    status: active
+    added_batch: batch_003
+
+  - id: FP002
+    pattern: "Mean\\(Div\\(Sub\\(\\$high.*If\\(Gt\\(\\$open,\\$close\\)"
+    description: "上影线比例均值 — extreme regime instability, holdout IC=0 (ST005, batch_003)"
+    status: active
+    added_batch: batch_003
+
+  - id: FP003
+    pattern: "Std\\(Div\\(Sub\\(\\$high.*If\\(Gt\\(\\$open,\\$close\\)"
+    description: "上影线比例波动 — same regime trap as FP002 (ST005, batch_003)"
+    status: active
+    added_batch: batch_003
+
+  - id: FP004
+    pattern: "IdxMax\\(\\$amount"
+    description: "IdxMax(amount) near-duplicate of IdxMax(volume), corr=0.92 (batch_004)"
+    status: active
+    added_batch: batch_004
+
+  - id: FP005
+    pattern: "IdxMax\\(\\$turnover_rate"
+    description: "IdxMax(turnover_rate) near-duplicate of IdxMax(volume), corr=0.99 (batch_004)"
+    status: active
+    added_batch: batch_004
+
+  - id: FP006
+    pattern: "Corr\\(\\$amount.*\\$turnover_rate"
+    description: "amount-turnover corr produces near-constant values, zero signal (batch_004)"
+    status: active
+    added_batch: batch_004

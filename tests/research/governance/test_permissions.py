@@ -25,7 +25,6 @@ class TestWriteLevel:
 class TestActorEnum:
     def test_known_actors(self):
         names = {a.value for a in Actor}
-        assert "guarded_writer" in names
         assert "judge" in names
         assert "idea" in names
         assert "execute" in names
@@ -51,24 +50,19 @@ class TestTargetObjectEnum:
 
 
 class TestWritePermissionsMap:
-    def test_guarded_writer_can_write_factor_registry(self):
+    def test_judge_can_write_factor_registry(self):
         assert actor_can_write(
-            Actor.guarded_writer, TargetObject.factor_registry, "admit"
-        )
-
-    def test_guarded_writer_can_write_logic_card(self):
-        assert actor_can_write(
-            Actor.guarded_writer, TargetObject.logic_card, "create"
-        )
-
-    def test_guarded_writer_cannot_write_judge_report(self):
-        assert not actor_can_write(
-            Actor.guarded_writer, TargetObject.judge_report, "create"
-        )
-
-    def test_judge_cannot_write_factor_registry(self):
-        assert not actor_can_write(
             Actor.judge, TargetObject.factor_registry, "admit"
+        )
+
+    def test_judge_can_write_logic_card(self):
+        assert actor_can_write(
+            Actor.judge, TargetObject.logic_card, "create"
+        )
+
+    def test_judge_can_write_judge_report(self):
+        assert actor_can_write(
+            Actor.judge, TargetObject.judge_report, "create"
         )
 
     def test_idea_can_write_batch_manifest(self):
@@ -88,17 +82,17 @@ class TestWritePermissionsMap:
 
     def test_unknown_action_rejected(self):
         assert not actor_can_write(
-            Actor.guarded_writer, TargetObject.factor_registry, "destroy"
+            Actor.judge, TargetObject.factor_registry, "destroy"
         )
 
 
 class TestRequiredLevel:
     def test_factor_registry_is_level_1(self):
-        lvl = required_level(Actor.guarded_writer, TargetObject.factor_registry)
+        lvl = required_level(Actor.judge, TargetObject.factor_registry)
         assert lvl == WriteLevel.level_1
 
     def test_forbidden_is_level_2(self):
-        lvl = required_level(Actor.guarded_writer, TargetObject.forbidden)
+        lvl = required_level(Actor.judge, TargetObject.forbidden)
         assert lvl == WriteLevel.level_2
 
     def test_no_permission_returns_none(self):

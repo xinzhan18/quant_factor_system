@@ -108,6 +108,11 @@ class ResearchConfig:
     # ---- Qlib ----
     qlib_data_dir: str = "~/.qlib/qlib_data/cn_data_1d"
 
+    # ---- Train/test periods ----
+    train_start: str = "2015-01-01"
+    test_start: str = "2024-01-01"
+    test_end: str = "2024-12-31"
+
     # ---- Default evaluation profile ----
     default_eval_profile: EvaluationProfile = field(
         default_factory=EvaluationProfile
