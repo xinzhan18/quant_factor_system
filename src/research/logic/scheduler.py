@@ -15,17 +15,11 @@ Scoring dimensions:
 """
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
-from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from research.logic._yaml_utils import now_ts
 from research.logic.cards import LogicCard
-from research.storage.yaml_io import save_yaml
-
-logger = logging.getLogger(__name__)
 
 # --- Scoring weights (sum to 1.0) ---
 WEIGHTS = {
@@ -263,18 +257,6 @@ class LogicScheduler:
                 }
 
         return result
-
-    def save_schedule(
-        self, storage_dir: Path, result: ScheduleResult
-    ) -> Path:
-        """Persist schedule snapshot to storage/logic/snapshots/."""
-        snapshots_dir = storage_dir / "logic" / "snapshots"
-        snapshots_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = snapshots_dir / f"schedule_{ts}.yaml"
-        save_yaml(path, result.to_dict())
-        logger.info("Saved schedule snapshot at %s", path)
-        return path
 
     # ------------------------------------------------------------------
     # Scoring internals

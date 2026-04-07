@@ -1,0 +1,271 @@
+# Judge Report — batch_042
+# Generated: 2026-04-07T02:50:00+00:00
+
+batch_id: batch_042
+judged_at: '2026-04-07T02:50:00+00:00'
+judge_version: factor-judge-v1
+
+batch_summary:
+  total_candidates: 3
+  admitted: 0
+  rejected: 1
+  reserved: 2
+  routes_total: 2
+  routes_continue: 2
+  routes_pause: 0
+
+candidate_verdicts:
+  - candidate_id: C001
+    verdict: reserve
+    reason_codes:
+      - code: strong_validation_effect
+        severity: info
+      - code: high_data_mining_risk
+        severity: medium
+      - code: moderate_style_exposure
+        severity: medium
+    evidence_summary:
+      statistical_strength: strong
+      stability: medium
+      redundancy: acceptable
+      feasibility: ok
+      risk_model_review: borderline
+      mechanism_alignment: aligned
+    detail: |
+      Mul(Corr($close,$amount,20),Mul(Div(CsRank($amount),CsRank($volume)),CsRank($turnover_rate))).
+      Triple encoding: adds amount_rank component to F010's tur_rank/vol_rank conditioning.
+      ICIR_val=-0.588 (excellent), ICIR_ho=-0.369 (strong). Mono=-0.9 (both val and ho).
+      holdout_decay=0.912 (excellent stability).
+      CONCERN: max_lib_corr=0.591 with F004. This is elevated — triple encoding
+      is partially redundant with the established amount×tur subspace.
+      Barra_res=-0.299 (borderline), style_r2=0.200 (elevated).
+      Reserve: need to confirm if triple encoding is truly orthogonal or just
+      an additive variant that gets absorbed by the existing subspace.
+    route_id: R1
+    logic_id: L004
+
+  - candidate_id: C002
+    verdict: reject
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: weak_validation_effect
+        severity: high
+    evidence_summary:
+      statistical_strength: borderline
+      stability: good
+      redundancy: low
+      feasibility: ok
+      risk_model_review: poor
+      mechanism_alignment: drifted
+    detail: |
+      Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20),Corr($close,$amount,20)).
+      Shadow × pv_corr — replacing Amihud with pv_corr as conditioning partner.
+      CONCERN: alpha_surv=0.138 (critical weakness — 86% alpha destroyed on holdout).
+      turnover_20d exposure=0.271 — shadow is being absorbed by turnover style.
+      This is the same failure mode as earlier shadow×turnover variants.
+      Although pv_corr is different from pure turnover, the shadow component
+      is still being captured by turnover_20d regime.
+      ls_tstat_val=-4.75 but alpha_surv is the controlling metric.
+      Reject. Shadow needs a non-style conditioning partner like Amihud.
+    route_id: R2
+    logic_id: L001
+
+  - candidate_id: C003
+    verdict: reject
+    reason_codes:
+      - code: sign_flip_detected
+        severity: fatal
+      - code: weak_validation_effect
+        severity: high
+    evidence_summary:
+      statistical_strength: weak
+      stability: poor
+      redundancy: low
+      feasibility: ok
+      risk_model_review: acceptable
+      mechanism_alignment: unclear
+    detail: |
+      Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20),Div(CsRank($turnover_rate),CsRank($volume))).
+      Shadow × vol-competition.
+      SIGN FLIP on holdout: mono_val=-0.9, mono_ho=+0.3.
+      ls_tstat_ho=0.782 (not significant). holdout_decay=0.682 (weak).
+      dominant_style=log_circ_cap (size factor) — this is a SIZE signal, not shadow.
+      Confirms pure vol-competition without pv_corr is insufficient (C003 batch_041).
+      The vol-competition dimension alone does not carry microstructure information.
+      Reject; this is a size proxy, not a shadow mechanism.
+    route_id: R2
+    logic_id: L001
+
+route_verdicts:
+  - route_id: R1
+    logic_id: L004
+    route_type: deepening
+    verdict: continue
+    reason: "1 reserve (C001, triple encoding). ICIR=-0.588 val, -0.369 ho, Mono=-0.9. High redundancy concern (max_lib_corr=0.591). Reserve for holdout confirmation. Need to determine if triple encoding provides orthogonal signal beyond existing amount×tur subspace."
+    candidates_summary:
+      total: 1
+      admits: 0
+      reserves: 1
+      rejects: 0
+
+  - route_id: R2
+    logic_id: L001
+    route_type: deepening
+    verdict: continue
+    reason: "2 rejects (C002 shadow×pv_corr style absorbed, C003 shadow×vol-competition is size proxy). Both failures confirm: shadow needs Amihud cost-of-trading conditioning, not pv_corr or pure vol-competition. Continue exploring shadow×Amihud variants with new window combinations or alternative shadow definitions."
+    candidates_summary:
+      total: 2
+      admits: 0
+      reserves: 0
+      rejects: 2
+
+logic_recommendations:
+  L004:
+    recommended_status: productive
+    reason: 10 admits across 5 batches. Triple encoding route is promising but needs holdout validation to confirm orthogonality. Continue.
+
+  L001:
+    recommended_status: productive
+    reason: shadow×Amihud (F002) confirmed. New routes (pv_corr, vol-competition) both fail. Need fundamentally new shadow interaction ideas.
+
+logic_diagnostics:
+  L004:
+    thesis_update: |
+      Triple encoding (pv_corr × amount_rank/vol_rank × tur_rank) produces strong validation
+      metrics but with elevated redundancy (max_lib_corr=0.591). The question is whether
+      the third rank dimension adds genuine orthogonal signal or just complicates an already
+      well-explored subspace. Holdout shows excellent stability (decay=0.912).
+
+    evidence_for:
+      - "C001 ICIR_val=-0.588, ICIR_ho=-0.369 (strong)"
+      - "C001 Mono_val=-0.9, Mono_ho=-0.9 (excellent stability)"
+      - "C001 holdout_decay=0.912 (very stable)"
+
+    evidence_against:
+      - "C001 max_lib_corr=0.591 — elevated redundancy with F004"
+      - "C001 Barra_res=-0.299 (borderline, not clean)"
+      - "C001 style_r2=0.200 (elevated style exposure)"
+
+    failure_boundary: |
+      None for L004. Triple encoding is a valid probe of the amount×tur conditioning space.
+      The failure boundary for pure vol-competition (C003) was confirmed from batch_041.
+
+    open_questions:
+      - "Is triple encoding genuinely orthogonal, or is it an additive variant that will be absorbed?"
+      - "Does adding amount_rank to the conditioning actually change the information captured?"
+
+    next_best_probes:
+      - expr: "Mul(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($volume))) — just the dual encoding"
+        why: "Establish baseline with dual encoding to isolate the contribution of the third dimension"
+      - expr: "Mul(Corr($close,$amount,10),Div(CsRank($amount),CsRank($volume)))"
+        why: "Test if 10d amount_rank/vol_rank works as conditioning"
+
+    factor_roles:
+      - factor_id: F010
+        role: core_positive_anchor
+        summary: "Amount x rel-tur conditioning: session's cleanest signal"
+      - candidate_id: C001
+        role: triple_encoding_probe
+        summary: "Triple encoding probe — reserve pending orthogonality confirmation"
+
+  L001:
+    thesis_update: |
+      Both new shadow routes failed:
+      1. Shadow x pv_corr: alpha_surv=0.138 — shadow is absorbed by turnover_20d style
+      2. Shadow x vol-competition: mono sign flip, dominant_style=log_circ_cap (size)
+      Both failures confirm: shadow MUST be conditioned on a cost-of-trading measure
+      (Amihud, amount/price-change). pv_corr and vol-competition do not provide
+      the orthogonal conditioning that Amihud provides.
+
+    evidence_for:
+      - "F002 (shadow x Amihud): alpha_surv=0.377, Barra_res=-0.176 — confirmed viable"
+      - "C002 alpha_surv=0.138 — pv_corr does NOT provide orthogonal conditioning"
+      - "C003 mono flips: vol-competition is a size proxy, not microstructure"
+
+    evidence_against:
+      - "C002: turnover_20d exposure=0.271 — shadow absorbed by turnover regime"
+      - "C003: dominant_style=log_circ_cap — size proxy, not shadow mechanism"
+      - "Confirmed: only Amihud provides the right conditioning for shadow"
+
+    failure_boundary: |
+      Shadow x pv_corr: does not work (same style absorption as pure turnover).
+      Shadow x vol-competition: does not work (size proxy).
+      Shadow x Amihud: ONLY confirmed viable mechanism (F002).
+      Do not retry shadow x pv_corr or shadow x vol-competition.
+
+    open_questions:
+      - "Can shadow be used in a DIFFERENT role — not as primary signal but as filter/condition?"
+      - "What about shadow magnitude (upper vs lower) as conditioning rather than full shadow?"
+
+    next_best_probes:
+      - expr: "Mul(UpperShadowRatio,Div($amount,Mean($volume,20)))"
+        why: "Use only upper shadow (informed trading) × Amihud — different microstructure encoding"
+      - expr: "Mul(LowerShadowRatio,Div($amount,Mean($volume,20)))"
+        why: "Use only lower shadow (selling pressure) × Amihud — inverse microstructure"
+
+    factor_roles:
+      - factor_id: F002
+        role: core_positive_anchor
+        summary: "shadow x Amihud is the only confirmed viable shadow mechanism"
+      - candidate_id: C002
+        role: failed_shadow_pv_corr
+        summary: "Shadow x pv_corr fails — same style absorption as pure turnover"
+      - candidate_id: C003
+        role: failed_shadow_vol_competition
+        summary: "Shadow x vol-competition is a size proxy, not microstructure"
+
+new_lessons:
+  - id: "FP-L001-shadow-x-pv-corr"
+    category: false_positive
+    lesson: |
+      Shadow x pv_corr (Mul(shadow, Corr($close,$amount,20))) produces alpha_surv=0.138.
+      turnover_20d exposure=0.271. Shadow is absorbed by turnover regime even when
+      pv_corr is the conditioning partner. Confirms that only Amihud (cost-of-trading)
+      provides the right orthogonal conditioning for shadow.
+    severity: confirmed_failure
+    affected_logics: [L001]
+    batch_ids: [batch_042]
+
+  - id: "FP-L001-shadow-x-vol-competition"
+    category: false_positive
+    lesson: |
+      Shadow x vol-competition (Mul(shadow, Div(CsRank(tur),CsRank(vol)))) produces
+      mono sign flip on holdout (+0.3). dominant_style=log_circ_cap (size). This is a
+      size proxy, not a shadow microstructure signal. Confirms pure vol-competition
+      without pv_corr is insufficient for any signal type.
+    severity: confirmed_failure
+    affected_logics: [L001]
+    batch_ids: [batch_042]
+
+discovery_flags:
+  - anomaly_type: shadow_conditioning_boundaries
+    first_seen_batch: batch_042
+    description: 'Shadow signal only survives with Amihud (cost-of-trading) as conditioning partner. pv_corr and vol-competition both fail — they provide style-contaminated conditioning, not orthogonal microstructure encoding.'
+    likely_mechanism: 'Shadow captures cost-of-trading microstructure. Only Amihud (amount/volume) is an orthogonal cost measure. pv_corr and vol-competition are both correlated with style factors.'
+    style_repackaging_risk: high
+    explainable_by_existing_logic: full
+    escalation_status: watch
+
+write_audit_log:
+  entries:
+    - timestamp: '2026-04-07T02:50:00+00:00'
+      actor: factor-judge
+      action: judge_batch
+      target: batch_042
+      detail: '3 candidates: 0 admit, 2 reserve (C001), 2 reject (C002,C003)'
+    - timestamp: '2026-04-07T02:50:00+00:00'
+      actor: factor-judge
+      action: reserve
+      target: C001
+      detail: triple encoding — ICIR=-0.588 val, -0.369 ho, Mono=-0.9, but max_lib_corr=0.591 elevated
+    - timestamp: '2026-04-07T02:50:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C002
+      detail: shadow x pv_corr — alpha_surv=0.138, turnover_20d exposure=0.271, style absorbed
+    - timestamp: '2026-04-07T02:50:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C003
+      detail: shadow x vol-competition — mono sign flip, dominant_style=log_circ_cap (size proxy)

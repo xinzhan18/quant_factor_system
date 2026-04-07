@@ -14,7 +14,6 @@ def cmd_capabilities(args: argparse.Namespace) -> None:
         DSL_FIELD_WHITELIST,
         UNAVAILABLE_OPERATORS,
         FORBIDDEN_FIELDS,
-        PYTHON_HELPER_WHITELIST,
         MAX_EXPRESSION_DEPTH,
     )
     from research.compute.operators import _CUSTOM_OPS
@@ -42,4 +41,3 @@ def cmd_capabilities(args: argparse.Namespace) -> None:
 
     print(f"\n=== Constraints ===")
     print(f"  max_expression_depth: {MAX_EXPRESSION_DEPTH}")
-    print(f"  python_helpers: {', '.join(sorted(PYTHON_HELPER_WHITELIST))}")

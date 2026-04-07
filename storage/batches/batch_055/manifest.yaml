@@ -1,0 +1,50 @@
+batch_id: batch_055
+candidates:
+- candidate_id: C001
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_timing_range
+  experiment_lineage_tag: ELT_L001_timing_range_5d_amount_pe_v1
+  expression: Mul(Sub(IdxMax($amount,5),IdxMin($amount,5)),CsRank($pe_ratio))
+  name: vol_range_timing_5d_amount_x_pe
+  direction: long
+  rationale: Sub(IdxMax($amount,5),IdxMin($amount,5)) × CsRank($pe_ratio) — amount
+    (price×volume monetary) timing range × PE rank. F013 uses raw volume ($volume).
+    $amount = price × volume in monetary terms, proxies informed trading better. If
+    amount timing_range works, it's a new field variant with potentially cleaner signal.
+  created_at: '2026-04-07T06:20:00+00:00'
+  probe_result:
+    ic_mean: -0.0173
+    ic_ir: -0.2274
+    win_rate: 43.16
+- candidate_id: C002
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_timing_range
+  experiment_lineage_tag: ELT_L001_timing_range_5d_tur_pe_v1
+  expression: Mul(Sub(IdxMax($turnover_rate,5),IdxMin($turnover_rate,5)),CsRank($pe_ratio))
+  name: vol_range_timing_5d_tur_x_pe
+  direction: long
+  rationale: Sub(IdxMax($turnover_rate,5),IdxMin($turnover_rate,5)) × CsRank($pe_ratio)
+    — turnover_rate timing range × PE rank. F013 uses volume. Turnover_rate is a different
+    field — normalized by shares outstanding. Tests if the timing_range mechanism
+    generalizes beyond raw volume. If it works, confirms mechanism is about timing
+    volatility broadly.
+  created_at: '2026-04-07T06:20:00+00:00'
+  probe_result:
+    ic_mean: -0.0148
+    ic_ir: -0.2043
+    win_rate: 44.07
+batch_metadata:
+  batch_id: batch_055
+  created_at: '2026-04-07T06:20:00+00:00'
+  freeze_reason: Timing range field generalization — test amount and turnover variants
+  active_logics:
+  - L001
+  notes:
+  - batch_054 found: PE/PS ratio WEAKENS (decay=0.75), blend fails (mono_ho=0.0)
+  - F013: 5d volume timing_range × PE — admitted
+  - C001: 5d amount timing_range × PE — monetary volume variant
+  - C002: 5d turnover timing_range × PE — normalized turnover variant

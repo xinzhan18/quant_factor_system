@@ -1,0 +1,64 @@
+batch_id: batch_039
+frozen_at: '2026-04-07T01:31:00+00:00'
+active_logics:
+- logic_id: L004
+  score: 0.7400
+  quota: 4
+- logic_id: L001
+  score: 0.7129
+  quota: 5
+idea_report: |
+  L004: 5d (ICIR=-0.5153) confirms scale floor around 5-10d. amount×10d (ICIR=-0.5526) matches
+  10d volume strength. Relative tur rank conditioning (ICIR=-0.4831) tests volume competition mechanism.
+  L001: 10d shadow×Amihud (ICIR=-0.2033) and 5d (ICIR=-0.1747) test shorter windows.
+candidates:
+- candidate_id: C001
+  logic_id: L004
+  route_id: R1
+  route_type: deepening
+  experiment_lineage_tag: ELT_L004_deepening_pv_corr_5d_x_tur_rank_v1
+  family_id: FM_price_volume_divergence
+  expression: Mul(Corr($close,$volume,5),CsRank($turnover_rate))
+  rationale: 5d lookback — tests whether scale floor is at 5d or 10d. If ICIR stays above -0.50, mechanism works at ultra-short horizons.
+  precheck_status: passed
+  probe_ic: -0.5153
+- candidate_id: C002
+  logic_id: L004
+  route_id: R1
+  route_type: deepening
+  experiment_lineage_tag: ELT_L004_deepening_pv_amount_corr_10d_x_tur_rank_v1
+  family_id: FM_price_volume_divergence
+  expression: Mul(Corr($close,$amount,10),CsRank($turnover_rate))
+  rationale: Combines optimal scale (10d) with smart-money field (amount). ICIR=-0.5526 — strongest probe in this batch.
+  precheck_status: passed
+  probe_ic: -0.5526
+- candidate_id: C003
+  logic_id: L004
+  route_id: R1
+  route_type: deepening
+  experiment_lineage_tag: ELT_L004_deepening_pv_corr_rel_tur_rank_v1
+  family_id: FM_price_volume_divergence
+  expression: Mul(Corr($close,$volume,20),Div(CsRank($turnover_rate),CsRank($volume)))
+  rationale: Relative turnover rank vs volume rank — tests whether volume competition (how much tur vs how much vol) conditions the signal differently than raw tur.
+  precheck_status: passed
+  probe_ic: -0.4831
+- candidate_id: C004
+  logic_id: L001
+  route_id: R2
+  route_type: deepening
+  experiment_lineage_tag: ELT_L001_deepening_shadow_10d_x_amihud_v1
+  family_id: FM_microstructure_shadow_liquidity
+  expression: Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),10),Div($amount,Mean($volume,10)))
+  rationale: 10d shadow × 10d Amihud — tests shorter window vs C001's 20d. May find optimal window below 20d.
+  precheck_status: passed
+  probe_ic: -0.2033
+- candidate_id: C005
+  logic_id: L001
+  route_id: R2
+  route_type: deepening
+  experiment_lineage_tag: ELT_L001_deepening_shadow_5d_x_amihud_v1
+  family_id: FM_microstructure_shadow_liquidity
+  expression: Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),5),Div($amount,Mean($volume,5)))
+  rationale: 5d shadow formation × 5d Amihud — ultra-short microstructure timing. Tests whether fastest shadow formation captures information asymmetry.
+  precheck_status: passed
+  probe_ic: -0.1747

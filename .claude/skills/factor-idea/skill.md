@@ -4,6 +4,8 @@ description: 消费 logic schedule，规划实验路线，探针过滤，快速�
 user_invocable: true
 ---
 
+> **⚠️ 自主模式**：本 skill 执行时不得停下来询问用户。所有决策自行判断并继续。遇到歧义选最优路径，probe 失败跳过继续下一个。只在系统级错误时停止。
+
 # Factor Idea — 候选因子生成
 
 ## 目标
@@ -12,8 +14,7 @@ user_invocable: true
 
 ## 输入
 
-当前 workflow 下，`/idea` 的输入已经收敛为 **logic 级编译态上下文**，不再散读旧 ledger /
-snapshot / factor index。
+当前 workflow 下，`/idea` 的输入已经收敛为 **logic 级编译态上下文**。
 
 可用算子/字段查询：`PYTHONPATH=src python3 -m research capabilities`
 
@@ -35,7 +36,6 @@ storage/batches/batch_XXX/judge_report.yaml    # 最近一轮的详细裁决
 
 **不再读取：**
 - ~~storage/governance/ledger.yaml~~ — 预算消耗信息已编译进 card.evidence_summary
-- ~~storage/logic/snapshots/latest_schedule_snapshot.yaml~~ — 调度信息已编译进 card.contract
 
 从 card.yaml 提取：
 - `contract.current_focus_question` — 本轮的研究问题
@@ -49,16 +49,18 @@ storage/batches/batch_XXX/judge_report.yaml    # 最近一轮的详细裁决
 1. 筛选 `deepening_threads` 中 `status: active` 的 threads，按 `priority` 排序（high > medium > low）
 2. 每个 active thread 的 `next_probes` → **直接作为候选表达式来源**
 3. 每个 thread 的 `stop_condition` → 影响 route 设计（试图回答 stop_condition 中的判别问题）
-4. 如果所有 threads 都 parked/answered → 降级到 `next_actions`
-5. 如果 `next_actions` 也为空 → 基于 `current_bottleneck` 自由探索
+4. 如果所有 active threads 的 `next_probes` 为空或全部遇到 blocker → **进入 escape 策略**，不允许 mutate/genesis 回到 card 标注 SATURATED 的 family
+5. 如果所有 threads 都 parked/answered → 降级到 `next_actions`
+6. 如果 `next_actions` 也为空 → **escape**（向 reflect 上报 saturated 信号），不允许自由探索回到已饱和方向
 
 #### 深度 vs 广度决策
 
 | 条件 | 策略 |
 |------|------|
 | 有 active thread 且 next_probes 非空 | **deepen** — 围绕 thread 设计 route |
-| threads 全 parked + contract 还有空间 | **broaden** — 试新 family |
+| threads 全 parked + contract 还有空间 | **broaden** — 试新 family（不可回到 failed/exhausted family） |
 | contract 空间也耗尽 | **escape** — 向 reflect 报告 saturated 信号 |
+| active thread 有 next_probes 但全部 blocker | **escape** — 上报 blocker，不可漂回已饱和 family |
 
 ### Step 2：设计 Routes（batch-local 实验组）
 
@@ -115,7 +117,14 @@ storage/batches/batch_XXX/manifest.yaml
 storage/batches/batch_XXX/idea_report.yaml
 ```
 
-每个 candidate 必须包含：candidate_id, logic_id, route_id, family_id, route_type, experiment_lineage_tag, source_type, expression, rationale, implementation_reason, lineage。
+每个 candidate 必须包含：candidate_id, logic_id, route_id, family_id, route_type, experiment_lineage_tag, **source_thread_id**, source_type, expression, rationale, implementation_reason, lineage。
+
+**`source_thread_id`**（必填）：指向 card 中 `deepening_threads` 的 thread ID（如 `T001`）。
+该 thread 必须 `status: active`。如果 route_type 是 escape/decorrelate，可以引用 parked/answered thread。
+旧格式 `source_thread` 也被 validator 兼容，但新 manifest 统一使用 `source_thread_id`。
+
+**冻结前预校验**：manifest 在 execute 阶段会被 `validate_manifest_against_logic_cards()` 校验（thread 活性、family guard、avoid patterns）。
+idea 阶段应在写入 manifest 前自行检查这些约束，避免到 execute 才发现问题。
 
 ### Step 7a：记录策略决策
 

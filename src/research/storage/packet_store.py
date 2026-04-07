@@ -24,7 +24,11 @@ class PacketStore:
     # ------------------------------------------------------------------
 
     def load_judge_packet(self, batch_id: str) -> dict[str, Any]:
-        return load_yaml(self._paths.judge_packet_file(batch_id))
+        data = load_yaml(self._paths.judge_packet_file(batch_id))
+        # Unwrap nested judge_packet: key if present (newer format)
+        if "judge_packet" in data and isinstance(data["judge_packet"], dict):
+            return data["judge_packet"]
+        return data
 
     def save_judge_packet(self, batch_id: str, data: dict[str, Any]) -> None:
         data["batch_id"] = batch_id

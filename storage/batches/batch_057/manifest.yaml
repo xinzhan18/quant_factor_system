@@ -1,0 +1,51 @@
+batch_id: batch_057
+candidates:
+- candidate_id: C001
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_timing_range
+  experiment_lineage_tag: ELT_L001_trough_position_5d_x_amihud_v1
+  expression: Mul(IdxMin($volume,5),Div($amount,Mean($volume,20)))
+  name: trough_position_5d_x_amihud
+  direction: long
+  rationale: IdxMin($volume,5) × Amihud — trough position × cost-of-trading. F013
+    uses IdxMax-IdxMin (peak-trough distance). IdxMin alone captures WHERE the trough
+    occurs within the window. Tests if trough position carries independent signal
+    from peak-trough distance. If IdxMin × Amihud works, it's a different mechanism
+    (timing position) vs F013 (timing distance).
+  created_at: '2026-04-07T06:40:00+00:00'
+  probe_result:
+    ic_mean: -0.032
+    ic_ir: -0.2122
+    win_rate: 44.89
+- candidate_id: C002
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_timing_range
+  experiment_lineage_tag: ELT_L001_trough_position_5d_x_amount_v1
+  expression: Mul(IdxMin($volume,5),CsRank($amount))
+  name: trough_position_5d_x_amount
+  direction: long
+  rationale: 'IdxMin($volume,5) × CsRank($amount) — trough position × amount rank.
+    Strong probe metrics: IC=-0.0397, ICIR=-0.3276. Tests if trough position × amount
+    liquidity conditioning works as a different variant from IdxMax-IdxMin (peak-trough
+    distance). If it works, confirms IdxMin carries independent signal.'
+  created_at: '2026-04-07T06:40:00+00:00'
+  probe_result:
+    ic_mean: -0.0397
+    ic_ir: -0.3276
+    win_rate: 36.16
+batch_metadata:
+  batch_id: batch_057
+  created_at: '2026-04-07T06:40:00+00:00'
+  freeze_reason: IdxMin (trough position) variant — tests if trough timing is independent
+    signal
+  active_logics:
+  - L001
+  notes:
+  - batch_055: F014 admitted (amount timing_range×PE), max_lib_corr=0.073
+  - batch_056: price-only timing_range is style trap (str_1m=0.413)
+  - C001: IdxMin × Amihud — trough position × cost-of-trading
+  - C002: IdxMin × amount — trough position × amount rank, ICIR=-0.3276

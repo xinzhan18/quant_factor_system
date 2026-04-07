@@ -1,0 +1,103 @@
+judge_report:
+  batch_id: batch_056
+  generated_at: '2026-04-07T06:35:00+00:00'
+
+  batch_summary:
+    total_candidates: 1
+    admitted: 0
+    rejected: 0
+    reserved: 1
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reserve
+      reason_codes:
+        - style_dominance_detected
+        - weak_validation_effect
+      detail: |
+        Mul(Sub(IdxMax($close,5),IdxMin($close,5)),CsRank($pe_ratio)): price-only timing_range × PE.
+        holdout decay=1.376 (>1 — signal STRONGER on holdout), mono_ho=-0.9 (strong ranking).
+        Barra_res=-0.004 (very clean).
+        BUT alpha_surv=0.214 (POOR — only 21.4% of alpha survives). dominant_style=str_1m=0.413 (HIGH).
+        style_r2=0.149 (elevated). This is primarily a str_1m style signal, not independent alpha.
+        max_lib_corr=0.196 — orthogonal space but style contamination is structural.
+        Reserve: holdout metrics are strong but style dominance is fatal for independent alpha.
+
+  route_verdicts:
+    - route_id: R001
+      verdict: continue
+      reason: |
+        Price-only timing_range (close) shows similar mechanism to volume/amount variants
+        but with higher str_1m style dominance (0.413 vs 0.15 for F013/F014). Alpha_surv=0.214
+        is poor. Reserve for now. Continue route to probe if shorter windows reduce style contamination.
+
+  logic_recommendations:
+    - logic_id: L001
+      recommended_status: productive
+      reason: F013 (volume×PE) and F014 (amount×PE) confirmed productive. Price-only close variant
+        shows high str_1m style dominance (0.413). Continue route for field generalization confirmation.
+
+  logic_diagnostics:
+    L001:
+      thesis_update: |
+        batch_056 tests price-only timing_range ($close). Results: similar mechanism exists but
+        with HIGH str_1m style dominance (0.413 vs 0.15 for F013/F014). alpha_surv=0.214 is POOR.
+        Barra_residual=-0.004 is clean but style_r2=0.149 is elevated. Price-only field produces
+        a predominantly short-term reversal signal rather than independent timing alpha.
+
+      evidence_for:
+        - "C001: holdout decay=1.376 (>1), mono_ho=-0.9, Barra_res=-0.004 (clean)"
+        - "C001: expand_window_pass=True, sign_consistency=True across all windows"
+        - "max_lib_corr=0.196 — genuinely orthogonal to existing factors"
+
+      evidence_against:
+        - "C001: alpha_surv=0.214 (POOR — 78.6% of alpha destroyed)"
+        - "C001: dominant_style=str_1m=0.413 (HIGH — style trap signal)"
+        - "C001: style_r2=0.149 (elevated)"
+        - "Price-only timing_range is primarily a reversal signal, not independent alpha"
+
+      failure_boundary: |
+        Price-only timing_range ($close) is a str_1m style trap. Do not admit.
+        Volume ($volume) and amount ($amount) variants produce lower str_1m (0.15) with higher alpha_surv.
+        Mechanism difference: price-only captures reversal, volume/amount capture informed trading timing.
+
+      open_questions:
+        - "Is there a way to reduce str_1m contamination in price-only timing_range?"
+        - "Could PE rank conditioning alone on price produce cleaner signal?"
+
+      next_best_probes:
+        - expr: "Mul(Sub(IdxMax($close,5),IdxMin($close,5)),CsRank($pe_ratio)) — already tested"
+          why: "Price-only is a style trap. Focus on volume/amount variants instead."
+
+      factor_roles:
+        - candidate_id: C001
+          role: reserved_style_trap
+          summary: "Price-only timing_range: strong holdout but high str_1m (0.413), poor alpha_surv (0.214). Primary reversal signal, not independent alpha."
+
+  new_lessons:
+    - id: FP-L001-timing-range-close-style-trap
+      category: false_positive
+      lesson: 'Price-only timing_range ($close): alpha_surv=0.214 (POOR), dominant_style=str_1m=0.413 (HIGH style trap). Barra_res=-0.004 (clean) but style_r2=0.149 (elevated). Price-only is primarily a short-term reversal signal, not independent timing alpha. Volume ($volume) and amount ($amount) variants produce cleaner signals (str_1m=0.15, alpha_surv>1.0).'
+      severity: confirmed_failure
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_056
+
+  discovery_flags:
+    - anomaly_type: timing_range_close_style_trap
+      first_seen_batch: batch_056
+      description: "Price-only timing_range ($close): alpha_surv=0.214, str_1m=0.413. High style contamination. Volume and amount variants are cleaner."
+      likely_mechanism: "Price-only captures reversal, not informed trading timing. Volume dimension is essential for clean signal."
+      style_repackaging_risk: high
+      explainable_by_existing_logic: partial
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-07T06:35:00+00:00'
+      actor: factor-judge
+      action: reserve
+      target: C001
+      level: 1
+      reason_codes: [style_dominance_detected, weak_validation_effect]

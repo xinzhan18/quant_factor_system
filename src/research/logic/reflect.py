@@ -19,7 +19,7 @@ import yaml
 
 from research.logic._yaml_utils import now_ts
 from research.logic.lifecycle import validate_transition, build_transition_record
-from research.storage.yaml_io import load_yaml, save_yaml
+from research.storage.yaml_io import load_yaml, load_yaml_any, save_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,6 @@ _VALID_ESCALATION_TRANSITIONS: Dict[str, frozenset] = {
 def apply_belief_delta(
     card_path: Path,
     delta: LogicBeliefDelta,
-    registry_path: Path,
 ) -> dict:
     """Atomic card updater.  ONE load, all mutations in memory, ONE save.
 
@@ -99,9 +98,6 @@ def apply_belief_delta(
         Path to the logic card YAML file.
     delta
         The structured belief delta to apply.
-    registry_path
-        Path to ``logic/registry.yaml``.
-
     Returns
     -------
     dict
@@ -121,9 +117,6 @@ def apply_belief_delta(
     card = load_yaml(card_path)
 
     old_status = card.get("status", "")
-    old_priority = card.get("priority", "")
-    status_changed = False
-
     # 2. Status transition (validated first so we fail before mutating)
     if delta.status_change is not None:
         validate_transition(old_status, delta.status_change)
@@ -134,7 +127,6 @@ def apply_belief_delta(
         transitions.append(
             build_transition_record(old_status, delta.status_change, delta.status_reason)
         )
-        status_changed = True
 
     # 3. Contract mutations
     contract = card.setdefault("contract", {})
@@ -221,49 +213,12 @@ def apply_belief_delta(
     # 7. Single save
     save_yaml(card_path, card)
 
-    # 8. Sync registry if status or priority changed
-    new_status = card.get("status", "")
-    new_priority = card.get("priority", "")
-    if status_changed or new_priority != old_priority:
-        _sync_registry_entry(card, registry_path)
-
     return card
 
 
 # -----------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------
-
-
-def _sync_registry_entry(card: dict, registry_path: Path) -> None:
-    """Update the logic's entry in registry.yaml to match card status/priority/name."""
-    registry = load_yaml(registry_path)
-    logics = registry.setdefault("logics", [])
-
-    logic_id = card.get("logic_id", "")
-    found = False
-    for entry in logics:
-        if entry.get("logic_id") == logic_id:
-            entry["status"] = card.get("status", entry.get("status", ""))
-            entry["priority"] = card.get("priority", entry.get("priority", ""))
-            entry["name"] = card.get("name", entry.get("name", ""))
-            found = True
-            break
-
-    if not found:
-        logics.append(
-            {
-                "logic_id": logic_id,
-                "name": card.get("name", ""),
-                "category": card.get("category", ""),
-                "status": card.get("status", ""),
-                "priority": card.get("priority", ""),
-            }
-        )
-
-    registry["count"] = len(logics)
-    save_yaml(registry_path, registry)
-
 
 def _merge_family_entry(family_list: list, new_entry: dict) -> None:
     """Merge by family_id: update existing or append new."""
@@ -344,24 +299,21 @@ def save_global_escalation(path: Path, delta: GlobalEscalationDelta) -> None:
     """Persist to YAML.  If file has existing entries, append."""
     entries = load_global_escalation(path)
     entries.append(_escalation_to_dict(delta))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    save_yaml(path, entries)
+    _save_global_escalation_entries(path, entries)
 
 
 def load_global_escalation(path: Path) -> list:
     """Load all escalation entries.  Return empty list if file missing."""
-    if not path.exists():
-        return []
-    text = path.read_text(encoding="utf-8")
-    if not text.strip():
-        return []
-    data = yaml.safe_load(text)
-    if data is None:
+    data = load_yaml_any(path)
+    if data == {}:
         return []
     if isinstance(data, list):
         return data
-    # Wrap a single dict in a list for backward compat
+    if _is_ledger_path(path) and isinstance(data, dict):
+        entries = data.get("global_escalations", [])
+        return entries if isinstance(entries, list) else []
     if isinstance(data, dict):
+        # Wrap a single dict in a list for backward compat
         return [data]
     return []
 
@@ -404,7 +356,7 @@ def transition_escalation(
         if resolution:
             target["resolution"] = resolution
 
-    save_yaml(path, entries)
+    _save_global_escalation_entries(path, entries)
 
 
 def consume_pending_escalations(path: Path) -> List[dict]:
@@ -422,7 +374,7 @@ def consume_pending_escalations(path: Path) -> List[dict]:
             entry["consumed_at"] = now_ts()
             consumed.append(entry)
     if consumed:
-        save_yaml(path, entries)
+        _save_global_escalation_entries(path, entries)
     return consumed
 
 
@@ -456,9 +408,10 @@ def resolve_escalation(
 
 
 def recompute_research_state(cards_dir: Path, state_store: Any) -> dict:
-    """Glob L*.yaml, extract statuses, update research state with active/warm lists.
+    """Glob L*.yaml, extract statuses, update research state.
 
-    Only touches ``active_logic_ids`` and ``warm_logic_ids``.
+    Updates ``active_logic_ids``, ``warm_logic_ids``, and
+    ``schedulable_logic_ids`` (active + productive + warm).
     All other state fields (current_batch, etc.) are preserved.
 
     Parameters
@@ -476,6 +429,7 @@ def recompute_research_state(cards_dir: Path, state_store: Any) -> dict:
     """
     active: List[str] = []
     warm: List[str] = []
+    productive: List[str] = []
 
     for card_file in sorted(cards_dir.glob("L*.yaml")):
         card = load_yaml(card_file)
@@ -485,10 +439,27 @@ def recompute_research_state(cards_dir: Path, state_store: Any) -> dict:
             active.append(lid)
         elif status == "warm":
             warm.append(lid)
+        elif status == "productive":
+            productive.append(lid)
 
     return state_store.update_state(
         {
             "active_logic_ids": active,
             "warm_logic_ids": warm,
+            "schedulable_logic_ids": sorted(active + productive + warm),
         }
     )
+
+
+def _is_ledger_path(path: Path) -> bool:
+    return path.name == "ledger.yaml"
+
+
+def _save_global_escalation_entries(path: Path, entries: list[dict]) -> None:
+    if _is_ledger_path(path):
+        ledger = load_yaml(path)
+        ledger["global_escalations"] = entries
+        save_yaml(path, ledger)
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    save_yaml(path, entries)

@@ -28,6 +28,10 @@ def cmd_state(args):
         _cmd_clear_batch()
     elif action == "sync-holdout":
         _cmd_sync_holdout()
+    elif action == "finalize-batch":
+        _cmd_finalize_batch(args.batch_id)
+    elif action == "validate-consistency":
+        _cmd_validate_consistency(getattr(args, "batch_id", None))
     else:
         _cmd_show()
 
@@ -56,6 +60,11 @@ def _cmd_show():
     active = state.get("active_logic_ids", [])
     print(f"\nActive logics ({len(active)}):")
     for lid in active:
+        print(f"  - {lid}")
+
+    schedulable = state.get("schedulable_logic_ids", [])
+    print(f"\nSchedulable logics ({len(schedulable)}):")
+    for lid in schedulable:
         print(f"  - {lid}")
 
     updated = state.get("last_updated_at", "-")
@@ -94,8 +103,13 @@ def _cmd_sync_holdout():
     with open(ledger_path) as f:
         ledger = yaml.safe_load(f) or {}
 
-    reviews = ledger.get("holdout_reviews", [])
-    pending = [r for r in reviews if r.get("status") == "pending"]
+    holdout_section = ledger.get("holdout_reviews", {})
+    # LedgerStore stores reviews as {"reviews": [...]}, handle both formats
+    if isinstance(holdout_section, dict):
+        reviews = holdout_section.get("reviews", [])
+    else:
+        reviews = holdout_section if isinstance(holdout_section, list) else []
+    pending = [r for r in reviews if isinstance(r, dict) and r.get("status") == "pending"]
 
     # Load existing queue, enqueue missing entries
     queue_path = str(StoragePaths().pending_holdout_queue_file)
@@ -120,6 +134,30 @@ def _cmd_sync_holdout():
     _store.update_state({"pending_holdout_count": len(queue.pending())})
 
     print(f"Synced: {added} new entries enqueued, {len(queue.pending())} total pending")
+
+
+def _cmd_finalize_batch(batch_id: str) -> None:
+    from research.storage.finalizer import BatchFinalizer
+
+    result = BatchFinalizer(StoragePaths()).finalize_batch(batch_id)
+    print(f"Finalized: {batch_id}")
+    print(f"Updated logics:      {', '.join(result.updated_logic_ids) or '-'}")
+    print(f"Active logic ids:    {', '.join(result.active_logic_ids) or '-'}")
+    print(f"Warm logic ids:      {', '.join(result.warm_logic_ids) or '-'}")
+    print(f"Schedulable ids:     {', '.join(result.schedulable_logic_ids) or '-'}")
+
+
+def _cmd_validate_consistency(batch_id: str | None) -> None:
+    from research.storage.consistency import StorageConsistencyChecker
+
+    report = StorageConsistencyChecker(StoragePaths()).check(batch_id=batch_id)
+    if report.ok:
+        print("Storage consistency: OK")
+        return
+    print("Storage consistency: FAILED")
+    for err in report.errors:
+        print(f"- {err}")
+    raise SystemExit(1)
 
 
 def _parse_value(value: str):

@@ -45,10 +45,11 @@ class TestStoragePaths:
     def test_concrete_file_paths(self, tmp_path: Path) -> None:
         sp = StoragePaths(tmp_path / "s")
         assert sp.research_state_file == sp.state_dir / "research_state.yaml"
-        assert sp.logic_registry_file == sp.logic_dir / "registry.yaml"
+        assert sp.logic_reflection_file("L001") == sp.logic_reflections_dir / "L001.md"
         assert sp.factor_index_file == sp.factors_dir / "index.yaml"
-        assert sp.forbidden_file == sp.governance_dir / "forbidden.yaml"
+        assert sp.research_config_file == sp.governance_dir / "research_config.yaml"
         assert sp.ledger_file == sp.governance_dir / "ledger.yaml"
+        assert sp.global_escalation_file == sp.ledger_file
 
     def test_dynamic_paths(self, tmp_path: Path) -> None:
         sp = StoragePaths(tmp_path / "s")

@@ -1,0 +1,124 @@
+logic_id: L003
+name: 成交量分布动态
+category: volume_dynamics
+status: parked
+priority: medium
+hypothesis:
+  condition: 成交量在时间维度上的分布特征——变异系数、峰值时点、上涨日占比
+  behavior: 量能分布不均匀（高CV/极端峰值时点）的股票未来收益更低
+  timeframe: 10-60 日观察窗口，5 日持有
+  direction: 做多量能均匀分布（低CV），做空量能集中爆发（高CV/峰值异常）
+  prior_evidence: 'Legacy: amount_cv_10_60(F043,Grade A,79.6), amount_cv_5_20(F045,Grade
+    A,76.6), vol_peak_timing(F067,Mono=-0.9)'
+contract:
+  current_focus_question: TsAutoCorr family is field-specific to amount, NOT field-general.
+    All volume/turnover variants reproduce F001 (corr=0.46-0.62). residual_survival=0.38-0.53.
+    Park L003; revisit only with amount-focused variants at different windows.
+  direction_quota: 2
+  candidate_quota: 4
+  preferred_families:
+  - volume_distribution
+  - amount_dynamics
+  suggested_ops:
+  - Std
+  - Mean
+  - Div
+  - IdxMax
+  - IdxMin
+  - Count
+  - CsRank
+  - TsRank
+  - TsAutoCorr
+  required_fields:
+  - amount
+  - volume
+  - turnover_rate
+  - close
+  avoid_patterns:
+  - Div(Std(amount,10),Mean(amount,60)) — already F043
+  - Div(Std(amount,5),Mean(amount,20)) — already F045
+  - TsAutoCorr on volume at 20d — corr=0.977 with F001, same signal
+  - TsAutoCorr on turnover_rate at 20d — corr=0.970 with F001, same signal
+  - TsAutoCorr on volume at any window ≤40d — corr(F001)>0.46, confirmed same signal
+  - TsAutoCorr on turnover_rate at any window ≤40d — corr(F001)>0.45, same signal
+  - TsAutoCorr × turnover field variants — all absorbed by F001 amount signal
+discovery_budget: 10
+evidence_summary:
+  productive_families:
+  - family_id: PF_volume_autocorrelation
+    reason: F001 admitted with perfect holdout Mono=-1.0, ICIR=-0.439, LS t=-6.34.
+      TsAutoCorr is a confirmed novel signal class.
+    batch_id: batch_001
+  factors_generated: 8
+  factors_admitted: 1
+  rounds_without_admit: 2
+  failed_families:
+  - family_id: PF_volume_autocorrelation_vol
+    reason: corr=0.977 with F001 — volume is amount in disguise
+    batch_id: batch_002
+  - family_id: PF_volume_autocorrelation
+    reason: 'vol40d: corr(F001)=0.466, residual_surv=0.534; tur40d: corr(F001)=0.455,
+      same signal'
+    batch_id: batch_003
+  current_bottleneck: 'TsAutoCorr is amount-specific, NOT field-general. Volume and
+    turnover variants reproduce F001 at corr=0.45-0.62. The only incremental signal:
+    amount TsAutoCorr at longer windows (60d). Park L003.'
+  transitions:
+  - from: active
+    to: parked
+    reason: 5 attempts, 0 admits from L003 (1 admit is F001, not credited to L003).
+      TsAutoCorr on volume/turnover all reproduce F001 (corr=0.46-0.62). Failure boundary
+      confirmed.
+    at: '2026-04-06 21:56:13'
+search_ledger_ref: ''
+origin_proposal_id: null
+created_at: '2026-04-06 18:13:16'
+updated_at: '2026-04-06 21:56:13'
+deepening_threads:
+- id: T001
+  question: Is TsAutoCorr signal field-specific (amount only) or generalizable to
+    volume/turnover_rate?
+  why_matters: If TsAutoCorr works on multiple fields with low inter-correlation,
+    we have a family of independent factors. If only amount works, the signal is field-specific.
+  status: parked
+  priority: high
+  next_probes:
+  - TsAutoCorr($volume, 20)
+  - TsAutoCorr($turnover_rate, 20)
+  stop_condition: corr>0.7 for vol and tur — condition MET. TsAutoCorr is amount-specific.
+  supporting_evidence:
+  - vol40d corr(F001)=0.466
+  - tur40d corr(F001)=0.455
+  - amount30d corr(F001)=0.618
+- id: T002
+  question: What is the optimal window for TsAutoCorr($amount)?
+  why_matters: F001 uses 20d, C007 uses 60d (weaker). The optimal window may be between
+    20-40d or shorter.
+  status: parked
+  priority: medium
+  next_probes:
+  - TsAutoCorr($amount, 40)
+  - TsAutoCorr($amount, 10)
+  stop_condition: When we identify the window where ICIR is maximized and holdout
+    mono remains ≥0.8.
+  supporting_evidence:
+  - 'F001 (20d): ICIR=-0.439, Mono=-1.0'
+  - 'C007 (60d): ICIR=-0.224, Mono=-0.8 (weaker)'
+- id: T003
+  question: Is 30d the optimal window for TsAutoCorr($amount)? Does it decorrelate
+    further from F001 (20d) while maintaining stronger IC than 40d?
+  why_matters: F001 uses 20d (best ICIR=-0.439). C005 uses 40d (decorrelated but weaker,
+    ICIR=-0.315). The optimal window may be between them. 30d amount would answer
+    this directly.
+  status: parked
+  priority: high
+  next_probes:
+  - TsAutoCorr($amount,30)
+  - TsAutoCorr($volume,40)
+  stop_condition: If 30d amount has corr < 0.40 with F001 AND ICIR > 0.30, it is the
+    optimal window.
+next_actions:
+- Park L003. No further vol/turnover TsAutoCorr probes.
+- 'If revisit: test amount TsAutoCorr at 60d and 120d — may decorrelate from F001''s
+  20d.'
+last_reflected_batch: batch_003

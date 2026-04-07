@@ -30,7 +30,6 @@ def cmd_logic(args: argparse.Namespace) -> None:
     elif args.logic_action == "schedule":
         from research.logic.cards import LogicCardStore
         from research.logic.scheduler import LogicScheduler
-        from research.storage.yaml_io import save_yaml
 
         store = LogicCardStore(paths.root)
         cards = store.list_cards()
@@ -40,12 +39,6 @@ def cmd_logic(args: argparse.Namespace) -> None:
 
         scheduler = LogicScheduler()
         result = scheduler.generate_schedule(cards)
-        snapshot_path = scheduler.save_schedule(paths.root, result)
-
-        # Atomic write latest for downstream consumers (/factor-idea)
-        latest = paths.logic_dir / "snapshots" / "latest_schedule_snapshot.yaml"
-        latest.parent.mkdir(parents=True, exist_ok=True)
-        save_yaml(latest, {"schedule_snapshot": result.to_dict()})
 
         print(f"Schedule generated at {result.generated_at}")
         print(f"\nActive pool ({len(result.active_pool)}):")

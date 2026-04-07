@@ -1,0 +1,546 @@
+- batch_id: batch_001
+  status: applied
+  consumed_at: '2026-04-06T19:12:52+00:00'
+  resolution: lessons_already_recorded_in_research_lessons
+  proposed_lessons:
+  - id: NM_001
+    type: new_mechanism
+    content: TsAutoCorr($amount, 20) is a confirmed novel signal — volume autocorrelation
+      captures information uncertainty
+  - id: FP_001
+    type: forbidden_pattern_candidate
+    content: Cov(turnover_rate, pe_ratio, *) is a Barra value×turnover proxy (1 batch
+      evidence, needs 1 more for promotion)
+  - id: ST_001
+    type: style_trap
+    content: Shadow ratio × CsRank(turnover) produces style_r2>0.38 and crowding=HIGH
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_002
+  status: applied
+  consumed_at: '2026-04-06T12:20:00+00:00'
+  resolution: lessons_recorded_in_research_lessons_applied_via_reflect
+  proposed_lessons:
+  - id: ST_002
+    type: style_trap
+    content: Shadow × volatility is a vol_20d style trap. alpha_surv=0.093 for shadow×Std(close),
+      ICIR/Mono flip for pure shadow. Volatility is a dominant Barra style that subsumes
+      shadow signal.
+  - id: NM_002
+    type: new_mechanism
+    content: TsAutoCorr($amount, 40d) decorrelates from F001 at corr=0.445 — partially
+      different variance. 40d window captures regime-dependent liquidity autocorrelation
+      distinct from 20d.
+  proposed_forbidden:
+  - id: FP_002
+    type: forbidden_pattern_candidate
+    content: Cov(turnover, Sub(high,low)) is a pure volatility style proxy — alpha_surv=0.0012.
+      1 batch evidence, needs 1 more for promotion to forbidden.yaml.
+  logic_proposals: []
+- batch_id: batch_040
+  status: consumed
+  consumed_at: '2026-04-07T02:30:00+00:00'
+  resolution: lessons_already_recorded_in_research_lessons
+  proposed_lessons:
+  - id: FP-L002-all-cov-killed
+    category: false_positive
+    lesson: All Cov variants with turnover or fundamental fields produce positive
+      Barra residuals (absorbed by style). Cov(amt,tur)=+0.178, Cov(tur,ps_ratio)=+0.160.
+      L002 has 0 admits across 4 batches. L002 mechanism is dead.
+    severity: confirmed_failure
+    affected_logics:
+    - L002
+    batch_ids:
+    - batch_001
+    - batch_002
+    - batch_003
+    - batch_040
+  - id: NM-L004-amount-rel-tur
+    category: new_mechanism
+    lesson: 'Amount x rel-tur conditioning: alpha_surv=0.513 (session best), Barra_res=-0.343
+      (session cleanest). Applies volume competition encoding to smart-money field.'
+    severity: strong_confirmation
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_040
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_041
+  status: applied
+  applied_at: '2026-04-07T02:30:00+00:00'
+  proposed_lessons:
+  - id: FP-L004-pure-vol-competition
+    category: false_positive
+    lesson: Pure vol-competition Div(CsRank(amount),CsRank(volume)) without pv_corr
+      fails holdout with sign flip (mono_val=-0.9 to mono_ho=+0.5). The pv_corr component
+      is essential for signal survival.
+    severity: confirmed_failure
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_041
+  - id: NM-L004-amount-vol-competition
+    category: new_mechanism
+    lesson: Amount x vol-competition conditioning confirmed as new mechanism. C002
+      admits with Barra_res=-0.270, Mono=-0.9 (val and holdout). Distinct from F010
+      tur_rank/vol_rank encoding.
+    severity: strong_confirmation
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_041
+  - id: ST-duplicate-expression
+    category: style_trap
+    lesson: C001 and C004 are expression-level duplicates of F010 and F002. Expression
+      dedup not checked during probe or manifest freeze.
+    severity: confirmed_failure
+    affected_logics:
+    - L004
+    - L001
+    batch_ids:
+    - batch_041
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_039
+  status: applied
+  applied_at: '2026-04-07T01:42:00+00:00'
+  proposed_lessons:
+  - id: NM-L004-rel-tur-condition
+    category: new_mechanism
+    lesson: 'Relative tur rank conditioning (Div(CsRank(tur),CsRank(vol))) produces
+      session''s
+
+      cleanest Barra_res (-0.347) and best alpha_surv (0.496). New conditioning:
+
+      "turnover per unit volume activity" — captures volume competition intensity.
+
+      '
+    severity: strong_confirmation
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_039
+  - id: FP-L001-short-shadow-windows
+    category: false_positive
+    lesson: 'Shadow×Amihud at 10d and 5d both fail (ICIR collapse, mono near 0).
+
+      20d confirmed sweet spot. Mechanism requires sufficient averaging window.
+
+      '
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_039
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_038
+  status: applied
+  applied_at: '2026-04-07T01:42:00+00:00'
+  proposed_lessons:
+  - id: NM-L004-multi-scale
+    category: new_mechanism
+    lesson: 'Multi-scale experiment: 10d pv_corr×CsRank(tur) outperforms 20d and 40d.
+
+      ICIR probe: 10d(-0.558) > 20d(-0.530) > 40d(-0.446). Divergence is a
+
+      short-horizon phenomenon — longer windows capture regime, not transient divergences.
+
+      '
+    severity: confirmed
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_003
+    - batch_038
+  - id: NM-L004-amount-field
+    category: new_mechanism
+    lesson: '$amount field (monetary volume) produces orthogonal signal to $volume
+      in
+
+      pv_corr×CsRank(tur). ICIR_ho=-0.424, Barra_res=-0.263, Mono=-0.7.
+
+      Amount proxies smart money (price × volume), capturing informed trading better
+
+      than raw share count.
+
+      '
+    severity: strong_confirmation
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_038
+  - id: NM-L001-shadow-incremental-value
+    category: new_mechanism
+    lesson: 'Pure Amihud alpha_surv=0.407 (highest in batch) but ICIR=-0.217 (weakest).
+
+      Shadow×Amihud 40d (C004): ICIR=-0.270 vs pure Amihud -0.217 — shadow adds
+
+      ~20% incremental IC. Confirms shadow is not redundant with Amihud.
+
+      '
+    severity: strong_confirmation
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_038
+  - id: FP-L001-40d-window
+    category: false_positive
+    lesson: '40d shadow×Amihud (C004) weaker than 20d on all metrics: ICIR -0.270
+      vs
+
+      -0.482, Mono -0.5 vs -0.9. 40d window accumulates noise. Shadow×Amihud
+
+      sweet spot is 10-20d, not longer.
+
+      '
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_038
+  - id: FP-L004-40d-window
+    category: false_positive
+    lesson: '40d pv_corr×CsRank(tur) (C002): mono=-0.3, alpha_surv=0.246 (weakest).
+
+      At 40d, signal captures slow regime not transient divergences. Upper bound
+
+      for pv_corr×CsRank mechanism is 20-30d.
+
+      '
+    severity: confirmed_failure
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_038
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_003
+  status: applied
+  applied_at: '2026-04-07'
+  proposed_lessons:
+  - id: ST-L001-003
+    category: style_trap
+    lesson: Shadow signal collapses on holdout when paired with volatility or turnover
+      (alpha_surv<0.10). Only survives with Amihud (amount/volume).
+    severity: strong_confirmation
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_002
+    - batch_003
+  - id: NM-L003-tsautocorr-field
+    category: near_miss
+    lesson: TsAutoCorr on volume/turnover does not decorrelate from F001 (corr=0.46-0.62).
+      Mechanism is field-specific to amount, not general autocorr.
+    severity: strong_confirmation
+    affected_logics:
+    - L003
+    batch_ids:
+    - batch_002
+    - batch_003
+  - id: FP-L004-pv-corr-change
+    category: false_positive
+    lesson: Pv_corr change rate (Sub(Corr,Ref(Corr))) is a reversal signal, not a
+      divergence change. str_1m dominant (0.338).
+    severity: confirmed_failure
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_003
+  - id: FP-L002-cov-amt-tur
+    category: false_positive
+    lesson: Cov(amt,tur) Barra_residual_ICIR=0.178 — 7.8× worse than admitted. Absorbed
+      by turnover_20d, not intra-liquidity.
+    severity: confirmed_failure
+    affected_logics:
+    - L002
+    batch_ids:
+    - batch_003
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_042
+  status: applied
+  proposed_lessons:
+  - id: FP-L001-shadow-x-pv-corr
+    category: false_positive
+    lesson: 'Shadow x pv_corr: alpha_surv=0.138, turnover_20d exposure=0.271. pv_corr
+      does not provide orthogonal conditioning for shadow.'
+  - id: FP-L001-shadow-x-vol-competition
+    category: false_positive
+    lesson: 'Shadow x vol-competition: mono sign flip, dominant_style=log_circ_cap
+      (size). Not a shadow mechanism.'
+  proposed_forbidden: []
+  logic_proposals: []
+  saturation_signal: false
+- batch_id: batch_043
+  status: applied
+  proposed_lessons: []
+  proposed_forbidden: []
+  logic_proposals: []
+  saturation_signal: false
+- batch_id: batch_044
+  status: applied
+  proposed_lessons:
+  - id: FP-L001-5d-shadow-collapse
+    category: false_positive
+    lesson: 5d shadow x Amihud holdout collapse (ls_tstat_ho=-0.17, ICIR_ho=-0.144).
+      Shadow requires ≥10d averaging. 5d too fast.
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_044
+  - id: NM-L004-7d-scale-midpoint
+    category: new_mechanism
+    lesson: '7d amount x rel-tur (F012) admits: ICIR_ho=-0.402, mono_ho=-0.9, Barra_res=-0.024.
+      Viable mid-scale between 5d(reserve) and 10d(reject).'
+    severity: confirmed
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_044
+  proposed_forbidden: []
+  logic_proposals: []
+  saturation_signal: false
+- batch_id: batch_045
+  status: applied
+  proposed_lessons:
+  - id: FP-L004-hhi-concentration-fail
+    category: false_positive
+    lesson: HHI($amount/$volume) × CsRank($turnover) is a style trap. All 3 variants
+      produce mono_ho=0.0 to -0.1 (severe sign flip). HHI measures concentration correlated
+      with turnover regime. Do not probe HHI-based signals.
+    severity: confirmed_failure
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_045
+  proposed_forbidden: []
+  logic_proposals: []
+  saturation_signal: false
+- batch_id: batch_046
+  status: pending
+  proposed_lessons: []
+  proposed_forbidden:
+  - pattern: TsEntropy($amount/$volume, *) x CsRank($turnover_rate)
+    why: Confirmed turnover regime trap across multiple windows. mono_ho near zero.
+    evidence_batches:
+    - batch_046
+  logic_proposals: []
+- batch_id: batch_046
+  status: pending
+  proposed_lessons: []
+  proposed_forbidden:
+  - pattern: TsEntropy($amount/$volume, *) x CsRank($turnover_rate)
+    why: Confirmed turnover regime trap across multiple windows. mono_ho near zero.
+    evidence_batches:
+    - batch_046
+  logic_proposals: []
+- batch_id: batch_047
+  status: pending
+  consumed_at: null
+  proposed_lessons:
+  - id: NM-L004-pe-ps-condition-breaks-trap
+    type: new_mechanism
+    content: 'PE/PS conditioning breaks turnover regime trap: dominant_style shifts
+      from turnover_20d to str_1m/log_circ_cap. Turnover_20d exposure only 0.218 vs
+      0.448 in HHI/TsEntropy.'
+  - id: FP-L004-additive-pathology
+    type: forbidden_pattern_candidate
+    content: Add(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($amount)))
+      produces expanding_window_pass=FALSE and kurtosis=133. Additive paradigm creates
+      pathological distributions. Do not probe Add() conditioning.
+  proposed_forbidden:
+  - pattern: Add(Corr($close,$amount,$),Div(CsRank($turnover_rate),CsRank($amount)))
+    why: Expanding window pass fails, kurtosis=133. Pathological distribution.
+    evidence_batches:
+    - batch_047
+  logic_proposals: []
+  saturation_signal: null
+- batch_id: batch_049
+  status: pending
+  proposed_lessons:
+  - id: FP-L001-cov-volatility-style-trap
+    lesson: Cov(close, turnover/amount) × PE/Amihud conditioning collapses into vol_20d/str_1m
+      style regardless of conditioning dimension. All 4 batch_049 candidates show
+      positive Barra residual IC (+0.008 to +0.026). PE conditioning breakthrough
+      from L004 is specific to pv_corr direction signals, NOT generalizable to co-movement
+      signals.
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_049
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_050
+  status: pending
+  proposed_lessons:
+  - id: NM-L001-timing-range-breakthrough
+    lesson: IdxMax-IdxMin range (volume/turnover peak-trough distance) × PE conditioning
+      shows perfect holdout monotonicity (mono_ho=-1.0), decay_ratio>1.8, alpha_surv=0.44-0.45.
+      Most promising L001 signal since F002 shadow×Amihud. Requires holdout confirmation.
+    severity: potential_breakthrough
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_050
+  - id: FP-L001-tsautocorr-volume-duplicate
+    lesson: TsAutoCorr($volume,20) × PE/PS conditioning reproduces F001 at max_lib_corr=0.89/0.86.
+      Volume autocorrelation is the same mechanism as amount autocorrelation. Do not
+      probe TsAutoCorr on volume-derived fields at 20d.
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_050
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_051
+  status: pending
+  proposed_lessons:
+  - id: NM-L001-timing-range-window-optimization
+    lesson: '10d timing_range × PE: alpha_surv=0.879, 2× better than 20d timing_range
+      (0.44-0.45). Window parameter is decisive. Shortest viable window = optimal
+      for timing_range.'
+    severity: potential_breakthrough
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_051
+  - id: NM-L001-timing-range-conditioning-reversal
+    lesson: 20d timing_range × Amihud FAILS (near-flat ranking, alpha_surv=0.17-0.20).
+      Amihud conditioning does NOT work for timing_range — opposite of shadow where
+      Amihud is essential. Fundamental conditioning (PE/PB) required.
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_051
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_052
+  status: pending
+  proposed_lessons:
+  - id: ADMIT-L001-F013-timing-range-5d
+    lesson: 'F013 (5d timing_range × PE) admitted as first L001 factor in 9 rounds.
+      alpha_surv=1.204, mono_ho=-0.9, Barra_residual_IC=-0.014, dominant_style=turnover_20d=0.152.
+      L001 now has 2 productive families: F002 (shadow×Amihud) and F013 (5d timing_range×PE).'
+    severity: admission
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_052
+  - id: FP-L001-timing-range-pb-conditioning-fails
+    lesson: '10d timing_range × PB conditioning (batch_052 C003): mono_ho=+0.1 sign
+      flip, ls_tstat_ho=0.23 near-zero. PB conditioning does NOT work for timing_range
+      — only PE/PS works.'
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_052
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_053
+  status: pending
+  proposed_lessons:
+  - id: FP-L001-timing-range-3d-collapse
+    severity: confirmed_failure
+    category: false_positive
+    lesson: '3d timing_range × PE: decay=0.876 (<1), ls_tstat_ho=-1.09. mono_ho=-1.0
+      is DECEPTIVE. 3d is too fast.'
+  - id: FP-L001-timing-range-ps-fails
+    severity: confirmed_failure
+    category: false_positive
+    lesson: '5d timing_range × PS: mono_ho=+0.1 sign flip. PS is NOT interchangeable
+      with PE. PE is uniquely essential.'
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_054
+  status: pending
+  proposed_lessons:
+  - id: FP-L001-pe-ps-ratio-dilutes
+    severity: confirmed_failure
+    category: false_positive
+    lesson: PE/PS ratio WEAKENS signal (decay=0.75 < 1). PE alone is clearly superior.
+  - id: FP-L001-blend-expression-level-fails
+    severity: confirmed_failure
+    category: false_positive
+    lesson: Shadow×timing blend at expression level fails (mono_ho=0.0). Portfolio-level
+      combination needed.
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_055
+  status: pending
+  proposed_lessons:
+  - id: NM-L001-timing-range-field-generalization
+    category: new_signal
+    lesson: 'Timing_range mechanism generalizes to $amount field. F014 admitted: max_lib_corr=0.073,
+      Barra_res=-0.014, alpha_surv=1.063, mono_ho=-0.9. $amount (price×volume monetary)
+      equally valid as $volume. Mechanism is timing volatility broadly, not field-specific.'
+    severity: new_signal
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_055
+  - id: FP-L001-timing-range-turnover-weaker
+    category: false_positive
+    lesson: 'Turnover_rate timing_range: ICIR_val=-0.147 (weak), half_life=9.41d (slow),
+      mono_ho=-0.8 (borderline). Turnover variant is weaker than amount. Reserve —
+      admit only if amount variant stable.'
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_055
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_056
+  status: pending
+  proposed_lessons:
+  - id: FP-L001-timing-range-close-style-trap
+    category: false_positive
+    lesson: 'Price-only timing_range ($close): alpha_surv=0.214 (POOR), str_1m=0.413
+      (HIGH style trap). Volume ($volume) and amount ($amount) variants produce cleaner
+      signals (str_1m=0.15, alpha_surv>1.0). Volume dimension is essential for clean
+      timing signal.'
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_056
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_057
+  status: pending
+  proposed_lessons:
+  - id: FP-L001-idxmin-trough-not-independent
+    category: false_positive
+    lesson: 'IdxMin (trough-only) × any conditioning: WEAKENS on holdout (decay<1).
+      C002: mono_ho=0.0 (FATAL), alpha_surv=0.005 (CATASTROPHIC). Peak-trough DISTANCE
+      (IdxMax-IdxMin) is essential — trough position alone is NOT a signal.'
+    severity: confirmed_failure
+    affected_logics:
+    - L001
+    batch_ids:
+    - batch_057
+  proposed_forbidden: []
+  logic_proposals: []
+- batch_id: batch_058
+  status: pending
+  proposed_lessons:
+  - id: FP-L004-ep-conditioning-style-trap
+    category: false_positive
+    lesson: 'EP conditioning (Div(1,$pe_ratio)) on pv_corr: alpha_surv=0.092 (POOR),
+      str_1m=0.318 (style trap), style_r2=0.161. EP is too similar to PE — fundamental
+      conditioning breaks turnover trap but introduces style trap.'
+    severity: confirmed_failure
+    affected_logics:
+    - L004
+    batch_ids:
+    - batch_058
+  proposed_forbidden: []
+  logic_proposals: []

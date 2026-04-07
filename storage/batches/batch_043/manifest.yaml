@@ -1,0 +1,76 @@
+batch_id: batch_043
+candidates:
+- candidate_id: C001
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: PF_pv_timing
+  experiment_lineage_tag: ELT_L004_amount_vol_competition_scale_v1
+  expression: Mul(Corr($close,$amount,10),Div(CsRank($turnover_rate),CsRank($volume)))
+  name: amount_x_rel_tur_10d
+  direction: long
+  rationale: 10d pv_corr x rel-tur (tur_rank/vol_rank). Scale variant of F011 (20d).
+    Shorter window captures faster regime.
+  created_at: '2026-04-07T02:35:00+00:00'
+  probe_result:
+    ic_mean: -0.0492
+    ic_ir: -0.4973
+    win_rate: 31.43
+- candidate_id: C002
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: PF_pv_timing
+  experiment_lineage_tag: ELT_L004_amount_vol_competition_scale_v1
+  expression: Mul(Corr($close,$amount,20),Div(CsRank($amount),CsRank($volume)))
+  name: amount_x_vol_competition_20d
+  direction: long
+  rationale: 20d pv_corr x amount_rank/vol_rank (amount vol-competition). Dual encoding
+    baseline — amount_rank instead of tur_rank.
+  created_at: '2026-04-07T02:35:00+00:00'
+  probe_result:
+    ic_mean: -0.0498
+    ic_ir: -0.4826
+    win_rate: 31.71
+- candidate_id: C003
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: PF_pv_timing
+  experiment_lineage_tag: ELT_L004_amount_vol_competition_scale_v1
+  expression: Mul(Corr($close,$amount,10),Div(CsRank($amount),CsRank($volume)))
+  name: amount_x_vol_competition_10d
+  direction: long
+  rationale: 10d pv_corr x amount_rank/vol_rank. Shorter window for amount vol-competition
+    encoding.
+  created_at: '2026-04-07T02:35:00+00:00'
+  probe_result:
+    ic_mean: -0.0461
+    ic_ir: -0.5088
+    win_rate: 29.82
+- candidate_id: C004
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: PF_pv_timing
+  experiment_lineage_tag: ELT_L004_amount_vol_competition_scale_v1
+  expression: Mul(Corr($close,$amount,5),Div(CsRank($turnover_rate),CsRank($volume)))
+  name: amount_x_rel_tur_5d
+  direction: long
+  rationale: 5d pv_corr x rel-tur. Fastest window in scale experiment — tests if short-horizon
+    divergence survives.
+  created_at: '2026-04-07T02:35:00+00:00'
+  probe_result:
+    ic_mean: -0.0375
+    ic_ir: -0.4363
+    win_rate: 32.29
+batch_metadata:
+  batch_id: batch_043
+  created_at: '2026-04-07T02:35:00+00:00'
+  freeze_reason: scale experiment for amount x vol-competition / rel-tur
+  active_logics:
+  - L004
+  notes:
+  - C001/C004: rel-tur encoding (tur_rank/vol_rank)
+  - C002/C003: vol-competition encoding (amount_rank/vol_rank)
+  - Scale range: 5d, 10d, 20d

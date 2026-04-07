@@ -23,6 +23,24 @@ VALID_STATUSES = frozenset(
     {"proposed", "active", "warm", "productive", "saturated", "parked", "dead"}
 )
 VALID_PRIORITIES = frozenset({"high", "medium", "low"})
+CATEGORY_ALIASES = {
+    "price_volume": "volume_price",
+}
+
+
+def _normalize_category(value: str) -> str:
+    normalized = value.strip().lower().replace("-", "_").replace(" ", "_")
+    return CATEGORY_ALIASES.get(normalized, normalized)
+
+
+def _normalize_discovery_budget(
+    value: Union[int, Dict[str, Any]],
+) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, int):
+        return {"adjacent_discovery_route_quota": value}
+    return {}
 
 
 @dataclass
@@ -87,6 +105,8 @@ class LogicCard:
     last_reflected_batch: str = ""
 
     def __post_init__(self) -> None:
+        self.category = _normalize_category(self.category)
+        self.discovery_budget = _normalize_discovery_budget(self.discovery_budget)
         if self.status not in VALID_STATUSES:
             raise ValueError(
                 f"Invalid status {self.status!r}; "
@@ -165,15 +185,16 @@ class LogicCardStore:
     """YAML-backed CRUD store for LogicCard objects.
 
     Cards are stored at ``<cards_dir>/<logic_id>.yaml``.
-    A registry index is maintained at ``<storage_dir>/logic/registry.yaml``
-    as a **derived cache** (rebuilt on every card write).  The authoritative
-    source of truth is always the individual card files under ``cards/``.
+    The authoritative source of truth is always the individual card
+    files under ``cards/``.
     """
 
     def __init__(self, storage_dir: Path) -> None:
         self._storage_dir = Path(storage_dir)
         self._cards_dir = self._storage_dir / "logic" / "cards"
+        self._reflections_dir = self._storage_dir / "logic" / "reflections"
         self._cards_dir.mkdir(parents=True, exist_ok=True)
+        self._reflections_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -182,8 +203,8 @@ class LogicCardStore:
     def _card_path(self, logic_id: str) -> Path:
         return self._cards_dir / f"{logic_id}.yaml"
 
-    def _registry_path(self) -> Path:
-        return self._storage_dir / "logic" / "registry.yaml"
+    def _reflection_path(self, logic_id: str) -> Path:
+        return self._reflections_dir / f"{logic_id}.md"
 
     def _scan_ids(self) -> List[str]:
         pattern = re.compile(r"^(L\d+)\.yaml$")
@@ -200,26 +221,6 @@ class LogicCardStore:
             return "L001"
         nums = [int(lid[1:]) for lid in existing]
         return f"L{max(nums) + 1:03d}"
-
-    def _update_registry(self) -> None:
-        """Rebuild the registry index from card files."""
-        entries: List[Dict[str, Any]] = []
-        for lid in self._scan_ids():
-            card = self.get(lid)
-            if card:
-                entries.append(
-                    {
-                        "logic_id": card.logic_id,
-                        "name": card.name,
-                        "category": card.category,
-                        "status": card.status,
-                        "priority": card.priority,
-                    }
-                )
-        registry = {"logics": entries, "count": len(entries)}
-        registry_path = self._registry_path()
-        registry_path.parent.mkdir(parents=True, exist_ok=True)
-        save_yaml(registry_path, registry)
 
     # ------------------------------------------------------------------
     # Public API
@@ -290,11 +291,33 @@ class LogicCardStore:
         if not path.exists():
             return False
         path.unlink()
-        self._update_registry()
+        reflection_path = self._reflection_path(logic_id)
+        if reflection_path.exists():
+            reflection_path.unlink()
         logger.info("Deleted logic card %s", logic_id)
         return True
 
     def _save(self, card: LogicCard) -> None:
-        """Write card YAML and update registry index."""
+        """Write card YAML."""
         save_yaml(self._card_path(card.logic_id), card.to_dict())
-        self._update_registry()
+        self._ensure_reflection_stub(card)
+
+    def _ensure_reflection_stub(self, card: LogicCard) -> None:
+        """Create a minimal reflection file for new logic cards."""
+        reflection_path = self._reflection_path(card.logic_id)
+        if reflection_path.exists():
+            return
+        reflection_path.write_text(
+            (
+                f"# {card.logic_id} {card.name}\n\n"
+                f"## Current Thesis\n"
+                f"{card.contract.current_focus_question or 'Initial logic created; thesis not yet reflected.'}\n\n"
+                f"## Known Evidence\n"
+                f"- Status: {card.status}\n"
+                f"- Priority: {card.priority}\n"
+                f"- Category: {card.category}\n\n"
+                f"## Open Questions\n"
+                f"- Initial reflection pending first judge/reflect cycle.\n"
+            ),
+            encoding="utf-8",
+        )

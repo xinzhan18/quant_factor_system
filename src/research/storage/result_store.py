@@ -47,7 +47,11 @@ class ResultStore:
     # ------------------------------------------------------------------
 
     def load_judge_report(self, batch_id: str) -> dict[str, Any]:
-        return load_yaml(self._paths.judge_report_file(batch_id))
+        data = load_yaml(self._paths.judge_report_file(batch_id))
+        # Unwrap nested judge_report: key if present (newer format)
+        if "judge_report" in data and isinstance(data["judge_report"], dict):
+            return data["judge_report"]
+        return data
 
     def save_judge_report(self, batch_id: str, data: dict[str, Any]) -> None:
         data["batch_id"] = batch_id

@@ -1,11 +1,10 @@
-"""DecayAnalyzer -- IC decay, autocorrelation, distribution, and rebalancing analysis.
+"""DecayAnalyzer -- IC decay, distribution, and rebalancing analysis.
 
 Unified analyzer that computes:
   - IC decay across multiple holding periods (including 2-day)
   - Signal half-life and optimal rebalancing recommendation
-  - Factor autocorrelation at various lags
   - Distribution statistics (absorbed from DistributionAnalyzer)
-  - Charts: ic_decay, autocorrelation, distribution, coverage
+  - Charts: ic_decay, distribution, coverage
 """
 from __future__ import annotations
 
@@ -13,21 +12,16 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from concurrent.futures import ThreadPoolExecutor
-from scipy.stats import spearmanr, skew, kurtosis
-
 from core.factor_stats import (
     distribution_stats as _shared_distribution_stats,
-    factor_autocorrelation as _shared_factor_autocorrelation,
 )
 from report.charts.theme import COLORS, apply_theme
 
 
 class DecayAnalyzer:
-    """Analyze factor signal persistence: IC decay, autocorrelation, distribution."""
+    """Analyze factor signal persistence: IC decay and distribution."""
 
     DEFAULT_PERIODS = [1, 2, 5, 10, 20, 60]
-    AUTOCORR_LAGS = [1, 2, 3, 5, 10, 15, 20]
-    MAX_AUTOCORR_DATES = 50
 
     def compute(
         self,
@@ -184,22 +178,6 @@ class DecayAnalyzer:
         return max(periods) if periods else 1
 
     # ------------------------------------------------------------------
-    # Autocorrelation
-    # ------------------------------------------------------------------
-
-    def _compute_autocorrelation(self, factor_df: pd.DataFrame) -> list[dict]:
-        """Cross-sectional Spearman correlation between factor at t and t-lag.
-
-        Delegates to core.factor_stats.factor_autocorrelation.
-        """
-        return _shared_factor_autocorrelation(
-            factor_df,
-            lags=list(self.AUTOCORR_LAGS),
-            min_obs=10,
-            max_dates=self.MAX_AUTOCORR_DATES,
-        )
-
-    # ------------------------------------------------------------------
     # Distribution (absorbed from DistributionAnalyzer)
     # ------------------------------------------------------------------
 
@@ -289,29 +267,6 @@ class DecayAnalyzer:
         )
         return apply_theme(fig, title=f"{name} IC Decay".strip())
 
-    def _chart_autocorrelation(
-        self, autocorr: list[dict], name: str
-    ) -> go.Figure:
-        """Lag vs autocorrelation line chart."""
-        lags = [a["lag"] for a in autocorr]
-        corrs = [a["corr"] for a in autocorr]
-
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=lags,
-                y=corrs,
-                mode="lines+markers",
-                name="Autocorrelation",
-                line=dict(color=COLORS["primary"]),
-            )
-        )
-        fig.update_layout(
-            xaxis_title="Lag (days)",
-            yaxis_title="Spearman Correlation",
-        )
-        return apply_theme(fig, title=f"{name} Factor Autocorrelation".strip())
-
     def _chart_distribution(
         self, distribution: dict, name: str
     ) -> go.Figure:
@@ -381,20 +336,3 @@ class DecayAnalyzer:
             fig.update_layout(yaxis_title="Coverage %")
 
         return apply_theme(fig, title=f"{name} Factor Coverage".strip())
-
-
-# ------------------------------------------------------------------
-# Helper
-# ------------------------------------------------------------------
-
-
-def _spearman_corr(a: pd.Series, b: pd.Series) -> float:
-    """Compute Spearman correlation, returning NaN on failure."""
-    try:
-        mask = a.notna() & b.notna()
-        if mask.sum() < 4:
-            return np.nan
-        corr, _ = spearmanr(a[mask], b[mask])
-        return corr
-    except Exception:
-        return np.nan

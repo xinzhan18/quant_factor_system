@@ -158,6 +158,20 @@ Operator/field whitelists: single source of truth in `src/research/execute/prech
 - **Qlib binary format**: File = `[start_index:f32][data:f32×N]`. `start_index` is the calendar index of the first data point; data contains ONLY values from `start_index` onwards (no leading NaNs). `resync_qlib.py` uses vectorized pivot_table writes (~1 min for 5431 stocks × 17 fields). Do NOT write full-length arrays with non-zero start_index — Qlib will read wrong offsets.
 - **`index_constituents` DB table** — stores daily index membership. Available indices: `csi300`, `csi500`, `csi1000`
 
+## Autonomous Mining Mode
+
+当执行 `/factor-mine` 循环（或通过 `/loop`、`/ralph-loop` 驱动时），进入全自主模式：
+
+- **不要停下来问用户确认**——所有决策自行判断并继续
+- 主题选择：按 logic schedule 优先级自动选取，不问"要选哪个？"
+- probe 失败：自动跳过该候选，尝试下一个，不问"要继续吗？"
+- batch 冻结：满足 freeze 条件直接冻结，不需确认
+- judge 裁决：严格按 6 维标准执行 admit/reserve/reject，不需人工复核
+- reflect：自动执行 belief delta 更新，不问"要更新吗？"
+- report：admitted 因子自动启动后台 subagent 生成，不问"要生成报告吗？"
+- 一轮结束后，检查是否还有 schedule 条目，有则自动进入下一轮
+- **只在系统级错误时停下**：DB 连接失败、文件损坏、Python 异常无法恢复
+
 ## Environment
 
 - **Python**: 3.8+ (conda env: `quantfactor`)

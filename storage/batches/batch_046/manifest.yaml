@@ -1,0 +1,83 @@
+batch_id: batch_046
+candidates:
+- candidate_id: C001
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_ts_entropy_v1
+  expression: Mul(TsEntropy($amount,20),CsRank($turnover_rate))
+  name: ts_entropy_amount_x_tur_20d
+  direction: long
+  rationale: TsEntropy($amount,20) × CsRank($turnover_rate) — TsEntropy measures entropy
+    of amount distribution over 20d window. High entropy = uniform distribution (smart
+    money distributed), low entropy = concentrated (smart money concentrated). Novel
+    entropy encoding × activity. New mechanism distinct from pv_corr/HHI.
+  created_at: '2026-04-07T08:00:00+00:00'
+  probe_result:
+    ic_mean: -0.0421
+    ic_ir: -0.4036
+    win_rate: 31.2
+- candidate_id: C002
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_ts_entropy_v1
+  expression: Mul(TsEntropy($amount,10),CsRank($turnover_rate))
+  name: ts_entropy_amount_x_tur_10d
+  direction: long
+  rationale: TsEntropy($amount,10) × CsRank($turnover_rate) — 10d entropy × activity.
+    Shorter window to test if entropy at faster scale captures distinct microstructure
+    signal.
+  created_at: '2026-04-07T08:00:00+00:00'
+  probe_result:
+    ic_mean: -0.0445
+    ic_ir: -0.431
+    win_rate: 30.8
+- candidate_id: C003
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_ts_entropy_v1
+  expression: Mul(TsEntropy($volume,20),CsRank($turnover_rate))
+  name: ts_entropy_volume_x_tur_20d
+  direction: long
+  rationale: TsEntropy($volume,20) × CsRank($turnover_rate) — entropy of share volume
+    distribution × activity. Tests if volume entropy (share-count based) provides
+    orthogonal signal to amount entropy (monetary based).
+  created_at: '2026-04-07T08:00:00+00:00'
+  probe_result:
+    ic_mean: -0.0418
+    ic_ir: -0.4135
+    win_rate: 31.5
+- candidate_id: C004
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_amount_fundamental_v1
+  expression: Mul(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($amount)))
+  name: amount_corr_x_fundamental_conditioning_20d
+  direction: long
+  rationale: Corr($close,$amount,20) × (tur_rank/amount_rank) — pv_corr direction
+    × fundamental conditioning. amount_rank acts as fundamental quality proxy. Tests
+    if smart money preference correlates with value dimension.
+  created_at: '2026-04-07T08:00:00+00:00'
+  probe_result:
+    ic_mean: -0.0432
+    ic_ir: -0.4187
+    win_rate: 30.4
+batch_metadata:
+  batch_id: batch_046
+  created_at: '2026-04-07T08:00:00+00:00'
+  freeze_reason: TsEntropy × turnover new mechanism (4 candidates)
+  active_logics:
+  - L004
+  notes:
+  - C001/C002/C003: TsEntropy × tur — entropy encoding of amount/volume distribution
+  - C001: TsEntropy($amount,20) — monetary entropy × activity
+  - C002: TsEntropy($amount,10) — faster monetary entropy × activity
+  - C003: TsEntropy($volume,20) — share-count entropy × activity
+  - C004: amount_corr × (tur_rank/amount_rank) — amount rank as fundamental proxy

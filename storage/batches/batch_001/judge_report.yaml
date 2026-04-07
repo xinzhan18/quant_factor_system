@@ -1,0 +1,304 @@
+batch_id: batch_001
+judged_at: "2026-04-06T18:48:00Z"
+
+batch_summary:
+  total_candidates: 7
+  admitted: 1
+  reserved: 2
+  rejected: 4
+  replaced: 0
+
+candidate_verdicts:
+  - candidate_id: C001
+    name: lower_shadow_ratio_20d_x_turnover_vol_20d
+    logic_id: L001
+    verdict: reserve
+    reason_codes:
+      - style_dominance_detected
+      - mechanism_aligned
+      - feasibility_ok
+    detail: |
+      Strong validation signal (ICIR=-0.583, Mono=-1.0) and decent holdout (ICIR=-0.347, Mono=-0.7).
+      However, turnover_20d exposure=0.478, style R²=0.445 — nearly half the signal is explained by
+      style factors. Alpha survival ratio=0.19 means only 19% survives Barra neutralization.
+      Holdout LS Sharpe=-1.10 is moderate. Reserve for repair route to reduce turnover dependence.
+
+  - candidate_id: C002
+    name: lower_shadow_ratio_10d_x_turnover_vol_10d
+    logic_id: L001
+    verdict: reject
+    reason_codes:
+      - weak_validation_effect
+      - style_dominance_detected
+    detail: |
+      Despite strong in-sample ICIR (-0.605/-0.581), holdout monotonicity collapses to 0.0.
+      Holdout quintile returns: Q1-Q4 all similar (5.0-5.4%), only Q5 drops (2.8%).
+      No monotonic sorting power OOS. Combined with poor risk profile (turnover 0.34, alpha_surv=0.13).
+      Shorter window (10d) makes this more noise-prone than C001.
+
+  - candidate_id: C003
+    name: upper_shadow_ratio_20d_x_turnover_rank
+    logic_id: L001
+    verdict: reject
+    reason_codes:
+      - weak_validation_effect
+      - style_dominance_detected
+    detail: |
+      Holdout LS Sharpe=-0.04 (near zero — signal is dead OOS). Holdout Mono=0.0.
+      Highest turnover style exposure in batch (0.61), style crowding risk=HIGH.
+      Val→Holdout decay=0.73. Upper shadow interaction with CsRank(turnover) is
+      essentially a repackaged turnover factor.
+
+  - candidate_id: C004
+    name: cov_turnover_pe_60
+    logic_id: L002
+    verdict: reject
+    reason_codes:
+      - weak_validation_effect
+    detail: |
+      Severe holdout decay (ratio 0.45). Holdout ICIR=-0.126, Mono=0.0.
+      Critically, alpha_survival_ratio=1.14 with Barra residual IC=+0.034 (positive!) —
+      after removing style factors, the "alpha" flips direction. The raw negative IC
+      is just the shadow of Barra risk factors, not independent alpha.
+      Holdout LS: t=-0.44, Sharpe=-0.32 (economically insignificant).
+
+  - candidate_id: C005
+    name: cov_turnover_pe_120
+    logic_id: L002
+    verdict: reject
+    reason_codes:
+      - sign_flip_detected
+      - weak_validation_effect
+    detail: |
+      Signal direction FLIPS in holdout: validation Mono=-0.6 → holdout Mono=+0.6.
+      Holdout LS mean is POSITIVE (+0.000402) despite negative train/validation — sign inconsistency.
+      Alpha_survival_ratio=1.51, Barra residual flips sign. Severe holdout decay (0.42).
+      This is a disguised Barra risk factor with no stable independent alpha.
+
+  - candidate_id: C006
+    name: amount_autocorr_20
+    logic_id: L003
+    verdict: admit
+    admitted_as: F001
+    reason_codes:
+      - mechanism_aligned
+      - feasibility_ok
+    detail: |
+      EXCEPTIONAL candidate. Perfect holdout monotonicity (-1.0) with IMPROVING OOS performance
+      (decay ratio 1.52). Holdout ICIR=-0.439 beats both train (-0.304) and validation (-0.304).
+      Holdout LS: t-stat=-6.34 (highly significant), Sharpe=-4.56.
+      Holdout quintile cascade: Q1(6.26%) > Q2(5.36%) > Q3(5.13%) > Q4(4.16%) > Q5(2.66%).
+      Strong long-side alpha (Q1=6.26%), A-share compatible.
+      Style R²=0.14 (86% unexplained by Barra), novel signal (max_lib_corr=0.0).
+      Risk concern: alpha_survival=0.28 and turnover_20d exposure=0.30 — but residual
+      alpha remains economically significant given the extreme holdout LS strength.
+
+  - candidate_id: C007
+    name: amount_autocorr_60
+    logic_id: L003
+    verdict: reserve
+    reason_codes:
+      - moderate_style_exposure
+      - mechanism_aligned
+      - feasibility_ok
+    detail: |
+      Decent holdout (Mono=-0.8, ICIR=-0.224, LS t=-1.83) with improving decay ratio (1.51).
+      However, strictly inferior to C006 across all metrics. Validation ICIR drops to -0.174
+      before recovering in holdout — irregular stability pattern. Turnover exposure=0.40.
+      Reserve for decorrelation study vs F001 (C006). If highly uncorrelated with F001
+      at 60d vs 20d window, could complement; otherwise redundant.
+
+route_verdicts:
+  - route_id: R1_shadow_liquidity
+    logic_id: L001
+    verdict: continue
+    reason: |
+      1 reserve (C001) with strong in-sample signal. Core issue is turnover style dominance.
+      Next iteration should explore decorrelation routes: shadow signals neutralized for
+      turnover exposure, or conditional signals (shadow × non-turnover interaction).
+      C002/C003 rejected — shorter window and CsRank(turnover) variants don't improve OOS.
+
+  - route_id: R2_cross_covariance
+    logic_id: L002
+    verdict: pause
+    reason: |
+      Both candidates (C004, C005) show severe holdout decay and Barra residual sign flip.
+      Cov(turnover_rate, pe_ratio) at both 60d and 120d windows is essentially capturing
+      Barra style factor exposure, not independent alpha. The PE field interaction with
+      turnover seems to be a proxy for value×turnover style interaction.
+      Pause this route. Need fundamentally different field combinations for L002.
+
+  - route_id: R3_volume_dynamics
+    logic_id: L003
+    verdict: continue
+    reason: |
+      Strong route: 1 admit (C006, exceptional), 1 reserve (C007).
+      TsAutoCorr is a genuinely novel signal class. Next iteration should explore:
+      (1) TsAutoCorr on other fields (volume, turnover_rate)
+      (2) Window optimization beyond 20d/60d
+      (3) Conditional variants (autocorr × regime indicator)
+
+logic_recommendations:
+  L001:
+    recommended_status: active
+    reason: |
+      First batch produced 1 strong reserve (C001) and 2 rejects.
+      Shadow × turnover interaction has clear in-sample signal but too much turnover
+      style exposure. Logic is viable but needs style-neutral variant exploration.
+      NOT exhausted — many untested microstructure × non-turnover combinations remain.
+
+  L002:
+    recommended_status: active
+    reason: |
+      First batch 0/2 — both Cov(turnover, PE) variants failed in holdout.
+      However, the failure mode is informative: PE field interaction produced Barra-dominated
+      signals. Other field combinations (e.g., Cov with non-valuation fields) remain untested.
+      Keep active but shift exploration away from PE interactions.
+
+  L003:
+    recommended_status: active
+    reason: |
+      First batch produced an exceptional admit (F001) from TsAutoCorr.
+      Volume autocorrelation is a confirmed novel signal class.
+      Many expansion opportunities: other fields, window ranges, conditional variants.
+
+logic_diagnostics:
+  L001:
+    thesis_update: |
+      蜡烛图影线 × 换手率交互确实携带预测信号（训练期 ICIR 达 -0.55~-0.60），
+      但约 45% 的信号方差可被 Barra 风格因子（尤其是 turnover_20d）解释。
+      下影线比上影线信号更稳定（C001 holdout Mono=-0.7 vs C003 Mono=0.0）。
+      核心洞察：影线本身可能是有效的微观结构指标，但当前的交互形式
+      （直接乘以换手率/换手率波动率）使信号过度依赖换手率维度。
+
+    evidence_for:
+      - "C001 holdout ICIR=-0.347, Mono=-0.7, all support windows sign-consistent"
+      - "C001/C002 train ICIR>-0.55, expanding window sign consistency=1.0"
+      - "下影线 > 上影线 in holdout stability (Mono -0.7 vs 0.0)"
+
+    evidence_against:
+      - "C001 turnover_20d exposure=0.478, style R²=0.445 — nearly half is style"
+      - "C001 alpha_survival=0.19 — only 19% survives Barra"
+      - "C002/C003 holdout Mono=0.0 — shorter window and CsRank variants fail OOS"
+      - "C003 holdout LS Sharpe=-0.04 — essentially dead signal"
+
+    failure_boundary: |
+      不再继续做 shadow × CsRank(turnover) 组合（C003 已证伪）。
+      不再继续做 10d 短窗口变体（C002 holdout mono 崩塌）。
+      直接乘以 turnover 类指标的交互形式已到达 style 吸收上限。
+
+    open_questions:
+      - "影线信号能否在换手率中性化后仍然存活？"
+      - "影线 × 非换手率指标（如波动率、动量）的交互是否更 style-neutral？"
+      - "条件影线（仅在特定成交量条件下计算）能否提纯信号？"
+
+    next_best_probes:
+      - expr: "CsDemean(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20))"
+        why: "纯影线信号去截面均值，测试不含交互项的影线原始信号"
+      - expr: "Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20), Std($close,20))"
+        why: "影线 × 价格波动率交互，替代换手率维度"
+
+    factor_roles:
+      - candidate_id: C001
+        role: high_quality_reserve
+        summary: "影线×换手率方向的最佳候选，但需 style 修复才能 admit"
+
+  L002:
+    thesis_update: |
+      Cov(turnover_rate, pe_ratio) 在训练期有信号（ICIR -0.24~-0.38），
+      但 holdout 严重衰减（decay 0.42~0.45），且 Barra 残差 IC 反转为正。
+      这意味着该信号本质上是捕获了 value×turnover 的 Barra 风格交互，
+      而非独立的跨字段协方差异象。PE 字段的季节性和离群值可能放大了样本内拟合。
+
+    evidence_for:
+      - "C004 validation ICIR=-0.377, support windows all sign-consistent"
+      - "Style R²=0.039 — 低风格暴露（表面上）"
+      - "Low redundancy (max_lib_corr=0.0)"
+
+    evidence_against:
+      - "C004 holdout decay=0.45 (severe), Mono 从 -0.9 崩塌到 0.0"
+      - "C004 alpha_survival=1.14, Barra residual IC=+0.034 — 残差信号反向"
+      - "C005 holdout Mono FLIPS to +0.6, LS mean turns positive — sign inconsistency"
+      - "C005 alpha_survival=1.51 — 更严重的 Barra 残差反转"
+
+    failure_boundary: |
+      Cov(turnover_rate, pe_ratio) 在 60d 和 120d 窗口均失败。
+      不应继续在 PE 字段上做 Cov 变体。
+      PE 的季节性（财报周期）可能导致虚假的协方差信号。
+
+    open_questions:
+      - "Cov 的哪些非估值字段组合能避免 Barra 吸收？"
+      - "Cov(volume, close, N) 或 Cov(turnover_rate, high-low, N) 是否更独立？"
+      - "Correlation（归一化）是否比 Cov（规模敏感）更稳定？"
+
+    next_best_probes:
+      - expr: "Cov($turnover_rate, Sub($high, $low), 60)"
+        why: "换手率 × 振幅协方差，避免估值字段的 Barra 吸收"
+      - expr: "Corr($amount, $pb_ratio, 60)"
+        why: "用 Correlation 替代 Cov，归一化后可能更稳定"
+
+    factor_roles: []
+
+  L003:
+    thesis_update: |
+      成交量自相关（TsAutoCorr）是一个确认有效的新信号类别。
+      F001 (TsAutoCorr $amount 20d) 展现出完美的 holdout 单调性和强化的 OOS 性能，
+      这非常罕见——说明该信号捕捉了成交量序列中持久的信息结构。
+      机制解读：低自相关 = 量能不可预测 = 信息不确定性高 → 更高的信息风险溢价。
+      60d 窗口变体（C007）较弱但也存活，暗示信号在中期窗口仍有效。
+
+    evidence_for:
+      - "F001 (C006) holdout Mono=-1.0 (PERFECT), ICIR=-0.439, LS t=-6.34"
+      - "F001 decay ratio=1.52 — signal IMPROVES OOS (very rare)"
+      - "F001 holdout Q1=6.26% >> Q5=2.66% — clear long-side alpha"
+      - "C007 holdout Mono=-0.8, LS t=-1.83 — 60d window also works"
+      - "Style R²=0.14 (low) — 86% of signal not explained by styles"
+
+    evidence_against:
+      - "F001 alpha_survival=0.28 — 72% absorbed by Barra (turnover_20d dominant)"
+      - "F001 Barra residual IC=+0.007 — near zero after neutralization"
+      - "Train ICIR=-0.304 is moderate (not a screaming in-sample signal)"
+      - "Turnover: 6.7% (slightly high for daily rebalance)"
+
+    failure_boundary: |
+      暂无明确失败边界——这是首批，信号空间刚开始探索。
+      如果后续 TsAutoCorr 在其他字段上全部失败，
+      则信号可能是 amount 字段特有的，而非通用的自相关机制。
+
+    open_questions:
+      - "TsAutoCorr($volume, 20) 和 TsAutoCorr($turnover_rate, 20) 是否与 F001 低相关？"
+      - "TsAutoCorr 在 5d/10d/40d 窗口下表现如何？最优窗口在哪里？"
+      - "TsAutoCorr(Abs(Delta($close,1)), 20)（收益率自相关）是否捕获不同信息？"
+      - "F001 的 turnover 暴露能否通过 CsDemean 或条件化降低？"
+
+    next_best_probes:
+      - expr: "TsAutoCorr($volume, 20)"
+        why: "测试自相关信号是否从 amount 扩展到 volume 字段"
+      - expr: "TsAutoCorr($turnover_rate, 20)"
+        why: "测试换手率自相关是否是独立信号源"
+      - expr: "TsAutoCorr($amount, 40)"
+        why: "F001(20d)和C007(60d)之间的窗口，寻找最优点"
+
+    factor_roles:
+      - candidate_id: C006
+        role: core_positive_anchor
+        summary: "TsAutoCorr($amount,20) = F001, 本 logic 的旗舰因子"
+      - candidate_id: C007
+        role: window_variant_reserve
+        summary: "60d 窗口较弱但存活，可能提供增量信息"
+
+new_lessons:
+  - id: NM_001
+    type: new_mechanism
+    content: "TsAutoCorr($amount, 20) 是有效的新信号类别——成交量序列自相关捕捉信息不确定性"
+  - id: FP_001
+    type: forbidden_pattern_candidate
+    content: "Cov(turnover_rate, pe_ratio, *) 本质上是 Barra value×turnover 交互的代理，应避免"
+  - id: ST_001
+    type: style_trap
+    content: "Shadow ratio × CsRank(turnover) 产生 style_r2>0.38 和 crowding=HIGH，上影线交互形式需改进"
+
+discovery_flags:
+  - anomaly_type: none
+    escalation_status: none
+    note: "First batch — no cross-batch patterns to detect yet"

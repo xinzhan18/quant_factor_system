@@ -1,0 +1,81 @@
+batch_id: batch_001
+generated_at: "2026-04-06T18:18:00Z"
+logic_ids: [L001, L002, L003]
+
+strategy_decision:
+  selected_strategy: broaden
+  decision_basis_codes:
+    - no_prior_batches
+    - all_logics_first_round
+    - expected_information_gain_high
+  selected_threads: []
+  rejected_threads_with_reason: []
+  selected_families: [PF_shadow_liquidity, PF_cross_covariance, PF_volume_autocorrelation]
+  why_now: "First batch of the research system. All 3 active logics are new with no prior evidence. Broadening across all active logics to establish baseline signals for each hypothesis."
+
+routes:
+  - route_id: R1_shadow_liquidity
+    logic_id: L001
+    experiment_lineage_tag: ELT_L001_genesis_shadow_turnover_interaction_v1
+    route_type: genesis
+    research_question: "Do candlestick shadow patterns interacted with turnover volatility produce actionable signals with low correlation to legacy factors?"
+    family_id: PF_shadow_liquidity
+    candidate_count: 3
+    probe_summary:
+      core_probe: "Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20), Std($turnover_rate,20))"
+      core_icir: -0.534
+      core_verdict: pass
+
+  - route_id: R2_cross_covariance
+    logic_id: L002
+    experiment_lineage_tag: ELT_L002_genesis_turnover_fundamental_cov_v1
+    route_type: genesis
+    research_question: "Does Cov(turnover_rate, pe_ratio) at 60-120d windows produce a novel signal beyond existing Cov(turnover, PB) and Cov(amount, PS) factors?"
+    family_id: PF_cross_covariance
+    candidate_count: 2
+    probe_summary:
+      core_probe: "Cov($turnover_rate, $pe_ratio, 60)"
+      core_icir: -0.265
+      core_verdict: pass
+
+  - route_id: R3_volume_dynamics
+    logic_id: L003
+    experiment_lineage_tag: ELT_L003_genesis_volume_autocorrelation_v1
+    route_type: genesis
+    research_question: "Does volume autocorrelation (TsAutoCorr) capture information about trading pattern persistence that is distinct from volume CV signals?"
+    family_id: PF_volume_autocorrelation
+    candidate_count: 2
+    probe_summary:
+      core_probe: "TsAutoCorr($amount, 20)"
+      core_icir: -0.397
+      core_verdict: pass
+
+probe_log:
+  - expression: "Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20), Std($turnover_rate,20))"
+    ic_mean: -0.0696
+    icir: -0.5344
+    verdict: pass
+  - expression: "Mul(Mean(Div(Sub($high,Greater($open,$close)),Sub($high,$low)),20), CsRank(Mean($turnover_rate,20)))"
+    ic_mean: -0.0603
+    icir: -0.3908
+    verdict: pass
+  - expression: "Cov($turnover_rate, $pe_ratio, 60)"
+    ic_mean: -0.0237
+    icir: -0.2651
+    verdict: pass
+  - expression: "Cov($volume, $pb_ratio, 120)"
+    ic_mean: -0.0318
+    icir: -0.2449
+    verdict: pass
+  - expression: "TsAutoCorr($amount, 20)"
+    ic_mean: -0.0313
+    icir: -0.3973
+    verdict: pass
+  - expression: "TsSkew($amount, 20)"
+    ic_mean: -0.0095
+    icir: -0.1488
+    verdict: reserve_dropped
+
+total_probes: 6
+total_passed: 5
+total_candidates_frozen: 7

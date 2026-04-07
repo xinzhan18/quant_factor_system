@@ -1,0 +1,164 @@
+judge_report:
+  batch_id: batch_043
+  generated_at: '2026-04-07T02:45:00+00:00'
+
+  batch_summary:
+    total_candidates: 4
+    admitted: 0
+    rejected: 3
+    reserved: 1
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - code: high_subspace_redundancy
+          severity: high
+      detail: |
+        max_lib_corr=0.8994 vs F004 (10d vol pv_corr x tur_rank). Amount x rel-tur 10d
+        is redundant with existing 10d vol pathway. The amount field is intended to provide
+        orthogonal signal but 10d window + tur_rank/vol_rank encoding collapses redundancy.
+        Exceeds high redundancy threshold (0.85). Batch has 3 amount x vol-competition/rel-tur
+        candidates — C001 is the weakest due to near-total redundancy.
+      holdout_review_required: false
+
+    - candidate_id: C002
+      verdict: reject
+      reason_codes:
+        - code: high_subspace_redundancy
+          severity: high
+      detail: |
+        Expression identical to F011: both are Mul(Corr($close,$amount,20),Div(CsRank($amount),CsRank($volume))).
+        Exact duplicate — F011 (amount_vol_competition_corr) was admitted in batch_041.
+        20d amount vol-competition encoding already in registry. No new signal.
+      holdout_review_required: false
+
+    - candidate_id: C003
+      verdict: reject
+      reason_codes:
+        - code: high_subspace_redundancy
+          severity: high
+      detail: |
+        max_lib_corr=0.8475 vs F004. 10d amount vol-competition is shorter-window variant of
+        F011 (20d) already in registry. Additionally, batch-internal redundancy: C003 correlates
+        at 0.89+ with C001 (same mechanism, same window class). Scale experiment fails to find
+        genuinely novel shorter-window signal. Reject all three amount x vol-competition/rel-tur
+        at 10d — redundant with existing library.
+      holdout_review_required: false
+
+    - candidate_id: C004
+      verdict: reserve
+      reason_codes:
+        - code: moderate_style_exposure
+          severity: medium
+        - code: weak_validation_effect
+          severity: high
+      detail: |
+        5d amount x rel-tur: ICIR_val=-0.457 (borderline vs C002's -0.558), mono_val=-0.7 (weak),
+        mono_ho=-0.6 (weakest in batch). Barra_res=-0.019 is cleanest in batch.
+        Genuinely shorter timescale than any existing factor (F009 is 5d amount x tur WITHOUT
+        rel-tur conditioning). Mechanism: Div(CsRank(tur),CsRank(vol)) captures volume competition
+        intensity not captured by pure tur_rank. C004 is the only candidate with genuine scale
+        novelty. Reserve for holdout confirmation — mono_ho=-0.6 is a concern.
+      holdout_review_required: true
+
+  route_verdicts:
+    - route_id: R001
+      verdict: continue
+      reason: |
+        Scale experiment produced 0 admits but 1 reserve (C004, 5d amount x rel-tur).
+        The 10d candidates (C001, C002, C003) all fail redundancy checks — this is informative
+        evidence that 10d is not a viable scale for amount x vol-competition encoding.
+        C004 (5d) survives with genuine scale novelty. Route continues to probe faster windows.
+        L004 remains productive with 9/16 admits.
+
+  logic_recommendations:
+    - logic_id: L004
+      recommended_status: productive
+      reason: |
+        9 admits from 16 attempts (56% admit rate). Batch_043 confirms 10d is the upper bound
+        for amount x vol-competition — 10d variants are redundant with existing factors.
+        5d (C004) is the viable shorter window. L004 should continue probing at 3-5d range.
+
+  logic_diagnostics:
+    L004:
+      thesis_update: |
+        Scale experiment (batch_043) confirms 10d is near the ceiling for amount x vol-competition
+        encoding. C001 (10d rel-tur): max_lib_corr=0.8994 vs F004. C002 (10d vol-comp): duplicate of F011.
+        C003 (10d vol-comp): max_lib_corr=0.8475. All 10d variants collapse into existing subspace.
+        The 5d window (C004) remains viable — genuine faster-regime signal with acceptable redundancy
+        (max_lib_corr=0.517 vs F009). Multi-scale probes suggest: amount x rel-tur works at 5-20d,
+        with 10d being the most crowded.
+
+      evidence_for:
+        - "C004 (5d amount x rel-tur): Barra_res=-0.019 (cleanest in batch), mechanism novel vs F009"
+        - "C004: max_lib_corr=0.517 (acceptable), genuinely shorter than any admitted factor"
+        - "C004 holdout: ICIR=-0.376, mono_ho=-0.6 (weak but not collapsed)"
+
+      evidence_against:
+        - "C001 max_lib_corr=0.8994 — near-total redundancy with 10d vol pathway"
+        - "C002 is exact duplicate of F011 (both 20d amount vol-competition)"
+        - "C003 max_lib_corr=0.8475 — 10d too slow for amount vol-competition"
+        - "All 10d candidates fail — suggests regime shift between 5d and 10d"
+
+      failure_boundary: |
+        10d amount x rel-tur is redundant with F004 (10d vol). Do not probe 10d amount x vol-competition
+        again — F011 already covers 20d and C002 (this batch) confirmed 10d is duplicate.
+        10d is the upper bound of viability for this family.
+
+      open_questions:
+        - "Does 5d amount x rel-tur (C004) hold on a proper holdout review?"
+        - "Can 3d or shorter windows find even faster-regime signals?"
+        - "Is there a mid-window (7d) that balances regime capture and novelty?"
+
+      next_best_probes:
+        - expr: "Mul(Corr($close,$amount,3),Div(CsRank($turnover_rate),CsRank($volume)))"
+          why: "3d probe — faster than C004's 5d. If 5d works, 3d may capture even faster transients"
+        - expr: "Mul(Corr($close,$amount,7),Div(CsRank($turnover_rate),CsRank($volume)))"
+          why: "7d midpoint — tests if 10d failure is a sharp cliff or gradual degradation"
+
+      factor_roles:
+        - candidate_id: C004
+          role: scale_novelty_candidate
+          summary: "5d amount x rel-tur — only candidate with genuine scale novelty. Reserve pending holdout."
+        - candidate_id: C001
+          role: failed_scale_variant
+          summary: "10d amount x rel-tur — max_lib_corr=0.8994 confirms 10d is upper bound, not novel"
+        - candidate_id: C002
+          role: duplicate_of_existing
+          summary: "Exact duplicate of F011 — 20d amount vol-competition already admitted"
+
+  new_lessons: []
+
+  discovery_flags: []
+
+  search_context:
+    experiment_tag: ELT_L004_amount_vol_competition_scale_v1
+    active_logics: [L004]
+
+  writer_audit:
+    - timestamp: '2026-04-07T02:45:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [high_subspace_redundancy]
+    - timestamp: '2026-04-07T02:45:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C002
+      level: 1
+      reason_codes: [high_subspace_redundancy]
+    - timestamp: '2026-04-07T02:45:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C003
+      level: 1
+      reason_codes: [high_subspace_redundancy]
+    - timestamp: '2026-04-07T02:45:00+00:00'
+      actor: factor-judge
+      action: reserve
+      target: C004
+      level: 1
+      reason_codes: [moderate_style_exposure, weak_validation_effect]

@@ -1,0 +1,53 @@
+batch_id: batch_053
+candidates:
+- candidate_id: C001
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_timing_range
+  experiment_lineage_tag: ELT_L001_timing_range_3d_pe_v1
+  expression: Mul(Sub(IdxMax($volume,3),IdxMin($volume,3)),CsRank($pe_ratio))
+  name: vol_range_timing_3d_x_pe
+  direction: long
+  rationale: 'Sub(IdxMax($volume,3),IdxMin($volume,3)) × CsRank($pe_ratio) — 3d volume
+    timing range × PE rank. batch_052 showed: 5d(1.204) > 7d(1.049) > 10d(0.879) >
+    20d(0.438). Testing if 3d continues the improvement trend or hits the floor. 5d
+    shadow collapsed but timing_range may be different. If 3d works, confirms scale
+    floor at 3-5d.'
+  created_at: '2026-04-07T14:00:00+00:00'
+  probe_result:
+    ic_mean: -0.0118
+    ic_ir: -0.1692
+    win_rate: 43.0
+- candidate_id: C002
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_timing_range
+  experiment_lineage_tag: ELT_L001_timing_range_5d_ps_v1
+  expression: Mul(Sub(IdxMax($volume,5),IdxMin($volume,5)),CsRank($ps_ratio))
+  name: vol_range_timing_5d_x_ps
+  direction: long
+  rationale: Sub(IdxMax($volume,5),IdxMin($volume,5)) × CsRank($ps_ratio) — 5d volume
+    timing range × PS rank. batch_052 confirmed PE conditioning works at 5d. Now testing
+    PS (price-to-sales) as alternative fundamental conditioning. If PS also works,
+    confirms PE/PS are interchangeable for timing_range. If PS fails, PE is uniquely
+    essential.
+  created_at: '2026-04-07T14:00:00+00:00'
+  probe_result:
+    ic_mean: -0.0135
+    ic_ir: -0.1761
+    win_rate: 44.15
+batch_metadata:
+  batch_id: batch_053
+  created_at: '2026-04-07T14:00:00+00:00'
+  freeze_reason: Timing range window floor — probe 3d and PS conditioning to confirm
+    scale boundary
+  active_logics:
+  - L001
+  notes:
+  - batch_052 key finding: 5d × PE has alpha_surv=1.204, mono_ho=-0.9 (ADMITTED as
+      F013)
+  - Timing_range window hierarchy: 5d(1.204) > 7d(1.049) > 10d(0.879) > 20d(0.438)
+  - C001: 3d timing_range × PE — test if 3d continues improvement or hits floor
+  - C002: 5d timing_range × PS — test if PS = PE alternative for timing_range conditioning

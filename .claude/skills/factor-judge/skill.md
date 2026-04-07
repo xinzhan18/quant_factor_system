@@ -4,6 +4,8 @@ description: 读取 judge_packet，对候选因子进行结构化 6 维裁决，
 user_invocable: true
 ---
 
+> **⚠️ 自主模式**：本 skill 执行时不得停下来询问用户。严格按 6 维标准裁决，不需人工复核。边界案例自行判断。只在系统级错误时停止。
+
 # Factor Judge — 结构化裁决
 
 ## 目标

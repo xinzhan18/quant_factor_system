@@ -1,0 +1,524 @@
+# Judge Report — batch_003
+# Generated: 2026-04-06T21:30:00+00:00
+
+batch_id: batch_003
+judged_at: '2026-04-06T21:30:00+00:00'
+judge_version: factor-judge-v1
+
+batch_summary:
+  total_candidates: 8
+  admitted: 1
+  rejected: 3
+  reserved: 2
+  replaced: 1
+  routes_total: 4
+  routes_continue: 3
+  routes_pause: 1
+
+candidate_verdicts:
+  - candidate_id: C001
+    verdict: admit
+    reason_codes:
+      - code: strong_validation_effect
+        severity: info
+      - code: good_split_stability
+        severity: info
+      - code: low_incremental_value
+        severity: info
+      - code: feasibility_ok
+        severity: info
+      - code: moderate_style_exposure
+        severity: medium
+    evidence_summary:
+      statistical_strength: strong
+      stability: good
+      redundancy: low
+      feasibility: ok
+      risk_model_review: borderline
+      mechanism_alignment: aligned
+    detail: |
+      Shadow × Amihud illiquidity. Alpha survives holdout (alpha_surv=0.377, ICIR_holdout=-0.206).
+      Barra residual ICIR=-0.176 (borderline, moderate style absorption).
+      max_lib_corr=0.059 — near-orthogonal to library. Expanding window passes (0.601).
+      Holdout monotonicity=-0.3 is weak but consistent with signal's short-horizon nature.
+      C001 is the best shadow variant to date; admits to continue shadow×liquidity exploration.
+    route_id: R1
+    logic_id: L001
+
+  - candidate_id: C002
+    verdict: reject
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: weak_validation_effect
+        severity: high
+    evidence_summary:
+      statistical_strength: weak
+      stability: medium
+      redundancy: low
+      feasibility: ok
+      risk_model_review: poor
+      mechanism_alignment: aligned
+    detail: |
+      5d shadow × 20d vol. Alpha_surv=0.079 — catastrophic holdout collapse (<0.10 threshold).
+      ls_tstat collapses from -3.445 (val) to -0.148 (holdout). Q1-Q5 returns flat on holdout.
+      vol_20d dominant style (exposure=0.202). Alpha essentially pure style at holdout.
+      Reject; no amount of parameter tuning will save this variant.
+    route_id: R1
+    logic_id: L001
+
+  - candidate_id: C003
+    verdict: replace
+    replace_target_id: C004
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: moderate_style_exposure
+        severity: medium
+    evidence_summary:
+      statistical_strength: borderline
+      stability: medium
+      redundancy: high
+      feasibility: ok
+      risk_model_review: poor
+      mechanism_alignment: unclear
+    detail: |
+      TsAutoCorr($amount,30). Alpha_surv=0.104, Barra_residual_ICIR=0.047 (tiny positive).
+      corr(F001)=0.618 — very high redundancy with F001. residual_survival=0.382 (38% survives).
+      Family overlap score=0.432. Replacement candidate: C004 has lower redundancy (corr=0.466)
+      and better residual_survival (0.534). C003 replaced by C004 to eliminate redundant variant.
+    route_id: R2
+    logic_id: L003
+
+  - candidate_id: C004
+    verdict: reserve
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: regime_instability
+        severity: medium
+    evidence_summary:
+      statistical_strength: borderline
+      stability: borderline
+      redundancy: low
+      feasibility: ok
+      risk_model_review: poor
+      mechanism_alignment: unclear
+    detail: |
+      TsAutoCorr($volume,40). Alpha_surv=0.138, Barra_residual_ICIR=0.047.
+      corr(F001)=0.466 — moderate redundancy, better than C003. residual_survival=0.534 (53% survives).
+      val_decay_ratio=1.36 (IC gets stronger on holdout — unusual but suspicious given residual_survival).
+      Split stability=medium (not poor). Reserve for holdout confirmation; not ready to kill the field.
+    route_id: R2
+    logic_id: L003
+
+  - candidate_id: C005
+    verdict: reject
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: feasibility_poor
+        severity: high
+    evidence_summary:
+      statistical_strength: strong
+      stability: good
+      redundancy: low
+      feasibility: borderline
+      risk_model_review: poor
+      mechanism_alignment: drifted
+    detail: |
+      Cov($amount,$turnover_rate,60). Strong val ICIR=-0.481, but Barra_residual_ICIR=0.178 (highest
+      of batch — unacceptable style contamination). alpha_surv=0.243.
+      style_r2=0.26, turnover_20d dominant. Mechanism has drifted: Cov is absorbing style regime
+      signal, not capturing pure intra-liquidity covariance. Barra residual alone is disqualifying.
+      Reject; holdout unlikely to rescue given already-elevated Barra residual.
+    route_id: R3
+    logic_id: L002
+
+  - candidate_id: C006
+    verdict: admit
+    reason_codes:
+      - code: strong_validation_effect
+        severity: info
+      - code: good_split_stability
+        severity: info
+      - code: low_incremental_value
+        severity: info
+      - code: feasibility_ok
+        severity: info
+      - code: moderate_style_exposure
+        severity: medium
+    evidence_summary:
+      statistical_strength: strong
+      stability: good
+      redundancy: low
+      feasibility: ok
+      risk_model_review: borderline
+      mechanism_alignment: aligned
+    detail: |
+      Mul(Corr($close,$volume,20),CsRank($turnover_rate)). BREAKOUT CANDIDATE.
+      Probe ICIR=-0.530 (session strongest). Val ICIR=-0.523, holdout ICIR=-0.427 — consistent.
+      val_decay_ratio=1.05 (almost no decay!). Barra_residual_ICIR=-0.288 (clean).
+      alpha_surv=0.393 (acceptable). style_r2=0.318 (moderate). Expanding window=0.974 (excellent).
+      Mono_val=-0.9, Mono_holdout=-0.7 (consistent). Mechanism: 量价背离 conditioned on turnover rank.
+      Admit as new orthogonal factor.
+    route_id: R4
+    logic_id: L004
+
+  - candidate_id: C007
+    verdict: reserve
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: regime_instability
+        severity: medium
+    evidence_summary:
+      statistical_strength: borderline
+      stability: good
+      redundancy: low
+      feasibility: ok
+      risk_model_review: poor
+      mechanism_alignment: unclear
+    detail: |
+      Sub(Corr($close,$volume,20),Ref(Corr($close,$volume,20),20)). alpha_surv=0.125 (poor).
+      dominant_style_exposure: str_1m=0.338 — 1-month reversal is the real driver, not divergence change.
+      Barra_residual_ICIR=-0.032 (tiny negative). Expanding window=0.762 (borderline).
+      Mechanism unclear: the Ref(20) subtraction is picking up reversal, not pv_divergence_change.
+      Reserve for holdout review; if holdout confirms reversal dominance, kill.
+    route_id: R4
+    logic_id: L004
+
+  - candidate_id: C008
+    verdict: reject
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: high_pairwise_overlap
+        severity: high
+    evidence_summary:
+      statistical_strength: borderline
+      stability: borderline
+      redundancy: high
+      feasibility: borderline
+      risk_model_review: poor
+      mechanism_alignment: unclear
+    detail: |
+      TsAutoCorr($turnover_rate,40). Alpha_surv=0.100 (critical). corr(F001)=0.455.
+      residual_survival=0.545. Coverage=0.922 (lower than C004/C003).
+      Near-duplicate of C004: same family, same window, different field. marginal value ≈ 0.
+      Reject as redundant with C004; if C004 fails holdout, revisit tur field at different window.
+    route_id: R2
+    logic_id: L003
+
+route_verdicts:
+  - route_id: R1
+    logic_id: L001
+    route_type: genesis
+    experiment_lineage_tag: ELT_L001_genesis_shadow_amihud_v1
+    verdict: continue
+    reason: "C001 admits (shadow×Amihud viable). C002 rejects (5d shadow×vol = style trap). Shadow×Amihud is the first non-style-absorbing shadow variant; continue to explore 40d/60d shadow windows."
+    candidates_summary:
+      total: 2
+      admits: 1
+      reserves: 0
+      rejects: 1
+      replaces: 0
+
+  - route_id: R2
+    logic_id: L003
+    route_type: genesis
+    experiment_lineage_tag: ELT_L003_genesis_tsuamta_30d_v1
+    verdict: continue
+    reason: "C003 replaced by C004 (lower redundancy, better residual_survival). C004 reserved (high redundancy but field decorrelates). C008 rejected (redundant). TsAutoCorr family reproduces F001 partially; C004 reserved as most decorrelated variant. Continue field exploration at different windows; kill window=20d/30d/40d family expansion."
+    candidates_summary:
+      total: 3
+      admits: 0
+      reserves: 1
+      rejects: 1
+      replaces: 1
+
+  - route_id: R3
+    logic_id: L002
+    route_type: genesis
+    experiment_lineage_tag: ELT_L002_genesis_cov_amt_tur_60d_v1
+    verdict: pause
+    reason: "C005 rejects (Barra_residual_ICIR=0.178, disqualifying). Intra-liquidity Cov hypothesis not confirmed. L002 has no admitted candidates. Pause L002 until new mechanism insight."
+    candidates_summary:
+      total: 1
+      admits: 0
+      reserves: 0
+      rejects: 1
+      replaces: 0
+
+  - route_id: R4
+    logic_id: L004
+    route_type: genesis
+    experiment_lineage_tag: ELT_L004_genesis_pv_corr_x_tur_rank_v1
+    verdict: continue
+    reason: "C006 admits — breakout signal with orthogonal mechanism and strong holdout. C007 reserves (str_1m dominates). L004 breakout confirmed. Continue exploring pv_divergence×liquidity conditioning."
+    candidates_summary:
+      total: 2
+      admits: 1
+      reserves: 1
+      rejects: 0
+      replaces: 0
+
+logic_recommendations:
+  L001:
+    recommended_status: productive
+    reason: |
+      C001 admits (shadow×Amihud). Best shadow variant to date.
+      5 prior attempts (including this batch) produced 0 admits; C001 is first breakthrough.
+      Shadow microstructure signal survives with non-style liquidity conditioning.
+      L001 graduates from warm to productive.
+
+  L002:
+    recommended_status: warm
+    reason: |
+      4 attempts, 0 admits. C005 Barra_residual_ICIR=0.178 (highest of batch).
+      Cov(amt,tur) absorbed by style. Intra-liquidity covariance hypothesis not confirmed.
+      L002 remains warm pending holdout review of C005; not dead but not productive.
+
+  L003:
+    recommended_status: parked
+    reason: |
+      5 attempts across 3 batches, 1 admitted (F001 from prior batch, not L003's credit).
+      TsAutoCorr amount 30d/40d, volume 40d, turnover 40d — all reproduce F001 (corr=0.46-0.62).
+      residual_survival=0.38-0.53. No variant achieved independent alpha.
+      Failure boundary confirmed: TsAutoCorr family is field-degenerate, not field-generic.
+      Park L003; revisit only with novel conditioning dimension.
+
+  L004:
+    recommended_status: productive
+    reason: |
+      2 attempts, 1 admit (C006). C007 reserves (str_1m contaminates).
+      Corr(pv,20)×CsRank(tur) = breakout: ICIR=-0.427 holdout, Barra_residual_ICIR=-0.288.
+      Mechanism is genuinely orthogonal. L004 graduates from active to productive.
+
+logic_diagnostics:
+  L001:
+    thesis_update: |
+      Shadow signal survives ONLY with non-style liquidity conditioning (Amihud = amount/volume).
+      Batch_002 shadow×vol (C002) had alpha_surv=0.093 (style trap). C001 shadow×Amihud
+      achieves alpha_surv=0.377 — 4× improvement. This confirms the bottleneck: shadow must be
+      conditioned on fundamental cost-of-trading, not price-dispersion proxies. Vol is a style
+      index; Amihud is a microstructure cost measure.
+
+    evidence_for:
+      - "C001 alpha_surv=0.377 vs batch_002 C002 alpha_surv=0.093 — 4× improvement with Amihud conditioning"
+      - "C001 Barra_residual_ICIR=-0.176 (borderline) — partial style absorption but acceptable for admit"
+      - "C001 max_lib_corr=0.059 — near-orthogonal to library despite shadow microstructure"
+
+    evidence_against:
+      - "C001 holdout monotonicity=-0.3 — Q1≈Q2, signal concentrated in tail"
+      - "C002 rejected with alpha_surv=0.079 — 5d shadow × vol is still a style trap"
+
+    failure_boundary: |
+      Shadow × vol/turnover/stddev variants all collapse (alpha_surv<0.10).
+      Shadow at windows <20d amplifies style absorption. Do not retry shadow×[vol,turnover,range].
+      Only shadow×Amihud variants are viable for L001.
+
+    open_questions:
+      - "Does longer shadow window (40d, 60d) + Amihud reduce style absorption further?"
+      - "Is Amihud conditioning capturing cost-of-trading or amount's own autocorrelation?"
+      - "Can shadow×Imbalance (buy/sell pressure) survive?"
+
+    next_best_probes:
+      - expr: "Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),40),Div($amount,Mean($volume,40)))"
+        why: "Test 40d shadow × 40d Amihud — longer window may reduce noise and improve monotonicity"
+      - expr: "Div($amount,Mean($volume,20))"
+        why: "Pure Amihud control — isolate whether shadow adds incremental value or is redundant"
+
+  L002:
+    thesis_update: |
+      Cov(amt,tur,60) is absorbed by turnover_20d regime. Barra_residual_ICIR=0.178 is the
+      highest of the batch — 7.8× worse than C001's -0.176. The Cov is not capturing
+      intra-liquidity covariance; it is a complex way to proxy short-term turnover reversal.
+      L002's fundamental covariance hypothesis is not confirmed.
+
+    evidence_for:
+      - "C005 val ICIR=-0.481 (very strong), train ICIR=-0.471 — high signal strength"
+      - "C005 max_lib_corr=0.151 — orthogonal to existing factors"
+
+    evidence_against:
+      - "C005 Barra_residual_ICIR=0.178 (highest of batch) — 7.8× worse than admitted candidates"
+      - "C005 alpha_surv=0.243 — 24% of IC survives to holdout, style dominates"
+      - "style_r2=0.26, turnover_20d dominant — Cov is absorbed by style"
+      - "L002 prior attempts: Cov(turnover,range)=kill, Corr(amount,pb)=kill"
+
+    failure_boundary: |
+      Any Cov/Corr between amount and turnover/turnover_rate will be absorbed by turnover_20d.
+      Do not retry Cov variants involving turnover or turnover_rate without orthogonal conditioning.
+      Need fundamentally different mechanism than pairwise Cov for L002.
+
+    open_questions:
+      - "Can Cov(amount,fundamental) survive Barra residual?"
+      - "Is the problem the amount field itself or the Cov operator?"
+
+    next_best_probes:
+      - expr: "Cov($amount,$book_to_price,60)"
+        why: "Test amount × fundamental rather than amount × turnover — if Barra residual improves, confirms turnover is the contaminating field"
+
+  L003:
+    thesis_update: |
+      TsAutoCorr family is field-degenerate: amount, volume, and turnover at 20d/30d/40d windows
+      all reproduce F001 (corr=0.46-0.62). The residual_survival of 0.38-0.53 means <53% of IC is
+      independent of F001. No variant achieved genuine decorrelation. The TsAutoCorr mechanism
+      works for amount specifically (F001 admitted), but volume and turnover at longer windows
+      do not add independent information.
+
+    evidence_for:
+      - "C004 residual_survival=0.534 — 53% of IC survives F001 control (best of L003 variants)"
+      - "C004 Barra_residual_ICIR=0.047 — Barra-neutral component marginally positive"
+
+    evidence_against:
+      - "C003 corr(F001)=0.618, residual_survival=0.382 — 62% of IC is F001's signal"
+      - "C008 corr(F001)=0.455 — still significant overlap despite 40d window"
+      - "All 3 variants (amount 30d, vol 40d, tur 40d) show similar pattern"
+      - "L003 has 0 admits from batch_002 and batch_003 combined (1 admit is F001, different batch)"
+
+    failure_boundary: |
+      TsAutoCorr on volume or turnover at any window ≤40d does not decorrelate from F001.
+      The TsAutoCorr mechanism is specific to amount field, not a general property of autocorrelated fields.
+      Do not retry TsAutoCorr on volume or turnover. The family should pivot to amount-focused variants.
+
+    open_questions:
+      - "Does amount TsAutoCorr at 60d or 120d decorrelate from F001 at 20d?"
+      - "Is the TsAutoCorr mechanism encoding amount's microstructure properties (smart money, order flow)?"
+
+    next_best_probes:
+      - expr: "TsAutoCorr($amount,60)"
+        why: "60d window on amount — may decorrelate further from F001's 20d if the mechanism is multi-scale"
+      - expr: "Mul(TsAutoCorr($amount,20),TsStd($amount,20))"
+        why: "Strength × Volatility combination — if amount TsAutoCorr is smart money signal, amount vol should condition it"
+
+  L004:
+    thesis_update: |
+      量价背离 conditioned on turnover rank is a genuine orthogonal signal. C006 proves the
+      mechanism: when controlling for turnover rank, price-volume correlation captures true
+      divergence, not style. ICIR=-0.427 holdout with clean Barra_residual_ICIR=-0.288.
+      C007 (change rate) is contaminated by short-term reversal, not pv divergence change.
+
+    evidence_for:
+      - "C006 ICIR=-0.530 probe → -0.523 val → -0.427 holdout (consistent)"
+      - "C006 Barra_residual_ICIR=-0.288 (clean, 2nd best of admitted)"
+      - "C006 alpha_surv=0.393 — survives holdout despite being new"
+      - "C006 val_decay_ratio=1.05 — almost no decay, most stable candidate in batch"
+      - "C006 Mono_val=-0.9, Mono_holdout=-0.7 — consistent directionality"
+
+    evidence_against:
+      - "C007 alpha_surv=0.125 — change rate is reversal, not divergence change"
+      - "C007 Barra_residual_ICIR=-0.032 — Barra-neutral component is negligible"
+
+    failure_boundary: |
+      Pv_corr change rate (Sub(Corr(pv,20),Ref(Corr(pv,20),20))) is not a divergence change
+      mechanism; it is a short-term reversal signal. Do not continue C007-type probes.
+
+    open_questions:
+      - "Does percentile rank of turnover (CsRank) vs raw turnover provide different conditioning?"
+      - "Does multi-scale divergence (5d, 10d, 20d) provide independent signals?"
+
+    next_best_probes:
+      - expr: "Mul(Corr($close,$volume,20),CsRank($turnover_rate))"
+        why: "Admit confirmed; replicate with different lookback windows (10d, 40d) to test robustness"
+      - expr: "Mul(Corr($close,$volume,10),CsRank($turnover_rate))"
+        why: "10d lookback — if mechanism is scale-invariant, should also perform"
+      - expr: "Mul(Corr($close,$amount,20),CsRank($turnover_rate))"
+        why: "Replace $volume with $amount — if amount captures order flow, may strengthen signal"
+
+new_lessons:
+  - id: "ST-L001-003"
+    category: style_trap
+    lesson: |
+      Shadow signal collapses on holdout when paired with volatility, stddev, or turnover
+      (alpha_surv<0.10). Only survives with Amihud (amount/volume), a non-style cost measure.
+    severity: strong_confirmation
+    affected_logics: [L001]
+    batch_ids: [batch_002, batch_003]
+  - id: "NM-L003-tsautocorr-field"
+    category: near_miss
+    lesson: |
+      TsAutoCorr on volume and turnover does not decorrelate from F001's amount TsAutoCorr
+      (corr=0.46-0.62). The mechanism is field-specific to amount, not general autocorr.
+    severity: strong_confirmation
+    affected_logics: [L003]
+    batch_ids: [batch_002, batch_003]
+  - id: "FP-L004-pv-corr-change"
+    category: false_positive
+    lesson: |
+      Pv_corr change rate (Sub(Corr(pv,20),Ref(Corr(pv,20),20))) is a reversal signal,
+      not a divergence change mechanism. Short-term reversal dominates style exposure (0.338).
+    severity: confirmed_failure
+    affected_logics: [L004]
+    batch_ids: [batch_003]
+  - id: "FP-L002-cov-amt-tur"
+    category: false_positive
+    lesson: |
+      Cov(amount,turnover_rate) has Barra_residual_ICIR=0.178 — 7.8× worse than admitted
+      candidates. The Cov is absorbed by turnover_20d regime, not intra-liquidity covariance.
+    severity: confirmed_failure
+    affected_logics: [L002]
+    batch_ids: [batch_003]
+
+discovery_flags:
+  - anomaly_type: repeated_style_absorption
+    first_seen_batch: batch_001
+    description: |
+      All shadow variants (batch_001: C001, C003; batch_002: C002; batch_003: C001, C002)
+      collapse on holdout with alpha_surv<0.40. Pattern: shadow × [any style dimension]
+      collapses within 1-2 batches. Only shadow×Amihud shows partial survival.
+    likely_mechanism: |
+      Shadow is a microstructure proxy that is fundamentally correlated with short-term
+      volatility and turnover. Without orthogonal conditioning (cost-of-trading not vol),
+      any shadow signal is absorbed by style.
+    style_repackaging_risk: high
+    explainable_by_existing_logic: partial
+    escalation_status: watch
+    batch_ids: [batch_001, batch_002, batch_003]
+    recommendation: "Shadow variants are exhausted; pivot to structural (Amihud) not stylistic (vol) conditioning"
+
+holdout_reviews:
+  reviews:
+    - review_id: HR_003_001
+      batch_id: batch_003
+      target_id: C001
+      trigger_reason_codes:
+        - high_confidence_candidate
+        - holdout_confirms_signal
+      status: pending
+      outcome: null
+      detail: "C001 admit but holdout monotonicity=-0.3 is weak; confirm Q1-Q5 spread is not sampling noise"
+    - review_id: HR_003_002
+      batch_id: batch_003
+      target_id: C004
+      trigger_reason_codes:
+        - decorrelation_uncertain
+      status: pending
+      outcome: null
+      detail: "C004 residual_survival=0.534, corr(F001)=0.466; holdout confirmation needed for field-generality claim"
+    - review_id: HR_003_003
+      batch_id: batch_003
+      target_id: C007
+      trigger_reason_codes:
+        - mechanism_unclear
+      status: pending
+      outcome: null
+      detail: "C007 str_1m dominant; need holdout to confirm whether divergence change survives reversal contamination"
+
+write_audit_log:
+  entries:
+    - timestamp: '2026-04-06T21:30:00+00:00'
+      actor: factor-judge
+      action: judge_batch
+      target: batch_003
+      detail: "8 candidates: 1 admit (C006), 2 reserve (C004,C007), 3 reject (C002,C005,C008), 1 replace (C003→C004)"
+    - timestamp: '2026-04-06T21:30:00+00:00'
+      actor: factor-judge
+      action: admit
+      target: C001
+      detail: "shadow×Amihud — first viable shadow variant, alpha_surv=0.377"
+    - timestamp: '2026-04-06T21:30:00+00:00'
+      actor: factor-judge
+      action: admit
+      target: C006
+      detail: "Corr(pv)×CsRank(tur) — breakout signal, ICIR=-0.427 holdout, Barra_residual_ICIR=-0.288"
