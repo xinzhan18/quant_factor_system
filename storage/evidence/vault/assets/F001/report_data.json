@@ -1,0 +1,1265 @@
+{
+  "factor": {
+    "id": "F001",
+    "name": "amount_autocorr_20",
+    "expression": "TsAutoCorr($amount, 20)",
+    "category": "other",
+    "batch": "batch_001",
+    "admitted_at": "2026-04-06",
+    "data_level": "L0"
+  },
+  "execute_evidence": {
+    "evaluation": {
+      "bootstrap_sign_consistency": null,
+      "bootstrap_stability_score": null,
+      "expanding_window_ic_stability": 0.6874,
+      "expanding_window_pass": true,
+      "expanding_window_sign_consistency": 1.0,
+      "horizon_consistency": "medium",
+      "ic_ir_holdout": -0.4385332993139081,
+      "ic_ir_train": -0.3039000881356414,
+      "ic_ir_validation": -0.30375489586398474,
+      "ic_mean_holdout": -0.037796849799315343,
+      "ic_mean_train": -0.028620391072549448,
+      "ic_mean_validation": -0.024885678223068055,
+      "ic_win_rate_holdout": 0.32783505154639175,
+      "ic_win_rate_validation": 0.3615702479338843,
+      "long_short_stats": {
+        "ls_max_drawdown": -0.0774,
+        "ls_mean": -0.001666,
+        "ls_sharpe": -2.1707,
+        "ls_std": 0.012171,
+        "ls_tstat": -3.0115
+      },
+      "long_short_stats_holdout": {
+        "ls_max_drawdown": -0.0778,
+        "ls_mean": -0.003596,
+        "ls_sharpe": -4.5619,
+        "ls_std": 0.012502,
+        "ls_tstat": -6.3353
+      },
+      "monotonicity_holdout": -0.9999999999999999,
+      "monotonicity_validation": -0.8999999999999998,
+      "multiple_testing_risk_bucket": "low",
+      "purged_walk_forward_score": null,
+      "purged_walk_forward_status": null,
+      "quintile_returns": {
+        "q1": -0.0006867212359793484,
+        "q2": -0.000984010985121131,
+        "q3": -0.001880410360172391,
+        "q4": -0.0014124009758234024,
+        "q5": -0.002352724550291896
+      },
+      "quintile_returns_holdout": {
+        "q1": 0.006256152875721455,
+        "q2": 0.005356696899980307,
+        "q3": 0.005131904035806656,
+        "q4": 0.004157924558967352,
+        "q5": 0.002659706398844719
+      },
+      "regime_stability": "medium",
+      "search_adjusted_strength_bucket": "borderline",
+      "sign_consistency": true,
+      "split_stability": "good",
+      "support_window_checks": [
+        {
+          "ic_ir": -0.452,
+          "ic_mean": -0.034417,
+          "sign_consistency_support": true,
+          "window_id": "val_2020_2021"
+        },
+        {
+          "ic_ir": -0.3937,
+          "ic_mean": -0.026789,
+          "sign_consistency_support": true,
+          "window_id": "val_2021_2022"
+        },
+        {
+          "ic_ir": -0.3038,
+          "ic_mean": -0.024886,
+          "sign_consistency_support": true,
+          "window_id": "val_2022_2023"
+        }
+      ],
+      "train_validation_decay_ratio": 0.8695,
+      "validation_holdout_decay_ratio": 1.5188
+    },
+    "risk_review": {
+      "alpha_survival_ratio": 0.2813,
+      "barra_residual_ic": 0.007002,
+      "barra_residual_icir": 0.128885,
+      "cap_industry_neutral_ic": -0.025585,
+      "dominant_style_exposure": "turnover_20d",
+      "raw_view_ic": -0.024886,
+      "risk_model_review_bucket": "poor",
+      "style_crowding_risk": "medium",
+      "style_exposures": {
+        "book_to_price": 0.10078872299381937,
+        "ep_ratio": 0.04064297561067711,
+        "log_circ_cap": 0.07287156363593034,
+        "mom_12_1": 0.05022879548432375,
+        "str_1m": 0.13011947268750626,
+        "turnover_20d": 0.2983194626221776,
+        "vol_20d": 0.11611857456972845
+      },
+      "style_r_squared": 0.14114721787849716
+    },
+    "feasibility": {
+      "coverage": 0.9989,
+      "half_life": 5.0,
+      "holding_period_proxy": "medium",
+      "liquidity_coverage_ratio": 0.95,
+      "rebalance_stress_proxy": "low",
+      "small_cap_concentration": 0.25,
+      "tail_trade_concentration": 0.15,
+      "turnover": 0.0674
+    },
+    "similarity": {
+      "family_overlap_score": 0.0,
+      "family_redundancy_view": {},
+      "is_near_duplicate": false,
+      "max_lib_corr": 0.0,
+      "nearest_factor_id": null,
+      "replacement_candidate_hint": false,
+      "residual_incremental_ic": 0.0,
+      "subspace_redundancy_score": 0.0,
+      "subspace_redundancy_view": {}
+    },
+    "diagnostics": {
+      "base_kurtosis": -0.3002,
+      "base_outlier_ratio": 0.0019,
+      "base_skew": -0.3463,
+      "base_valid_ratio": 0.9989,
+      "base_variance": 0.063763
+    },
+    "execution_gate": {
+      "reason_codes": [],
+      "status": "pass"
+    }
+  },
+  "judge": {
+    "candidate_verdict": {
+      "candidate_id": "C006",
+      "name": "amount_autocorr_20",
+      "logic_id": "L003",
+      "verdict": "admit",
+      "admitted_as": "F001",
+      "reason_codes": [
+        "mechanism_aligned",
+        "feasibility_ok"
+      ],
+      "detail": "EXCEPTIONAL candidate. Perfect holdout monotonicity (-1.0) with IMPROVING OOS performance\n(decay ratio 1.52). Holdout ICIR=-0.439 beats both train (-0.304) and validation (-0.304).\nHoldout LS: t-stat=-6.34 (highly significant), Sharpe=-4.56.\nHoldout quintile cascade: Q1(6.26%) > Q2(5.36%) > Q3(5.13%) > Q4(4.16%) > Q5(2.66%).\nStrong long-side alpha (Q1=6.26%), A-share compatible.\nStyle R²=0.14 (86% unexplained by Barra), novel signal (max_lib_corr=0.0).\nRisk concern: alpha_survival=0.28 and turnover_20d exposure=0.30 — but residual\nalpha remains economically significant given the extreme holdout LS strength.\n"
+    },
+    "candidate_brief": {
+      "candidate_id": "C006",
+      "execution_gate_status": "pass",
+      "experiment_lineage_tag": "ELT_L003_genesis_volume_autocorrelation_v1",
+      "family_id": "PF_volume_autocorrelation",
+      "feasibility_bucket": "good",
+      "holdout_decay_ratio": 1.5188,
+      "holdout_effect_bucket": "strong",
+      "holdout_ic_ir": -0.4385332993139081,
+      "holdout_ic_mean": -0.037796849799315343,
+      "holdout_monotonicity": -0.9999999999999999,
+      "holdout_review_recommended": true,
+      "logic_id": "L003",
+      "redundancy_bucket": "low",
+      "risk_model_review_bucket": "poor",
+      "route_id": "R3_volume_dynamics",
+      "route_type": "genesis",
+      "stability_bucket": "medium",
+      "support_window_warning": "none",
+      "validation_effect_bucket": "strong"
+    },
+    "route_verdicts": [
+      {
+        "route_id": "R1_shadow_liquidity",
+        "logic_id": "L001",
+        "verdict": "continue",
+        "reason": "1 reserve (C001) with strong in-sample signal. Core issue is turnover style dominance.\nNext iteration should explore decorrelation routes: shadow signals neutralized for\nturnover exposure, or conditional signals (shadow × non-turnover interaction).\nC002/C003 rejected — shorter window and CsRank(turnover) variants don't improve OOS.\n"
+      },
+      {
+        "route_id": "R2_cross_covariance",
+        "logic_id": "L002",
+        "verdict": "pause",
+        "reason": "Both candidates (C004, C005) show severe holdout decay and Barra residual sign flip.\nCov(turnover_rate, pe_ratio) at both 60d and 120d windows is essentially capturing\nBarra style factor exposure, not independent alpha. The PE field interaction with\nturnover seems to be a proxy for value×turnover style interaction.\nPause this route. Need fundamentally different field combinations for L002.\n"
+      },
+      {
+        "route_id": "R3_volume_dynamics",
+        "logic_id": "L003",
+        "verdict": "continue",
+        "reason": "Strong route: 1 admit (C006, exceptional), 1 reserve (C007).\nTsAutoCorr is a genuinely novel signal class. Next iteration should explore:\n(1) TsAutoCorr on other fields (volume, turnover_rate)\n(2) Window optimization beyond 20d/60d\n(3) Conditional variants (autocorr × regime indicator)\n"
+      }
+    ],
+    "logic_recommendations": {
+      "L001": {
+        "recommended_status": "active",
+        "reason": "First batch produced 1 strong reserve (C001) and 2 rejects.\nShadow × turnover interaction has clear in-sample signal but too much turnover\nstyle exposure. Logic is viable but needs style-neutral variant exploration.\nNOT exhausted — many untested microstructure × non-turnover combinations remain.\n"
+      },
+      "L002": {
+        "recommended_status": "active",
+        "reason": "First batch 0/2 — both Cov(turnover, PE) variants failed in holdout.\nHowever, the failure mode is informative: PE field interaction produced Barra-dominated\nsignals. Other field combinations (e.g., Cov with non-valuation fields) remain untested.\nKeep active but shift exploration away from PE interactions.\n"
+      },
+      "L003": {
+        "recommended_status": "active",
+        "reason": "First batch produced an exceptional admit (F001) from TsAutoCorr.\nVolume autocorrelation is a confirmed novel signal class.\nMany expansion opportunities: other fields, window ranges, conditional variants.\n"
+      }
+    },
+    "validation_metrics": {
+      "ic_mean_validation": -0.024885678223068055,
+      "ic_ir_validation": -0.30375489586398474
+    },
+    "verdict_badge": {
+      "verdict": "admit",
+      "reason_summary": "mechanism_aligned, feasibility_ok",
+      "holdout_review": false
+    },
+    "charts": {}
+  },
+  "predictive_power": {
+    "summary": {
+      "is": {
+        "rank_ic_mean": -0.018765567832185224,
+        "rank_ic_std": 0.09959607697502572,
+        "icir": -0.18841673690511723,
+        "win_rate": 0.39524245196706315,
+        "significant_rate": 0.8293687099725526,
+        "t_stat": -8.809364035314644,
+        "p_value": 2.5105747461675288e-18,
+        "n_days": 2186
+      },
+      "oos": {
+        "rank_ic_mean": -0.024810756033535927,
+        "rank_ic_std": 0.0892112022796044,
+        "icir": -0.2781125620947741,
+        "win_rate": 0.38589211618257263,
+        "significant_rate": 0.8340248962655602,
+        "t_stat": -4.3174679991837355,
+        "p_value": 2.3100133203007634e-05,
+        "n_days": 241
+      }
+    },
+    "daily_rank_ic": "time\n2015-01-08    0.026770\n2015-01-09   -0.101913\n2015-01-12   -0.043359\n2015-01-13   -0.077370\n2015-01-14    0.366314\n                ...   \n2024-12-24   -0.134637\n2024-12-25    0.110387\n2024-12-26    0.029713\n2024-12-27   -0.111564\n2024-12-30   -0.112034\nLength: 2427, dtype: float64",
+    "annual": [
+      {
+        "year": 2015,
+        "rank_ic": -0.002,
+        "icir": -0.0133,
+        "win_rate": 0.4813
+      },
+      {
+        "year": 2016,
+        "rank_ic": -0.0127,
+        "icir": -0.1111,
+        "win_rate": 0.3975
+      },
+      {
+        "year": 2017,
+        "rank_ic": -0.0167,
+        "icir": -0.1554,
+        "win_rate": 0.4016
+      },
+      {
+        "year": 2018,
+        "rank_ic": -0.0225,
+        "icir": -0.2287,
+        "win_rate": 0.3827
+      },
+      {
+        "year": 2019,
+        "rank_ic": -0.0254,
+        "icir": -0.3097,
+        "win_rate": 0.3525
+      },
+      {
+        "year": 2020,
+        "rank_ic": -0.0273,
+        "icir": -0.2978,
+        "win_rate": 0.3539
+      },
+      {
+        "year": 2021,
+        "rank_ic": -0.02,
+        "icir": -0.2707,
+        "win_rate": 0.4074
+      },
+      {
+        "year": 2022,
+        "rank_ic": -0.0249,
+        "icir": -0.3382,
+        "win_rate": 0.3636
+      },
+      {
+        "year": 2023,
+        "rank_ic": -0.0174,
+        "icir": -0.2117,
+        "win_rate": 0.4174
+      },
+      {
+        "year": 2024,
+        "rank_ic": -0.0248,
+        "icir": -0.2781,
+        "win_rate": 0.3859
+      }
+    ],
+    "monthly_heatmap_data": [
+      [
+        2015,
+        1,
+        -0.0264
+      ],
+      [
+        2015,
+        2,
+        0.0359
+      ],
+      [
+        2015,
+        3,
+        0.0256
+      ],
+      [
+        2015,
+        4,
+        -0.0286
+      ],
+      [
+        2015,
+        5,
+        0.0304
+      ],
+      [
+        2015,
+        6,
+        -0.0253
+      ],
+      [
+        2015,
+        7,
+        -0.0313
+      ],
+      [
+        2015,
+        8,
+        -0.0299
+      ],
+      [
+        2015,
+        9,
+        0.0264
+      ],
+      [
+        2015,
+        10,
+        0.0231
+      ],
+      [
+        2015,
+        11,
+        -0.0013
+      ],
+      [
+        2015,
+        12,
+        -0.0069
+      ],
+      [
+        2016,
+        1,
+        -0.0139
+      ],
+      [
+        2016,
+        2,
+        0.013
+      ],
+      [
+        2016,
+        3,
+        -0.016
+      ],
+      [
+        2016,
+        4,
+        -0.0121
+      ],
+      [
+        2016,
+        5,
+        0.0117
+      ],
+      [
+        2016,
+        6,
+        -0.0015
+      ],
+      [
+        2016,
+        7,
+        -0.0564
+      ],
+      [
+        2016,
+        8,
+        -0.0001
+      ],
+      [
+        2016,
+        9,
+        -0.0194
+      ],
+      [
+        2016,
+        10,
+        -0.0202
+      ],
+      [
+        2016,
+        11,
+        -0.0244
+      ],
+      [
+        2016,
+        12,
+        -0.0088
+      ],
+      [
+        2017,
+        1,
+        -0.0211
+      ],
+      [
+        2017,
+        2,
+        0.0096
+      ],
+      [
+        2017,
+        3,
+        -0.0196
+      ],
+      [
+        2017,
+        4,
+        -0.0112
+      ],
+      [
+        2017,
+        5,
+        -0.0321
+      ],
+      [
+        2017,
+        6,
+        -0.0202
+      ],
+      [
+        2017,
+        7,
+        -0.0311
+      ],
+      [
+        2017,
+        8,
+        -0.0152
+      ],
+      [
+        2017,
+        9,
+        -0.0166
+      ],
+      [
+        2017,
+        10,
+        -0.0332
+      ],
+      [
+        2017,
+        11,
+        -0.0138
+      ],
+      [
+        2017,
+        12,
+        0.0049
+      ],
+      [
+        2018,
+        1,
+        -0.0338
+      ],
+      [
+        2018,
+        2,
+        0.0061
+      ],
+      [
+        2018,
+        3,
+        -0.0115
+      ],
+      [
+        2018,
+        4,
+        -0.0421
+      ],
+      [
+        2018,
+        5,
+        -0.0106
+      ],
+      [
+        2018,
+        6,
+        -0.0105
+      ],
+      [
+        2018,
+        7,
+        -0.0384
+      ],
+      [
+        2018,
+        8,
+        -0.0306
+      ],
+      [
+        2018,
+        9,
+        -0.028
+      ],
+      [
+        2018,
+        10,
+        -0.0306
+      ],
+      [
+        2018,
+        11,
+        -0.0296
+      ],
+      [
+        2018,
+        12,
+        -0.0034
+      ],
+      [
+        2019,
+        1,
+        -0.0606
+      ],
+      [
+        2019,
+        2,
+        -0.0202
+      ],
+      [
+        2019,
+        3,
+        -0.0046
+      ],
+      [
+        2019,
+        4,
+        -0.0393
+      ],
+      [
+        2019,
+        5,
+        -0.002
+      ],
+      [
+        2019,
+        6,
+        -0.0449
+      ],
+      [
+        2019,
+        7,
+        -0.0248
+      ],
+      [
+        2019,
+        8,
+        -0.0266
+      ],
+      [
+        2019,
+        9,
+        -0.0431
+      ],
+      [
+        2019,
+        10,
+        -0.0136
+      ],
+      [
+        2019,
+        11,
+        -0.0112
+      ],
+      [
+        2019,
+        12,
+        -0.0114
+      ],
+      [
+        2020,
+        1,
+        -0.0371
+      ],
+      [
+        2020,
+        2,
+        -0.0606
+      ],
+      [
+        2020,
+        3,
+        -0.0488
+      ],
+      [
+        2020,
+        4,
+        -0.0182
+      ],
+      [
+        2020,
+        5,
+        -0.0193
+      ],
+      [
+        2020,
+        6,
+        -0.0441
+      ],
+      [
+        2020,
+        7,
+        -0.0068
+      ],
+      [
+        2020,
+        8,
+        -0.0384
+      ],
+      [
+        2020,
+        9,
+        -0.0025
+      ],
+      [
+        2020,
+        10,
+        0.004
+      ],
+      [
+        2020,
+        11,
+        -0.044
+      ],
+      [
+        2020,
+        12,
+        -0.0118
+      ],
+      [
+        2021,
+        1,
+        -0.0331
+      ],
+      [
+        2021,
+        2,
+        -0.0198
+      ],
+      [
+        2021,
+        3,
+        -0.0173
+      ],
+      [
+        2021,
+        4,
+        -0.0287
+      ],
+      [
+        2021,
+        5,
+        -0.0118
+      ],
+      [
+        2021,
+        6,
+        -0.031
+      ],
+      [
+        2021,
+        7,
+        0.0155
+      ],
+      [
+        2021,
+        8,
+        -0.035
+      ],
+      [
+        2021,
+        9,
+        -0.0216
+      ],
+      [
+        2021,
+        10,
+        -0.0022
+      ],
+      [
+        2021,
+        11,
+        -0.02
+      ],
+      [
+        2021,
+        12,
+        -0.0301
+      ],
+      [
+        2022,
+        1,
+        -0.0296
+      ],
+      [
+        2022,
+        2,
+        -0.0179
+      ],
+      [
+        2022,
+        3,
+        -0.02
+      ],
+      [
+        2022,
+        4,
+        -0.033
+      ],
+      [
+        2022,
+        5,
+        -0.029
+      ],
+      [
+        2022,
+        6,
+        -0.0512
+      ],
+      [
+        2022,
+        7,
+        -0.0164
+      ],
+      [
+        2022,
+        8,
+        -0.0506
+      ],
+      [
+        2022,
+        9,
+        -0.0176
+      ],
+      [
+        2022,
+        10,
+        0.011
+      ],
+      [
+        2022,
+        11,
+        -0.0286
+      ],
+      [
+        2022,
+        12,
+        -0.0062
+      ],
+      [
+        2023,
+        1,
+        -0.0328
+      ],
+      [
+        2023,
+        2,
+        -0.0057
+      ],
+      [
+        2023,
+        3,
+        -0.0054
+      ],
+      [
+        2023,
+        4,
+        -0.0206
+      ],
+      [
+        2023,
+        5,
+        -0.0039
+      ],
+      [
+        2023,
+        6,
+        -0.01
+      ],
+      [
+        2023,
+        7,
+        -0.0555
+      ],
+      [
+        2023,
+        8,
+        -0.0049
+      ],
+      [
+        2023,
+        9,
+        -0.0173
+      ],
+      [
+        2023,
+        10,
+        -0.0137
+      ],
+      [
+        2023,
+        11,
+        -0.0059
+      ],
+      [
+        2023,
+        12,
+        -0.0373
+      ],
+      [
+        2024,
+        1,
+        -0.0518
+      ],
+      [
+        2024,
+        2,
+        -0.0006
+      ],
+      [
+        2024,
+        3,
+        -0.002
+      ],
+      [
+        2024,
+        4,
+        -0.044
+      ],
+      [
+        2024,
+        5,
+        -0.0099
+      ],
+      [
+        2024,
+        6,
+        -0.0025
+      ],
+      [
+        2024,
+        7,
+        -0.0103
+      ],
+      [
+        2024,
+        8,
+        -0.0408
+      ],
+      [
+        2024,
+        9,
+        -0.02
+      ],
+      [
+        2024,
+        10,
+        -0.0239
+      ],
+      [
+        2024,
+        11,
+        -0.0433
+      ],
+      [
+        2024,
+        12,
+        -0.0384
+      ]
+    ],
+    "charts": {}
+  },
+  "profitability": {
+    "stats": [
+      {
+        "group": "Q1",
+        "ann_return": 0.127918,
+        "ann_vol": 0.196736,
+        "sharpe": 0.6502,
+        "sortino": 0.844117,
+        "calmar": 0.116253,
+        "max_dd": -1.100336,
+        "max_dd_duration": 725
+      },
+      {
+        "group": "Q2",
+        "ann_return": 0.115484,
+        "ann_vol": 0.252821,
+        "sharpe": 0.456782,
+        "sortino": 0.57819,
+        "calmar": 0.116456,
+        "max_dd": -0.99165,
+        "max_dd_duration": 881
+      },
+      {
+        "group": "Q3",
+        "ann_return": 0.085039,
+        "ann_vol": 0.256318,
+        "sharpe": 0.33177,
+        "sortino": 0.422256,
+        "calmar": 0.086813,
+        "max_dd": -0.979567,
+        "max_dd_duration": 1971
+      },
+      {
+        "group": "Q4",
+        "ann_return": 0.029855,
+        "ann_vol": 0.260258,
+        "sharpe": 0.114714,
+        "sortino": 0.146744,
+        "calmar": 0.022917,
+        "max_dd": -1.302775,
+        "max_dd_duration": 2323
+      },
+      {
+        "group": "Q5",
+        "ann_return": -0.094341,
+        "ann_vol": 0.258992,
+        "sharpe": -0.364263,
+        "sortino": -0.484669,
+        "calmar": -0.052711,
+        "max_dd": -1.789792,
+        "max_dd_duration": 2323
+      }
+    ],
+    "ls_stats": {
+      "group": "L/S",
+      "ann_return": 0.222259,
+      "ann_vol": 0.105882,
+      "sharpe": 2.099126,
+      "sortino": 2.973359,
+      "calmar": 0.891994,
+      "max_dd": -0.249171,
+      "max_dd_duration": 331
+    },
+    "monotonicity": -1.0,
+    "page_test_pvalue": 2.528040891835024e-24,
+    "annual_group_returns": [
+      {
+        "year": 2015,
+        "Q1": 0.696344,
+        "Q2": 0.827845,
+        "Q3": 0.773812,
+        "Q4": 0.671624,
+        "Q5": 0.649654
+      },
+      {
+        "year": 2016,
+        "Q1": 0.202895,
+        "Q2": 0.147024,
+        "Q3": 0.138833,
+        "Q4": 0.107568,
+        "Q5": 0.110297
+      },
+      {
+        "year": 2017,
+        "Q1": -0.033738,
+        "Q2": -0.10716,
+        "Q3": -0.125587,
+        "Q4": -0.180187,
+        "Q5": -0.162159
+      },
+      {
+        "year": 2018,
+        "Q1": -0.293201,
+        "Q2": -0.254827,
+        "Q3": -0.295029,
+        "Q4": -0.363064,
+        "Q5": -0.513656
+      },
+      {
+        "year": 2019,
+        "Q1": 0.342818,
+        "Q2": 0.304461,
+        "Q3": 0.25719,
+        "Q4": 0.21257,
+        "Q5": 0.024705
+      },
+      {
+        "year": 2020,
+        "Q1": 0.252478,
+        "Q2": 0.179898,
+        "Q3": 0.127481,
+        "Q4": 0.055068,
+        "Q5": -0.13058
+      },
+      {
+        "year": 2021,
+        "Q1": 0.15581,
+        "Q2": 0.160326,
+        "Q3": 0.127773,
+        "Q4": 0.06283,
+        "Q5": -0.078529
+      },
+      {
+        "year": 2022,
+        "Q1": -0.090379,
+        "Q2": -0.101772,
+        "Q3": -0.136854,
+        "Q4": -0.182147,
+        "Q5": -0.393763
+      },
+      {
+        "year": 2023,
+        "Q1": -0.000909,
+        "Q2": -0.024493,
+        "Q3": 0.002851,
+        "Q4": -0.00397,
+        "Q5": -0.146735
+      },
+      {
+        "year": 2024,
+        "Q1": 0.049134,
+        "Q2": 0.027214,
+        "Q3": -0.016564,
+        "Q4": -0.07857,
+        "Q5": -0.300721
+      }
+    ],
+    "long_contribution": 0.5755,
+    "short_contribution": 0.4245,
+    "charts": {}
+  },
+  "decay_tradability": {
+    "ic_by_period": [
+      {
+        "days": 1,
+        "ic": -0.019248,
+        "ratio": 1.0
+      },
+      {
+        "days": 2,
+        "ic": -0.025259,
+        "ratio": 1.3123
+      },
+      {
+        "days": 5,
+        "ic": -0.032676,
+        "ratio": 1.6976
+      },
+      {
+        "days": 10,
+        "ic": -0.038722,
+        "ratio": 2.0118
+      },
+      {
+        "days": 20,
+        "ic": -0.044988,
+        "ratio": 2.3373
+      },
+      {
+        "days": 60,
+        "ic": -0.04924,
+        "ratio": 2.5582
+      }
+    ],
+    "half_life_days": null,
+    "optimal_rebalance_days": 60,
+    "distribution": {
+      "stats_is": {
+        "mean": 0.403281,
+        "std": 0.255737,
+        "skew": -0.3293,
+        "kurtosis": -0.2953,
+        "coverage": 1.0,
+        "nan_ratio": 0.0
+      },
+      "stats_oos": {
+        "mean": 0.453967,
+        "std": 0.251354,
+        "skew": -0.4881,
+        "kurtosis": -0.1175,
+        "coverage": 1.0,
+        "nan_ratio": 0.0
+      }
+    },
+    "charts": {}
+  },
+  "uniqueness": {
+    "max_corr": 0.3884929827786971,
+    "max_corr_factor": "R001",
+    "top5_correlated": [
+      {
+        "factor": "R001",
+        "corr": 0.3884929827786971
+      },
+      {
+        "factor": "010",
+        "corr": 0.3542614683978547
+      },
+      {
+        "factor": "072",
+        "corr": 0.33936440640654236
+      },
+      {
+        "factor": "R003",
+        "corr": 0.26204174149182224
+      },
+      {
+        "factor": "001",
+        "corr": 0.23224451782519517
+      }
+    ],
+    "incremental_ic": null,
+    "incremental_icir": null,
+    "all_correlations": {
+      "001": 0.23224451782519517,
+      "002": -0.019388770500453647,
+      "004": 0.17882629817922305,
+      "008": 0.13717128685315735,
+      "009": 0.20951251558136272,
+      "010": 0.3542614683978547,
+      "011": -0.13629301402070157,
+      "014": 0.012468500924904076,
+      "015": 0.008466778064164075,
+      "018": 0.046984902730306304,
+      "019": -0.03726569255956581,
+      "020": 0.009094757284718593,
+      "021": -0.11110124811260097,
+      "022": 0.02265196770609483,
+      "024": 0.06837398743076227,
+      "025": -0.056311044366064225,
+      "026": 0.10680904805874747,
+      "027": 0.23026494300214756,
+      "028": -0.058169140692091684,
+      "035": -0.04021222838230835,
+      "036": -0.05160247489532086,
+      "038": 0.12409005617585818,
+      "039": 0.08000723307765269,
+      "040": 0.09005389021787544,
+      "042": 0.11090959891981665,
+      "043": 0.13820825872975256,
+      "044": -0.12403472087651245,
+      "045": -0.029511581611240095,
+      "047": -0.08852193910570169,
+      "048": 0.06873837741890199,
+      "053": 0.005136140546287256,
+      "054": 0.17473283977320245,
+      "055": -0.01524711750709507,
+      "056": 0.07644677036830032,
+      "061": 0.09233743191663382,
+      "062": -0.08057122417618691,
+      "067": -0.051803947015077,
+      "068": 0.01296440704428235,
+      "069": -0.04296901523955058,
+      "070": -0.04296901523955058,
+      "071": -0.043252175358094676,
+      "072": 0.33936440640654236,
+      "073": 0.17843894056960685,
+      "074": 0.1209409945537475,
+      "075": 0.11737162346319388,
+      "R001": 0.3884929827786971,
+      "R002": 0.1308843537414966,
+      "R003": 0.26204174149182224,
+      "R004": 0.1435459949745664
+    },
+    "charts": {}
+  },
+  "composite": {
+    "dimensions": [
+      {
+        "name": "Predictive Power",
+        "score": 38.3,
+        "data_available": true
+      },
+      {
+        "name": "Signal Stability",
+        "score": 45.0,
+        "data_available": true
+      },
+      {
+        "name": "Profitability",
+        "score": 99.9,
+        "data_available": true
+      },
+      {
+        "name": "Monotonicity",
+        "score": 100,
+        "data_available": true
+      },
+      {
+        "name": "OOS Robustness",
+        "score": 67.8,
+        "data_available": true
+      },
+      {
+        "name": "Uniqueness",
+        "score": 44.5,
+        "data_available": true
+      },
+      {
+        "name": "Decay Resistance",
+        "score": 100.0,
+        "data_available": true
+      }
+    ],
+    "composite_score": 63.2,
+    "composite_grade": "B",
+    "library_rank": null,
+    "library_total": null,
+    "charts": {}
+  },
+  "evidence_charts": {},
+  "available_charts": [
+    "ic_timeseries",
+    "ic_distribution",
+    "rolling_ic",
+    "cumulative_ic",
+    "monthly_heatmap",
+    "quintile_bar",
+    "cumulative_returns",
+    "long_short",
+    "annual_group_returns",
+    "ic_decay",
+    "distribution",
+    "coverage",
+    "correlation_bar",
+    "radar",
+    "style_exposure_bar",
+    "alpha_waterfall",
+    "support_window_ic",
+    "feasibility_dashboard",
+    "quintile_returns_oos",
+    "stability_summary",
+    "verdict_radar_6d",
+    "reason_code_bar",
+    "holdout_comparison"
+  ]
+}

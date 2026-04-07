@@ -1,0 +1,64 @@
+batch_id: batch_038
+frozen_at: '2026-04-07T01:20:10+00:00'
+active_logics:
+- logic_id: L004
+  score: 0.7700
+  quota: 4
+- logic_id: L001
+  score: 0.7429
+  quota: 5
+idea_report: |
+  L004 probes: 10d ICIR=-0.5584 (strongest variant), 40d ICIR=-0.4462 (robust), amount ICIR=-0.5247 (order-flow variant).
+  L001 probes: 40d shadow×Amihud ICIR=-0.2932, pure Amihud ICIR=-0.2646 (control to isolate shadow incremental value).
+  Strategy: L004 multi-scale confirmed, L001 shadow conditioning confirmed.
+candidates:
+- candidate_id: C001
+  logic_id: L004
+  route_id: R1
+  route_type: deepening
+  experiment_lineage_tag: ELT_L004_deepening_pv_corr_10d_x_tur_rank_v1
+  family_id: FM_price_volume_divergence
+  expression: Mul(Corr($close,$volume,10),CsRank($turnover_rate))
+  rationale: 10d lookback — tests whether shorter-horizon divergence signal is stronger than C006 20d (ICIR=-0.5584 vs -0.530 probe). Scale invariance of multiplicative conditioning.
+  precheck_status: passed
+  probe_ic: -0.5584
+- candidate_id: C002
+  logic_id: L004
+  route_id: R1
+  route_type: deepening
+  experiment_lineage_tag: ELT_L004_deepening_pv_corr_40d_x_tur_rank_v1
+  family_id: FM_price_volume_divergence
+  expression: Mul(Corr($close,$volume,40),CsRank($turnover_rate))
+  rationale: 40d lookback — tests longer-horizon regime divergence vs shorter 10d. If mechanism is scale-invariant, 40d should also pass.
+  precheck_status: passed
+  probe_ic: -0.4462
+- candidate_id: C003
+  logic_id: L004
+  route_id: R1
+  route_type: deepening
+  experiment_lineage_tag: ELT_L004_deepening_pv_amount_corr_20d_x_tur_rank_v1
+  family_id: FM_price_volume_divergence
+  expression: Mul(Corr($close,$amount,20),CsRank($turnover_rate))
+  rationale: Replace $volume with $amount — captures order flow correlation vs price, may strengthen signal if smart money tracking via amount.
+  precheck_status: passed
+  probe_ic: -0.5247
+- candidate_id: C004
+  logic_id: L001
+  route_id: R2
+  route_type: deepening
+  experiment_lineage_tag: ELT_L001_deepening_shadow_40d_x_amihud_v1
+  family_id: FM_microstructure_shadow_liquidity
+  expression: Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),40),Div($amount,Mean($volume,40)))
+  rationale: 40d shadow × 40d Amihud — longer window may reduce style absorption vs C001 20d (alpha_surv=0.377). Tests window robustness of shadow×Amihud.
+  precheck_status: passed
+  probe_ic: -0.2932
+- candidate_id: C005
+  logic_id: L001
+  route_id: R2
+  route_type: deepening
+  experiment_lineage_tag: ELT_L001_deepening_pure_amihud_control_v1
+  family_id: FM_microstructure_shadow_liquidity
+  expression: Div($amount,Mean($volume,20))
+  rationale: Pure Amihud control — isolates whether shadow component in C001 adds incremental value. If pure Amihud passes, shadow is redundant; if it fails, shadow is essential.
+  precheck_status: passed
+  probe_ic: -0.2646

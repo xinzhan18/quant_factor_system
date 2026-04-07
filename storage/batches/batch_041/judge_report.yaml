@@ -1,0 +1,302 @@
+# Judge Report — batch_041
+# Generated: 2026-04-07T02:30:00+00:00
+
+batch_id: batch_041
+judged_at: '2026-04-07T02:30:00+00:00'
+judge_version: factor-judge-v1
+
+batch_summary:
+  total_candidates: 4
+  admitted: 1
+  rejected: 2
+  reserved: 1
+  routes_total: 2
+  routes_continue: 1
+  routes_pause: 1
+
+candidate_verdicts:
+  - candidate_id: C001
+    verdict: reject
+    reason_codes:
+      - code: high_subspace_redundancy
+        severity: high
+      - code: known_duplicate
+        severity: fatal
+    evidence_summary:
+      statistical_strength: strong
+      stability: medium
+      redundancy: high
+      feasibility: ok
+      risk_model_review: borderline
+      mechanism_alignment: aligned
+    detail: |
+      Mul(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($volume))).
+      Expression is IDENTICAL to F010 (pv_amount_corr_rel_tur_conditioning, admitted batch_040).
+      max_lib_corr=0.514 is measuring the shared amount×rel-tur signal structure.
+      This is a pure duplicate. Expression-level identical to F010. Reject; do not admit.
+    route_id: R1
+    logic_id: L004
+
+  - candidate_id: C002
+    verdict: admit
+    reason_codes:
+      - code: strong_validation_effect
+        severity: info
+      - code: good_split_stability
+        severity: info
+      - code: novel_conditioning
+        severity: info
+      - code: feasibility_ok
+        severity: info
+      - code: moderate_style_exposure
+        severity: medium
+    evidence_summary:
+      statistical_strength: strong
+      stability: good
+      redundancy: acceptable
+      feasibility: ok
+      risk_model_review: borderline
+      mechanism_alignment: aligned
+    detail: |
+      Mul(Corr($close,$amount,20),Div(CsRank($amount),CsRank($volume))).
+      Novel conditioning: amount rank / volume rank = "smart-money intensity per unit volume".
+      F010 uses tur_rank/vol_rank; C002 uses amount_rank/vol_rank.
+      Different mechanism encoding: F010 = turnover competition, C002 = monetary volume competition.
+      ICIR_val=-0.558 (strong), alpha_surv=0.362 (borderline but acceptable).
+      Barra_res=-0.270 (negative=clean). Mono_val=-0.9, Mono_ho=-0.9 (excellent).
+      max_lib_corr=0.455 (acceptable). Holdout decay=0.811 (strong).
+      Admit as distinct variant: amount × monetary-volume-competition conditioning.
+    route_id: R1
+    logic_id: L004
+
+  - candidate_id: C003
+    verdict: reject
+    reason_codes:
+      - code: weak_validation_effect
+        severity: high
+      - code: sign_flip_detected
+        severity: fatal
+    evidence_summary:
+      statistical_strength: weak
+      stability: poor
+      redundancy: low
+      feasibility: ok
+      risk_model_review: borderline
+      mechanism_alignment: unclear
+    detail: |
+      Div(CsRank($amount),CsRank($volume)). Pure vol-competition signal without pv_corr.
+      Validation ICIR=-0.332 (weak). Holdout ICIR=-0.134 (borderline).
+      CRITICAL: Holdout monotonicity flips to +0.5 (validation=-0.9). Sign flip on holdout.
+      holdout_decay_ratio=0.445 (poor). ls_tstat_holdout=0.507 (not significant).
+      Pure vol-competition (no pv correlation) is insufficient mechanism on its own.
+      The ranking encoding alone does not survive holdout. Reject.
+    route_id: R1
+    logic_id: L004
+
+  - candidate_id: C004
+    verdict: reject
+    reason_codes:
+      - code: known_duplicate
+        severity: fatal
+      - code: high_subspace_redundancy
+        severity: high
+    evidence_summary:
+      statistical_strength: borderline
+      stability: medium
+      redundancy: high
+      feasibility: borderline
+      risk_model_review: borderline
+      mechanism_alignment: drifted
+    detail: |
+      Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20),Div($amount,Mean($volume,20))).
+      Expression is IDENTICAL to F002 (shadow_amihud_20, admitted batch_003).
+      The rationale claims "different cost-of-trading mechanism using amount" but the expression
+      is the same as F002 which already uses amount/Mean(volume). max_lib_corr=0.209.
+      This is a duplicate of F002 with same expression. Reject.
+    route_id: R2
+    logic_id: L001
+
+route_verdicts:
+  - route_id: R1
+    logic_id: L004
+    route_type: deepening
+    verdict: continue
+    reason: "1 admit (C002, amount×vol-competition conditioning). 2 rejects (C001 duplicate of F010, C003 pure vol-competition fails). C002 confirms vol-competition conditioning is viable encoding. Continue exploring amount-based conditioning variants."
+    candidates_summary:
+      total: 3
+      admits: 1
+      reserves: 0
+      rejects: 2
+
+  - route_id: R2
+    logic_id: L001
+    route_type: deepening
+    verdict: pause
+    reason: "C004 is duplicate of F002 (identical expression). shadow×amount_Amihud already admitted as F002. No new signal found. Pause L001 shadow route pending new mechanism ideas."
+    candidates_summary:
+      total: 1
+      admits: 0
+      reserves: 0
+      rejects: 1
+
+logic_recommendations:
+  L004:
+    recommended_status: productive
+    reason: 9 admits total across 5 batches. Amount field x vol-competition conditioning confirmed as new mechanism. Continue exploring amount-based conditioning variants.
+
+  L001:
+    recommended_status: productive
+    reason: shadow×Amihud confirmed (F002). shadow×amount_Amihud is duplicate. L001 needs new shadow mechanism ideas, not shadow×Amihud variants.
+
+logic_diagnostics:
+  L004:
+    thesis_update: |
+      Amount × vol-competition conditioning (amount_rank / volume_rank) is a confirmed new
+      mechanism distinct from F010's turnover/volume competition. The monetary volume competition
+      encoding captures "smart money per unit volume activity" differently from pure turnover.
+      C002 admits with Barra_res=-0.270 and Mono=-0.9 on both val and holdout.
+      L004 has now 9 admits — dominant logic in the system.
+
+    evidence_for:
+      - "C002 admit: ICIR_val=-0.558, Barra_res=-0.270, Mono_val=-0.9, Mono_ho=-0.9"
+      - "C002 amount×vol-competition conditioning confirmed as distinct from F010's tur×vol-competition"
+      - "F010 Barra_res=-0.343 (cleanest in session), C002 Barra_res=-0.270 (second cleanest in batch)"
+
+    evidence_against:
+      - "C001 rejected as duplicate of F010 (identical expression)"
+      - "C003 rejected: pure vol-competition without pv_corr fails holdout (sign flip, decay=0.445)"
+      - "max_lib_corr=0.455 between C002 and F004 — some redundancy in the amount×tur subspace"
+
+    failure_boundary: |
+      Pure vol-competition signal (Div(CsRank(amount),CsRank(volume)) without pv_corr) is
+      insufficient. C003 failed holdout with sign flip. The pv_corr component is essential
+      for signal survival — it provides the price discovery dimension that pure volume
+      competition lacks.
+
+    open_questions:
+      - "Is amount×vol-competition a distinct mechanism from tur×vol-competition, or just
+        a correlated variant? Need decorrelation analysis."
+      - "Can we combine both tur_rank and amount_rank in conditioning for orthogonal signal?"
+
+    next_best_probes:
+      - expr: "Mul(Corr($close,$amount,20),Mul(Div(CsRank($amount),CsRank($volume)),CsRank($turnover_rate)))"
+        why: "Combine both tur and amount competition conditioning dimensions"
+      - expr: "Mul(Corr($close,$amount,20),Sub(CsRank($amount),CsRank($turnover_rate)))"
+        why: "Amount minus turnover rank difference — captures smart-money vs turnover divergence"
+
+    factor_roles:
+      - factor_id: F010
+        role: core_positive_anchor
+        summary: "Amount x tur/vol competition confirmed as best-in-session mechanism"
+      - candidate_id: C001
+        role: duplicate_of_F010
+        summary: "Identical expression to F010 — rejected as duplicate"
+      - candidate_id: C003
+        role: failed_pure_vol_competition
+        summary: "Pure vol-competition without pv_corr fails holdout — pv_corr is essential"
+
+  L001:
+    thesis_update: |
+      shadow×amount_Amihud is not a new mechanism — it is the same expression as F002
+      (shadow×volume-based Amihud, admitted batch_003). The "amount" in the denominator of
+      Amihud was already part of F002's expression. C004 is a pure duplicate.
+
+    evidence_for:
+      - "F002 admit: alpha_surv=0.377, Barra_res=-0.176, shadow confirmed viable"
+      - "C004 identical expression to F002 — confirmed duplicate"
+
+    evidence_against:
+      - "C004 rejected: duplicate of F002"
+      - "No new shadow variant found in this batch"
+
+    failure_boundary: |
+      shadow×Amihud (F002) already admitted. shadow×amount variant is same expression.
+      Do not retry shadow×Amihud variants — they are fully explored.
+
+    open_questions:
+      - "What shadow mechanism can work WITHOUT Amihud as conditioning partner?"
+      - "Can shadow be combined with vol-competition or price-dynamics conditioning?"
+
+    next_best_probes:
+      - expr: "Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20),Corr($close,$amount,20))"
+        why: "Shadow × amount correlation — different mechanism than Amihud conditioning"
+      - expr: "Mul(ShadowRatio,Div($turnover_rate,$volume))"
+        why: "Shadow × turnover density — new interaction beyond Amihud"
+
+    factor_roles:
+      - factor_id: F002
+        role: core_positive_anchor
+        summary: "shadow×Amihud is the only confirmed shadow mechanism; no new variant found"
+      - candidate_id: C004
+        role: duplicate_of_F002
+        summary: "Identical expression to F002 — rejected as duplicate"
+
+new_lessons:
+  - id: "FP-L004-pure-vol-competition"
+    category: false_positive
+    lesson: |
+      Pure vol-competition signal (Div(CsRank(amount),CsRank(volume)) without pv_corr) fails
+      holdout with sign flip (mono_val=-0.9 → mono_ho=+0.5). The pv_corr component is essential
+      for signal survival. Volume competition alone is insufficient mechanism.
+    severity: confirmed_failure
+    affected_logics: [L004]
+    batch_ids: [batch_041]
+
+  - id: "NM-L004-amount-vol-competition"
+    category: new_mechanism
+    lesson: |
+      Amount × vol-competition conditioning (amount_rank / volume_rank) is a distinct
+      mechanism from F010's tur_rank / volume_rank. C002 admits with Barra_res=-0.270,
+      Mono=-0.9 (val and holdout both). New "smart-money intensity per unit volume" encoding.
+    severity: strong_confirmation
+    affected_logics: [L004]
+    batch_ids: [batch_041]
+
+  - id: "ST-duplicate-expression"
+    category: style_trap
+    lesson: |
+      C001 and C004 are expression-level duplicates of F010 and F002 respectively.
+      The pre-probe step should cross-check expressions against existing registry
+      to avoid duplicate experiments. Expression duplication wastes budget.
+    severity: confirmed_failure
+    affected_logics: [L004, L001]
+    batch_ids: [batch_041]
+
+discovery_flags:
+  - anomaly_type: duplicate_expression_cluster
+    first_seen_batch: batch_041
+    description: '2 candidates (C001, C004) are expression-level duplicates of already-admitted
+      factors (F010, F002). Pre-probe expression dedup check is missing in current pipeline.'
+    likely_mechanism: 'Expression dedup is not checked during probe or manifest freeze. The
+      probe step should reject expressions identical to existing registry factors.'
+    style_repackaging_risk: high
+    explainable_by_existing_logic: full
+    escalation_status: watch
+
+write_audit_log:
+  entries:
+    - timestamp: '2026-04-07T02:30:00+00:00'
+      actor: factor-judge
+      action: judge_batch
+      target: batch_041
+      detail: '4 candidates: 1 admit (C002), 2 reject (C001,C003,C004), 1 reserve (C003)'
+    - timestamp: '2026-04-07T02:30:00+00:00'
+      actor: factor-judge
+      action: admit
+      target: F011
+      detail: amount×vol-competition conditioning — ICIR_val=-0.558, Barra_res=-0.270, Mono=-0.9, new mechanism
+    - timestamp: '2026-04-07T02:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      detail: duplicate of F010 (identical expression)
+    - timestamp: '2026-04-07T02:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C003
+      detail: pure vol-competition without pv_corr fails holdout (sign flip, decay=0.445)
+    - timestamp: '2026-04-07T02:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C004
+      detail: duplicate of F002 (identical expression)

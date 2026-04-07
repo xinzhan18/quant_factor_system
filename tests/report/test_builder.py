@@ -146,3 +146,78 @@ class TestReportDataBuilder:
         assert result["factor"]["id"] == "001"
         assert result["factor"]["name"] == "test_factor"
         assert result["factor"]["data_level"] == "L0"
+
+    @patch.object(ReportDataBuilder, "_load_factor_metadata")
+    @patch.object(ReportDataBuilder, "_load_data_from_db")
+    @patch.object(ReportDataBuilder, "_load_library_factors")
+    def test_available_charts_in_result(self, mock_lib, mock_db, mock_meta):
+        mock_meta.return_value = _mock_factor_metadata()
+        fdf, pdf = _mock_db_data()
+        mock_db.return_value = (fdf, pdf)
+        mock_lib.return_value = {}
+
+        builder = ReportDataBuilder("001")
+        result = builder.build()
+
+        assert "available_charts" in result
+        assert isinstance(result["available_charts"], list)
+        assert len(result["available_charts"]) > 0
+
+    @patch.object(ReportDataBuilder, "_load_factor_metadata")
+    @patch.object(ReportDataBuilder, "_load_data_from_db")
+    @patch.object(ReportDataBuilder, "_load_library_factors")
+    def test_judge_section_empty_when_no_data(self, mock_lib, mock_db, mock_meta):
+        mock_meta.return_value = _mock_factor_metadata()
+        fdf, pdf = _mock_db_data()
+        mock_db.return_value = (fdf, pdf)
+        mock_lib.return_value = {}
+
+        builder = ReportDataBuilder("001")
+        result = builder.build()
+
+        # No judge files exist → judge section is empty dict
+        assert result.get("judge") == {}
+
+    @patch.object(ReportDataBuilder, "_load_judge_data")
+    @patch.object(ReportDataBuilder, "_load_factor_metadata")
+    @patch.object(ReportDataBuilder, "_load_data_from_db")
+    @patch.object(ReportDataBuilder, "_load_library_factors")
+    def test_judge_section_populated(self, mock_lib, mock_db, mock_meta, mock_judge):
+        mock_meta.return_value = _mock_factor_metadata()
+        fdf, pdf = _mock_db_data()
+        mock_db.return_value = (fdf, pdf)
+        mock_lib.return_value = {}
+        mock_judge.return_value = {
+            "candidate_verdict": {
+                "verdict": "admit",
+                "reason_codes": [
+                    {"code": "strong_validation_effect", "severity": "info"},
+                ],
+                "evidence_summary": {
+                    "mechanism_alignment": "aligned",
+                    "statistical_strength": "strong",
+                    "stability": "good",
+                    "redundancy": "low",
+                    "feasibility": "ok",
+                    "risk_model_review": "acceptable",
+                },
+            },
+            "candidate_brief": {
+                "validation_effect_bucket": "strong",
+                "stability_bucket": "good",
+                "redundancy_bucket": "low",
+                "feasibility_bucket": "good",
+                "risk_model_review_bucket": "acceptable",
+                "holdout_ic_mean": None,
+                "holdout_ic_ir": None,
+                "holdout_monotonicity": None,
+                "holdout_decay_ratio": None,
+            },
+        }
+
+        builder = ReportDataBuilder("001")
+        result = builder.build()
+
+        assert result["judge"] != {}
+        assert result["judge"]["verdict_badge"]["verdict"] == "admit"
+        assert "charts" in result["judge"]

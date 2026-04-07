@@ -15,7 +15,7 @@ from typing import Any
 import yaml
 
 
-def load_yaml(path: str | Path) -> dict[str, Any]:
+def load_yaml_any(path: str | Path) -> Any:
     """Load a YAML file, returning an empty dict if the file is missing or empty."""
     p = Path(path)
     if not p.exists():
@@ -26,6 +26,12 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
     data = yaml.safe_load(text)
     if data is None:
         return {}
+    return data
+
+
+def load_yaml(path: str | Path) -> dict[str, Any]:
+    """Load a YAML file and coerce non-mapping content into a wrapper dict."""
+    data = load_yaml_any(path)
     if not isinstance(data, dict):
         return {"_raw": data}
     return data

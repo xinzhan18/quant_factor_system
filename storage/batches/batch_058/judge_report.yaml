@@ -1,0 +1,103 @@
+judge_report:
+  batch_id: batch_058
+  generated_at: '2026-04-07T06:55:00+00:00'
+
+  batch_summary:
+    total_candidates: 1
+    admitted: 0
+    rejected: 1
+    reserved: 0
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - style_dominance_detected
+        - regime_instability
+      detail: |
+        Mul(Corr($close,$volume,20),CsRank(Div(1,$pe_ratio))): pv_corr × EP rank.
+        validation ICIR=-0.283 (strong), mono_ho=-1.0 (PERFECT ranking on holdout).
+        Barra_res=-0.002 (clean). max_lib_corr=0.412 (borderline vs F004).
+        BUT alpha_surv=0.092 (POOR — 90.8% destroyed). dominant_style=str_1m=0.318, turnover_20d=0.273.
+        style_r2=0.161 (elevated). support_window val_2020_2021 sign_consistency=FALSE.
+        EP conditioning produces predominantly style-driven signal, not independent alpha.
+        REJECT.
+
+  route_verdicts:
+    - route_id: R001
+      verdict: pause
+      reason: |
+        EP conditioning (earnings yield = 1/PE) produces style-dominated signal (str_1m=0.318, style_r2=0.161).
+        alpha_surv=0.092 is catastrophic. Similar to PE/PS — fundamental conditioning
+        breaks turnover trap but introduces style trap. Route pause until holdout
+        review of batch_047 confirms PE/PS.
+
+  logic_recommendations:
+    - logic_id: L004
+      recommended_status: productive
+      reason: Waiting on batch_047 holdout confirmation for PE/PS conditioning.
+        EP conditioning fails with style trap. Route paused.
+
+  logic_diagnostics:
+    L004:
+      thesis_update: |
+        batch_058 tests EP (earnings yield = 1/PE) conditioning on pv_corr.
+        Result: similar to PE/PS — fundamental conditioning breaks turnover trap
+        but introduces style trap. alpha_surv=0.092 (POOR), str_1m=0.318 dominant.
+
+      evidence_for:
+        - "C001: mono_ho=-1.0 (PERFECT ranking)"
+        - "C001: Barra_res=-0.002 (clean)"
+        - "C001: validation ICIR=-0.283 (strong)"
+
+      evidence_against:
+        - "C001: alpha_surv=0.092 (CATASTROPHIC — 90.8% destroyed)"
+        - "C001: dominant_style=str_1m=0.318, turnover_20d=0.273 (style trap)"
+        - "C001: style_r2=0.161 (elevated)"
+        - "C001: val_2020_2021 sign_consistency=FALSE (regime instability)"
+        - "C001: holdout decay=0.635 (<1)"
+
+      failure_boundary: |
+        EP conditioning is a style trap (similar to PE/PS). Do not probe EP alone.
+        PE/PS conditioning confirmed as the only viable fundamental conditioner for pv_corr.
+
+      open_questions:
+        - "等待 batch_047 holdout review"
+        - "PE/PS conditioning is the breakthrough — need holdout confirmation"
+
+      next_best_probes:
+        - expr: "等待 batch_047 holdout review"
+          why: "PE/PS conditioning breakthrough needs holdout confirmation before proceeding"
+
+      factor_roles:
+        - candidate_id: C001
+          role: rejected_ep_style_trap
+          summary: "EP conditioning: style trap (str_1m=0.318), alpha_surv=0.092. Not independent alpha."
+
+  new_lessons:
+    - id: FP-L004-ep-conditioning-style-trap
+      category: false_positive
+      lesson: 'EP conditioning (earnings yield = 1/PE) on pv_corr: alpha_surv=0.092 (POOR), str_1m=0.318 (style trap), style_r2=0.161. Similar to PE/PS — fundamental conditioning breaks turnover trap but introduces style trap. Do not probe EP alone as conditioner.'
+      severity: confirmed_failure
+      affected_logics:
+        - L004
+      batch_ids:
+        - batch_058
+
+  discovery_flags:
+    - anomaly_type: ep_conditioning_style_trap
+      first_seen_batch: batch_058
+      description: "EP conditioning on pv_corr: alpha_surv=0.092, str_1m=0.318, style_r2=0.161. Style trap similar to PE/PS. PE/PS conditioning confirmed as the only viable fundamental conditioner."
+      likely_mechanism: "EP is too similar to PE — fundamental conditioning breaks turnover trap but introduces style trap"
+      style_repackaging_risk: high
+      explainable_by_existing_logic: partial
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-07T06:55:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [style_dominance_detected, regime_instability]

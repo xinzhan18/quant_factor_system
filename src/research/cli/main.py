@@ -66,6 +66,10 @@ def main():
     p_state_set.add_argument("value", help="Value (e.g. batch_042, null, 3)")
     state_sub.add_parser("clear-batch", help="Clear batch fields after cycle")
     state_sub.add_parser("sync-holdout", help="Sync ledger holdout_reviews → queue + state count")
+    p_finalize = state_sub.add_parser("finalize-batch", help="Apply judge report back into logic/state")
+    p_finalize.add_argument("batch_id", help="Batch ID to finalize")
+    p_validate = state_sub.add_parser("validate-consistency", help="Validate storage truth sources")
+    p_validate.add_argument("--batch-id", default=None, help="Optional batch ID for judge/state validation")
 
     # capabilities
     _p_caps = sub.add_parser("capabilities", help="Available operators, fields, constraints")

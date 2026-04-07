@@ -1,0 +1,160 @@
+judge_report:
+  batch_id: batch_053
+  generated_at: '2026-04-07T06:05:00+00:00'
+
+  batch_summary:
+    total_candidates: 2
+    admitted: 0
+    rejected: 2
+    reserved: 0
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - code: weak_validation_effect
+          severity: high
+        - code: weak_holdout_effect
+          severity: high
+      detail: |
+        Mul(Sub(IdxMax($volume,3),IdxMin($volume,3)),CsRank($pe_ratio)): mono_ho=-1.0 (PERFECT ranking).
+        alpha_surv=1.254 (>1, good). Barra_res=-0.010 (acceptable negative). dominant_style=turnover_20d=0.113 (LOW — clean).
+        max_lib_corr=0.049 (genuinely orthogonal to all library factors).
+        BUT: decay_ratio=0.876 (<1 — signal WEAKENS on holdout). ls_tstat_ho=-1.09 (weak).
+        Quintile spread on holdout: q1=+0.0051, q2=+0.0048, q3=+0.0046, q4=+0.0046, q5=+0.0045 — ALL QUINTILES POSITIVE and compressed (spread=0.0006).
+        mono_ho=-1.0 is DECEPTIVE here — it reflects sign consistency within compressed quintiles, NOT genuine ranking power.
+        The near-perfect monotonicity is an artifact of tiny spreads that all have the same sign.
+        Confirming: alpha_surv ratio here is inflated because val was very weak (ic_mean_val=-0.0084).
+        3d is TOO FAST for timing_range — the signal hasn't accumulated enough before noise dominates.
+        5d (F013, decay_ratio=1.207, ls_tstat_ho=-2.11) is confirmed as the floor.
+
+    - candidate_id: C002
+      verdict: reject
+      reason_codes:
+        - code: sign_flip_detected
+          severity: fatal
+        - code: weak_validation_effect
+          severity: high
+      detail: |
+        Mul(Sub(IdxMax($volume,5),IdxMin($volume,5)),CsRank($ps_ratio)): mono_val=-0.3, mono_ho=+0.1 (SIGN FLIP).
+        decay_ratio=1.381 (>1, good). alpha_surv=1.359 (>1, good). Barra_res=-0.012 (acceptable).
+        dominant_style=turnover_20d=0.119 (LOW — clean). max_lib_corr=0.062 (low).
+        But mono_ho=+0.1 is a COMPLETE SIGN FLIP from validation (mono_val=-0.3).
+        Quintile holdout returns: q1=+0.0042, q2=+0.0048, q3=+0.0054, q4=+0.0053, q5=+0.0039 — FLAT/RANDOM ranking.
+        PS conditioning does NOT work for timing_range at 5d — sign flip confirmed.
+        PE is UNIQUELY ESSENTIAL for timing_range conditioning. PS is NOT interchangeable with PE.
+        This is a fatal failure_boundary confirmation: PE is the only viable conditioning partner for timing_range.
+
+  route_verdicts:
+    - route_id: R001
+      verdict: continue
+      reason: |
+        3d × PE (C001): decay_ratio=0.876 (<1) confirms 3d is too fast — signal WEAKENS on holdout.
+        5d × PS (C002): sign flip confirms PE is uniquely essential — PS is not interchangeable.
+        Both narrow the failure boundary but do not kill the timing_range family.
+        F013 (5d × PE) remains admitted. Timing_range family confirmed productive.
+        Key boundary now: 5d is the minimum viable window for timing_range × PE.
+        PS conditioning is NOT viable for timing_range.
+
+  logic_recommendations:
+    - logic_id: L001
+      recommended_status: productive
+      reason: Timing_range family confirmed productive with F013 (5d × PE). batch_053 narrows the boundary: 3d is too fast (decay<1), PS conditioning fails (sign flip). 5d × PE is confirmed as the floor. L001 now has 2 productive families: F002 (shadow×Amihud) and F013 (5d timing_range×PE).
+
+  logic_diagnostics:
+    L001:
+      thesis_update: |
+        batch_053 narrows the timing_range boundary. 3d × PE (C001): decay_ratio=0.876 (<1) — signal WEAKENS on holdout.
+        ls_tstat_ho=-1.09 (weak). Quintiles all positive and compressed (+0.004 to +0.005). The mono_ho=-1.0 is a statistical artifact
+        of tiny spreads with consistent sign, NOT genuine ranking power.
+        5d × PE (F013) remains the clear winner with decay_ratio=1.207 and ls_tstat_ho=-2.11.
+        5d × PS (C002): sign flip (mono_ho=+0.1). PS conditioning is NOT equivalent to PE for timing_range.
+        This confirms: PE is UNIQUELY essential for timing_range conditioning. Only PE and PS (tested here, failed) work.
+        Do not probe other fundamental conditioning with timing_range — PE/PS are the only viable options.
+
+      evidence_for:
+        - "F013 (5d × PE): alpha_surv=1.204, mono_ho=-0.9, decay_ratio=1.207, Barra_res=-0.014 (ADMITTED)"
+        - "5d is the confirmed floor — 3d signal weakens (decay_ratio=0.876)"
+        - "turnover_20d=0.11-0.15 dominant across all short windows — avoids str_1m trap"
+
+      evidence_against:
+        - "C001 (3d): ls_tstat_ho=-1.09, quintile spread=0.0006 — signal too weak despite good alpha_surv"
+        - "C002 (5d × PS): mono_ho=+0.1 sign flip — PS is NOT interchangeable with PE"
+        - "All quintiles positive on holdout for both C001 and C002 — edge is tiny"
+
+      failure_boundary: |
+        3d timing_range × PE: decay_ratio=0.876 (<1) — signal too transient, weakens on holdout. Do not probe 3d.
+        5d timing_range × PS: sign flip (mono_ho=+0.1) — PS conditioning does NOT work for timing_range.
+        Only PE (and PS, not confirmed viable) conditioning works for timing_range.
+        Do not probe PB, Amihud, or other fundamentals with timing_range.
+
+      open_questions:
+        - "Is 4d a compromise between 3d (too weak) and 5d (optimal)?"
+        - "Can timing_range be blended with shadow for orthogonal combination?"
+        - "Does PE/PS ratio conditioning work at 5d?"
+
+      next_best_probes:
+        - expr: "Mul(Sub(IdxMax($volume,5),IdxMin($volume,5)),Div(CsRank($pe_ratio),CsRank($ps_ratio)))"
+          why: "Test PE/PS ratio as compound conditioning — if both fundamentals are needed simultaneously"
+        - expr: "Mul(Sub(IdxMax($volume,5),IdxMin($volume,5)),Mul(CsRank($pe_ratio),CsRank($ps_ratio)))"
+          why: "Test multiplicative PE×PS conditioning as alternative to single fundamental"
+
+      factor_roles:
+        - candidate_id: C001
+          role: failed_short_window_probe
+          summary: "3d × PE: mono_ho=-1.0 is deceptive. decay_ratio=0.876 (<1), ls_tstat_ho=-1.09, quintuple spread=0.0006. 3d is TOO FAST — confirms 5d is the floor."
+        - candidate_id: C002
+          role: failed_conditioning_probe
+          summary: "5d × PS: sign flip (mono_ho=+0.1). PS is NOT interchangeable with PE. Confirms PE is uniquely essential for timing_range."
+
+  new_lessons:
+    - id: FP-L001-timing-range-3d-too-fast
+      category: false_positive
+      lesson: 3d timing_range × PE: decay_ratio=0.876 (<1), ls_tstat_ho=-1.09, quintuple spread=0.0006. mono_ho=-1.0 is DECEPTIVE — all quintiles positive and compressed. Signal WEAKENS on holdout. 3d is TOO FAST for timing_range. 5d is the confirmed floor.
+      severity: confirmed_failure
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_053
+
+    - id: FP-L001-timing-range-ps-fails
+      category: false_positive
+      lesson: 5d timing_range × PS conditioning (C002): mono_ho=+0.1 (SIGN FLIP), quintuple spread FLAT. PS conditioning does NOT work for timing_range. PE is UNIQUELY essential. Do not probe PS conditioning with timing_range.
+      severity: confirmed_failure
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_053
+
+    - id: NM-L001-timing-range-floor-confirmed
+      category: new_signal
+      lesson: 'Timing_range window confirmed floor at 5d. Window hierarchy: 5d(1.204, decay=1.207) > 7d(1.049) > 10d(0.879) > 20d(0.438). 3d collapses (decay=0.876). PE is uniquely essential. PS is not interchangeable.'
+      severity: confirmed_failure
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_053
+
+  discovery_flags:
+    - anomaly_type: timing_range_3d_false_mono
+      first_seen_batch: batch_053
+      description: 3d timing_range × PE shows mono_ho=-1.0 (deceptive) but decay_ratio=0.876 (<1), ls_tstat_ho=-1.09, quintuple spread=0.0006. Perfect monotonicity is a statistical artifact of compressed quintiles, not genuine ranking power.
+      likely_mechanism: 3d is too fast — volume timing range requires at least 5d to accumulate meaningful signal above noise.
+      style_repackaging_risk: low
+      explainable_by_existing_logic: full
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-07T06:05:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [weak_validation_effect, weak_holdout_effect]
+    - timestamp: '2026-04-07T06:05:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C002
+      level: 1
+      reason_codes: [sign_flip_detected, weak_validation_effect]

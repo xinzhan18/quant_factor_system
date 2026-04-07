@@ -1,12 +1,14 @@
 """ReportDataBuilder -- thin orchestrator for factor report generation.
 
-Loads data from DB/YAML, delegates computation to the 6-analyzer pipeline,
-assembles the final report_data dict, and exports charts as PNG (vault mode)
-or HTML fragments (legacy mode).
+Loads data from DB/YAML, delegates computation to the 4-analyzer pipeline
+(IC, Profit, Decay, Uniqueness) plus judge evidence and execute evidence
+visualization, assembles the final report_data dict, and exports charts
+as PNG (vault mode) or HTML fragments (legacy mode).
 
-New schema (v2):
-    factor, predictive_power, profitability, risk_attribution,
-    conditional, decay_tradability, uniqueness, composite
+Schema:
+    factor, judge, predictive_power, profitability,
+    decay_tradability, uniqueness, composite,
+    execute_evidence, evidence_charts, available_charts
 """
 from __future__ import annotations
 
@@ -32,6 +34,7 @@ from report.scorer import CompositeScorer
 from report.data_prep import merge_factor_price
 from report.charts.theme import PNG_WIDTH, PNG_HEIGHT, PNG_SCALE
 from report.analytics import execute_evidence_charts
+from report.analytics import judge_charts
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +73,7 @@ class ReportDataBuilder:
         t0_total = time.perf_counter()
 
         if vault_dir:
-            self._vault_assets_dir = os.path.join(vault_dir, "assets", f"F{self.factor_id}")
+            self._vault_assets_dir = os.path.join(vault_dir, "assets", self.factor_id)
             os.makedirs(self._vault_assets_dir, exist_ok=True)
 
         # ---- Load metadata + main data (sequential: each depends on previous) ----
@@ -143,12 +146,18 @@ class ReportDataBuilder:
             ic_20d=ic_20d,
         )
 
-        # ---- Load execute evidence (pre-computed metrics from execute pipeline) ----
+        # ---- Load execute evidence + judge data (pre-computed from pipelines) ----
         execute_evidence = self._load_execute_evidence(meta)
+        judge_data = self._load_judge_data(meta)
+        if judge_data and execute_evidence:
+            judge_data["validation_metrics"] = {
+                "ic_mean_validation": execute_evidence.get("evaluation", {}).get("ic_mean_validation"),
+                "ic_ir_validation": execute_evidence.get("evaluation", {}).get("ic_ir_validation"),
+            }
 
         # ---- Parallel chart generation ----
         t0 = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=6) as _pool:
+        with ThreadPoolExecutor(max_workers=7) as _pool:
             _f_ic_ch = _pool.submit(ic_analyzer.generate_charts, ic_result)
             _f_profit_ch = _pool.submit(profit_analyzer.generate_charts, profit_result)
             _f_decay_ch = _pool.submit(
@@ -157,6 +166,7 @@ class ReportDataBuilder:
             _f_uniq_ch = _pool.submit(uniq_analyzer.generate_charts, uniq_result)
             _f_score_ch = _pool.submit(scorer.generate_charts, composite)
             _f_evidence_ch = _pool.submit(execute_evidence_charts.generate_charts, execute_evidence)
+            _f_judge_ch = _pool.submit(judge_charts.generate_charts, judge_data)
 
             ic_charts = _f_ic_ch.result()
             profit_charts = _f_profit_ch.result()
@@ -164,10 +174,11 @@ class ReportDataBuilder:
             uniq_charts = _f_uniq_ch.result()
             score_charts = _f_score_ch.result()
             evidence_charts = _f_evidence_ch.result()
+            judge_ch = _f_judge_ch.result()
         logger.info("[TIMING] parallel chart generation: %.2fs", time.perf_counter() - t0)
 
         # ---- Export charts (parallel PNG rendering via Kaleido) ----
-        chart_groups = [ic_charts, profit_charts, decay_charts, uniq_charts, score_charts, evidence_charts]
+        chart_groups = [ic_charts, profit_charts, decay_charts, uniq_charts, score_charts, evidence_charts, judge_ch]
         all_fig_items = [
             (chart_name, fig)
             for chart_dict in chart_groups
@@ -194,9 +205,16 @@ class ReportDataBuilder:
         logger.info("[TIMING] TOTAL build(): %.2fs", time.perf_counter() - t0_total)
 
         # ---- Assemble report_data ----
+        available_charts = list(all_charts.keys())
+
         return {
             "factor": {**meta, "data_level": "L0"},
             "execute_evidence": execute_evidence,
+            "judge": {
+                **{k: v for k, v in judge_data.items() if not k.startswith("_")},
+                "verdict_badge": judge_charts.verdict_badge(judge_data),
+                "charts": {k: all_charts[k] for k in judge_ch},
+            } if judge_data else {},
             "predictive_power": {
                 **self._strip_internal(ic_result),
                 "charts": {k: all_charts[k] for k in ic_charts},
@@ -218,6 +236,7 @@ class ReportDataBuilder:
                 "charts": {k: all_charts[k] for k in score_charts},
             },
             "evidence_charts": {k: all_charts[k] for k in evidence_charts},
+            "available_charts": available_charts,
         }
 
     # ---- Helpers ----
@@ -302,6 +321,78 @@ class ReportDataBuilder:
                 }
 
         return {}
+
+    def _load_judge_data(self, meta: dict) -> dict:
+        """Load judge verdict + packet data for this factor's candidate.
+
+        Reads judge_report.yaml and judge_packet.yaml from the batch directory,
+        finds the matching candidate, and returns a dict suitable for
+        judge_charts.generate_charts().
+
+        Returns empty dict if data is unavailable.
+        """
+        import yaml
+
+        batch_id = meta.get("batch", "") or meta.get("admitted_batch", "")
+        if not batch_id:
+            return {}
+
+        batch_dir = Path("storage/batches") / batch_id
+        report_path = batch_dir / "judge_report.yaml"
+        packet_path = batch_dir / "judge_packet.yaml"
+
+        if not report_path.exists():
+            return {}
+
+        try:
+            with open(report_path, "r") as f:
+                report_data = yaml.safe_load(f) or {}
+        except Exception:
+            return {}
+
+        # Match candidate by candidate_id, name, or expression
+        candidate_id = meta.get("candidate_id", "")
+        factor_name = meta.get("name", "")
+        factor_expr = meta.get("expression", "")
+
+        matched_verdict = None
+        for cv in report_data.get("candidate_verdicts", []):
+            cid = cv.get("candidate_id", "")
+            cname = cv.get("name", "")
+            cexpr = cv.get("expression", "")
+            if (cid == candidate_id and candidate_id) or \
+               (cname and cname == factor_name) or \
+               (cexpr and cexpr == factor_expr):
+                matched_verdict = cv
+                break
+
+        if not matched_verdict:
+            return {}
+
+        # Load packet for candidate_brief (optional)
+        matched_brief = {}
+        if packet_path.exists():
+            try:
+                with open(packet_path, "r") as f:
+                    packet_data = yaml.safe_load(f) or {}
+                packet_root = packet_data.get("judge_packet", packet_data)
+                matched_cid = matched_verdict.get("candidate_id", "")
+                for cb in packet_root.get("candidate_briefs", []):
+                    if cb.get("candidate_id") == matched_cid:
+                        matched_brief = cb
+                        break
+            except Exception:
+                pass
+
+        logger.info("Loaded judge data from %s for %s",
+                    report_path, matched_verdict.get("candidate_id", ""))
+
+        return {
+            "candidate_verdict": matched_verdict,
+            "candidate_brief": matched_brief,
+            "route_verdicts": report_data.get("route_verdicts", []),
+            "logic_recommendations": report_data.get("logic_recommendations", []),
+        }
 
     # ---- Data Loading (IO boundary) ----
 
@@ -563,7 +654,7 @@ class ReportDataBuilder:
                 height=height or PNG_HEIGHT,
                 scale=PNG_SCALE,
             )
-            return f"F{self.factor_id}/{chart_name}.png"
+            return f"{self.factor_id}/{chart_name}.png"
         else:
             return pio.to_html(fig, full_html=False, include_plotlyjs=False)
 
@@ -591,7 +682,7 @@ class ReportDataBuilder:
         if vault_dir is None:
             vault_dir = self.config.vault_dir
         data = self.build(vault_dir=vault_dir)
-        json_dir = os.path.join(vault_dir, "assets", f"F{self.factor_id}")
+        json_dir = os.path.join(vault_dir, "assets", self.factor_id)
         os.makedirs(json_dir, exist_ok=True)
         json_path = os.path.join(json_dir, "report_data.json")
         with open(json_path, "w", encoding="utf-8") as f:

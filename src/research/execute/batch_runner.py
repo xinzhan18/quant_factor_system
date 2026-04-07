@@ -17,6 +17,7 @@ import yaml
 
 from .config import EvaluationProfile, load_evaluation_profile, load_sample_policy
 from .pipeline import ResearchExecutePipeline
+from research.storage.manifest_validator import validate_manifest_against_logic_cards
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ class BatchRunner:
         manifest_path = Path(manifest_path)
         manifest = self._load_manifest(manifest_path)
 
-        batch_id = manifest.get("batch_id", manifest_path.stem)
+        batch_id = _resolve_batch_id(manifest, manifest_path)
         candidates = manifest.get("candidates", [])
 
         if not candidates:
@@ -159,6 +160,7 @@ class BatchRunner:
             raise ValueError(
                 f"Batch manifest {path} is missing 'candidates' key"
             )
+        validate_manifest_against_logic_cards(data)
         return data
 
     def _batch_out_dir(self, batch_id: str) -> Optional[Path]:
@@ -195,6 +197,15 @@ class BatchRunner:
                 allow_unicode=True,
             )
         logger.info("Saved judge packet to %s", out)
+
+
+def _resolve_batch_id(manifest: dict, manifest_path: Path) -> str:
+    """Resolve batch_id: top-level > batch_metadata > parent dir name."""
+    return (
+        manifest.get("batch_id")
+        or manifest.get("batch_metadata", {}).get("batch_id")
+        or manifest_path.parent.name
+    )
 
 
 def _strip_non_serializable(obj: Any) -> Any:

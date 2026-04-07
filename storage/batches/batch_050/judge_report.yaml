@@ -1,0 +1,191 @@
+judge_report:
+  batch_id: batch_050
+  generated_at: '2026-04-07T12:30:00+00:00'
+
+  batch_summary:
+    total_candidates: 4
+    admitted: 0
+    rejected: 2
+    reserved: 2
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - code: high_subspace_redundancy
+          severity: high
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        TsAutoCorr($volume,20) × CsRank($ps_ratio): max_lib_corr=0.892 (NEAR DUPLICATE of F001 TsAutoCorr($amount,20)).
+        F001 (TsAutoCorr $amount, corr=0.45-0.62 vs F001) already reproduces F001 at high correlation.
+        Volume autocorrelation at 20d collapses into the same mechanism as amount autocorrelation.
+        alpha_surv=0.125 confirms severe style contamination. mono_ho=-0.3 (SEVERE degradation from mono_val=-0.9).
+        Risk bucket=poor. TsAutoCorr($volume) is not a new mechanism — it reproduces F001's signal space.
+        Reject: redundant with existing library factor.
+
+    - candidate_id: C002
+      verdict: reject
+      reason_codes:
+        - code: high_subspace_redundancy
+          severity: high
+        - code: weak_validation_effect
+          severity: high
+      detail: |
+        TsAutoCorr($volume,20) × CsRank($pe_ratio): max_lib_corr=0.856 (high correlation to F001 TsAutoCorr($amount)).
+        alpha_surv=0.089 (WORST in batch, near-complete style collapse). dominant_style=ep_ratio=0.216.
+        mono_val=-0.9 → mono_ho=-0.7 (partial decay but still weak). ICIR_ho=-0.244 (borderline).
+        Risk bucket=poor. TsAutoCorr($volume) at 20d reproduces the same mechanism as F001.
+        The PE conditioning dimension is insufficient to decorrelate from F001's signal space.
+        Reject: near-duplicate of F001 with PE conditioning added, but F001's mechanism dominates.
+
+    - candidate_id: C003
+      verdict: reserve
+      reason_codes:
+        - code: borderline_validation_effect
+          severity: medium
+        - code: moderate_style_exposure
+          severity: medium
+        - code: high_data_mining_risk
+          severity: medium
+      detail: |
+        Sub(IdxMax($volume,20),IdxMin($volume,20)) × CsRank($pe_ratio): mono_ho=-1.0 (PERFECT!), ICIR_ho=-0.345 (strong).
+        decay_ratio=1.878 (>1 means BETTER on holdout than validation — unusual strength).
+        alpha_surv=0.438 (best in batch). Barra_residual_IC=-0.007 (borderline negative).
+        dominant_style=str_1m=0.403 — short-term reversal is the dominant style.
+        expanding_window_ic_stability=0.790 (ok). support windows show progressive ICIR increase (0.116→0.189→val).
+        Concerns: validation_effect_bucket=borderline (ICIR_val=-0.190), thin early windows.
+        The timing range mechanism (volume peak-trough distance) shows genuine ranking power that SURVIVES holdout.
+        Reserve for holdout confirmation: str_1m dominance needs clarification — is this genuine reversal alpha or re-labeled timing?
+
+    - candidate_id: C004
+      verdict: reserve
+      reason_codes:
+        - code: borderline_stability
+          severity: medium
+        - code: moderate_style_exposure
+          severity: medium
+        - code: high_data_mining_risk
+          severity: medium
+      detail: |
+        Sub(IdxMax($turnover_rate,20),IdxMin($turnover_rate,20)) × CsRank($pe_ratio): mono_ho=-1.0 (PERFECT!), ICIR_ho=-0.351 (strong).
+        decay_ratio=1.865 (>1, improves on holdout). alpha_surv=0.448 (highest in batch).
+        Barra_residual_IC=-0.007 (borderline negative). dominant_style=str_1m=0.404.
+        expanding_window_ic_stability=0.521 (weakest in batch — concern).
+        C003 and C004 are essentially the same mechanism (timing range) with volume vs turnover fields.
+        max_lib_corr C003-C004: 0.188 (low, meaning they're genuinely different fields but same mechanism).
+        Reserve for holdout: timing range mechanism is promising but needs confirmation. str_1m dominance is shared with C003 — suggests timing range collapses into reversal encoding.
+
+  route_verdicts:
+    - route_id: R001
+      verdict: continue
+      reason: |
+        TsAutoCorr($volume) candidates (C001/C002) fail on library redundancy — they reproduce F001 at corr=0.89/0.86.
+        Timing range candidates (C003/C004) show promising signals: mono_ho=-1.0, decay_ratio>1.8, alpha_surv>0.43.
+        The IdxMax-IdxMin range mechanism is genuinely different from single-point IdxMax (F067).
+        Both reserved for holdout confirmation. Route continues with timing_range family.
+
+  logic_recommendations:
+    - logic_id: L001
+      recommended_status: productive
+      reason: Two distinct families tested. TsAutoCorr($volume) is a dead end (reproduces F001). Timing range (IdxMax-IdxMin) shows genuine signal with perfect monotonicity on holdout and decay ratios >1.8. L001 needs holdout confirmation of the timing range mechanism.
+
+  logic_diagnostics:
+    L001:
+      thesis_update: |
+        Batch_050 reveals a critical distinction: TsAutoCorr($volume) at 20d collapses into F001's signal space
+        (max_lib_corr=0.89). This is different from TsAutoCorr($amount) which was already known to reproduce F001.
+        The volume field does NOT provide a new mechanism — autocorrelation of volume is the same phenomenon as
+        autocorrelation of amount (smart money persistence is the mechanism, field is incidental).
+        HOWEVER: IdxMax-IdxMin RANGE (volume peak-trough distance) shows genuinely different behavior:
+        mono_ho=-1.0, decay_ratio>1.8, alpha_surv=0.44-0.45. This is the most promising L001 signal since
+        F002 (shadow×Amihud). The mechanism is timing RANGE (volatility of timing), not single-point timing.
+        Critical question: Is str_1m dominance at 0.40 a fatal style trap, or does timing range provide
+        genuine reversal-independent signal that coincidentally correlates with short-term reversal?
+
+      evidence_for:
+        - "C003/C004: mono_ho=-1.0, decay_ratio>1.8 (signal STRONGER on holdout)"
+        - "C003/C004: alpha_surv=0.44-0.45 (highest in L001 history, comparable to F002 shadow×Amihud=0.377)"
+        - "C003/C004: Barra_residual_IC=-0.007 (borderline negative, better than batch_049's +0.008 to +0.026)"
+        - "C003/C004: max_lib_corr=0.19 vs F001/F002 — genuinely orthogonal to existing signals"
+
+      evidence_against:
+        - "C003/C004: dominant_style=str_1m=0.40 — short-term reversal is the dominant signal"
+        - "C003/C004: validation ICIR is thin (0.19/0.20) — only strong at 2022-2023 window"
+        - "C001/C002: TsAutoCorr($volume) reproduces F001 at corr=0.89 — mechanism IS the same as F001"
+        - "C004: expanding_window_ic_stability=0.521 (weakest in batch)"
+
+      failure_boundary: |
+        TsAutoCorr($volume) at 20d = F001 duplicate. Do not probe TsAutoCorr on any volume-derived field at 20d.
+        IdxMax-IdxMin range × PE conditioning: promising but str_1m dominance needs holdout clarification.
+        If holdout confirms str_1m independence (Barra_residual stays negative), this is a real signal.
+        If Barra_residual goes positive on extended holdout, str_1m trap is confirmed.
+
+      open_questions:
+        - "Is str_1m dominance in timing range genuine reversal alpha, or re-labeled timing that happens to correlate with reversal?"
+        - "Does timing range work at different windows (10d, 40d) or is 20d the sweet spot?"
+        - "Can timing range combine with Amihud conditioning instead of PE conditioning?"
+        - "Is the volume vs turnover distinction meaningful for timing range (C003 vs C004 very similar)?"
+
+      next_best_probes:
+        - expr: "Mul(Sub(IdxMax($volume,20),IdxMin($volume,20)),Div($amount,Mean($volume,20)))"
+          why: "Timing range × Amihud instead of PE conditioning — test if cost-of-trading conditioning works better than fundamental"
+        - expr: "Mul(Sub(IdxMax($volume,10),IdxMin($volume,10)),CsRank($pe_ratio))"
+          why: "Test if 10d timing range avoids str_1m trap that 20d shows"
+
+      factor_roles: []
+
+  new_lessons:
+    - id: NM-L001-timing-range-breakthrough
+      category: new_signal
+      lesson: IdxMax-IdxMin range (volume or turnover peak-trough distance) × PE conditioning shows perfect holdout monotonicity (mono_ho=-1.0), decay_ratio>1.8 (signal stronger on holdout), and alpha_surv=0.44-0.45. This is the strongest L001 signal since F002 shadow×Amihud (alpha_surv=0.377). Requires holdout confirmation.
+      severity: potential_breakthrough
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_050
+
+    - id: FP-L001-tsautocorr-volume-duplicate
+      category: false_positive
+      lesson: TsAutoCorr($volume,20) × PE/PS conditioning reproduces F001 at max_lib_corr=0.89/0.86. Volume autocorrelation is the same mechanism as amount autocorrelation (smart money persistence), not a new signal. Do not probe TsAutoCorr on volume-derived fields at 20d.
+      severity: confirmed_failure
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_050
+
+  discovery_flags:
+    - anomaly_type: timing_range_perfect_mono
+      first_seen_batch: batch_050
+      description: IdxMax-IdxMin range (volume/turnover peak-trough distance) × PE conditioning shows perfect monotonicity on holdout (mono_ho=-1.0) with decay_ratio>1.8. This is exceptional statistical behavior — signal is STRONGER on holdout than validation. Key question: is this genuine timing range alpha or str_1m re-labeled?
+      likely_mechanism: Timing range (volatility of timing) captures a genuinely different dimension from single-point timing (F067) or co-movement (Cov). str_1m dominance may be coincidental correlation rather than causal absorption.
+      style_repackaging_risk: medium
+      explainable_by_existing_logic: partial
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-07T12:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [high_subspace_redundancy, style_dominance_detected]
+    - timestamp: '2026-04-07T12:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C002
+      level: 1
+      reason_codes: [high_subspace_redundancy, weak_validation_effect]
+    - timestamp: '2026-04-07T12:30:00+00:00'
+      actor: factor-judge
+      action: reserve
+      target: C003
+      level: 1
+      reason_codes: [borderline_validation_effect, moderate_style_exposure, high_data_mining_risk]
+    - timestamp: '2026-04-07T12:30:00+00:00'
+      actor: factor-judge
+      action: reserve
+      target: C004
+      level: 1
+      reason_codes: [borderline_stability, moderate_style_exposure, high_data_mining_risk]

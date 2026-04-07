@@ -1,0 +1,199 @@
+# Judge Report — batch_040
+# Generated: 2026-04-07T01:50:00+00:00
+
+batch_id: batch_040
+judged_at: '2026-04-07T01:50:00+00:00'
+judge_version: factor-judge-v1
+
+batch_summary:
+  total_candidates: 3
+  admitted: 2
+  rejected: 1
+  reserved: 0
+  routes_total: 2
+  routes_continue: 1
+  routes_pause: 1
+
+candidate_verdicts:
+  - candidate_id: C001
+    verdict: admit
+    reason_codes:
+      - code: strong_validation_effect
+        severity: info
+      - code: good_split_stability
+        severity: info
+      - code: feasibility_ok
+        severity: info
+      - code: moderate_style_exposure
+        severity: medium
+    evidence_summary:
+      statistical_strength: strong
+      stability: good
+      redundancy: acceptable
+      feasibility: ok
+      risk_model_review: borderline
+      mechanism_alignment: aligned
+    detail: |
+      Mul(Corr($close,$amount,5),CsRank($turnover_rate)). 5d amount variant.
+      ICIR_ho=-0.450 (strong). alpha_surv=0.359 (solid). Barra_res=-0.218 (borderline).
+      Mono=-0.5 (moderate). max_lib_corr=0.596 (acceptable). 5d confirms amount mechanism works
+      at ultra-short scale, though slightly weaker than 10d (-0.469). Admit as 5d amount variant.
+    route_id: R1
+    logic_id: L004
+
+  - candidate_id: C002
+    verdict: admit
+    reason_codes:
+      - code: strong_validation_effect
+        severity: info
+      - code: good_split_stability
+        severity: info
+      - code: novel_conditioning
+        severity: info
+      - code: feasibility_ok
+        severity: info
+      - code: risk_model_acceptable
+        severity: info
+    evidence_summary:
+      statistical_strength: borderline
+      stability: good
+      redundancy: acceptable
+      feasibility: ok
+      risk_model_review: acceptable
+      mechanism_alignment: aligned
+    detail: |
+      Mul(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($volume))). Amount x rel-tur conditioning.
+      BREAKTHROUGH: alpha_surv=0.513 (session best!), Barra_res=-0.343 (session cleanest!),
+      Mono=-0.7 (solid). ICIR_ho=-0.339 (moderate but acceptable given alpha_surv).
+      Applies volume competition encoding (rel-tur) to smart-money field ($amount).
+      Turnover per unit volume activity: captures informed trading intensity.
+      Admit as the cleanest signal in the entire session.
+    route_id: R1
+    logic_id: L004
+
+  - candidate_id: C003
+    verdict: reject
+    reason_codes:
+      - code: style_dominance_detected
+        severity: high
+      - code: high_data_mining_risk
+        severity: medium
+    evidence_summary:
+      statistical_strength: weak
+      stability: good
+      redundancy: low
+      feasibility: ok
+      risk_model_review: poor
+      mechanism_alignment: drifted
+    detail: |
+      Cov($turnover_rate,$ps_ratio,20). Turnover x ps_ratio covariance.
+      Barra_res_ICIR=+0.160 (POSITIVE). This means the signal is absorbed by Barra style factors
+      — the covariance is essentially a complex way to express style. Positive Barra residual
+      means shorting the high-covariance stocks is shorting the style beta, not alpha.
+      alpha_surv=0.239 (weak). This confirms the failure boundary for L002: any Cov with
+      turnover as one operand is absorbed by turnover_20d regime.
+      Reject; do not retry Cov(turnover_rate, fundamental) variants.
+    route_id: R2
+    logic_id: L002
+
+route_verdicts:
+  - route_id: R1
+    logic_id: L004
+    route_type: deepening
+    verdict: continue
+    reason: "2 admits (C001/C002). 5d amount and amount x rel-tur conditioning both confirmed. L004 is the strongest logic: 8 admits total. Continue exploring amount field and rel-tur conditioning variants."
+    candidates_summary:
+      total: 2
+      admits: 2
+      reserves: 0
+      rejects: 0
+
+  - route_id: R2
+    logic_id: L002
+    route_type: deepening
+    verdict: kill
+    reason: "Cov(tur,ps_ratio) Barra_res=+0.160 (disqualifying). All L002 Cov variants (amt,tur; amt,pb; tur,range; tur,ps_ratio) fail. L002 has 0 admits across 4 batches. All mechanisms have been style-absorbed. L002 should be parked/dead."
+    candidates_summary:
+      total: 1
+      admits: 0
+      reserves: 0
+      rejects: 1
+
+logic_recommendations:
+  L004:
+    recommended_status: productive
+    reason: 8 admits across 4 batches. L004 is the dominant logic. Continue exploring amount field and rel-tur conditioning.
+
+  L002:
+    recommended_status: parked
+    reason: 0 admits across 4 batches. All Cov variants fail with style contamination. L002 should be parked pending a fundamentally new mechanism.
+
+logic_diagnostics:
+  L002:
+    thesis_update: |
+      L002 is confirmed dead. Every Cov variant tested:
+      - Cov(turnover, range) -> style trap (batch_001)
+      - Corr(amount, pb) -> kill (batch_001)
+      - Cov(amt, tur) -> Barra_res=+0.178 (batch_003)
+      - Cov(tur, ps_ratio) -> Barra_res=+0.160 (batch_040)
+      ALL have positive Barra residuals meaning the signal is absorbed by Barra style factors.
+      The Cov operator between liquidity fields and fundamental or style fields produces complex
+      style proxies, not genuine alpha.
+
+    evidence_for:
+      - "Cov(amt,tur,60): Barra_res_ICIR=+0.178, highest of all batches"
+      - "Cov(tur,ps_ratio,20): Barra_res_ICIR=+0.160, disqualifying positive"
+
+    evidence_against:
+      - "All Cov variants collapse on Barra residual —无一例外"
+
+    failure_boundary: |
+      Any Cov with turnover or turnover_rate as an operand will be absorbed by Barra turnover style.
+      Do not retry any Cov(turnover, *) variant. The L002 mechanism (fundamental x liquidity) does not work.
+
+    open_questions:
+      - "Is there any Cov variant that doesn't collapse on Barra residual?"
+      - "Should L002 be officially closed?"
+
+    next_best_probes: []
+
+new_lessons:
+  - id: "FP-L002-all-cov-killed"
+    category: false_positive
+    lesson: |
+      All Cov variants with turnover or fundamental fields produce positive Barra residuals
+      (absorbed by style). Cov(amt,tur)=+0.178, Cov(tur,ps_ratio)=+0.160.
+      L002 is killed: 0 admits across 4 batches. No viable mechanism found.
+    severity: confirmed_failure
+    affected_logics: [L002]
+    batch_ids: [batch_001, batch_002, batch_003, batch_040]
+
+  - id: "NM-L004-amount-rel-tur"
+    category: new_mechanism
+    lesson: |
+      Amount x rel-tur conditioning: alpha_surv=0.513(session best), Barra_res=-0.343(session cleanest).
+      Applies volume competition encoding to smart-money field. Both amount and rel-tur are
+      individually established mechanisms; their combination is a new compound mechanism.
+    severity: strong_confirmation
+    affected_logics: [L004]
+    batch_ids: [batch_040]
+
+discovery_flags: []
+
+write_audit_log:
+  entries:
+    - timestamp: '2026-04-07T01:50:00+00:00'
+      actor: factor-judge
+      action: judge_batch
+      target: batch_040
+      detail: '3 candidates: 2 admit (C001,C002), 1 reject (C003)'
+    - timestamp: '2026-04-07T01:50:00+00:00'
+      actor: factor-judge
+      action: admit
+      target: F009
+      detail: 5d amount x tur rank — ICIR_ho=-0.450, alpha_surv=0.359
+    - timestamp: '2026-04-07T01:50:00+00:00'
+      actor: factor-judge
+      action: admit
+      target: F010
+      detail: amount x rel-tur conditioning — alpha_surv=0.513(session best), Barra_res=-0.343(session cleanest)

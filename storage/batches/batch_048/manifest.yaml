@@ -1,0 +1,85 @@
+batch_id: batch_048
+candidates:
+- candidate_id: C001
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_shadow_liquidity
+  experiment_lineage_tag: ELT_L001_body_pattern_liquidity_v1
+  expression: Mul(Div(Sub($close,$open),Sub($high,$low)),CsRank($turnover_rate))
+  name: body_ratio_x_tur_rank_20d
+  direction: long
+  rationale: Body ratio (close-open)/(high-low) × CsRank(turnover_rate) — candlestick
+    body pattern × activity. Body ratio captures the strength of directional move
+    within the day's range. Combined with turnover rank to encode institutional participation.
+  created_at: '2026-04-07T09:10:00+00:00'
+  probe_result:
+    ic_mean: -0.0224
+    ic_ir: -0.1817
+    win_rate: 42.26
+- candidate_id: C002
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_shadow_liquidity
+  experiment_lineage_tag: ELT_L001_body_pattern_liquidity_v1
+  expression: Mul(Div(Sub($close,$open),Sub($high,$low)),CsRank($amount))
+  name: body_ratio_x_amount_rank_20d
+  direction: long
+  rationale: Body ratio × CsRank(amount) — body pattern × smart money proxy. Tests
+    if monetary volume (instead of turnover) provides better conditioning for body
+    pattern signal.
+  created_at: '2026-04-07T09:10:00+00:00'
+  probe_result:
+    ic_mean: -0.023
+    ic_ir: -0.1886
+    win_rate: 42.67
+- candidate_id: C003
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_shadow_liquidity
+  experiment_lineage_tag: ELT_L001_body_pattern_liquidity_v1
+  expression: Mul(Cov(Div(Sub($close,$open),Sub($high,$low)),$turnover_rate,20),CsRank($turnover_rate))
+  name: cov_body_tur_x_tur_rank_20d
+  direction: long
+  rationale: Cov(body_ratio, turnover_rate, 20) × CsRank(turnover_rate) — covariance
+    of directional strength with activity level × activity rank. Covariance captures
+    the co-movement between price body and volume, while the multiplicative rank conditioning
+    adds non-linear structure.
+  created_at: '2026-04-07T09:10:00+00:00'
+  probe_result:
+    ic_mean: -0.0428
+    ic_ir: -0.4558
+    win_rate: 30.89
+- candidate_id: C004
+  logic_id: L001
+  route_id: R001
+  route_type: mutate
+  family_id: FM_microstructure_shadow_liquidity
+  experiment_lineage_tag: ELT_L001_body_fundamental_crossover_v1
+  expression: Mul(Cov(Div(Sub($close,$open),Sub($high,$low)),$turnover_rate,20),CsRank($pe_ratio))
+  name: cov_body_tur_x_pe_rank_20d
+  direction: long
+  rationale: Cov(body_ratio, turnover_rate, 20) × CsRank(pe_ratio) — applying L004's
+    PE conditioning breakthrough to candlestick body patterns. PE rank is orthogonal
+    to turnover (confirmed in L004 batch_047), so combining with body×tur covariance
+    tests if fundamental conditioning works for microstructure signals.
+  created_at: '2026-04-07T09:10:00+00:00'
+  probe_result:
+    ic_mean: -0.0358
+    ic_ir: -0.4108
+    win_rate: 31.22
+batch_metadata:
+  batch_id: batch_048
+  created_at: '2026-04-07T09:10:00+00:00'
+  freeze_reason: Candlestick body pattern × liquidity interaction — new direction
+    for L001
+  active_logics:
+  - L001
+  notes:
+  - C001/C002: Body ratio × tur/amount rank — candlestick body as primary signal
+  - C003: Cov(body, tur) × tur — covariance structure for body × activity co-movement
+  - C004: Cov(body, tur) × PE rank — applying L004's fundamental conditioning breakthrough
+  - Key question: Does covariance structure + fundamental conditioning work for body
+      patterns?

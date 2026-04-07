@@ -41,12 +41,7 @@ from research.domain.config import (
     ResearchConfig,
     UniverseConfig,
 )
-from research.domain.contracts import (
-    LogicCard,
-    LogicProposal,
-    LogicReview,
-    ScheduleSnapshot,
-)
+from research.domain.contracts import LogicCard
 from research.domain.governance import (
     GuardedWriteReceipt,
     GuardedWriteRequest,
@@ -92,11 +87,7 @@ __all__ = [
     "ResearchConfig",
     "EvaluationProfile",
     "UniverseConfig",
-    # contracts
     "LogicCard",
-    "LogicProposal",
-    "LogicReview",
-    "ScheduleSnapshot",
     # governance
     "GuardedWriteRequest",
     "GuardedWriteReceipt",

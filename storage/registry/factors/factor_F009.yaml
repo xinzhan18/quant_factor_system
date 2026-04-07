@@ -1,0 +1,39 @@
+factor_id: F009
+name: pv_amount_corr_5d_x_tur_rank
+expression: Mul(Corr($close,$amount,5),CsRank($turnover_rate))
+direction: long
+status: active
+evaluation_version: v2
+admitted_batch: batch_040
+admitted_at: '2026-04-07T01:50:00+00:00'
+logic_id: L004
+route_id: R1
+route_type: deepening
+family_id: FM_price_volume_divergence
+experiment_lineage_tag: ELT_L004_deepening_pv_amount_5d_x_tur_rank_v1
+rationale: 5d amount variant — combines smart-money field with ultra-short scale. ICIR_ho=-0.450, alpha_surv=0.359, Barra_res=-0.218.
+# Statistical metrics
+ic_mean_train: -0.0608739984076095
+ic_mean_validation: -0.05446814757507516
+ic_ir_train: -0.6177744631809714
+ic_ir_validation: -0.5105362733301146
+monotonicity_validation: -0.7
+ls_tstat: -4.7836
+ls_sharpe: -3.4481
+# Holdout metrics
+ic_ir_holdout: -0.4496866084179759
+ic_mean_holdout: -0.06336121671267073
+holdout_decay_ratio: 1.1633
+# Risk metrics
+alpha_survival_ratio: 0.3592
+barra_residual_ic: -0.019566
+barra_residual_icir: -0.217738
+max_lib_corr: 0.5963
+# Feasibility
+coverage: 0.9658
+turnover: 0.1504
+half_life: 5.0
+# Metadata
+source_type: dsl
+batch_id: batch_040
+candidate_id: C001

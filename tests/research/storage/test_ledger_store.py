@@ -25,9 +25,9 @@ class TestSearchLedger:
     def test_increment_by_logic(self, tmp_path: Path) -> None:
         store = _make_store(tmp_path)
         val = store.increment_search("by_logic", "L001")
-        assert val == 1
+        assert val["logic_attempt_count_to_date"] == 1
         val = store.increment_search("by_logic", "L001")
-        assert val == 2
+        assert val["logic_attempt_count_to_date"] == 2
         assert store.get_search_count("by_logic", "L001") == 2
 
     def test_increment_by_family(self, tmp_path: Path) -> None:
@@ -39,6 +39,15 @@ class TestSearchLedger:
         store = _make_store(tmp_path)
         store.increment_search("by_experiment_tag", "vol_squeeze_v2")
         assert store.get_search_count("by_experiment_tag", "vol_squeeze_v2") == 1
+
+    def test_increment_compatible_with_existing_object_schema(self, tmp_path: Path) -> None:
+        store = _make_store(tmp_path)
+        store.save_search_ledger(
+            {"by_logic": {"L001": {"logic_attempt_count_to_date": 7, "admitted_count_to_date": 1}}}
+        )
+        val = store.increment_search("by_logic", "L001")
+        assert val["logic_attempt_count_to_date"] == 8
+        assert val["admitted_count_to_date"] == 1
 
     def test_invalid_section_raises(self, tmp_path: Path) -> None:
         store = _make_store(tmp_path)

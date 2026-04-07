@@ -1,0 +1,43 @@
+batch_id: batch_040
+frozen_at: '2026-04-07T01:43:00+00:00'
+active_logics:
+  - logic_id: L004
+    score: 0.7100
+    quota: 4
+  - logic_id: L002
+    score: 0.5650
+    quota: 5
+idea_report: |
+  L004: 5d amount (ICIR=-0.5194), amount x rel-tur conditioning (ICIR=-0.4640).
+  L002: Cov(turnover_rate, ps_ratio, 20) as test of fundamental x liquidity.
+candidates:
+  - candidate_id: C001
+    logic_id: L004
+    route_id: R1
+    route_type: deepening
+    experiment_lineage_tag: ELT_L004_deepening_pv_amount_5d_x_tur_rank_v1
+    family_id: FM_price_volume_divergence
+    expression: "Mul(Corr($close,$amount,5),CsRank($turnover_rate))"
+    rationale: 5d amount variant combines smart-money field with ultra-short scale.
+    precheck_status: passed
+    probe_ic: -0.5194
+  - candidate_id: C002
+    logic_id: L004
+    route_id: R1
+    route_type: deepening
+    experiment_lineage_tag: ELT_L004_deepening_pv_amount_rel_tur_conditioning_v1
+    family_id: FM_price_volume_divergence
+    expression: "Mul(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($volume)))"
+    rationale: Apply rel-tur conditioning to amount field. ICIR=-0.4640.
+    precheck_status: passed
+    probe_ic: -0.4640
+  - candidate_id: C003
+    logic_id: L002
+    route_id: R2
+    route_type: deepening
+    experiment_lineage_tag: ELT_L002_genesis_cov_tur_ps_ratio_v1
+    family_id: FM_cross_covariance_liquidity
+    expression: "Cov($turnover_rate,$ps_ratio,20)"
+    rationale: Turnover x ps_ratio tests fundamental x liquidity covariance.
+    precheck_status: passed
+    probe_ic: -0.4780

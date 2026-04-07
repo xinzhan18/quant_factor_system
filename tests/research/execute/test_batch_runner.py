@@ -1,9 +1,11 @@
 """Tests for research.execute.batch_runner — YAML manifest loading and execution."""
 
+from pathlib import Path
+
 import pytest
 import yaml
 
-from research.execute.batch_runner import BatchRunner, _strip_non_serializable
+from research.execute.batch_runner import BatchRunner, _resolve_batch_id, _strip_non_serializable
 
 
 # ===================================================================
@@ -102,7 +104,7 @@ class TestBatchRunner:
                     "candidate_id": "C001",
                     "source_type": "dsl",
                     "expression": "Rank($close)",
-                    "logic_id": "L001",
+                    "logic_id": "L999",
                     "route_id": "R001",
                     "family_id": "FM_test",
                     "route_type": "genesis",
@@ -162,7 +164,7 @@ class TestBatchRunner:
                 "candidate_id": f"C{i:03d}",
                 "source_type": "dsl",
                 "expression": "Rank($close)",
-                "logic_id": "L001",
+                "logic_id": "L999",
                 "route_id": "R001",
                 "family_id": "FM_test",
                 "route_type": "genesis",
@@ -174,7 +176,10 @@ class TestBatchRunner:
         result = runner.run(path)
         assert len(result["candidate_results"]) == 5
 
-    def test_batch_id_from_filename(self, tmp_path):
+    def test_batch_id_from_parent_dir(self, tmp_path):
+        """When no batch_id in manifest, falls back to parent dir name."""
+        batch_dir = tmp_path / "batch_060"
+        batch_dir.mkdir()
         manifest = {
             "candidates": [
                 {
@@ -184,12 +189,83 @@ class TestBatchRunner:
                 }
             ]
         }
-        path = tmp_path / "my_batch.yaml"
+        path = batch_dir / "manifest.yaml"
         with open(path, "w") as f:
             yaml.dump(manifest, f)
         runner = _mock_runner()
         result = runner.run(path)
-        assert result["batch_id"] == "my_batch"
+        assert result["batch_id"] == "batch_060"
+
+    def test_batch_id_from_batch_metadata(self, tmp_path):
+        """When batch_id in batch_metadata, uses that."""
+        batch_dir = tmp_path / "batch_059"
+        batch_dir.mkdir()
+        manifest = {
+            "batch_metadata": {"batch_id": "batch_059"},
+            "candidates": [
+                {
+                    "candidate_id": "C001",
+                    "source_type": "dsl",
+                    "expression": "Rank($close)",
+                }
+            ]
+        }
+        path = batch_dir / "manifest.yaml"
+        with open(path, "w") as f:
+            yaml.dump(manifest, f)
+        runner = _mock_runner()
+        result = runner.run(path)
+        assert result["batch_id"] == "batch_059"
+
+
+# ===================================================================
+# _resolve_batch_id
+# ===================================================================
+class TestResolveBatchId:
+    def test_top_level_batch_id(self):
+        assert _resolve_batch_id(
+            {"batch_id": "batch_002"}, Path("x/manifest.yaml")
+        ) == "batch_002"
+
+    def test_metadata_fallback(self):
+        assert _resolve_batch_id(
+            {"batch_metadata": {"batch_id": "batch_059"}},
+            Path("storage/batches/batch_059/manifest.yaml"),
+        ) == "batch_059"
+
+    def test_parent_dir_fallback(self):
+        assert _resolve_batch_id(
+            {}, Path("storage/batches/batch_060/manifest.yaml")
+        ) == "batch_060"
+
+    def test_top_level_takes_precedence(self):
+        assert _resolve_batch_id(
+            {"batch_id": "batch_A", "batch_metadata": {"batch_id": "batch_B"}},
+            Path("storage/batches/batch_C/manifest.yaml"),
+        ) == "batch_A"
+
+
+class TestBatchRunnerCustom:
+    """Continuation of BatchRunner tests after resolve helper."""
+
+    def _write_manifest(self, tmp_path, batch_id="batch_001", candidates=None):
+        if candidates is None:
+            candidates = [
+                {
+                    "candidate_id": "C001",
+                    "source_type": "dsl",
+                    "expression": "Rank($close)",
+                    "logic_id": "L999",
+                    "route_id": "R001",
+                    "family_id": "FM_test",
+                    "route_type": "genesis",
+                },
+            ]
+        manifest = {"batch_id": batch_id, "candidates": candidates}
+        path = tmp_path / f"{batch_id}.yaml"
+        with open(path, "w") as f:
+            yaml.dump(manifest, f)
+        return path
 
     def test_custom_compute_injected(self, tmp_path):
         """Verify that injected compute callables reach the pipeline."""

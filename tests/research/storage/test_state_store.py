@@ -37,11 +37,28 @@ class TestResearchState:
         assert result["flag"] is True
 
 
+    def test_recompute_from_cards_includes_schedulable(self, tmp_path: Path) -> None:
+        store = _make_store(tmp_path)
+        sp = StoragePaths(tmp_path / "s")
+        from research.storage.yaml_io import save_yaml
+
+        save_yaml(sp.logic_card_file("L001"), {"logic_id": "L001", "status": "productive"})
+        save_yaml(sp.logic_card_file("L002"), {"logic_id": "L002", "status": "active"})
+        save_yaml(sp.logic_card_file("L003"), {"logic_id": "L003", "status": "warm"})
+        save_yaml(sp.logic_card_file("L004"), {"logic_id": "L004", "status": "parked"})
+
+        state = store.recompute_from_cards(sp.logic_cards_dir)
+
+        assert state["active_logic_ids"] == ["L002"]
+        assert state["warm_logic_ids"] == ["L003"]
+        assert state["schedulable_logic_ids"] == ["L001", "L002", "L003"]
+
+
 class TestHoldoutQueue:
 
     def test_empty_queue(self, tmp_path: Path) -> None:
         store = _make_store(tmp_path)
-        assert store.load_holdout_queue() == {}
+        assert store.load_holdout_queue() == {"holdout_queue": []}
 
     def test_enqueue_and_dequeue(self, tmp_path: Path) -> None:
         store = _make_store(tmp_path)
@@ -49,10 +66,10 @@ class TestHoldoutQueue:
         store.enqueue_holdout({"factor_id": "F002"})
 
         first = store.dequeue_holdout()
-        assert first == {"factor_id": "F001"}
+        assert first["candidate_id"] == "F001"
 
         second = store.dequeue_holdout()
-        assert second == {"factor_id": "F002"}
+        assert second["candidate_id"] == "F002"
 
         assert store.dequeue_holdout() is None
 

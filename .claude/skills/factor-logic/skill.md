@@ -4,6 +4,8 @@ description: 管理研究命题 hypothesis：提案、审查、立项、调度�
 user_invocable: true
 ---
 
+> **⚠️ 自主模式**：本 skill 执行时不得停下来询问用户。提案审查、立项、状态转换均自行判断执行。只在系统级错误时停止。
+
 # Factor Logic — Hypothesis 管理
 
 > 边界说明：`logic` 是一级入口；`discovery` 只是其异常升级子流程，不应继续作为平行系统扩张。
@@ -34,8 +36,6 @@ user_invocable: true
 ```
 storage/batches/{batch}/judge_report.yaml
 storage/logic/cards/*.yaml
-storage/logic/registry.yaml  (derived cache — 权威源是 cards/*.yaml)
-storage/logic/snapshots/latest_schedule_snapshot.yaml
 storage/governance/research_lessons.md
 storage/governance/research_config.yaml
 storage/governance/ledger.yaml
@@ -62,15 +62,16 @@ storage/governance/research_lessons.md
 PYTHONPATH=src python3 -m research logic schedule
 ```
 
-生成 schedule snapshot，确定本轮：
+实时生成调度结果，确定本轮：
 - active_pool（带 direction_quota, candidate_quota）
 - warm_pool, parked_pool, blocked_pool
 - adjacent discovery 预算
 
-**产出后更新 state**（将 active pool 的 logic ID 写入）：
+**产出后更新 state**（将 schedulable pool 的 logic ID 写入）：
 ```bash
-PYTHONPATH=src python3 -m research state set active_logic_ids '["L001","L002"]'
+PYTHONPATH=src python3 -m research state set schedulable_logic_ids '["L001","L002","L004"]'
 ```
+注：`schedulable_logic_ids` = active + productive + warm。`productive` 是可继续挖掘的状态（调度器给 0.9 分），不要遗漏。
 
 调度维度（7 项）：priority, lifecycle, productivity, saturation, bottleneck, discovery_need, validation_exposure。
 
@@ -94,10 +95,12 @@ PYTHONPATH=src python3 -m research state set active_logic_ids '["L001","L002"]'
    - research_value_review: 是否值得占预算
 4. **裁决**: create_logic / downgrade_to_direction / park / reject
 5. **写入**：
-   - `storage/logic/proposals/proposal_XXX.yaml`
-   - `storage/logic/reviews/review_XXX.yaml`
    - `storage/logic/cards/LXXX.yaml`（如果 create_logic）
-   - `storage/logic/registry.yaml` 由 `LogicCardStore.create()` 自动维护，无需手工更新
+   - `storage/logic/reflections/LXXX.md`（同时创建初始 reflection stub）
+
+注意：当前核心 workflow 只维护 `storage/logic/cards/` 和 `storage/logic/reflections/`。
+`storage/registry/`、`storage/evidence/`、`storage/runtime/` 都是辅助层，不参与 logic 主闭环判断。
+提案与审查在本轮上下文中完成，最终只把通过的 logic 落到 card。
 
 ## Logic Card Schema
 

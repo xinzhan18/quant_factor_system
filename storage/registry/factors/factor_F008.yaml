@@ -1,0 +1,39 @@
+factor_id: F008
+name: pv_corr_rel_tur_rank
+expression: Mul(Corr($close,$volume,20),Div(CsRank($turnover_rate),CsRank($volume)))
+direction: long
+status: active
+evaluation_version: v2
+admitted_batch: batch_039
+admitted_at: '2026-04-07T01:40:00+00:00'
+logic_id: L004
+route_id: R1
+route_type: deepening
+family_id: FM_price_volume_divergence
+experiment_lineage_tag: ELT_L004_deepening_pv_corr_rel_tur_rank_v1
+rationale: Relative turnover rank vs volume rank — volume competition conditioning. ICIR_ho=-0.346, alpha_surv=0.496 (session best!), Barra_res=-0.347 (session cleanest). New conditioning mechanism orthogonal to simple multiplicative.
+# Statistical metrics
+ic_mean_train: -0.0417787544564957
+ic_mean_validation: -0.060302677824772194
+ic_ir_train: -0.46401072729459725
+ic_ir_validation: -0.5163541782108931
+monotonicity_validation: -0.8999999999999999
+ls_tstat: -5.5772
+ls_sharpe: -4.0202
+# Holdout metrics
+ic_ir_holdout: -0.3457684653098828
+ic_mean_holdout: -0.05660075225112645
+holdout_decay_ratio: 0.9386
+# Risk metrics
+alpha_survival_ratio: 0.4961
+barra_residual_ic: -0.029918
+barra_residual_icir: -0.347456
+max_lib_corr: 0.5266
+# Feasibility
+coverage: 0.9658
+turnover: 0.0544
+half_life: 5.0
+# Metadata
+source_type: dsl
+batch_id: batch_039
+candidate_id: C003

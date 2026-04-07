@@ -1,0 +1,180 @@
+judge_report:
+  batch_id: batch_046
+  generated_at: '2026-04-07T08:30:00+00:00'
+
+  batch_summary:
+    total_candidates: 4
+    admitted: 0
+    rejected: 4
+    reserved: 0
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - code: sign_flip_detected
+          severity: fatal
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        TsEntropy($amount,20) × CsRank($turnover_rate): mono_val=-1.0 → mono_ho=-0.1 (SEVERE SIGN FLIP).
+        val quintiles: q1=+0.00031, q5=-0.00438 (correct direction). ho quintiles: ALL POSITIVE
+        q1=+0.00413 through q5=+0.00398, ranking completely scrambled on holdout.
+        ls_tstat val=-4.9 → ho=-0.10 (collapse). style_r2=0.267 with turnover_20d=0.448 (dominant).
+        TsEntropy × tur is a turnover regime trap — entropy of amount distribution is absorbed by
+        turnover_20d style. Same pattern as HHI in batch_045. Reject.
+      holdout_review_required: false
+
+    - candidate_id: C002
+      verdict: reject
+      reason_codes:
+        - code: sign_flip_detected
+          severity: fatal
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        TsEntropy($amount,10) × CsRank($turnover_rate): mono_val=-1.0 → mono_ho=-0.1 (SEVERE SIGN FLIP).
+        Same pattern as C001. val quintiles correct, ho quintiles ALL POSITIVE, scrambled.
+        ls_tstat val=-5.2 → ho=-0.42 (collapse). Barra_res=-0.024 (borderline),
+        alpha_surv=0.315. TsEntropy × tur at 10d is also a style trap — the faster window
+        does not escape the turnover regime contamination. Reject.
+      holdout_review_required: false
+
+    - candidate_id: C003
+      verdict: reject
+      reason_codes:
+        - code: sign_flip_detected
+          severity: fatal
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        TsEntropy($volume,20) × CsRank($turnover_rate): mono_val=-1.0 → mono_ho=-0.1 (SEVERE SIGN FLIP).
+        Volume entropy × tur: same sign flip pattern as amount entropy. val correct, ho all positive.
+        ls_tstat val=-5.1 → ho=-0.44 (collapse). style_r2=0.274, turnover_20d=0.448 (dominant).
+        TsEntropy(volume) is as style-correlated as TsEntropy(amount). Both are absorbed by
+        turnover_20d. No amount vs volume distinction in this conditioning paradigm. Reject.
+      holdout_review_required: false
+
+    - candidate_id: C004
+      verdict: reject
+      reason_codes:
+        - code: sign_flip_detected
+          severity: fatal
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        Corr($close,$amount,20) × (tur_rank/amount_rank): mono_val=-1.0 → mono_ho=-0.6 (SIGN FLIP).
+        val quintiles correct, ho quintiles ALL POSITIVE (q1=+0.00527 through q5=+0.00230).
+        ls_tstat val=-4.2 → ho=-2.88 (severe decay). ICIR_ho=-0.412 (strong magnitude but ranking scrambled).
+        style_r2=0.274, turnover_20d=0.448 (dominant). amount_rank acting as fundamental proxy is
+        itself correlated with turnover regime — the conditioning dimension does not orthogonalize
+        the signal. Same turnover regime trap as C001-C003. Reject.
+      holdout_review_required: false
+
+  route_verdicts:
+    - route_id: R001
+      verdict: pause
+      reason: |
+        All 4 candidates rejected with severe sign flip on holdout. TsEntropy × tur is a second
+        confirmed instance of the turnover regime trap (first: HHI × tur in batch_045). All
+        candidates share the same mechanism failure: entropy/concentration encoding multiplied by
+        tur_rank is absorbed by turnover_20d style. amount_rank as fundamental proxy is also
+        turnover-correlated. L004 needs a fundamentally different mechanism — one where the
+        conditioning dimension is NOT correlated with turnover regime.
+
+  logic_recommendations:
+    - logic_id: L004
+      recommended_status: productive
+      reason: Still generating candidates but 2 consecutive batches (045, 046) with 0 admits. L004 has 11/23 admits historically — mechanism is valid but current probe directions are trapped in turnover style. Needs new mechanism paradigm.
+
+  logic_diagnostics:
+    L004:
+      thesis_update: |
+        TsEntropy × tur_rank is a turnover regime trap — the second confirmed instance after HHI × tur
+        (batch_045). Both entropy and concentration measures when multiplied by tur_rank produce
+        strong validation signals that completely collapse on holdout. The mechanism is:
+        TsEntropy/HHI → captures volume/amount distribution shape → correlated with turnover regime →
+        tur_rank conditioning amplifies this correlation → signal absorbed by turnover_20d style.
+        amount_rank as fundamental proxy in C004 also fails because amount_rank itself is correlated
+        with turnover regime. The conditioning paradigm (Mul(X, CsRank(tur))) requires X to be
+        orthogonal to turnover — no volume/amount distribution metric so far qualifies.
+
+      evidence_for:
+        - "All 4 candidates: val ICIR strong (-0.50 to -0.51), holdout ICIR collapse to -0.28 to -0.41"
+        - "All 4 candidates: turnover_20d dominant style (0.44-0.45 exposure, r2=0.27)"
+        - "All 4 candidates: val mono=-1.0, ho mono=-0.1 to -0.6 (sign flip)"
+
+      evidence_against:
+        - "C001 mono_ho=-0.1 — TsEntropy(amount,20) × tur: complete ranking scramble"
+        - "C002 mono_ho=-0.1 — TsEntropy(amount,10) × tur: same pattern, faster window"
+        - "C003 mono_ho=-0.1 — TsEntropy(volume,20) × tur: same pattern, amount vs volume no distinction"
+        - "C004 mono_ho=-0.6 — amount_rank as fundamental proxy still correlated with turnover"
+
+      failure_boundary: |
+        TsEntropy × CsRank(tur) — all windows (5d, 10d, 20d) fail with mono_ho near zero.
+        HHI × CsRank(tur) — confirmed in batch_045. TsEntropy is the second dead end.
+        Both are volume/amount distribution metrics that are style-correlated.
+        amount_rank as fundamental proxy — still correlated with turnover regime, not viable.
+        The conditioning paradigm requires the conditioning variable to be orthogonal to turnover_20d.
+        No amount/volume distribution metric so far satisfies this.
+
+      open_questions:
+        - "What fundamental proxy is truly orthogonal to turnover_20d? BP, EP?"
+        - "Is there any conditioning paradigm besides multiplicative with tur_rank that survives?"
+        - "Can we use additive conditioning (Add instead of Mul) to escape turnover absorption?"
+
+      next_best_probes:
+        - expr: "Mul(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($pe_ratio)))"
+          why: "pe_ratio as conditioning dimension — fundamentally different from amount/volume. If BP/EP conditioning fails too, the problem is the multiplicative paradigm itself."
+        - expr: "Mul(Corr($close,$amount,20),CsRank($book_to_price))"
+          why: "BP rank as conditioning — tests if value dimension breaks the turnover trap."
+        - expr: "Add(Corr($close,$amount,20),Div(CsRank($turnover_rate),CsRank($amount)))"
+          why: "Additive instead of multiplicative — changes the mathematical structure of conditioning."
+
+      factor_roles: []
+
+  new_lessons:
+    - id: FP-L004-ts-entropy-turnover-trap
+      category: false_positive
+      lesson: TsEntropy($amount/$volume, 10/20d) × CsRank($turnover_rate) is a turnover regime trap. mono_ho=-0.1 (near-zero) across all windows. TsEntropy captures distribution shape correlated with turnover regime — same pattern as HHI × tur (batch_045). Do not probe TsEntropy × tur in any form.
+      severity: confirmed_failure
+      affected_logics:
+        - L004
+      batch_ids:
+        - batch_046
+
+  discovery_flags:
+    - anomaly_type: entropy_concentration_turnover_trap
+      first_seen_batch: batch_046
+      description: TsEntropy × CsRank($turnover_rate) consistently produces sign flip on holdout (mono_ho=-0.1). TsEntropy measures entropy of amount/volume distribution which is correlated with turnover regime. Second confirmed instance after HHI × tur (batch_045).
+      likely_mechanism: Volume/amount distribution metrics (HHI, TsEntropy) are fundamentally correlated with turnover regime. When combined with tur_rank via multiplication, the product is absorbed by turnover_20d style.
+      style_repackaging_risk: high
+      explainable_by_existing_logic: partial
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-07T08:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [sign_flip_detected, style_dominance_detected]
+    - timestamp: '2026-04-07T08:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C002
+      level: 1
+      reason_codes: [sign_flip_detected, style_dominance_detected]
+    - timestamp: '2026-04-07T08:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C003
+      level: 1
+      reason_codes: [sign_flip_detected, style_dominance_detected]
+    - timestamp: '2026-04-07T08:30:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C004
+      level: 1
+      reason_codes: [sign_flip_detected, style_dominance_detected]

@@ -2,6 +2,10 @@
 
 Every directory and file path is a property relative to a configurable root.
 ``ensure_dirs()`` creates the full directory tree in one call.
+
+Core workflow state lives under ``state/``, ``logic/``, ``governance/`` and
+``batches/``. ``registry/``, ``evidence/`` and ``runtime/`` are auxiliary
+layers and must not be treated as the logic loop's source of truth.
 """
 
 from __future__ import annotations
@@ -53,20 +57,8 @@ class StoragePaths:
 
     # logic/
     @property
-    def logic_proposals_dir(self) -> Path:
-        return self.logic_dir / "proposals"
-
-    @property
-    def logic_reviews_dir(self) -> Path:
-        return self.logic_dir / "reviews"
-
-    @property
     def logic_cards_dir(self) -> Path:
         return self.logic_dir / "cards"
-
-    @property
-    def logic_snapshots_dir(self) -> Path:
-        return self.logic_dir / "snapshots"
 
     # registry/
     @property
@@ -108,12 +100,6 @@ class StoragePaths:
     def pending_holdout_queue_file(self) -> Path:
         return self.state_dir / "pending_holdout_queue.yaml"
 
-    # logic/
-    @property
-    def logic_registry_file(self) -> Path:
-        """Derived cache — authoritative source is cards/*.yaml."""
-        return self.logic_dir / "registry.yaml"
-
     # registry/
     @property
     def factor_index_file(self) -> Path:
@@ -139,15 +125,6 @@ class StoragePaths:
     def logic_card_file(self, logic_id: str) -> Path:
         return self.logic_cards_dir / f"{logic_id}.yaml"
 
-    def logic_proposal_file(self, proposal_id: str) -> Path:
-        return self.logic_proposals_dir / f"{proposal_id}.yaml"
-
-    def logic_review_file(self, proposal_id: str) -> Path:
-        return self.logic_reviews_dir / f"review_{proposal_id}.yaml"
-
-    def logic_snapshot_file(self, snapshot_name: str) -> Path:
-        return self.logic_snapshots_dir / f"{snapshot_name}.yaml"
-
     @property
     def logic_reflections_dir(self) -> Path:
         return self.logic_dir / "reflections"
@@ -157,7 +134,7 @@ class StoragePaths:
 
     @property
     def global_escalation_file(self) -> Path:
-        return self.root / "state" / "global_escalation.yaml"
+        return self.ledger_file
 
     def factor_detail_file(self, factor_id: str) -> Path:
         return self.factors_dir / f"factor_{factor_id}.yaml"
@@ -196,10 +173,7 @@ class StoragePaths:
         return [
             self.state_dir,
             self.logic_dir,
-            self.logic_proposals_dir,
-            self.logic_reviews_dir,
             self.logic_cards_dir,
-            self.logic_snapshots_dir,
             self.logic_reflections_dir,
             self.registry_dir,
             self.factors_dir,

@@ -1,0 +1,81 @@
+batch_id: batch_045
+candidates:
+- candidate_id: C001
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_hhi_concentration_v1
+  expression: Mul(HHI($amount,20),CsRank($turnover_rate))
+  name: hhi_amount_x_tur_20d
+  direction: long
+  rationale: HHI($amount,20) × CsRank($turnover_rate) — HHI measures volume concentration
+    (how concentrated trading is in top days). 20d window. Smart-money concentration
+    × activity encoding. Novel mechanism.
+  created_at: '2026-04-07T03:10:00+00:00'
+  probe_result:
+    ic_mean: -0.0754
+    ic_ir: -0.5396
+    win_rate: 29.82
+- candidate_id: C002
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_hhi_concentration_v1
+  expression: Mul(HHI($volume,20),CsRank($turnover_rate))
+  name: hhi_volume_x_tur_20d
+  direction: long
+  rationale: HHI($volume,20) × CsRank($turnover_rate) — volume concentration × activity.
+    Different from amount version (HHI on monetary vs share count). Tests if monetary
+    concentration is more informative.
+  created_at: '2026-04-07T03:10:00+00:00'
+  probe_result:
+    ic_mean: -0.075
+    ic_ir: -0.5372
+    win_rate: 30.07
+- candidate_id: C003
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_hhi_concentration_v1
+  expression: Mul(HHI($volume,5),CsRank($turnover_rate))
+  name: hhi_volume_x_tur_5d
+  direction: long
+  rationale: HHI($volume,5) × CsRank($turnover_rate) — 5d volume concentration × activity.
+    Shorter window tests if fast concentration changes capture information.
+  created_at: '2026-04-07T03:10:00+00:00'
+  probe_result:
+    ic_mean: -0.0728
+    ic_ir: -0.5096
+    win_rate: 30.81
+- candidate_id: C004
+  logic_id: L004
+  route_id: R001
+  route_type: mutate
+  family_id: FM_price_volume_divergence
+  experiment_lineage_tag: ELT_L004_scale_floor_probe_v1
+  expression: Mul(Corr($close,$amount,10),Div(CsRank($amount),CsRank($volume)))
+  name: amount_x_vol_competition_10d
+  direction: long
+  rationale: 10d amount x vol-competition (amount_rank) — different from rel-tur (tur_rank).
+    Tests if amount vol-competition at 10d is non-redundant with F011 (20d) and F004
+    (10d vol).
+  created_at: '2026-04-07T03:10:00+00:00'
+  probe_result:
+    ic_mean: -0.0461
+    ic_ir: -0.5088
+    win_rate: 29.82
+batch_metadata:
+  batch_id: batch_045
+  created_at: '2026-04-07T03:10:00+00:00'
+  freeze_reason: HHI concentration × turnover new mechanism probe + scale continuation
+  active_logics:
+  - L004
+  notes:
+  - C001/C002/C003: HHI concentration — genuinely new mechanism (not explored before)
+  - C001: 20d HHI($amount) × tur_rank — monetary concentration
+  - C002: 20d HHI($volume) × tur_rank — share count concentration
+  - C003: 5d HHI($volume) × tur_rank — fast concentration
+  - C004: 10d amount x vol-competition (amount_rank) — scale continuation

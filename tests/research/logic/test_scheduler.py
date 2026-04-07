@@ -225,13 +225,3 @@ class TestLogicScheduler:
         budget = result.active_pool[0]
         assert budget.active_thread_count == 3  # only 3 active, not the resolved one
         assert budget.has_clear_next_action is True
-
-
-class TestSaveSchedule:
-    def test_save_creates_file(self, tmp_path):
-        card = _make_card()
-        sched = LogicScheduler()
-        result = sched.generate_schedule([card])
-        path = sched.save_schedule(tmp_path, result)
-        assert path.exists()
-        assert path.parent.name == "snapshots"

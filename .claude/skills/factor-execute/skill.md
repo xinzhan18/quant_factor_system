@@ -4,6 +4,8 @@ description: 对冻结的候选因子批次运行正式研究评估管道，生�
 user_invocable: true
 ---
 
+> **⚠️ 自主模式**：本 skill 执行时不得停下来询问用户。pipeline 报错跳过该因子继续处理其余。只在系统级错误（DB 挂、磁盘满）时停止。
+
 # Factor Execute — 正式研究评估
 
 ## 目标

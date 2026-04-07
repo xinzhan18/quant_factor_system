@@ -47,7 +47,8 @@ class LedgerStore:
         key: str,
         *,
         count: int = 1,
-    ) -> int:
+        field: str | None = None,
+    ) -> dict[str, Any]:
         """Atomically increment a counter in *section* (by_logic / by_family / by_experiment_tag).
 
         Returns the new value after increment.
@@ -58,13 +59,24 @@ class LedgerStore:
             )
         search = self.load_search_ledger()
         sec = search.setdefault(section, {})
-        old = sec.get(key, 0)
-        sec[key] = old + count
+        record = sec.get(key, {})
+        if isinstance(record, int):
+            record = {"count": record}
+        if not isinstance(record, dict):
+            record = {}
+        target_field = field or _default_counter_field(section)
+        record[target_field] = int(record.get(target_field, 0)) + count
+        sec[key] = record
         self.save_search_ledger(search)
-        return sec[key]
+        return record
 
     def get_search_count(self, section: str, key: str) -> int:
-        return self.load_search_ledger().get(section, {}).get(key, 0)
+        value = self.load_search_ledger().get(section, {}).get(key, 0)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, dict):
+            return int(value.get(_default_counter_field(section), 0))
+        return 0
 
     def append_discovery_candidate(self, entry: dict[str, Any]) -> None:
         """Append a discovery candidate to search_ledger.discovery_candidates."""
@@ -147,3 +159,11 @@ class LedgerStore:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _default_counter_field(section: str) -> str:
+    if section == "by_logic":
+        return "logic_attempt_count_to_date"
+    if section == "by_family":
+        return "family_attempt_count_to_date"
+    return "batches_seen"

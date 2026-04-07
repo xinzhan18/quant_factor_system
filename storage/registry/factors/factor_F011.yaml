@@ -1,0 +1,62 @@
+factor_id: F011
+name: amount_vol_competition_corr
+expression: Mul(Corr($close,$amount,20),Div(CsRank($amount),CsRank($volume)))
+direction: long
+batch_id: batch_041
+logic_id: L004
+route_id: R1
+route_type: deepening
+family_id: FM_price_volume_divergence
+experiment_lineage_tag: ELT_L004_amount_x_vol_competition_v1
+admitted_at: '2026-04-07T02:30:00+00:00'
+status: active
+evaluation_version: v2
+admission_payload:
+  rationale: "Amount × vol-competition conditioning. Different from F010's tur×vol-competition: uses monetary volume (smart money) rank / volume rank. New 'smart-money intensity per unit volume' encoding."
+  probe_icir: -0.4826
+  ic_mean_train: -0.04956272943919777
+  ic_mean_validation: -0.063061775004816
+  ic_mean_holdout: -0.05116883758660856
+  ic_ir_train: -0.5101224802973423
+  ic_ir_validation: -0.5582572867591822
+  ic_ir_holdout: -0.326870943218842
+  monotonicity_validation: -0.8999999999999998
+  monotonicity_holdout: -0.8999999999999998
+  ls_tstat: -6.4984
+  ls_tstat_holdout: -1.8004
+  ls_sharpe: -4.6842
+  ls_sharpe_holdout: -1.2965
+  alpha_survival_ratio: 0.3619
+  barra_residual_ic: -0.022821
+  barra_residual_icir: -0.270493
+  max_lib_corr: 0.4553
+  coverage: 0.9779
+  turnover: 0.0536
+  half_life: 5.0
+  holdout_decay_ratio: 0.8114
+  dominant_style: str_1m
+  style_r_squared: 0.07932209089908582
+  style_exposures:
+    book_to_price: 0.07530829607954174
+    ep_ratio: 0.029771248957801637
+    log_circ_cap: 0.08552229522597232
+    mom_12_1: 0.052310610084233176
+    str_1m: 0.2173071041676715
+    turnover_20d: 0.12186721953929909
+    vol_20d: 0.09909655011102911
+  quintile_returns_validation:
+    q1: -1.9034974684473127e-05
+    q2: 0.0005062456475570798
+    q3: -0.0007770254742354155
+    q4: -0.0024971733801066875
+    q5: -0.0045292796567082405
+  quintile_returns_holdout:
+    q1: 0.0056323097087442875
+    q2: 0.005622948054224253
+    q3: 0.005254809744656086
+    q4: 0.003268668195232749
+    q5: 0.0037858851719647646
+  expanding_window_pass: true
+  expanding_window_ic_stability: 0.7924
+  train_validation_decay_ratio: 1.2724
+  validation_holdout_decay_ratio: 0.8114

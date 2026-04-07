@@ -4,6 +4,8 @@ description: 认知状态更新器：读取 judge_report，生成结构化 belie
 user_invocable: true
 ---
 
+> **⚠️ 自主模式**：本 skill 执行时不得停下来询问用户。belief delta 和 escalation 自动计算并写入。只在系统级错误时停止。
+
 # Factor Reflect — 认知状态更新
 
 ## 目标
@@ -97,18 +99,18 @@ reflect 不能只看短 verdict；必须把 `logic_diagnostics` 当作主诊断�
 跨 logic 分析：
 - 多个 logic 是否收敛到同一失败模式（reason_codes 集中度）
 - discovery_flags 中是否有 escalation_status=escalated
-- 是否存在全局饱和信号（所有 active logic 的 rounds_without_admit ≥ 2 且 active threads = 0）
+- 是否存在全局饱和信号（所有 schedulable logic 的 rounds_without_admit ≥ 2 且 active threads = 0）
 - 是否应该提案新 logic（基于跨 logic 证据）
 
 ### Step 4：执行写入
 
 **严格按以下顺序，每步单文件原子写入：**
 
-1. **对每个 logic**：调用 `apply_belief_delta(card_path, delta, registry_path)` — card.yaml 单次落盘
+1. **对每个 logic**：调用 `apply_belief_delta(card_path, delta)` — card.yaml 单次落盘
    ```python
    from research.logic.reflect import apply_belief_delta
    # LLM 构造 delta，然后调用
-   apply_belief_delta(card_path, delta, registry_path)
+   apply_belief_delta(card_path, delta)
    ```
 2. **对每个 logic**：调用 `write_reflection_md(reflection_path, delta, narrative)` — 追加叙事
 3. 调用 `save_global_escalation(path, escalation_delta)` — 持久化跨 logic 信号

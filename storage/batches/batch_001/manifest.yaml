@@ -1,0 +1,104 @@
+batch_id: batch_001
+created_at: "2026-04-06T18:18:00Z"
+logic_ids: [L001, L002, L003]
+universe: csi1000
+sample_policy:
+  active_train_range: ["2015-01-01", "2021-12-31"]
+  active_validation_range: ["2022-01-01", "2023-12-31"]
+  holdout_pool_range: ["2024-01-01", "2025-12-31"]
+
+candidates:
+  - candidate_id: C001
+    logic_id: L001
+    route_id: R1_shadow_liquidity
+    family_id: PF_shadow_liquidity
+    route_type: genesis
+    experiment_lineage_tag: ELT_L001_genesis_shadow_turnover_interaction_v1
+    source_type: dsl
+    expression: "Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),20), Std($turnover_rate,20))"
+    name: lower_shadow_ratio_20d_x_turnover_vol_20d
+    rationale: "Lower shadow ratio captures buying pressure (wicks below body). Interacted with turnover volatility to filter for stocks where this pattern coincides with unusual trading activity."
+    implementation_reason: "Probe ICIR=-0.534 (strongest in batch). Novel interaction not in legacy library."
+    lineage: "genesis from L001 hypothesis"
+    probe_result: {ic_mean: -0.0696, icir: -0.5344, win_rate: 0.3072, verdict: pass}
+
+  - candidate_id: C002
+    logic_id: L001
+    route_id: R1_shadow_liquidity
+    family_id: PF_shadow_liquidity
+    route_type: genesis
+    experiment_lineage_tag: ELT_L001_genesis_shadow_turnover_interaction_v1
+    source_type: dsl
+    expression: "Mul(Mean(Div(Sub(Less($open,$close),$low),Sub($high,$low)),10), Std($turnover_rate,10))"
+    name: lower_shadow_ratio_10d_x_turnover_vol_10d
+    rationale: "Shorter-window variant (10d) of C001 to test if the signal is faster-decaying."
+    implementation_reason: "Window sensitivity test for core shadow × turnover signal."
+    lineage: "window variant of C001"
+
+  - candidate_id: C003
+    logic_id: L001
+    route_id: R1_shadow_liquidity
+    family_id: PF_shadow_liquidity
+    route_type: genesis
+    experiment_lineage_tag: ELT_L001_genesis_shadow_turnover_interaction_v1
+    source_type: dsl
+    expression: "Mul(Mean(Div(Sub($high,Greater($open,$close)),Sub($high,$low)),20), CsRank(Mean($turnover_rate,20)))"
+    name: upper_shadow_ratio_20d_x_turnover_rank
+    rationale: "Upper shadow ratio captures selling pressure. Cross-sectional turnover rank normalizes across market cap."
+    implementation_reason: "Probe ICIR=-0.391. Complementary to C001 (upper vs lower shadow)."
+    lineage: "genesis from L001 hypothesis"
+    probe_result: {ic_mean: -0.0603, icir: -0.3908, win_rate: 0.3567, verdict: pass}
+
+  - candidate_id: C004
+    logic_id: L002
+    route_id: R2_cross_covariance
+    family_id: PF_cross_covariance
+    route_type: genesis
+    experiment_lineage_tag: ELT_L002_genesis_turnover_fundamental_cov_v1
+    source_type: dsl
+    expression: "Cov($turnover_rate, $pe_ratio, 60)"
+    name: cov_turnover_pe_60
+    rationale: "Covariance between turnover and PE ratio over 60 days. High cov means turnover increases with PE — possible speculative trading pattern."
+    implementation_reason: "Probe ICIR=-0.265. Novel field combination not in legacy (legacy had turnover×PB and amount×PS)."
+    lineage: "genesis from L002 hypothesis"
+    probe_result: {ic_mean: -0.0237, icir: -0.2651, win_rate: 0.3987, verdict: pass}
+
+  - candidate_id: C005
+    logic_id: L002
+    route_id: R2_cross_covariance
+    family_id: PF_cross_covariance
+    route_type: genesis
+    experiment_lineage_tag: ELT_L002_genesis_turnover_fundamental_cov_v1
+    source_type: dsl
+    expression: "Cov($turnover_rate, $pe_ratio, 120)"
+    name: cov_turnover_pe_120
+    rationale: "Longer-window variant (120d) of C004 to test if the regime signal accumulates over longer horizons."
+    implementation_reason: "Window variant. Legacy showed 120d window worked well for Cov(turnover, body, 120)."
+    lineage: "window variant of C004"
+
+  - candidate_id: C006
+    logic_id: L003
+    route_id: R3_volume_dynamics
+    family_id: PF_volume_autocorrelation
+    route_type: genesis
+    experiment_lineage_tag: ELT_L003_genesis_volume_autocorrelation_v1
+    source_type: dsl
+    expression: "TsAutoCorr($amount, 20)"
+    name: amount_autocorr_20
+    rationale: "Autocorrelation of trading amount over 20 days. Low autocorrelation = erratic volume = information uncertainty."
+    implementation_reason: "Probe ICIR=-0.397. Novel statistic not in legacy library."
+    lineage: "genesis from L003 hypothesis"
+    probe_result: {ic_mean: -0.0313, icir: -0.3973, win_rate: 0.3336, verdict: pass}
+
+  - candidate_id: C007
+    logic_id: L003
+    route_id: R3_volume_dynamics
+    family_id: PF_volume_autocorrelation
+    route_type: genesis
+    experiment_lineage_tag: ELT_L003_genesis_volume_autocorrelation_v1
+    source_type: dsl
+    expression: "TsAutoCorr($amount, 60)"
+    name: amount_autocorr_60
+    rationale: "Longer-window variant (60d) to test if volume persistence signal is more stable at medium horizon."
+    implementation_reason: "Window variant of C006."
+    lineage: "window variant of C006"

@@ -1,0 +1,130 @@
+judge_report:
+  batch_id: batch_057
+  generated_at: '2026-04-07T06:45:00+00:00'
+
+  batch_summary:
+    total_candidates: 2
+    admitted: 0
+    rejected: 2
+    reserved: 0
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - weak_validation_effect
+        - moderate_style_exposure
+      detail: |
+        Mul(IdxMin($volume,5),Div($amount,Mean($volume,20))): trough position × Amihud.
+        validation ICIR=-0.344 (strong), holdout decay=0.602 (<1 — WEAKENS).
+        mono_ho=-0.6 (borderline), Barra_res=-0.018 (clean).
+        alpha_surv=0.333 (borderline). dominant_style=turnover_20d=0.174 (clean).
+        Risk bucket borderline. ls_tstat_ho=-0.175 (near zero).
+        Both candidates WEAKEN on holdout (decay<1). Trough-only (IdxMin) is weaker
+        than peak-trough distance (IdxMax-IdxMin). Both REJECT.
+
+    - candidate_id: C002
+      verdict: reject
+      reason_codes:
+        - style_dominance_detected
+        - weak_validation_effect
+      detail: |
+        Mul(IdxMin($volume,5),CsRank($amount)): trough position × amount rank.
+        validation ICIR=-0.427 (strong), holdout decay=0.629 (<1 — WEAKENS).
+        mono_ho=0.0 (FATAL — ranking COLLAPSED on holdout).
+        alpha_surv=0.005 (CATASTROPHIC — 99.5% destroyed).
+        dominant_style=turnover_20d=0.288 (elevated). style_r2=0.199 (elevated).
+        ls_tstat_ho=-0.065 (near zero). Both REJECT.
+
+  route_verdicts:
+    - route_id: R001
+      verdict: pause
+      reason: |
+        IdxMin (trough-only) is a weaker mechanism than IdxMax-IdxMin (peak-trough distance).
+        Both candidates WEAKEN on holdout (decay<1). C002 shows mono_ho=0.0 (ranking collapse).
+        batch_057 suggests the timing_range mechanism REQUIRES both IdxMax and IdxMin —
+        the peak-trough DISTANCE is the signal, not the trough position alone.
+        The open question about "trough position" being independent is ANSWERED: it is NOT independent.
+
+  logic_recommendations:
+    - logic_id: L001
+      recommended_status: productive
+      reason: F013/F014 confirmed productive. batch_057 confirms peak-trough distance (IdxMax-IdxMin)
+        is the essential mechanism, not trough position alone. Timing_range exploration should focus
+        on the confirmed peak-trough distance mechanism.
+
+  logic_diagnostics:
+    L001:
+      thesis_update: |
+        batch_057 tests IdxMin (trough-only) as alternative to IdxMax-IdxMin (peak-trough distance).
+        Result: BOTH candidates WEAKEN on holdout (decay<1). C002 shows mono_ho=0.0 (ranking collapse).
+        Trough position (IdxMin alone) is NOT an independent signal from peak-trough distance.
+        The mechanism requires BOTH IdxMax and IdxMin — the peak-trough DISTANCE is the signal.
+
+      evidence_for:
+        - "C001: validation ICIR=-0.344 (strong)"
+        - "C001: Barra_res=-0.018 (clean), turnover_20d=0.174 (clean)"
+        - "C002: validation ICIR=-0.427 (strong)"
+
+      evidence_against:
+        - "C001: holdout decay=0.602 (<1), signal WEAKENS on holdout"
+        - "C001: alpha_surv=0.333 (borderline)"
+        - "C002: mono_ho=0.0 (FATAL ranking collapse)"
+        - "C002: alpha_surv=0.005 (CATASTROPHIC)"
+        - "C002: turnover_20d=0.288 (elevated), style_r2=0.199 (elevated)"
+        - "BOTH: holdout decay<1, signal WEAKENS"
+
+      failure_boundary: |
+        IdxMin (trough-only) × any conditioning: WEAKENS on holdout, ranking collapses.
+        The peak-trough DISTANCE (IdxMax-IdxMin) is essential — trough position alone is not a signal.
+        Do not probe IdxMin alone with any conditioning partner.
+
+      open_questions:
+        - "T011 ANSWERED: IdxMin (trough-only) is NOT an independent signal"
+        - "Post-rank blend (T009) remains the top priority for L001"
+
+      next_best_probes:
+        - expr: "Post-rank blend of F002 and F013/F014"
+          why: "Peak-trough distance (F013/F014) and shadow×Amihud (F002) are confirmed orthogonal. Blend at portfolio level."
+
+      factor_roles:
+        - candidate_id: C001
+          role: rejected_trough_weaker
+          summary: "IdxMin × Amihud: validation ICIR=-0.344 but decay=0.602 (<1). Weaker than peak-trough distance."
+        - candidate_id: C002
+          role: rejected_trough_collapse
+          summary: "IdxMin × amount: mono_ho=0.0 (ranking collapse), alpha_surv=0.005. Trough-only is not a signal."
+
+  new_lessons:
+    - id: FP-L001-idxmin-trough-not-independent
+      category: false_positive
+      lesson: 'IdxMin (trough-only) × any conditioning: WEAKENS on holdout (decay<1). C002: mono_ho=0.0 (FATAL), alpha_surv=0.005 (CATASTROPHIC). C001: decay=0.602, alpha_surv=0.333. Peak-trough DISTANCE (IdxMax-IdxMin) is essential — trough position alone is NOT a signal.'
+      severity: confirmed_failure
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_057
+
+  discovery_flags:
+    - anomaly_type: timing_range_trough_position_fails
+      first_seen_batch: batch_057
+      description: "IdxMin (trough-only) × conditioning: both candidates WEAKEN on holdout (decay<1). C002: mono_ho=0.0, alpha_surv=0.005. Peak-trough DISTANCE (IdxMax-IdxMin) is essential mechanism."
+      likely_mechanism: "Trough position alone is noise. The peak-trough DISTANCE (IdxMax-IdxMin) captures the trading range amplitude, which is the signal."
+      style_repackaging_risk: medium
+      explainable_by_existing_logic: full
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-07T06:45:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [weak_validation_effect, moderate_style_exposure]
+    - timestamp: '2026-04-07T06:45:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C002
+      level: 1
+      reason_codes: [style_dominance_detected, weak_validation_effect]

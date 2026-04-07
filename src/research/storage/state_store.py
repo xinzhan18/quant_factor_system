@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from research.governance.holdout_queue import HoldoutQueue
+
 from .paths import StoragePaths
 from .yaml_io import load_yaml, save_yaml
 
@@ -43,38 +45,51 @@ class StateStore:
     # ------------------------------------------------------------------
 
     def load_holdout_queue(self) -> dict[str, Any]:
-        return load_yaml(self._paths.pending_holdout_queue_file)
+        queue = HoldoutQueue.load_yaml(str(self._paths.pending_holdout_queue_file))
+        return {"holdout_queue": queue.to_dict_list()}
 
     def save_holdout_queue(self, data: dict[str, Any]) -> None:
-        save_yaml(self._paths.pending_holdout_queue_file, data)
+        items = data.get("holdout_queue")
+        if items is None and "pending" in data:
+            items = data.get("pending", [])
+        queue = HoldoutQueue.from_dict_list(items or [])
+        queue.save_yaml(str(self._paths.pending_holdout_queue_file))
 
     def enqueue_holdout(self, entry: dict[str, Any]) -> None:
         """Append an entry to the pending holdout queue."""
-        queue = self.load_holdout_queue()
-        items = queue.setdefault("pending", [])
-        items.append(entry)
-        self.save_holdout_queue(queue)
+        queue = HoldoutQueue.load_yaml(str(self._paths.pending_holdout_queue_file))
+        queue.enqueue(
+            candidate_id=str(entry.get("candidate_id", entry.get("factor_id", ""))),
+            logic_id=str(entry.get("logic_id", entry.get("candidate_id", entry.get("factor_id", "")))),
+            family_id=str(entry.get("family_id", entry.get("candidate_id", entry.get("factor_id", "")))),
+            batch_id=str(entry.get("batch_id", "")),
+            experiment_lineage_tag=str(entry.get("experiment_lineage_tag", "")),
+        )
+        queue.save_yaml(str(self._paths.pending_holdout_queue_file))
 
     def dequeue_holdout(self) -> dict[str, Any] | None:
         """Pop the oldest entry from the pending holdout queue."""
-        queue = self.load_holdout_queue()
-        items = queue.get("pending", [])
-        if not items:
+        queue = HoldoutQueue.load_yaml(str(self._paths.pending_holdout_queue_file))
+        pending = queue.pending()
+        if not pending:
             return None
-        entry = items.pop(0)
-        self.save_holdout_queue(queue)
-        return entry
+        entry = pending[0]
+        queue.mark_reviewed(entry.candidate_id)
+        queue.save_yaml(str(self._paths.pending_holdout_queue_file))
+        return entry.to_dict()
 
     def recompute_from_cards(self, cards_dir: Path) -> dict[str, Any]:
-        """Recompute derived state fields (active/warm logic IDs) from card files.
+        """Recompute derived state fields from card files.
 
-        Only updates active_logic_ids and warm_logic_ids.
+        Updates active_logic_ids, warm_logic_ids, and schedulable_logic_ids
+        (active + productive + warm).
         Preserves all other state fields (current_batch, pending_holdout, etc.).
         """
         from .yaml_io import load_yaml
 
         active = []
         warm = []
+        productive = []
         for card_file in sorted(cards_dir.glob("L*.yaml")):
             card = load_yaml(card_file)
             lid = card.get("logic_id", "")
@@ -83,10 +98,13 @@ class StateStore:
                 active.append(lid)
             elif status == "warm":
                 warm.append(lid)
+            elif status == "productive":
+                productive.append(lid)
 
         return self.update_state({
             "active_logic_ids": active,
             "warm_logic_ids": warm,
+            "schedulable_logic_ids": sorted(active + productive + warm),
         })
 
 
