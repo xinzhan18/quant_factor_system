@@ -1,7 +1,7 @@
 logic_id: L001
 name: 蜡烛图微观结构 × 流动性交互
 category: microstructure
-status: productive
+status: parked
 priority: high
 hypothesis:
   condition: 蜡烛图的影线(shadow)和实体(body)模式与换手率/成交额交叉
@@ -103,21 +103,44 @@ contract:
   - The peak-trough DISTANCE (IdxMax-IdxMin) is essential — trough position alone
     is not a signal.
   - Do not probe IdxMin alone with any conditioning partner.
+  - Z-score blend of F002+F013 is F013-dominated. The blend's correlation with F013
+    alone
+  - is 0.90 — indicating F002 contributes minimal orthogonal signal in this combination.
+  - Do not retry F002+F013 z-score blend.
+  - F002+amount_timing_range (F014) is the next combination to test.
+  - DO NOT combine F002 with field variations of F013 (amount, volume, turnover).
+  - The blend will always be F013-substituting. Need a genuinely different mechanism
+    family.
+  - DO NOT retry F002 z-score blends with any pv_corr variant (PE, PS, tur conditioning).
+  - DO NOT retry F002 z-score blends with timing_range variants (F013, F014).
+  - DO NOT retry any z-score blend using F002 as a component — the shadow mechanism
+  - is incompatible with z-score portfolio combination.
+  - T009 post-rank blend is SATURATED. All viable probes exhausted.
 discovery_budget: 15
 evidence_summary:
-  current_bottleneck: 'batch_057 tests IdxMin (trough-only) as alternative to IdxMax-IdxMin
-    (peak-trough distance).
+  current_bottleneck: 'F002 (shadow×Amihud) is being cloned into str_1m style when
+    z-score blended with
 
-    Result: BOTH candidates WEAKEN on holdout (decay<1). C002 shows mono_ho=0.0 (ranking
-    collapse).
+    ANY partner. The pattern is now confirmed across 4 attempts spanning 3 batches:
 
-    Trough position (IdxMin alone) is NOT an independent signal from peak-trough distance.
+    F002×F013, F002×F014, F002×10d_pv_corr×PE, F002×7d_pv_corr×tur — ALL produce
 
-    The mechanism requires BOTH IdxMax and IdxMin — the peak-trough DISTANCE is the
-    signal.'
+    str_1m as dominant style (0.24-0.40) with alpha_surv < 0.31.
+
+    The z-score blend mechanism does not provide sufficient orthogonality to prevent
+
+    F002''s underlying style from dominating. The blend''s statistical excellence
+
+    (perfect monotonicity, strong ICIR) is misleading — it''s reversal-style cloning,
+
+    not independent alpha.
+
+    F002 itself may be functioning as a style proxy in the blend context, not as
+
+    an independent signal carrier.'
   factors_generated: 40
   factors_admitted: 3
-  rounds_without_admit: 4
+  rounds_without_admit: 7
   failed_families:
   - family_id: FM_microstructure_shadow_vol
     reason: alpha_surv=0.093, vol_20d dominant
@@ -140,19 +163,27 @@ evidence_summary:
     reason: C001 admits (shadow×Amihud). Best shadow variant to date. 5 prior attempts
       produced 0 admits; C001 is first breakthrough.
     at: '2026-04-06 21:56:13'
+  - from: productive
+    to: parked
+    reason: Post-rank blend approach (T009) is SATURATED after 4 failed attempts across
+      3 batches. All F002×[any] combinations produce str_1m style dominance. L001
+      needs genuinely new families — shadow microstructure has been fully explored
+      and is incompatible with z-score blending. Consider timing_range × other conditioning
+      (not F002) as separate family.
+    at: '2026-04-08 00:51:13'
   productive_families:
   - family_id: FM_microstructure_timing_range
     change: confirmed productive, 5d floor confirmed, PS conditioning fails
 search_ledger_ref: ''
 origin_proposal_id: null
 created_at: '2026-04-06 18:13:16'
-updated_at: '2026-04-07 21:15:49'
+updated_at: '2026-04-08 00:51:13'
 deepening_threads:
 - id: T001
   question: Does multiplicative conditioning (xCsRank) produce orthogonal signal?
   why_matters: Body ratio patterns are fundamentally weak -- PE conditioning cannot
     rescue them. The PRIMARY signal mechanism matters, not just the conditioning dimension.
-  status: active
+  status: parked
   priority: high
   next_probes: []
   stop_condition: L001 needs new microstructure mechanism. Body ratio patterns confirmed
@@ -192,7 +223,7 @@ deepening_threads:
     (borderline). Need to determine if timing_range survives as independent alpha
     or collapses into reversal.
   priority: high
-  status: active
+  status: parked
   next_probes:
   - Mul(Sub(IdxMax($volume,20),IdxMin($volume,20)),Div($amount,Mean($volume,20)))
     — timing range × Amihud
@@ -242,7 +273,7 @@ deepening_threads:
     of expression level?
   why_matters: F002 and F013 blend fails at expression level (mono_ho=0.0, kurtosis=2700).
     Post-rank z-score blending may preserve orthogonality.
-  status: active
+  status: parked
   priority: high
   next_probes:
   - Zscore(F002) + Zscore(F013)
@@ -269,6 +300,9 @@ deepening_threads:
     and amount ($amount) variants produce str_1m=0.15, alpha_surv>1.0. Do not probe
     price-only timing_range.
 next_actions:
-- Post-rank blend of F002 and F013/F014 — Peak-trough distance (F013/F014) and shadow×Amihud
-  (F002) are confirmed orthogonal. Blend at portfolio level.
-last_reflected_batch: batch_057
+- Mul(Rank(Mul(shadow_20d,Amihud_20d)), Rank(Mul(Corr($close,$amount,10),CsRank($pe_ratio))))
+  — Rank-space multiplication instead of z-score addition — tests if rank-level combination
+  avoids str_1m cloning
+- Mul(shadow_20d, Cov($close,$amount,10)) — Replace pv_corr direction with Cov magnitude
+  — tests if different signal type avoids style trap
+last_reflected_batch: batch_062

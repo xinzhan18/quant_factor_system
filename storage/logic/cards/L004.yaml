@@ -1,7 +1,7 @@
 logic_id: L004
 name: 量价背离
 category: volume_price
-status: productive
+status: saturated
 priority: medium
 hypothesis:
   condition: 价格变动方向/幅度与成交量变动方向/幅度出现背离
@@ -75,12 +75,30 @@ contract:
     trap but introduces style trap. Do not probe EP alone as conditioner.
   - EP conditioning is a style trap (similar to PE/PS). Do not probe EP alone.
   - PE/PS conditioning confirmed as the only viable fundamental conditioner for pv_corr.
+  - Additive conditioning (Add) produces pathological distributions (kurtosis=133).
+    Expanding
+  - window pass fails. Do not probe Add(X, Y) paradigms.
+  - 10d window is too fast for PE/PS conditioning — C004 shows hidden sign flip (mono
+    stable
+  - but all quintiles positive, ls_tstat=-4.80). The 20d window is the minimum viable
+    for
+  - fundamental conditioning.
+  - 'PE/PS ratio: DO NOT PROBE. The ratio paradigm is structurally flawed for pv_corr
+    conditioning.'
+  - PE alone and PS alone are the confirmed viable forms from batch_047.
+  - 'EP conditioning: DEAD (batch_058 confirmed).'
+  - 'Additive paradigm: DEAD (batch_047 C003 kurtosis=133).'
+  - 'DO NOT PROBE: 40d PE conditioning (EP re-emerges), 60d PE conditioning (even
+    slower),'
+  - PE/PS ratio (batch_060 confirmed dilutes), EP conditioning (batch_058 confirmed
+    style trap).
+  - Fundamental conditioning route is SATURATED at 20d PE/PS alone.
 discovery_budget:
   adjacent_discovery_route_quota: 10
 evidence_summary:
   factors_generated: 38
   factors_admitted: 3
-  rounds_without_admit: 9
+  rounds_without_admit: 12
   productive_families:
   - family_id: FM_price_volume_divergence
     reason: 'C006: ICIR=-0.427 holdout, Barra_res_ICIR=-0.288, alpha_surv=0.393, multiplicative
@@ -88,23 +106,33 @@ evidence_summary:
     batch_id: batch_003
   failed_families: []
   exhausted_routes: []
-  current_bottleneck: 'batch_058 tests EP (earnings yield = 1/PE) conditioning on
-    pv_corr.
+  current_bottleneck: 'L004 fundamental conditioning route is SATURATED. EP = 1/PE,
+    so they share information content.
 
-    Result: similar to PE/PS — fundamental conditioning breaks turnover trap
+    At 40d, PE conditioning converges to EP-style behavior — ep_ratio=0.275 dominant
+    style
 
-    but introduces style trap. alpha_surv=0.092 (POOR), str_1m=0.318 dominant.'
+    confirms the style trap is fundamental to the EP/PE family, not window-specific.
+
+    Only 20d PE or PS alone are viable. 40d is too slow — PE loses rank diversity.'
   transitions:
   - from: active
     to: productive
     reason: 2 attempts, 1 admit (C006). Corr(pv)×CsRank(tur) = breakout signal with
       orthogonal mechanism. L004 graduates to productive.
     at: '2026-04-06 21:56:13'
+  - from: productive
+    to: saturated
+    reason: 'Fundamental conditioning is SATURATED. All viable forms tested: PE at
+      20d (batch_047), PS at 20d (batch_047), PE/PS ratio (batch_060 FAIL), 40d EP
+      (batch_061 FAIL). The 20d window is the ONLY viable fundamental conditioning
+      window. L004 productive families (pv_corr × tur_encoding) remain productive.'
+    at: '2026-04-08 00:36:47'
   promoted_families: []
 search_ledger_ref: ''
 origin_proposal_id: null
 created_at: '2026-04-06 18:13:17'
-updated_at: '2026-04-07 21:15:58'
+updated_at: '2026-04-08 00:36:47'
 deepening_threads:
 - id: T001
   question: Does multiplicative conditioning (xCsRank) produce orthogonal signal?
@@ -132,6 +160,10 @@ deepening_threads:
   stop_condition: If 3d mono stabilizes on holdout, confirm scale floor. If not, 5d
     is the minimum viable.
 next_actions:
-- 等待 batch_047 holdout review — PE/PS conditioning breakthrough needs holdout confirmation
-  before proceeding
-last_reflected_batch: batch_058
+- Mul(Corr($close,$amount,10),CsRank($pe_ratio)) — 10d pv_corr × PE conditioning —
+  tests if faster scale than 20d works with PE
+- Mul(Corr($close,$amount,7),CsRank($pe_ratio)) — 7d × PE — faster than 20d but slower
+  than 10d, tests if 20d is also optimal for fundamental conditioning
+- Mul(Corr($close,$amount,5),CsRank($ps_ratio)) — 5d × PS — fastest fundamental conditioning
+  window to test scale floor
+last_reflected_batch: batch_061

@@ -70,6 +70,11 @@ def main():
     p_finalize.add_argument("batch_id", help="Batch ID to finalize")
     p_validate = state_sub.add_parser("validate-consistency", help="Validate storage truth sources")
     p_validate.add_argument("--batch-id", default=None, help="Optional batch ID for judge/state validation")
+    p_reconcile = state_sub.add_parser("reconcile", help="Recovery from interrupted flows — recompute derived state")
+    p_reconcile.add_argument("--report-only", action="store_true",
+                             help="Read-only: only report, no writes")
+    p_reconcile.add_argument("--full-apply", action="store_true",
+                             help="Aggressive: also backfill missing batch_usage and auto-finalize")
 
     # capabilities
     _p_caps = sub.add_parser("capabilities", help="Available operators, fields, constraints")

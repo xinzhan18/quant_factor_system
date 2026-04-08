@@ -15,15 +15,15 @@ generated: 2026-04-07
 
 ## 1. 因子基本信息
 
-| 属性 | 值 |
-|------|-----|
-| **因子ID** | F003 |
-| **名称** | pv_corr_x_tur_rank |
-| **表达式** | `Mul(Corr($close,$volume,20),CsRank($turnover_rate))` |
-| **批次** | batch_003 |
-| **Composite 评分** | 76.8 / 100 |
-| **评级** | **A** |
-| **数据级别** | L0 |
+| 属性               | 值                                                     |
+| ---------------- | ----------------------------------------------------- |
+| **因子ID**         | F003                                                  |
+| **名称**           | pv_corr_x_tur_rank                                    |
+| **表达式**          | `Mul(Corr($close,$volume,20),CsRank($turnover_rate))` |
+| **批次**           | batch_003                                             |
+| **Composite 评分** | 76.8 / 100                                            |
+| **评级**           | **A**                                                 |
+| **数据级别**         | L0                                                    |
 
 ### 逻辑描述
 
@@ -354,3 +354,11 @@ generated: 2026-04-07
 - `feasibility_dashboard.png` — 可行性仪表盘
 - `stability_summary.png` — 稳定性摘要
 - `quintile_returns_oos.png` — OOS 五分组收益
+
+## Graph Links
+
+- **Hypothesis**: [[L004 量价背离]]
+- **Family**: [[FM price_volume_divergence]]
+- **Window variants**: [[F004 pv_corr_10d_x_tur_rank|F004 (10d)]], [[F005 pv_amount_corr_20d_x_tur_rank|F005 (amount)]]
+- **Upgraded family**: [[FM rel_tur_encoding]] (rel-tur version of same mechanism)
+- **See Also**: [[Factor Library]]

@@ -1,0 +1,118 @@
+logic_id: L005
+name: 跨截面成交量异常 x 估值过滤
+category: volume_distribution
+status: parked
+priority: medium
+hypothesis:
+  condition: 个股成交量在横截面（行业/市值分组）上处于极端序位，同时 PE/PB 处于极端水平
+  behavior: 成交量异常 + 估值极端 → 预测未来 5-20 日收益方向
+  timeframe: 20-60d 形成窗口，5-20d 持有
+  direction: 做多低 PE/PB + 成交量异常高的标的（知情买入），做空高 PE/PB + 成交量异常低的标的
+  prior_evidence: 'L001 (shadow/timing_range): 全部被 str_1m 吸收。L004: PE conditioning
+    在 20d pv_corr 方向已饱和。关键洞察：shadow 机制（量价幅度）和 timing_range 机制（成交量峰值距离）都是 str_1m 的变体。volume
+    分布异象（peer-relative）是更干净的 volume 信号。'
+contract:
+  current_focus_question: 跨截面 volume 异常是否携带独立于 str_1m 的信息？PE/PB conditioning 能否给 volume
+    信号添加正交维度？
+  direction_quota: 3
+  candidate_quota: 5
+  preferred_families:
+  - volume_distribution
+  - peer_relative_volume
+  suggested_ops:
+  - Div
+  - Sub
+  - Mul
+  - Mean
+  - TsRank
+  - CsRank
+  - Ref
+  - Less
+  - Greater
+  - Count
+  required_fields:
+  - $close
+  - $volume
+  - $amount
+  - $pe_ratio
+  - $pb_ratio
+  - $turnover_rate
+  avoid_patterns:
+  - absolute_volume_signals_without_peer_normalization
+  - volume_x_price_interaction_without_fundamental_conditioning
+  - short_window_volume (< 10d formation)
+  - DO NOT retry peer-relative volume anomaly × any fundamental conditioning (PE,
+    PB, PS).
+  - DO NOT retry volume anomaly at any window (20d, 40d) — all will be style-absorbed.
+  - The peer-normalization (CsRank volume / CsRank mean volume) is just a smoothed
+  - volume proxy that reduces to str_1m at some frequency.
+discovery_budget: 10
+evidence_summary:
+  current_bottleneck: 'Confirmed: peer-relative volume anomaly IS a str_1m clone.
+    The mechanism reduces
+
+    to "how much is volume elevated vs recent average" — this is a volatility/coverage
+
+    proxy, not independent of str_1m. Even with PE conditioning (C002), the signal
+
+    gets absorbed into ep_ratio. The Barra style system is very comprehensive —
+
+    most technical signals reduce to one of its style factors.
+
+    Key insight: Barra has very low residuals for most technical signals. Creating
+
+    genuinely Barra-orthogonal signals requires either: (1) fundamental data not in
+    Barra,
+
+    or (2) cross-sectional relationships rather than absolute levels.'
+  factors_generated: 0
+  factors_admitted: 0
+  rounds_without_admit: 1
+  failed_families: []
+  productive_families: []
+  transitions:
+  - from: active
+    to: parked
+    reason: Volume anomaly mechanism (peer-normalized volume ratio) is absorbed by
+      str_1m (C001) or ep_ratio (C002). PE conditioning shifts but does not eliminate
+      style absorption. L005 needs completely different mechanism. Do not retry volume
+      anomaly × any fundamental conditioning.
+    at: '2026-04-08 09:32:28'
+origin_proposal_id: L005
+created_at: '2026-04-08'
+updated_at: '2026-04-08 09:32:28'
+deepening_threads:
+- id: T001
+  question: 跨截面 volume 序位（peer-normalized）是否比绝对 volume 信号更强？
+  why_matters: peer-normalization 去除市场整体 volume 趋势，聚焦个股特异性。绝对 volume 可能被市场情绪掩盖。
+  status: parked
+  priority: high
+  next_probes:
+  - Div(CsRank($volume), CsRank(Mean($volume, 20))) — 成交量相对市场整体排名的偏离
+  - Div(CsRank($amount), CsRank(Mean($amount, 20))) — 成交额 peer-relative 版本
+  stop_condition: 如果 peer-relative volume 信号不优于绝对 volume，说明 peer normalization 无效。
+- id: T002
+  question: PE/PB conditioning 是否给 volume 信号添加了正交信息？
+  why_matters: PE conditioning 在方向类信号（pv_corr, vol_competition）中有效。在 volume 分布信号中是否同样有效？
+  status: parked
+  priority: high
+  next_probes:
+  - Mul(Div(CsRank($volume), CsRank(Mean($volume, 20))), CsRank($pe_ratio))
+  - Mul(Div(CsRank($volume), CsRank(Mean($volume, 20))), CsRank($pb_ratio))
+  stop_condition: 如果 PE/PB conditioning 在 volume 信号中产生 Barra_residual < 0，确认正交维度有效。
+- id: T003
+  question: volume 异常的最优形成窗口是多少？
+  why_matters: 20d vs 40d vs 60d — 窗口太长可能失去 volume 信号的预测力，太短可能被噪声淹没。
+  status: parked
+  priority: medium
+  next_probes:
+  - Div(CsRank($volume), CsRank(Mean($volume, 20))) — 20d baseline
+  - Div(CsRank($volume), CsRank(Mean($volume, 40))) — 40d
+  - Div(CsRank($volume), CsRank(Mean($volume, 60))) — 60d
+  stop_condition: 如果 20d 明显优于其他窗口，说明 volume 信号本质是短期的。
+next_actions:
+- 'Sub(CsRank($volume), CsRank($turnover_rate)) — Volume-rank minus turnover-rank:
+  captures unusual volume at fixed turnover (informed trading). Different from volume/mean.'
+- Div(CsRank(Sub($volume,Mean($volume,20))), CsRank($volume)) — Volume deviation from
+  own mean, ranked — pure anomaly without peer comparison
+last_reflected_batch: batch_063

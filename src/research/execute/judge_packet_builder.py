@@ -173,8 +173,8 @@ class JudgePacketBuilder:
         """
         briefs = [_build_candidate_brief(r) for r in candidate_results]
 
-        # Derive active logic ids from the briefs
-        active_logic_ids = sorted(
+        # Derive logic ids present in this batch's candidates
+        logic_ids_in_batch = sorted(
             {b["logic_id"] for b in briefs if b.get("logic_id")}
         )
 
@@ -192,7 +192,7 @@ class JudgePacketBuilder:
                 "batch_id": batch_id,
                 "sample_policy_version": sample_policy_version,
                 "evaluation_profile_id": evaluation_profile_id,
-                "active_logic_ids": active_logic_ids,
+                "logic_ids_in_batch": logic_ids_in_batch,
                 "candidate_briefs": briefs,
                 "search_context": search_context or {},
                 "support_window_review": {

@@ -1,0 +1,50 @@
+proposal:
+  logic_id: L005
+  name: 对等相对收益 x 基本面过滤
+  category: relative_strength
+  status: proposed
+  priority: medium
+  hypothesis:
+    condition: "个股短期收益相对同业群体出现背离，且基本面（估值/换手率）处于极端水平"
+    behavior: "背离回归 + 基本面极端 → 预测未来 5-15 日相对收益方向"
+    timeframe: "5-20d 形成，5d 持有"
+    direction: "做多低估值 + 近期相对弱势，做空高估值 + 近期相对强势"
+    prior_evidence: |
+      L001 shadow×timing_range 全部被 str_1m 吸收 (4 batches 证实).
+      L004 量价背离在 fundamental conditioning 方向已饱和 (PE/PS 20d only).
+      Barra str_1m 是最强的 Barra style 因子之一，任何纯价格幅度信号都被吸收。
+      核心问题：如何创造对 str_1m 正交的相对收益信号？
+    mechanism_hypothesis: |
+      关键洞察：绝对收益信号（如 shadow、timing_range）本质上就是 str_1m 的弱化版——
+      它们被 Barra str_1m 吸收是因为都在测同一件事（短期价格反转强度）。
+      但"相对收益"（个股 vs 同业）可以剥离 str_1m 成分：
+      1. 如果一只股票相对同业跌得更多（低相对收益），而基本面（低 PE）极端，
+         → 这不只是 str_1m，而是价值 + 短期反转的叠加
+      2. peer-relative 去除市场整体收益后，剩余部分与 str_1m 相关性降低
+      3. 基本面 conditioning（PE/PB）给相对收益添加了 orthogonal 维度
+  proposed_by: factor-logic
+  created_at: '2026-04-08'
+  review_status: pending
+
+4d_review:
+  mechanism_review: |
+    核心机制：个股 5-20d 收益对 Barra industry peer group 的偏离。
+    假设 peer-relative returns 剥离了 str_1m 的市场整体成分。
+    与 L001 (shadow/timing_range) 的本质区别：L001 测量绝对价格幅度，
+    L005 测量相对同业的价格偏离。
+    独立性来源：peer-relative 改变了 reference frame。
+  feasibility_review: |
+    DSL 支持：CsRank($close / TsMean($close, industry_window)) 需要 Div(TsMean, TsMean)。
+    $industry 字段不可用 → 用 MarketIndex($close) 或行业等权组合代替。
+    Alternative: CsZscore(Ret($close, 10)) / CsZscore(Ret($close, industry_benchmark))。
+    字段可用：$close, $volume, $amount, $pe_ratio, $pb_ratio, $turnover_rate。
+  novelty_review: |
+    与 L001 (microstructure): 完全不同机制。L001 测蜡烛图幅度，L005 测相对收益背离。
+    与 L004 (pv_corr divergence): 相关但不同。L004 测量价关系，L005 测相对收益幅度。
+    与 str_1m: 关键区分在于 reference frame — str_1m 是绝对收益，
+    L005 是相对收益 + 基本面极端性。
+  research_value_review: |
+    如果成功：第一个对 str_1m 正交的短期技术信号。
+    预期 admit rate: 低（机制新颖，历史无参考）。
+    如果失败：进一步证明短期技术信号无法摆脱 str_1m。
+    价值：无论成功还是失败，都能回答"相对收益信号是否独立于 str_1m"这个核心问题。

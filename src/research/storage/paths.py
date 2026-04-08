@@ -164,6 +164,18 @@ class StoragePaths:
     def judge_report_file(self, batch_id: str) -> Path:
         return self.batch_dir(batch_id) / "judge_report.yaml"
 
+    # batch — per-candidate artifact subdirectory
+    def batch_artifacts_dir(self, batch_id: str) -> Path:
+        return self.batch_dir(batch_id) / "artifacts"
+
+    def candidate_artifact_dir(self, batch_id: str, candidate_id: str) -> Path:
+        return self.batch_artifacts_dir(batch_id) / candidate_id
+
+    def candidate_artifact_file(
+        self, batch_id: str, candidate_id: str, name: str
+    ) -> Path:
+        return self.candidate_artifact_dir(batch_id, candidate_id) / name
+
     # ------------------------------------------------------------------
     # Directory creation
     # ------------------------------------------------------------------

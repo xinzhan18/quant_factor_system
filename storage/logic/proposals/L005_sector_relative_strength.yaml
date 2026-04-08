@@ -1,0 +1,61 @@
+proposal:
+  logic_id: L005
+  name: 行业相对强弱 x 估值过滤
+  category: relative_strength
+  status: proposed
+  priority: medium
+  hypothesis:
+    condition: "个股60-120d收益相对行业出现极端背离（强弱排序处于尾部），且基本面（PE/PB）处于极端水平"
+    behavior: "极端背离 + 极端估值 → 预测未来20-60日相对行业收益方向"
+    timeframe: "60-120d 形成，20-60d 持有"
+    direction: "做多行业相对最弱且低估值，做空行业相对最强且高估值"
+    prior_evidence: |
+      L001 (microstructure): shadow/timing_range 全被 str_1m 吸收，4 batches 证实。
+      L004 (pv_corr divergence): fundamental conditioning 在20d已饱和。
+      Barra style factor 分解：
+      - str_1m: 20d 短期动量/反转
+      - mom_12_1: 250d 长期动量
+      - 行业相对强弱在 Barra 中不是独立 style因子
+      核心洞察：5-20d 技术信号 = str_1m 领地。60-120d 相对强弱与 str_1m 分离，
+      因为 str_1m 的预测窗口是 1-20d。
+    mechanism_hypothesis: |
+      机制：个股 60-120d 收益率的行业中位数偏离（CsRank 排序）。
+      为什么与 str_1m 正交：
+      - str_1m 的形成窗口是 20d，预测周期 1-20d
+      - 60-120d 形成窗口已经平滑了 str_1m 信号
+      - CsRank(Ret(industry_relative)) 将绝对收益转为序级，去除了市场整体收益
+      fundamental conditioning 的作用：
+      - PE/PB 极端（CsRank 头部/尾部）进一步过滤
+      - 估值极端性 = 未来收益的非对称来源
+      - PE conditioning 对方向类信号有效（batch_047 证实），
+        对幅度类信号无效（batch_049 证伪）——这里形成的是"幅度+方向"组合
+  proposed_by: factor-logic
+  created_at: '2026-04-08'
+  review_status: pending
+
+4d_review:
+  mechanism_review: |
+    核心机制：60-120d 行业相对收益排序 × 估值极端性过滤。
+    独立性来源：形成窗口从 20d 拉长到 60-120d，避开 str_1m 的信号频段。
+    peer-relative (行业相对) 去除市场整体动量。
+    fundamental conditioning 在幅度层面提供正交信息。
+    与 L001 的本质区别：L001 是微观结构（5-20d），L005 是中观相对强弱（60-120d）。
+  feasibility_review: |
+    DSL 支持：
+    - Ret($close, N) 可计算 N 日收益
+    - 行业基准：用行业等权组合收益代替（Div($close, Ref($close, N)) 对行业成分股）
+    - 实际做法：CsRank(Ret($close, 60)) 对全市场排序 = 行业相对强弱代理
+    - CsRank($pe_ratio) / CsRank($pb_ratio) 提供极端性过滤
+    字段可用：$close, $pe_ratio, $pb_ratio, $turnover_rate
+    算子支持：Ret, CsRank, Mul, Div, Sub, Less, Greater, Ref, Mean, TsMean
+  novelty_review: |
+    与 L001 (microstructure): 完全不同的形成窗口和参考框架。
+    与 L004 (pv_corr divergence): pv_corr 测价关系，L005 测行业相对强弱幅度。
+    与 momentum (mom_12_1): L005 是行业相对（CsRank）而非绝对动量，
+    且 conditioning 在估值而非时间维度。
+    Barra 中无直接对应的行业相对动量 style。
+  research_value_review: |
+    如果成功：第一个明确对 str_1m 正交的中期信号。
+    预期 admit rate: 低（机制新颖，但有理论依据）。
+    如果失败：说明行业相对强弱在 A 股也表现为 str_1m 的慢速版本。
+    无论成功失败：回答"形成窗口延长是否能逃避 str_1m 吸收"这个核心问题。

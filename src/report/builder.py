@@ -82,8 +82,16 @@ class ReportDataBuilder:
         logger.info("[TIMING] load_factor_metadata: %.2fs", time.perf_counter() - t0)
 
         t0 = time.perf_counter()
-        factor_df, price_df = self._load_data_from_db(meta["expression"])
-        logger.info("[TIMING] load_data_from_db (Qlib eval + DB price): %.2fs", time.perf_counter() - t0)
+        factor_df = self._try_load_signal_artifact(meta)
+        if factor_df is not None:
+            symbols = factor_df["symbol"].unique().tolist()
+            price_df = self._load_price_from_db(symbols)
+            logger.info("[TIMING] load signal from artifact + DB price: %.2fs",
+                        time.perf_counter() - t0)
+        else:
+            factor_df, price_df = self._load_data_from_db(meta["expression"])
+            logger.info("[TIMING] load_data_from_db (Qlib eval + DB price): %.2fs",
+                        time.perf_counter() - t0)
 
         split_date = pd.Timestamp(self.config.test_start)
         name = meta.get("name", "")
@@ -269,6 +277,127 @@ class ReportDataBuilder:
         except ImportError:
             pass
 
+    # ---- Signal artifact reuse ----
+
+    def _try_load_signal_artifact(self, meta: dict) -> pd.DataFrame | None:
+        """Load pre-computed raw signal from execute artifacts if available.
+
+        Uses candidate_id from factor detail YAML (primary), falls back to
+        resolving via research_result.yaml name/expression match (legacy).
+        """
+        batch_id = meta.get("batch", "") or meta.get("admitted_batch", "")
+        if not batch_id:
+            return None
+
+        # Primary: direct candidate_id from factor detail YAML
+        candidate_id = meta.get("candidate_id", "")
+        if candidate_id:
+            artifact_path = (
+                Path("storage/batches") / batch_id / "artifacts"
+                / candidate_id / "signal_flat.parquet"
+            )
+            if artifact_path.exists():
+                return self._read_and_validate_artifact(artifact_path, meta)
+
+        # Fallback: resolve candidate_id via research_result.yaml
+        resolved_cid = self._resolve_candidate_id(meta)
+        if resolved_cid:
+            artifact_path = (
+                Path("storage/batches") / batch_id / "artifacts"
+                / resolved_cid / "signal_flat.parquet"
+            )
+            if artifact_path.exists():
+                return self._read_and_validate_artifact(artifact_path, meta)
+
+        return None
+
+    def _read_and_validate_artifact(
+        self, path: Path, meta: dict
+    ) -> pd.DataFrame | None:
+        """Read artifact parquet and validate via metadata.yaml if present."""
+        import yaml as _yaml
+
+        meta_path = path.parent / "metadata.yaml"
+        if meta_path.exists():
+            try:
+                with open(meta_path, "r") as f:
+                    artifact_meta = _yaml.safe_load(f)
+                if meta.get("expression") and artifact_meta.get("expression"):
+                    if meta["expression"] != artifact_meta["expression"]:
+                        logger.warning(
+                            "Artifact expression mismatch, skipping: %s", path
+                        )
+                        return None
+            except Exception:
+                pass
+
+        try:
+            df = pd.read_parquet(path)
+            df["time"] = pd.to_datetime(df["time"])
+            end_ts = pd.Timestamp(self.config.test_end)
+            df = df[df["time"] <= end_ts]
+            logger.info("Loaded signal artifact from %s (%d rows)", path, len(df))
+            return df
+        except Exception as exc:
+            logger.warning("Failed to read artifact %s: %s", path, exc)
+            return None
+
+    def _resolve_candidate_id(self, meta: dict) -> str | None:
+        """Resolve candidate_id by matching name/expression in research_result.yaml.
+
+        Fallback for factors admitted before candidate_id was written to the
+        detail YAML. Prefer direct candidate_id from meta when available.
+        """
+        import yaml as _yaml
+
+        batch_id = meta.get("batch", "") or meta.get("admitted_batch", "")
+        if not batch_id:
+            return None
+        result_path = Path("storage/batches") / batch_id / "research_result.yaml"
+        if not result_path.exists():
+            return None
+        try:
+            with open(result_path, "r") as f:
+                result_data = _yaml.safe_load(f)
+        except Exception:
+            return None
+
+        factor_name = meta.get("name", "")
+        factor_expr = meta.get("expression", "")
+        for cr in result_data.get("candidate_results", []):
+            cname = cr.get("name", "")
+            cexpr = cr.get("expression", "")
+            if (cname and cname == factor_name) or (cexpr and cexpr == factor_expr):
+                return cr.get("candidate_id", "")
+        return None
+
+    def _load_price_from_db(self, symbols: list[str]) -> pd.DataFrame:
+        """Load price data from market_daily using config date range.
+
+        Uses self.config.train_start/test_end as boundaries (same as
+        _load_data_from_db) so chart behavior is unchanged.
+        """
+        import psycopg2
+        conn = psycopg2.connect(_get_db_connection_string())
+        try:
+            sql = (
+                "SELECT symbol, time, close FROM market_daily "
+                "WHERE symbol = ANY(%s) AND time BETWEEN %s AND %s"
+            )
+            price_df = pd.read_sql(
+                sql, conn,
+                params=[symbols, self.config.train_start, self.config.test_end],
+            )
+            if price_df.empty:
+                raise ValueError(
+                    f"No price data for {len(symbols)} symbols in "
+                    f"{self.config.train_start}..{self.config.test_end}"
+                )
+            price_df["time"] = pd.to_datetime(price_df["time"])
+            return price_df
+        finally:
+            conn.close()
+
     # ---- Execute evidence reuse ----
 
     def _load_execute_evidence(self, meta: dict) -> dict:
@@ -414,6 +543,7 @@ class ReportDataBuilder:
                 "category": data.get("category", "other"),
                 "batch": data.get("batch_id", data.get("batch", "")),
                 "admitted_at": data.get("admitted_at", ""),
+                "candidate_id": data.get("candidate_id", ""),
             }
 
         # Fallback: DB factor_meta (for factors not yet in registry)

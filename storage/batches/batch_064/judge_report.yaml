@@ -1,0 +1,241 @@
+judge_report:
+  batch_id: batch_064
+  generated_at: '2026-04-08T11:55:00+00:00'
+
+  batch_summary:
+    total_candidates: 6
+    admitted: 0
+    rejected: 6
+    reserved: 0
+    replace: 0
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        Div($close,Ref($close,5)) = pure 5d return. dominant_style=str_1m=0.579 (FATAL).
+        alpha_survival_ratio=0.02 (TERRIBLE — only 2% alpha survives).
+        holdout_decay_ratio=1.2449 > 1 is MISLEADING: signal improves on holdout
+        ONLY because base level collapses. mono_ho=0.0 = CATASTROPHIC complete ranking collapse.
+        Barra_residual_ICIR=0.0045 ≈ zero — zero independent alpha.
+        stop_condition met: "if Ret($close,5) itself absorbed by str_1m, need stronger microstructure."
+
+    - candidate_id: C002
+      verdict: reject
+      reason_codes:
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        Mul(Div($close,Ref($close,5)),$turnover_rate): dominant_style=turnover_20d=0.280.
+        alpha_survival_ratio=0.1338 (TERRIBLE). mono_ho=-0.1 (near-complete ranking collapse).
+        Barra_residual_ICIR=-0.0927 ≈ zero. max_lib_corr=0.5401 vs F005 — turnover clone.
+        The turnover multiplication does not add microstructure information; it just shifts
+        the dominant style from str_1m to turnover_20d.
+
+    - candidate_id: C003
+      verdict: reject
+      reason_codes:
+        - code: precheck_failed
+          severity: fatal
+      detail: |
+        TsMean operator not registered in the system. Precheck failed: unknown_operator:TsMean.
+        Cannot evaluate. This was a mutate attempt on C001 adding TsMean — TsMean is NOT
+        available; the available operators for time-series mean are TsRank, EMA, Mean, WMA.
+
+    - candidate_id: C004
+      verdict: reject
+      reason_codes:
+        - code: style_dominance_detected
+          severity: high
+        - code: weak_validation_effect
+          severity: high
+      detail: |
+        Div($amount,$volume) = 人均金额 proxy. dominant_style=log_circ_cap=0.160.
+        alpha_survival_ratio=0.3706 (borderline). holdout_decay_ratio=0.4747 (CATASTROPHIC —
+        53% of signal destroyed on holdout). mono_ho=0.7 (holdout ranking maintained but
+        at severe signal loss). Barra_residual_ICIR=-0.1412 (weak residual).
+        stop_condition met: "if 人均金额 correlated with Barra vol_20d, it's just a vol proxy."
+        Here it's correlated with log_circ_cap (size) — it's a size proxy, not a microstructure proxy.
+
+    - candidate_id: C005
+      verdict: reject
+      reason_codes:
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        Mul(Div($close,Ref($close,5)),Div($amount,$volume)): dominant_style=log_circ_cap=0.160.
+        alpha_survival_ratio=0.3449 (borderline). holdout_decay_ratio=0.5059 (CATASTROPHIC —
+        49% signal destroyed on holdout). mono_ho=0.3 (ranking collapse).
+        Barra_residual_ICIR=-0.1371 (weak residual). max_lib_corr=0.299 vs F005.
+        The return × 人均金额 combination does not create A-share microstructure alpha.
+        It shifts the dominant style from str_1m (C001) to log_circ_cap (size), confirming
+        that 人均金额 is a size proxy.
+
+    - candidate_id: C006
+      verdict: reject
+      reason_codes:
+        - code: style_dominance_detected
+          severity: high
+      detail: |
+        Triple: Mul(Div($close,Ref($close,5)),Mul($turnover_rate,Div($amount,$volume))).
+        dominant_style=str_1m=0.177. alpha_survival_ratio=0.0828 (TERRIBLE).
+        holdout_decay_ratio=0.7022 (30% signal destroyed). mono_ho=-0.3 (ranking inversion).
+        Barra_residual_ICIR=-0.0557 ≈ zero. Adding more complexity (turnover × 人均金额)
+        does not prevent str_1m dominance. Triple combination is still absorbed.
+
+  route_verdicts:
+    - route_id: R001
+      verdict: kill
+      reason: All 3 candidates (C001, C002, C003) fail. Pure return signals and
+        return×turnover are str_1m/turnover clones. TsMean precheck failure. No viable signal.
+    - route_id: R002
+      verdict: kill
+      reason: Both C004 and C005 are log_circ_cap (size) clones. Div($amount,$volume) is a size
+        proxy, not a microstructure proxy. Return × size proxy still absorbed.
+    - route_id: R003
+      verdict: kill
+      reason: C006 is str_1m clone. Triple combination provides no additional
+        Barra orthogonality over simpler expressions.
+
+  logic_recommendations:
+    - logic_id: L006
+      recommended_status: parked
+      reason: "All 6 candidates rejected. A-share T+1 and limit-up microstructure hypothesis FAILS after 1 batch. key finding: Div($amount,$volume) is log_circ_cap (size) proxy, not large-order proxy. Return signals collapse to str_1m regardless of complexity. L006 needs completely different mechanism."
+
+  logic_diagnostics:
+    L006:
+      thesis_update: |
+        Confirmed after batch_064: The A-share T+1 / limit-up microstructure mechanism does NOT
+        produce independent alpha. Core findings: (1) Div($amount,$volume) = 人均金额 is a log_circ_cap
+        (size) proxy, NOT a large-order vs retail distinction. (2) Pure return Div($close,Ref($close,5))
+        is a pure str_1m clone with alpha_surv=0.02. (3) Return × turnover shifts style absorption
+        from str_1m to turnover_20d but still zero Barra residual. (4) The triple combination
+        (return × turnover × 人均金额) remains str_1m dominated.
+        The mechanism is fundamentally a style trap. A-share T+1 and涨跌停板 are real institutional
+        features, but Div($amount,$volume) does NOT capture the microstructure behavior they produce.
+
+      evidence_for:
+        - "C001: alpha_surv=0.02, str_1m=0.579, mono_ho=0.0 — return IS str_1m"
+        - "C004: dominant_style=log_circ_cap=0.160, Barra_residual_ICIR=-0.1412 — 人均金额 is size proxy"
+        - "C005: alpha_surv=0.3449, holdout_decay=0.5059 — return × size proxy collapses"
+        - "C006: alpha_surv=0.0828, str_1m=0.177 — triple combo still str_1m clone"
+
+      evidence_against:
+        - "All 6 candidates fail (100% rejection rate)"
+        - "C004: 人均金额 confirmed as size proxy, not large-order proxy"
+        - "C001: 5d return = str_1m at any horizon, no matter what we multiply with"
+        - "Triple combination does not escape style absorption"
+
+      failure_boundary: |
+        Do NOT retry Div($amount,$volume) as a large-order proxy — it's a size proxy (log_circ_cap).
+        Do NOT retry return at any window (3d, 5d, 10d, 20d) as independent alpha — all collapse to str_1m.
+        Do NOT retry return × turnover combinations — they shift to turnover_20d clone without adding independence.
+        The entire limit_up_momentum and amihud_microstructure families as operationalized here are confirmed style traps.
+
+      open_questions:
+        - "Is there ANY A-share specific microstructure signal that Barra does NOT absorb?"
+        - "Can the T+1 /涨跌停 mechanism be captured by a fundamentally different expression?"
+        - "Is the failure because the mechanism is wrong, or because our proxy (Div($amount,$volume)) is wrong?"
+
+      next_best_probes:
+        - expr: "None — all L006 threads failed"
+          why: "All three threads (T001 return, T002 Div($amount,$volume), T003 triple) confirmed as style clones."
+        - expr: "Consider using TsAutoCorr($close,5) as limit-up detection instead of raw return"
+          why: "Auto-correlation captures the persistence of limit-up behavior differently from return level"
+        - expr: "Consider CsRank-based limit-up detection rather than raw return"
+          why: "Cross-sectional ranking of returns may avoid str_1m absorption"
+
+      factor_roles:
+        - candidate_id: C001
+          role: failed_str1m_clone
+          summary: "5d return = str_1m with alpha_surv=0.02 — confirms return IS str_1m"
+        - candidate_id: C004
+          role: failed_size_proxy
+          summary: "Div($amount,$volume) = log_circ_cap size proxy, not large-order proxy"
+        - candidate_id: C006
+          role: failed_str1m_clone_complex
+          summary: "Triple still absorbed by str_1m — complexity doesn't help"
+
+  new_lessons:
+    - id: FP-L006-amount-volume-size-proxy
+      category: false_positive
+      lesson: "Div($amount,$volume) = 人均金额 is a log_circ_cap (size) proxy, NOT a large-order vs retail distinction. Confirmed after C004/C005 both showing dominant_style=log_circ_cap. Do not use Div($amount,$volume) as microstructure proxy."
+      severity: confirmed_failure
+      affected_logics:
+        - L006
+      batch_ids:
+        - batch_064
+    - id: FP-L006-return-str1m-clone
+      category: false_positive
+      lesson: "Div($close,Ref($close,5)) at 5d is pure str_1m clone with alpha_surv=0.02. Return signals at any window (3d-20d) collapse to str_1m. The A-share limit-up detection hypothesis is absorbed by Barra's short-term reversal style."
+      severity: confirmed_failure
+      affected_logics:
+        - L006
+      batch_ids:
+        - batch_064
+    - id: FP-L006-triple-microstructure-no-help
+      category: false_positive
+      lesson: "Triple combination (return × turnover × Div($amount,$volume)) still produces str_1m dominance. Adding more complexity to the expression does not prevent Barra style absorption."
+      severity: confirmed_failure
+      affected_logics:
+        - L006
+      batch_ids:
+        - batch_064
+    - id: NM-L006-confirmed
+      category: new_knowledge
+      lesson: "The entire A-share T+1 /涨跌停 microstructure hypothesis as operationalized through return signals and Div($amount,$volume) is a style trap. The mechanism is real (T+1,涨跌停板 exist) but our proxy expressions do not capture it."
+      severity: confirmed_failure
+      affected_logics:
+        - L006
+      batch_ids:
+        - batch_064
+
+  discovery_flags:
+    - anomaly_type: A-share_microstructure_style_trap
+      first_seen_batch: batch_064
+      description: "L006 A-share T+1/limit-up microstructure: all 6 candidates fail. Div($amount,$volume) confirmed as size proxy (log_circ_cap), not large-order proxy. Return signals collapse to str_1m. Triple combination still absorbed. The mechanism (T+1,涨跌停板) may be real but the proxy expressions do not capture it."
+      likely_mechanism: "Div($amount,$volume) captures price-level (size) not order-size (large vs retail). Return captures short-term reversal not microstructure persistence."
+      style_repackaging_risk: high
+      explainable_by_existing_logic: partial
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-08T11:55:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [style_dominance_detected]
+    - timestamp: '2026-04-08T11:55:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C002
+      level: 1
+      reason_codes: [style_dominance_detected]
+    - timestamp: '2026-04-08T11:55:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C003
+      level: 1
+      reason_codes: [precheck_failed]
+    - timestamp: '2026-04-08T11:55:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C004
+      level: 1
+      reason_codes: [style_dominance_detected, weak_validation_effect]
+    - timestamp: '2026-04-08T11:55:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C005
+      level: 1
+      reason_codes: [style_dominance_detected]
+    - timestamp: '2026-04-08T11:55:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C006
+      level: 1
+      reason_codes: [style_dominance_detected]

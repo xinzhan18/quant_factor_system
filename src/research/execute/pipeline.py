@@ -244,6 +244,18 @@ class ResearchExecutePipeline:
             signal = self._preprocess_signal(base, self.profile)
             signals.append({"candidate": candidate, "precheck": precheck, "signal": signal, "base": base})
 
+        # Capture raw signals for artifact persistence (handled by BatchRunner)
+        signal_artifacts: Dict[str, Any] = {}
+        for item in signals:
+            base = item.get("base")
+            if base and base.get("base_signal") is not None:
+                cid = item["candidate"].get("candidate_id") or item["candidate"].get("name", "unknown")
+                try:
+                    from core.factor_stats import multiindex_to_flat
+                    signal_artifacts[cid] = multiindex_to_flat(base["base_signal"])
+                except Exception:
+                    pass  # non-standard signal format (e.g. Python source)
+
         # Phase B: analyze in parallel (pure numpy, no Qlib)
         from concurrent.futures import ThreadPoolExecutor
 
@@ -276,6 +288,7 @@ class ResearchExecutePipeline:
             "candidate_results": candidate_results,
             "judge_packet": packet,
             "summary": summary,
+            "signal_artifacts": signal_artifacts,
         }
 
     # ----- helpers ---------------------------------------------------------

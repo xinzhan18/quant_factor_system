@@ -1,0 +1,63 @@
+idea_report:
+  batch_id: batch_060
+  generated_at: '2026-04-07T23:45:00+00:00'
+
+  strategy_decision:
+    selected_strategy: deepen
+    decision_basis_codes:
+      - active_thread_has_clear_probe
+      - expected_information_gain_high
+      - no_strong_pivot_signal
+    selected_threads:
+      - T001
+      - T009
+    rejected_threads_with_reason:
+      - thread_id: T003
+        reason_code: parked
+        note: "Scale floor exploration — parked, pending holdout confirmations"
+      - thread_id: T005
+        reason_code: stop_condition_near
+        note: "timing_range × Amihud fails — confirmed in batch_051"
+      - thread_id: T006
+        reason_code: superseded
+        note: "5d floor confirmed — answered"
+      - thread_id: T007
+        reason_code: superseded
+        note: "Expression-level blend fails — z-score blend addresses same question differently"
+      - thread_id: T008
+        reason_code: superseded
+        note: "PE/PS ratio WEAKENS signal — C001 of batch_054"
+    selected_families:
+      - PF_fundamental_conditioning
+      - FM_microstructure_timing_range
+    why_now: "L004 EP probe answered (batch_058): EP is style trap. PE/PS ratio is the natural next probe from batch_047 C001/C002 reserved. L001 T009 is the ONLY remaining high-priority probe — post-rank blend must be attempted before declaring L001 saturated."
+
+  probes_run:
+    - expr: "Mul(Corr($close,$amount,20),Div(CsRank($pe_ratio),CsRank($ps_ratio)))"
+      logic_id: L004
+      result: PASS
+      ic_mean: -0.0145
+      ic_ir: -0.1799
+      win_rate: 42.83
+    - expr: "Mul(Corr($close,$amount,20),CsRank($ep_ratio))"
+      logic_id: L004
+      result: FAIL
+      reason: "no valid IC computed"
+      note: "EP already confirmed dead (batch_058 style trap)"
+    - expr: "Mul(Corr($close,$amount,40),Div(CsRank($pe_ratio),CsRank($ps_ratio)))"
+      logic_id: L004
+      result: FAIL
+      reason: "IC IR too weak (0.0516), no signal at 40d"
+    - expr: "Add(Zscore(Mul(shadow,Amihud)),Zscore(Mul(timing_range_5d,CsRank(PE))))"
+      logic_id: L001
+      result: PASS
+      ic_mean: -0.0494
+      ic_ir: -0.6071
+      win_rate: 26.28
+      note: "Strong IC IR. Win rate 26.28% is low but expected for long-only short-side constrained A-share."
+
+  batch_summary:
+    total_routes: 2
+    total_candidates: 2
+    logic_L001_candidates: 1
+    logic_L004_candidates: 1
