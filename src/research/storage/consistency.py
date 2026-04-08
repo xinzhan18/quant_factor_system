@@ -1,10 +1,21 @@
-"""Consistency checks across storage truth sources."""
+"""Consistency checks across storage truth sources.
+
+``check()`` provides the original baseline checks.
+``check_extended()`` runs ``check()`` plus 6 additional rules covering
+reflection existence, thread alignment, ledger structure, holdout
+metadata, batch dir ↔ ledger phase, and batch usage schema.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
+from research.domain.batch_phases import (
+    BATCH_USAGE_UNIFIED_FIELDS,
+    LEDGER_TOP_LEVEL_WHITELIST,
+    derive_phase_from_files,
+)
 from research.governance.holdout_queue import HoldoutQueue
 from research.storage.paths import StoragePaths
 from research.storage.result_store import ResultStore
@@ -83,3 +94,128 @@ class StorageConsistencyChecker:
                         )
 
         return ConsistencyReport(ok=not errors, errors=errors)
+
+    def check_extended(self, batch_id: str | None = None) -> ConsistencyReport:
+        """Run all checks including the 6 new extended rules."""
+        report = self.check(batch_id=batch_id)
+        errors = report.errors
+
+        errors.extend(self._check_batch_dir_ledger_alignment())
+        errors.extend(self._check_reflection_existence())
+        errors.extend(self._check_thread_card_alignment())
+        errors.extend(self._check_ledger_top_level_keys())
+        errors.extend(self._check_holdout_metadata())
+        errors.extend(self._check_batch_usage_schema())
+
+        return ConsistencyReport(ok=not errors, errors=errors)
+
+    # ------------------------------------------------------------------
+    # Extended checks
+    # ------------------------------------------------------------------
+
+    def _check_batch_dir_ledger_alignment(self) -> list[str]:
+        """Verify batch dir derived phase matches ledger batch_usage phase."""
+        errors: list[str] = []
+        ledger = load_yaml(self._paths.ledger_file)
+        batch_usage = ledger.get("batch_usage", {}).get("batches", {})
+
+        if not self._paths.batches_dir.exists():
+            return errors
+
+        for d in sorted(self._paths.batches_dir.iterdir()):
+            if not d.is_dir() or not d.name.startswith("batch_"):
+                continue
+            bid = d.name
+            if bid not in batch_usage:
+                errors.append(f"{bid}: on disk but missing from batch_usage")
+                continue
+            ledger_phase = batch_usage[bid].get("phase", "")
+            if ledger_phase in ("finalized", "abandoned"):
+                continue
+            derived = derive_phase_from_files(d)
+            if derived != ledger_phase:
+                errors.append(
+                    f"{bid}: ledger phase={ledger_phase!r} "
+                    f"but disk files imply {derived!r}"
+                )
+        return errors
+
+    def _check_reflection_existence(self) -> list[str]:
+        """Verify reflection .md exists for every logic with last_reflected_batch."""
+        errors: list[str] = []
+        for card_file in sorted(self._paths.logic_cards_dir.glob("L*.yaml")):
+            card = load_yaml(card_file)
+            logic_id = card.get("logic_id", card_file.stem)
+            if card.get("last_reflected_batch"):
+                if not self._paths.logic_reflection_file(logic_id).exists():
+                    errors.append(
+                        f"{logic_id}: last_reflected_batch="
+                        f"{card['last_reflected_batch']!r} but reflection file missing"
+                    )
+        return errors
+
+    def _check_thread_card_alignment(self) -> list[str]:
+        """If card is parked/saturated/dead, no threads should be active."""
+        errors: list[str] = []
+        terminal = {"parked", "saturated", "dead"}
+        for card_file in sorted(self._paths.logic_cards_dir.glob("L*.yaml")):
+            card = load_yaml(card_file)
+            logic_id = card.get("logic_id", card_file.stem)
+            if card.get("status", "") not in terminal:
+                continue
+            active_threads = [
+                t.get("id", "?")
+                for t in card.get("deepening_threads", [])
+                if isinstance(t, dict) and t.get("status") == "active"
+            ]
+            if active_threads:
+                errors.append(
+                    f"{logic_id}: card is {card['status']!r} "
+                    f"but has active threads: {active_threads}"
+                )
+        return errors
+
+    def _check_ledger_top_level_keys(self) -> list[str]:
+        """Use whitelist to detect stray top-level keys in ledger."""
+        ledger = load_yaml(self._paths.ledger_file)
+        unexpected = set(ledger.keys()) - LEDGER_TOP_LEVEL_WHITELIST
+        return [
+            f"Stray ledger top-level key: {k!r}" for k in sorted(unexpected)
+        ]
+
+    def _check_holdout_metadata(self) -> list[str]:
+        """Verify pending holdout entries have logic_id and family_id."""
+        errors: list[str] = []
+        queue = HoldoutQueue.load_yaml(str(self._paths.pending_holdout_queue_file))
+        for entry in queue.pending():
+            if not entry.logic_id:
+                errors.append(
+                    f"Holdout {entry.batch_id}/{entry.candidate_id}: "
+                    f"pending but missing logic_id"
+                )
+            if not entry.family_id:
+                errors.append(
+                    f"Holdout {entry.batch_id}/{entry.candidate_id}: "
+                    f"pending but missing family_id"
+                )
+        return errors
+
+    def _check_batch_usage_schema(self) -> list[str]:
+        """Check all batch_usage entries have the unified field set."""
+        errors: list[str] = []
+        ledger = load_yaml(self._paths.ledger_file)
+        batch_usage = ledger.get("batch_usage", {}).get("batches", {})
+
+        for bid, entry in sorted(batch_usage.items()):
+            if not isinstance(entry, dict):
+                errors.append(f"{bid}: batch_usage entry is not a dict")
+                continue
+            missing = set(BATCH_USAGE_UNIFIED_FIELDS) - set(entry.keys())
+            # logic_id (singular) counts as logic_ids
+            if "logic_ids" in missing and "logic_id" in entry:
+                missing.discard("logic_ids")
+            if missing:
+                errors.append(
+                    f"{bid}: missing unified schema fields: {sorted(missing)}"
+                )
+        return errors

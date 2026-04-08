@@ -2,12 +2,18 @@
 
 All four sections live in a single ``governance/ledger.yaml`` file.
 Each public method operates on its own section without touching others.
+
+The ``_save_ledger`` method validates top-level keys against a whitelist
+to prevent stray writes (e.g. writing ``batches:`` instead of
+``batch_usage.batches``).
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+
+from research.domain.batch_phases import LEDGER_TOP_LEVEL_WHITELIST
 
 from .paths import StoragePaths
 from .yaml_io import load_yaml, save_yaml
@@ -27,6 +33,14 @@ class LedgerStore:
         return load_yaml(self._paths.ledger_file)
 
     def _save_ledger(self, data: dict[str, Any]) -> None:
+        # Guard: reject stray top-level keys before writing
+        unexpected = set(data.keys()) - LEDGER_TOP_LEVEL_WHITELIST
+        if unexpected:
+            raise ValueError(
+                f"Refusing to write ledger with unexpected top-level keys: "
+                f"{sorted(unexpected)}. All batch data must go under "
+                f"batch_usage.batches, not as top-level keys."
+            )
         save_yaml(self._paths.ledger_file, data)
 
     # ------------------------------------------------------------------
@@ -103,6 +117,80 @@ class LedgerStore:
         batches = data.setdefault("batches", {})
         batches[batch_id] = entry
         self.save_batch_usage(data)
+
+    def record_batch_usage_from_sources(
+        self,
+        batch_id: str,
+        manifest: dict[str, Any],
+        judge_report: dict[str, Any] | None = None,
+        judge_packet: dict[str, Any] | None = None,
+        *,
+        phase: str = "finalized",
+    ) -> None:
+        """Build unified-schema entry from manifest + judge_report + judge_packet.
+
+        judge_packet provides sample_policy ranges as fallback when
+        judge_report lacks them.
+        """
+        candidates = manifest.get("candidates", [])
+        logic_ids = sorted({
+            str(c.get("logic_id", ""))
+            for c in candidates if c.get("logic_id")
+        })
+
+        # Derive ranges from packet sample_policy, then manifest
+        train_range = ["2015-01-01", "2021-12-31"]
+        validation_range = ["2022-01-01", "2023-12-31"]
+        validation_window_id = "val_2022_2023"
+        holdout_used = False
+
+        if judge_packet:
+            sp = judge_packet.get("sample_policy_version", "")
+            # Try to extract from packet directly
+            pkt = judge_packet.get("judge_packet", judge_packet)
+            if pkt.get("sample_policy"):
+                policy = pkt["sample_policy"]
+                train_range = policy.get("train_range", train_range)
+                validation_range = policy.get("validation_range", validation_range)
+                validation_window_id = policy.get(
+                    "validation_window_id", validation_window_id
+                )
+
+        if judge_report:
+            holdout_used = bool(judge_report.get("holdout_used", False))
+
+        # Check candidate briefs for holdout info
+        if not holdout_used and judge_packet:
+            pkt = judge_packet.get("judge_packet", judge_packet)
+            for brief in pkt.get("candidate_briefs", []):
+                if brief.get("holdout_review_recommended"):
+                    holdout_used = True
+                    break
+
+        entry = {
+            "batch_id": batch_id,
+            "candidate_count": len(candidates),
+            "logic_ids": logic_ids,
+            "phase": phase,
+            "holdout_used": holdout_used,
+            "train_range": train_range,
+            "validation_range": validation_range,
+            "validation_window_id": validation_window_id,
+        }
+        self.record_batch_usage(batch_id, entry)
+
+    def update_batch_phase(self, batch_id: str, phase: str) -> None:
+        """Update the phase field for a specific batch in batch_usage."""
+        data = self.load_batch_usage()
+        batches = data.get("batches", {})
+        if batch_id in batches:
+            batches[batch_id]["phase"] = phase
+            self.save_batch_usage(data)
+
+    def validate_ledger_structure(self) -> list[str]:
+        """Check for stray top-level keys. Returns list of violations."""
+        from research.domain.batch_phases import validate_ledger_top_level_keys
+        return validate_ledger_top_level_keys(self._load_ledger())
 
     # ------------------------------------------------------------------
     # holdout_reviews section

@@ -1,0 +1,104 @@
+logic_id: L008
+name: 量能竞争强度 × 估值过滤
+category: liquidity_microstructure
+status: active
+priority: high
+hypothesis:
+  condition: 股票成交量相对竞争强度（rel-tur = Div(CsRank(turnover), CsRank(volume))）的持续性或强度异常，反映机构主动交易的边际信息
+  behavior: 当个股rel-tur异常高（高换手率/高成交量比 = 机构主动交易密集）且估值偏低时，后续收益更高
+  timeframe: 10-20d形成，持有5-15d
+  direction: 做多rel-tur强度异常 + 低估值的标的
+  prior_evidence: batch_039发现：Div(CsRank(tur), CsRank(vol)) × amount_rank = alpha_surv=0.496(最佳),
+    Barra_res=-0.347(最干净)。这是全新的竞争强度编码范式。batch_047：PE conditioning突破turnover regime
+    trap。rel-tur × PE可能是更干净的独立alpha。
+contract:
+  current_focus_question: rel-tur × PE conditioning是否产生独立于Barra风格的alpha？
+  direction_quota: 3
+  candidate_quota: 6
+  preferred_families:
+  - rel_tur_encoding
+  - smart_money_flow
+  suggested_ops:
+  - Div
+  - CsRank
+  - Mul
+  - Corr
+  - TsAutoCorr
+  - Ref
+  - Mean
+  required_fields:
+  - $turnover_rate
+  - $volume
+  - $pe_ratio
+  - $close
+  avoid_patterns:
+  - Cov($amount, $turnover) — L002已失败，协方差不是竞争强度
+  - HHI × tur — batch_045已失败，集中度是turnover regime代理
+  - TsEntropy × tur — batch_046已失败，分布熵是turnover regime代理
+  - TsAutoCorr(rel-tur) time-series variants (C004/C005) are confirmed style traps.
+  - Do NOT probe TsAutoCorr(rel-tur) at any window with any conditioning.
+  - Pure rel-tur × PE (C001/C002) shows mechanism is valid but economic magnitude
+    is insufficient.
+  - The rel-tur encoding requires an additional orthogonalizing field (like amount
+    from batch_039)
+  - to be tradeable. Pure rel-tur × PE is a necessary but not sufficient condition.
+discovery_budget: 10
+evidence_summary:
+  current_bottleneck: 'rel_tur × PE conditioning VALIDATES the mechanism: dominant_style
+    flips from
+
+    turnover_20d to str_1m. But the validation signal is too weak economically.
+
+    All candidates show severe mono_val→mono_ho sign flip (or collapse to zero).
+
+    The critical insight: batch_039''s success (alpha_surv=0.496) used rel-tur × amount,
+
+    not pure rel-tur. The amount field provided essential signal diversification.
+
+    Pure rel-tur × PE/close loses the amount dimension''s orthogonalizing power.'
+  factors_generated: 0
+  factors_admitted: 0
+  rounds_without_admit: 1
+  failed_families: []
+  productive_families: []
+origin_proposal_id: L008
+created_at: '2026-04-08'
+updated_at: '2026-04-08 22:07:31'
+deepening_threads:
+- id: T001
+  question: rel-tur × PE conditioning是否产生独立alpha？
+  why_matters: batch_039确认rel-tur × amount有效(alpha_surv=0.496)。rel-tur × PE是新的partner组合。
+  status: active
+  priority: high
+  next_probes:
+  - Mul(Div(CsRank($turnover_rate), CsRank($volume)), CsRank($pe_ratio))
+  - Mul(Div(CsRank($turnover_rate), CsRank($volume)), CsRank($close))
+  stop_condition: 如果rel-tur × PE仍然被Barra吸收，说明rel-tur只是另一种风格的代理
+- id: T002
+  question: rel-tur时间序列持续性是否有效？
+  why_matters: rel-tur是截面指标，其时间序列（autocorr of rel-tur）可能捕捉竞争强度持续性
+  status: active
+  priority: medium
+  next_probes:
+  - TsAutoCorr(Div(CsRank($turnover_rate), CsRank($volume)), 20)
+  - Mul(TsAutoCorr(Div(CsRank($turnover_rate), CsRank($volume)), 20), CsRank($pe_ratio))
+  stop_condition: 如果rel-tur autocorr没有独立alpha，说明截面rel-tur信息已经被其他机制覆盖
+- id: T003
+  question: rel-tur × 价格变化的动态关系？
+  why_matters: 竞争强度与价格变化的联合关系可能揭示机构建仓vs出货模式
+  status: active
+  priority: medium
+  next_probes:
+  - Corr(Div(CsRank($turnover_rate), CsRank($volume)), $close, 20)
+  - Mul(Corr(Div(CsRank($turnover_rate), CsRank($volume)), $close, 20), CsRank($pe_ratio))
+  stop_condition: 如果价格-竞争强度相关性被吸收，说明价格信息已经覆盖了rel-tur的边际信息
+next_actions:
+- 'Mul(Mul(Div(CsRank($turnover_rate), CsRank($volume)), CsRank($amount)), CsRank($pe_ratio))
+  — Triple conditioning: rel-tur × amount × PE. batch_039''s success used amount as
+  the third field. This combination has the best prior evidence (alpha_surv=0.496).'
+- Mul(Div(CsRank($turnover_rate), CsRank($volume)), CsRank($amount)) — rel-tur × amount
+  without PE. Confirms batch_039's result is replicable with current data.
+- Mul(Div(CsRank($turnover_rate), CsRank($volume)), CsRank($pe_ratio)) with 5d window
+  — Shorter window (5d) for rel-tur × PE to avoid style absorption. Different from
+  C001-C003 which all use cross-sectional ranking.
+last_reflected_batch: batch_066

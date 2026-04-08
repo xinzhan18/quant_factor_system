@@ -32,6 +32,8 @@ def cmd_state(args):
         _cmd_finalize_batch(args.batch_id)
     elif action == "validate-consistency":
         _cmd_validate_consistency(getattr(args, "batch_id", None))
+    elif action == "reconcile":
+        _cmd_reconcile(args)
     else:
         _cmd_show()
 
@@ -145,6 +147,10 @@ def _cmd_finalize_batch(batch_id: str) -> None:
     print(f"Active logic ids:    {', '.join(result.active_logic_ids) or '-'}")
     print(f"Warm logic ids:      {', '.join(result.warm_logic_ids) or '-'}")
     print(f"Schedulable ids:     {', '.join(result.schedulable_logic_ids) or '-'}")
+    if not result.consistency_ok:
+        print(f"\nConsistency warnings ({len(result.consistency_errors)}):")
+        for err in result.consistency_errors:
+            print(f"  ⚠ {err}")
 
 
 def _cmd_validate_consistency(batch_id: str | None) -> None:
@@ -158,6 +164,128 @@ def _cmd_validate_consistency(batch_id: str | None) -> None:
     for err in report.errors:
         print(f"- {err}")
     raise SystemExit(1)
+
+
+def _cmd_reconcile(args) -> None:
+    """Recovery from interrupted flows — recompute derived state.
+
+    Default: safe writes (recompute state, sync holdout, clean stray keys, normalize schema).
+    --report-only: pure read-only, only run checks.
+    --full-apply: also backfill missing batch_usage and finalize judged-but-unfinalised batches.
+    """
+    from research.domain.batch_phases import (
+        LEDGER_TOP_LEVEL_WHITELIST,
+        derive_phase_from_files,
+    )
+    from research.storage.consistency import StorageConsistencyChecker
+    from research.storage.ledger_store import LedgerStore
+    from research.storage.yaml_io import load_yaml, save_yaml
+
+    report_only = getattr(args, "report_only", False)
+    full_apply = getattr(args, "full_apply", False)
+    paths = StoragePaths()
+    ledger = LedgerStore(paths)
+    actions: list[str] = []
+
+    # 1. Recompute state from cards
+    if not report_only:
+        _store.recompute_from_cards(paths.logic_cards_dir)
+        actions.append("Recomputed state from logic cards")
+
+    # 2. Sync holdout count
+    if not report_only:
+        from research.governance.holdout_queue import HoldoutQueue
+        queue = HoldoutQueue.load_yaml(str(paths.pending_holdout_queue_file))
+        _store.update_state({"pending_holdout_count": len(queue.pending())})
+        actions.append("Synced pending_holdout_count")
+
+    # 3. Clean stray ledger keys
+    if not report_only:
+        raw = load_yaml(paths.ledger_file)
+        stray = set(raw.keys()) - LEDGER_TOP_LEVEL_WHITELIST
+        if stray:
+            bu = raw.setdefault("batch_usage", {}).setdefault("batches", {})
+            for key in sorted(stray):
+                val = raw[key]
+                if key == "batches" and isinstance(val, dict):
+                    for bid, entry in val.items():
+                        if bid not in bu:
+                            bu[bid] = entry
+                del raw[key]
+            save_yaml(paths.ledger_file, raw)
+            actions.append(f"Cleaned stray ledger keys: {sorted(stray)}")
+
+    # 4. Normalize batch_usage schema (safe)
+    if not report_only:
+        raw = load_yaml(paths.ledger_file)
+        bu = raw.get("batch_usage", {}).get("batches", {})
+        for bid, entry in bu.items():
+            if not isinstance(entry, dict):
+                continue
+            if "logic_id" in entry and "logic_ids" not in entry:
+                entry["logic_ids"] = [entry.pop("logic_id")]
+            if "batch_id" not in entry:
+                entry["batch_id"] = bid
+            entry.setdefault("holdout_used", False)
+            entry.setdefault("train_range", ["2015-01-01", "2021-12-31"])
+            entry.setdefault("validation_range", ["2022-01-01", "2023-12-31"])
+            entry.setdefault("validation_window_id", "val_2022_2023")
+        save_yaml(paths.ledger_file, raw)
+        actions.append("Normalized batch_usage schema")
+
+    # 5. Full-apply extras
+    if full_apply:
+        # Backfill missing batch_usage from disk
+        raw = load_yaml(paths.ledger_file)
+        bu = raw.get("batch_usage", {}).get("batches", {})
+        for d in sorted(paths.batches_dir.iterdir()):
+            if not d.is_dir() or not d.name.startswith("batch_"):
+                continue
+            bid = d.name
+            if bid in bu:
+                continue
+            if not paths.batch_manifest_file(bid).exists():
+                continue
+            manifest = load_yaml(paths.batch_manifest_file(bid))
+            candidates = manifest.get("candidates", [])
+            logic_ids = sorted({
+                str(c.get("logic_id", ""))
+                for c in candidates if c.get("logic_id")
+            })
+            phase = derive_phase_from_files(d)
+            bu[bid] = {
+                "batch_id": bid,
+                "candidate_count": len(candidates),
+                "logic_ids": logic_ids,
+                "phase": phase,
+                "holdout_used": False,
+                "train_range": ["2015-01-01", "2021-12-31"],
+                "validation_range": ["2022-01-01", "2023-12-31"],
+                "validation_window_id": "val_2022_2023",
+            }
+            actions.append(f"Backfilled batch_usage for {bid}")
+        save_yaml(paths.ledger_file, raw)
+
+    # 6. Extended consistency check
+    checker = StorageConsistencyChecker(paths)
+    cr = checker.check_extended()
+
+    # Report
+    print("=== Reconcile Report ===\n")
+    if actions:
+        print(f"Actions taken ({len(actions)}):")
+        for a in actions:
+            print(f"  ✓ {a}")
+    elif report_only:
+        print("(report-only mode — no writes)")
+
+    if cr.ok:
+        print("\nConsistency: OK")
+    else:
+        print(f"\nConsistency issues ({len(cr.errors)}):")
+        for err in cr.errors:
+            print(f"  ⚠ {err}")
+        raise SystemExit(1)
 
 
 def _parse_value(value: str):

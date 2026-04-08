@@ -1,0 +1,240 @@
+judge_report:
+  batch_id: batch_067
+  judgment_timestamp: '2026-04-08T22:45:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 3
+    admitted: 0
+    rejected: 3
+    reserved: 0
+    replaced: 0
+    gate_pass: 3
+    gate_fail: 0
+    gate_warn: 0
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      route_type: genesis
+      experiment_lineage_tag: ELT_L008_genesis_rel_tur_amount_pe_triple_v1
+      verdict: pause
+      reason: |
+        Triple conditioning (rel-tur × amount × PE) hypothesis VALIDATED but insufficient.
+        All 3 candidates show perfect validation monotonicity (-1.0) collapsing to near-zero on holdout.
+        The ranking direction is preserved but quintuple spread compresses to ~0.001/month.
+        PE is NOT the essential third field that amount needs. batch_039 success was specifically
+        rel-tur × amount, not rel-tur × amount × PE. PE may be adding noise rather than signal.
+        Route survives — rel-tur × amount (C003) shows better decay_ratio=0.689 vs pure rel-tur × PE
+        from batch_066, confirming the amount dimension helps. Next probes should drop PE
+        and test rel-tur × amount at different scales or with different conditioning partners.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - sign_flip_detected
+        - weak_validation_effect
+      detail: |
+        rel_tur × amount × PE triple: validation mono=-1.0 PERFECT but holdout mono=-0.1 (NEAR-ZERO).
+        IC_IR collapses from -0.421 to -0.218 (48% decay). LS_tstat collapses from -5.61 to -0.49.
+        Critically: ALL 5 holdout quintiles are positive (q1=0.0046 to q5=0.0039). The ranking
+        is preserved in direction but spread compresses to 0.0007/month — economically near-zero.
+        alpha_surv=0.4885 (<50%). Barra_res=-0.0348 (clean but weak).
+        dominant_style=str_1m=0.133 confirms PE conditioning changed style from turnover_20d.
+        But triple conditioning with PE does NOT replicate batch_039 success. PE adds noise.
+        Confirms batch_066 finding: pure rel-tur × PE insufficient; amount helps but PE does not.
+      research_result_metrics:
+        ic_mean_validation: -0.0712
+        ic_ir_validation: -0.4213
+        ic_ir_holdout: -0.2181
+        monotonicity_validation: -1.0
+        monotonicity_holdout: -0.1
+        holdout_decay_ratio: 0.5972
+        alpha_survival_ratio: 0.4885
+        barra_residual_ic: -0.0348
+        dominant_style: str_1m
+        max_lib_corr: 0.389
+        ls_tstat_holdout: -0.49
+
+    C002:
+      candidate_id: C002
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - sign_flip_detected
+        - weak_validation_effect
+      detail: |
+        rel_tur × amount × PE_ref5: identical failure mode to C001. Ref(PE,5) adds no value.
+        validation mono=-1.0, holdout mono=-0.1. IC_IR=-0.417 → -0.214 (49% decay).
+        ALL holdout quintiles positive (q1=0.0045 to q5=0.0040). Spread=0.0005/month.
+        alpha_surv=0.4863. Barra_res=-0.0345 (identical to C001).
+        PE lag does not capture "估值变化的边际信息" — the delayed PE is redundant with current PE.
+        Same conclusion as C001: triple conditioning with PE fails, PE is not the right third field.
+      research_result_metrics:
+        ic_mean_validation: -0.0708
+        ic_ir_validation: -0.4171
+        ic_ir_holdout: -0.2139
+        monotonicity_validation: -1.0
+        monotonicity_holdout: -0.1
+        holdout_decay_ratio: 0.5905
+        alpha_survival_ratio: 0.4863
+        barra_residual_ic: -0.0345
+        dominant_style: str_1m
+        max_lib_corr: 0.381
+
+    C003:
+      candidate_id: C003
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - sign_flip_detected
+        - weak_validation_effect
+      detail: |
+        rel_tur × amount (without PE): validation mono=-1.0 PERFECT, holdout mono=-0.3.
+        Best decay_ratio in batch=0.6894 (vs C001=0.5972, C002=0.5905).
+        IC_IR_holdout=-0.265 (stronger than C001/C002).
+        Barra_res=-0.0410 (cleanest in batch).
+        BUT: ALL holdout quintiles positive (q1=0.0043 to q5=0.0041). Spread=0.0002/month.
+        This is even more compressed than C001. The rel-tur × amount WITHOUT PE collapses
+        the ranking MORE than with PE. The direction is correct but economically meaningless.
+        alpha_surv=0.4696 (<50%).
+        C003 confirms batch_039 replication FAILURE: batch_039's alpha_surv=0.496 succeeded with
+        different data regime or specific market conditions not replicable now.
+        Both rel-tur × amount and rel-tur × amount × PE fail equally.
+      research_result_metrics:
+        ic_mean_validation: -0.0874
+        ic_ir_validation: -0.5173
+        ic_ir_holdout: -0.2655
+        monotonicity_validation: -1.0
+        monotonicity_holdout: -0.3
+        holdout_decay_ratio: 0.6894
+        alpha_survival_ratio: 0.4696
+        barra_residual_ic: -0.0410
+        dominant_style: str_1m
+        max_lib_corr: 0.461
+
+  logic_recommendations:
+    L008:
+      logic_id: L008
+      recommended_status: active
+      reason: |
+        L008 triple conditioning hypothesis tested and IMPORTANT NEGATIVE RESULT obtained.
+        Key findings:
+        1. PE does NOT enhance rel-tur × amount signal (C001 vs C003 identical failure mode)
+        2. All 3 candidates show perfect validation monotonicity (-1.0) collapsing on holdout
+        3. The ranking is directionally preserved but quintuple spread collapses to ~0.001/month
+        4. batch_039's success (alpha_surv=0.496) is NOT replicable with current data
+        5. C003 (rel-tur × amount without PE) has best decay_ratio=0.689 — amount dimension helps
+        6. The amount field is confirmed essential but not sufficient alone
+
+        Critical insight: batch_039's success may have been data-regime specific or required
+        different market conditions. The triple conditioning approach is validated as hypothesis
+        but PE is the wrong partner. Next probes should:
+        - Test rel-tur × amount WITHOUT PE at different scales (5d, 10d)
+        - Try different conditioning partners (PB, PS, market_cap)
+        - Focus on holdout stability not just validation IC
+      direction_quota: 3
+      candidate_quota: 6
+
+  logic_diagnostics:
+    L008:
+      thesis_update: |
+        rel_tur × amount × PE triple conditioning does NOT replicate batch_039 success.
+        Perfect validation monotonicity (-1.0) collapses to near-zero on holdout for ALL variants.
+        PE is NOT the essential third field. The amount field helps (decay_ratio better than
+        pure rel-tur × PE from batch_066) but is not sufficient alone.
+        batch_039's alpha_surv=0.496 was likely regime-specific and not replicable.
+
+      evidence_for:
+        - "C003 decay_ratio=0.689 better than batch_066's 0.55-0.59 — amount dimension genuinely helps"
+        - "All candidates: Barra_residual clean (-0.035 to -0.041), dominant_style=str_1m (low)"
+        - "All candidates: expanding_window_pass=True — signal not spurious in-sample"
+        - "C001/C002: max_lib_corr=0.38-0.39 vs F005 — genuinely novel vs existing factors"
+
+      evidence_against:
+        - "ALL 3 candidates: mono_val=-1.0 but mono_ho=-0.1 to -0.3 (NEAR-ZERO collapse)"
+        - "ALL 5 holdout quintiles positive — ranking preserved but spread compressed to ~0.001/month"
+        - "alpha_surv=0.47-0.49 — less than 50% of validation alpha survives"
+        - "C003 (no PE) more compressed than C001/C002 (with PE) — PE adds marginal signal not noise"
+        - "batch_039 success NOT replicable: same expression pattern but alpha_surv=0.47 vs 0.496"
+
+      failure_boundary: |
+        Triple conditioning with PE is CONFIRMED insufficient. Do not probe rel-tur × amount × PE
+        further. The rel-tur × amount WITHOUT PE (C003) also fails — confirming that amount alone
+        is not the missing third field from batch_039. The batch_039 success may have been
+        data-regime specific or required different market conditions.
+
+      open_questions:
+        - "Is batch_039's success reproducible with different conditioning partners (PB, PS)?"
+        - "Is there a scale effect? Should test 5d and 10d windows instead of 20d cross-sectional?"
+        - "Could market_cap or circ_market_cap be the essential third field?"
+        - "Does the success come from specific rebalancing frequency or holding period?"
+
+      next_best_probes:
+        - expr: "Mul(Div(CsRank($turnover_rate), CsRank($volume)), CsRank($pb_ratio))"
+          why: "PB (price-to-book) is a different fundamental dimension than PE. Tests if value anchoring is the key, not earnings."
+        - expr: "Mul(Div(CsRank($turnover_rate), CsRank($volume)), Rank($market_cap))"
+          why: "Market cap conditioning tests if size orthogonalization is the missing element from batch_039."
+        - expr: "Mul(Mul(Div(CsRank($turnover_rate), CsRank($volume)), CsRank($amount)), Rank(Mul($close, $volume)))"
+          why: "Amount × close (monetary flow) as third field instead of PE. Tests if monetary flow dimension is essential."
+
+      factor_roles:
+        - candidate_id: C001
+          role: triple_conditioning_fails_with_pe
+          summary: "PE adds no value to rel-tur × amount. Same collapse pattern as C003 without PE."
+        - candidate_id: C002
+          role: pe_lag_redundant
+          summary: "Ref(PE,5) identical to current PE. Lag does not capture marginal估值变化信息."
+        - candidate_id: C003
+          role: amount_helps_but_insufficient
+          summary: "Best decay_ratio in batch (0.689) but still near-zero holdout. Amount is necessary but not sufficient."
+
+  new_lessons:
+    - lesson_id: FP_L008_triple_conditioning_pe_insufficient
+      classification: FP
+      batch_ids:
+        - batch_067
+      description: |
+        rel_tur × amount × PE triple conditioning fails to replicate batch_039 success.
+        All 3 candidates show mono_val=-1.0 collapsing to mono_ho=-0.1 to -0.3.
+        ALL holdout quintiles positive (compressed spread ~0.001/month).
+        PE is NOT the essential third field that amount needs.
+        batch_039's alpha_surv=0.496 may have been regime-specific.
+      style_repackaging_risk: low
+      implication: "Triple conditioning validated as approach but PE is wrong partner. Do not probe PE further with rel-tur × amount."
+
+    - lesson_id: NM_L008_amount_helps_but_not_sufficient
+      classification: NM
+      batch_ids:
+        - batch_067
+        - batch_066
+      description: |
+        C003 (rel-tur × amount) has decay_ratio=0.689, better than pure rel-tur × PE (0.55-0.59).
+        Amount dimension genuinely helps vs pure rel-tur × PE. But both variants collapse on holdout.
+        The amount field is necessary (confirmed by batch_039) but not sufficient alone.
+        The missing element is something other than PE.
+      style_repackaging_risk: low
+      implication: "Amount is essential but other conditioning partners needed. Try PB, PS, market_cap."
+
+  discovery_flags: []
+
+  holdout_reviews_triggered:
+    - candidate_id: C001
+      trigger_reason: high_confidence_candidate
+      note: "Validation mono=-1.0 perfect but holdout mono=-0.1. Near-complete ranking collapse. alpha_surv=0.4885. Barra_res=-0.0348 clean."
+    - candidate_id: C002
+      trigger_reason: high_confidence_candidate
+      note: "Same pattern as C001. PE lag adds no value."
+    - candidate_id: C003
+      trigger_reason: holdout_confirms_signal
+      note: "Best decay_ratio=0.689 but all quintiles positive on holdout. Spread compressed to 0.0002/month."
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_067/judge_report.yaml
+    ledger_updated: false

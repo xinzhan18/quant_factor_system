@@ -1,0 +1,195 @@
+judge_report:
+  batch_id: batch_060
+  generated_at: '2026-04-08T00:10:00+00:00'
+
+  batch_summary:
+    total_candidates: 2
+    admitted: 0
+    rejected: 1
+    reserved: 0
+    replace: 1
+
+  candidate_verdicts:
+    - candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - code: style_dominance_detected
+          severity: high
+        - code: weak_validation_effect
+          severity: high
+      detail: |
+        PE/PS ratio conditioning FAILS to break the turnover trap. ICIR_ho=-0.147,
+        alpha_surv=0.2475 (CATASTROPHIC — 75% of signal destroyed on holdout).
+        Barra_residual_ICIR=+0.070 (POSITIVE = absorbed by Barra style, NOT
+        independent alpha). dominant_style=turnover_20d=0.131 — the turnover regime
+        re-emerges through the PE/PS ratio. The ratio Dilution effect confirmed:
+        Div(PE_rank, PS_rank) dilutes PE's orthogonal benefit rather than enhancing it.
+        max_lib_corr=0.689 vs F011 (amount vol-competition) shows moderate redundancy.
+        Route question "does PE/PS ratio provide additional orthogonality?" ANSWERED: NO.
+        20d is minimum window for fundamental conditioning (10d too fast per batch_047 C004).
+        This is not a style trap from insufficient window — it's a structural failure of
+        the ratio paradigm itself.
+
+    - candidate_id: C002
+      verdict: replace
+      reason_codes:
+        - code: high_subspace_redundancy
+          severity: high
+        - code: moderate_style_exposure
+          severity: medium
+      detail: |
+        Z-score blend (F002+F013) passes technical gate with strong IC metrics:
+        ICIR_ho=-0.305, alpha_surv=0.512 (healthy), Barra_residual_ICIR=-0.277 (NEGATIVE,
+        genuinely clean), mono_ho=-0.9 (near-perfect ranking), decay_ratio=0.757 (stable).
+        But: max_lib_corr=0.9034 vs F013 (near-duplicate), is_near_duplicate=TRUE.
+        The z-score blend produces signal almost identical to F013 alone — the shadow×Amihud
+        component adds negligible orthogonal information. The blend is F013-dominant, not
+        a genuine combination of two orthogonal signals.
+        Replacing F013 with this blend would provide zero incremental value.
+        Recommend: keep F013 separately, the z-score blend is not an improvement.
+
+  route_verdicts:
+    - route_id: R001
+      verdict: kill
+      reason: |
+        PE/PS ratio conditioning is a structural failure. The ratio paradigm dilutes
+        PE's orthogonal benefit. EP (1/PE) was already confirmed dead (batch_058).
+        PE and PS alone work; their ratio does not. Do not probe PE/PS ratio for
+        any pv_corr variant. Next probe: PE alone × different window scales.
+
+    - route_id: R002
+      verdict: continue
+      reason: |
+        Z-score blend of orthogonal families is the RIGHT approach (vs expression-level
+        blend that failed in batch_054). The concept is correct but the specific
+        combination (F002+F013) is too F013-dominated. Need a different combination:
+        either F002 × amount variant (F014) for maximum orthogonality, or different
+        weighting to balance contributions.
+
+  logic_recommendations:
+    - logic_id: L004
+      recommended_status: productive
+      reason: PE/PS conditioning breakthrough (batch_047 C001/C002) still pending holdout.
+        PE/PS ratio route is DEAD — do not retry ratio conditioning.
+        L004 productive families continue to generate admitted factors.
+    - logic_id: L001
+      recommended_status: productive
+      reason: Post-rank blend concept is validated (z-score works). F013/F014 timing_range
+        family is confirmed productive. T009 remains active pending better blend design.
+
+  logic_diagnostics:
+    L004:
+      thesis_update: |
+        PE/PS ratio conditioning is a confirmed failure. The ratio Dilutes rather than
+        enhances PE's orthogonal benefit. EP (1/PE) was already confirmed dead in batch_058.
+        This closes the EP/PE-ratio probe line. PE and PS individually work (batch_047 C001/C002
+        reserved pending holdout). The fundamental conditioning breakthrough is REAL but
+        limited to single fundamental conditioning (PE or PS alone), not ratios.
+
+      evidence_for:
+        - "batch_047 C001: PE conditioning breaks turnover trap — dominant_style=str_1m, not turnover_20d"
+        - "batch_047 C002: PS conditioning breaks turnover trap — Barra_res=-0.026 (cleanest in batch)"
+        - "batch_060 C001: PE/PS ratio collapses — alpha_surv=0.2475, Barra_residual_ICIR=+0.070 (positive = style trap)"
+        - "batch_058: EP conditioning confirmed style trap — alpha_surv=0.092 (catastrophic)"
+
+      evidence_against:
+        - "C001: dominant_style=turnover_20d re-emerges at 0.131 — PE/PS ratio cannot sustain orthogonality"
+        - "C001: Barra_residual_ICIR=+0.070 (POSITIVE) — ratio absorbed by Barra style"
+        - "C001: alpha_surv=0.2475 — 75% destruction on holdout"
+        - "EP: mathematically similar to PE, produces same style trap (batch_058)"
+
+      failure_boundary: |
+        PE/PS ratio: DO NOT PROBE. The ratio paradigm is structurally flawed for pv_corr conditioning.
+        PE alone and PS alone are the confirmed viable forms from batch_047.
+        EP conditioning: DEAD (batch_058 confirmed).
+        Additive paradigm: DEAD (batch_047 C003 kurtosis=133).
+
+      open_questions:
+        - "Do PE and PS conditioning maintain orthogonality on extended holdout? (batch_047 C001/C002 pending)"
+        - "Can single PE/PS conditioning combine with different pv_corr windows (e.g., 10d, 40d)?"
+        - "Is there any alternative fundamental conditioner beyond PE/PS that achieves true orthogonality?"
+
+      next_best_probes:
+        - expr: "Mul(Corr($close,$amount,10),CsRank($pe_ratio))"
+          why: "10d pv_corr × PE conditioning — tests if faster scale combined with PE maintains orthogonality"
+        - expr: "Mul(Corr($close,$amount,40),CsRank($pe_ratio))"
+          why: "40d pv_corr × PE conditioning — tests if slower scale + PE works (vs 40d tur which is dead)"
+
+    L001:
+      thesis_update: |
+        Post-rank z-score blend is the CORRECT approach for combining orthogonal families
+        (vs expression-level blend that collapsed in batch_054). C002 technical gate passes
+        with strong metrics. However, max_lib_corr=0.9034 vs F013 means the blend is
+        F013-dominated, not a genuine 50/50 combination. The F002 (shadow×Amihud)
+        component contributes only 10% unique orthogonal information.
+        Concept validated; specific combination needs redesign.
+
+      evidence_for:
+        - "C002: ICIR_ho=-0.305, alpha_surv=0.512 (healthy — 51% survives holdout)"
+        - "C002: Barra_residual_ICIR=-0.277 (NEGATIVE — genuinely clean independent alpha)"
+        - "C002: mono_ho=-0.9 (near-perfect ranking on holdout)"
+        - "C002: expanding_window_pass=TRUE, expanding_window_sign_consistency=1.0"
+        - "batch_054: expression-level blend FAILS (kurtosis=2700, mono_ho=0.0) — post-rank is the correct level"
+        - "batch_052/055: F013/F014 confirmed as orthogonal families"
+
+      evidence_against:
+        - "C002: max_lib_corr=0.9034 vs F013 — F013-dominated, near-duplicate"
+        - "C002: kurtosis=56.7 (elevated), base_skew=3.22 (elevated)"
+        - "C002: dominant_style=turnover_20d=0.236 (borderline elevated)"
+        - "F002 contribution is marginal: residual alpha after removing F013 is near-zero"
+
+      failure_boundary: |
+        Z-score blend of F002+F013 is F013-dominated. The blend's correlation with F013 alone
+        is 0.90 — indicating F002 contributes minimal orthogonal signal in this combination.
+        Do not retry F002+F013 z-score blend.
+        F002+amount_timing_range (F014) is the next combination to test.
+
+      open_questions:
+        - "Can F002 (shadow×Amihud) combine with F014 (amount×timing_range×PE) for better orthogonality?"
+        - "Does different weighting (e.g., 0.5×F002 + 0.5×F013 vs equal weight) affect blend orthogonality?"
+        - "Is the z-score blend's style dominance (turnover_20d=0.236) from F013 or F002?"
+
+      next_best_probes:
+        - expr: "Add(Zscore(Mul(shadow,Amihud)),Zscore(Mul(Sub(IdxMax($amount,5),IdxMin($amount,5)),CsRank($pe_ratio))))"
+          why: "F002 × F014 (amount variant of timing_range) — maximally orthogonal (max_lib_corr F002 vs F014 expected <0.10)"
+
+  new_lessons:
+    - id: FP-L004-pe-ps-ratio-dilutes
+      category: false_positive
+      lesson: "PE/PS ratio conditioning on pv_corr: alpha_surv=0.2475 (CATASTROPHIC), Barra_residual_ICIR=+0.070 (POSITIVE=style trap), dominant_style=turnover_20d re-emerges. Ratio dilutes PE's orthogonal benefit. Do not probe PE/PS ratio conditioning."
+      severity: confirmed_failure
+      affected_logics:
+        - L004
+      batch_ids:
+        - batch_060
+    - id: NM-L001-zscore-blend-concept-validated
+      category: new_mechanism
+      lesson: "Post-rank z-score blend (Add(Zscore(F002), Zscore(F013))) is technically sound: ICIR_ho=-0.305, alpha_surv=0.512, Barra_residual_ICIR=-0.277 (clean), mono_ho=-0.9. But max_lib_corr=0.9034 vs F013 — F013-dominated. Concept works; specific combination needs redesign."
+      severity: promising
+      affected_logics:
+        - L001
+      batch_ids:
+        - batch_060
+
+  discovery_flags:
+    - anomaly_type: pe_ps_ratio_fails_turnover_trap_break
+      first_seen_batch: batch_060
+      description: PE/PS ratio conditioning on pv_corr produces dominant_style=turnover_20d re-emerging and Barra_residual_ICIR=+0.070 (positive = absorbed by style). Alpha_surv=0.2475 catastrophic. Ratio paradigm is structurally flawed.
+      likely_mechanism: Div(PE_rank, PS_rank) dilutes PE's rank information rather than adding orthogonal dimension. The ratio reduces to a monotonic transformation of PE alone, losing the orthogonal benefit.
+      style_repackaging_risk: high
+      explainable_by_existing_logic: full
+      escalation_status: watch
+
+  writer_audit:
+    - timestamp: '2026-04-08T00:10:00+00:00'
+      actor: factor-judge
+      action: reject
+      target: C001
+      level: 1
+      reason_codes: [style_dominance_detected, weak_validation_effect]
+    - timestamp: '2026-04-08T00:10:00+00:00'
+      actor: factor-judge
+      action: replace
+      target: C002
+      level: 1
+      reason_codes: [high_subspace_redundancy, moderate_style_exposure]

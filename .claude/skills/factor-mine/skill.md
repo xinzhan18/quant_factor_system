@@ -160,6 +160,43 @@ PYTHONPATH=src python3 -m research state finalize-batch batch_XXX
 | Phase 3.5a (finalize) | judge_report, card.yaml | card.yaml（via apply_belief_delta: status, counters, avoid_patterns, next_actions）, research_state（schedulable_logic_ids 派生）, ledger audit entry |
 | Phase 3.5b (/reflect) | judge_report, card.yaml, reflection.md | card.yaml（thread 细粒度更新, focus question）, reflection.md, global_escalation.yaml, research_lessons.md（追加软经验） |
 | Phase 4 (/report) | report_data.json, registry factor detail | vault/factors/*.md, vault/assets/{id}/*.png |
+| Phase 5 (checkpoint) | git status | git commit (storage/, src/) |
+
+### Phase 5：Checkpoint Commit（每轮结束后，自动）
+
+每轮正式回路结束后（Phase 4 之后），自动执行 git checkpoint commit：
+
+1. **Stage 变更文件**：
+   ```bash
+   git add storage/ src/
+   ```
+   只 stage `storage/` 和 `src/` 下的变更（不 stage `.env`、`runtime/`、`__pycache__` 等）。
+
+2. **生成 commit message**，格式：
+   ```
+   [mine] round {N}: batch_{XXX} | L{logic_id} | admitted={n} rejected={n}
+
+   Candidates: {candidate_list}
+   Admitted: {admitted_list or "none"}
+   ```
+
+3. **执行 commit**：
+   ```bash
+   git commit -m "$(cat <<'EOF'
+   [mine] round {N}: batch_{XXX} | ...
+
+   ...
+   EOF
+   )"
+   ```
+
+4. **如果没有变更**（git status clean），跳过 commit，继续下一轮。
+
+**不 push** — 只做本地 commit，push 由用户决定。
+
+**Autonomous 行为**：commit 失败（pre-commit hook 等）不阻塞下一轮，记录警告继续。
+
+---
 
 ## 自主运行模式（Autonomous Mode）
 
@@ -175,6 +212,7 @@ PYTHONPATH=src python3 -m research state finalize-batch batch_XXX
 | judge 裁决 | 严格按 6 维标准执行，不需人工复核 |
 | reflect 更新 | 自动执行，不问 |
 | report 生成 | admitted 因子自动后台并行生成 |
+| checkpoint commit | 自动 `git add storage/ src/` + commit，失败不阻塞 |
 | 本轮结束 | 检查 schedule 是否还有条目，有则自动开始下一轮 |
 | **唯一停止条件** | 系统级错误：DB 挂了、磁盘满、Python 异常无法恢复 |
 

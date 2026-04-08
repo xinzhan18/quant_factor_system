@@ -142,6 +142,7 @@ class BatchRunner:
 
         # Persist results if directories are configured
         self._save_result(batch_id, result)
+        self._save_artifacts(batch_id, result)
         self._save_packet(batch_id, result.get("judge_packet", {}))
 
         return result
@@ -183,6 +184,45 @@ class BatchRunner:
                 allow_unicode=True,
             )
         logger.info("Saved research result to %s", out)
+
+    def _save_artifacts(self, batch_id: str, result: Dict[str, Any]) -> None:
+        """Persist raw signal artifacts (parquet + metadata) for each candidate."""
+        artifacts = result.get("signal_artifacts", {})
+        if not artifacts:
+            return
+        d = self._batch_out_dir(batch_id)
+        if d is None:
+            return
+
+        from datetime import datetime
+        from research.storage.paths import StoragePaths
+
+        paths = StoragePaths()
+        candidates = result.get("candidate_results", [])
+
+        for cid, df in artifacts.items():
+            artifact_dir = paths.candidate_artifact_dir(batch_id, cid)
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+
+            df.to_parquet(artifact_dir / "signal_flat.parquet", index=False)
+
+            meta: Dict[str, Any] = {"batch_id": batch_id, "candidate_id": cid}
+            for cr in candidates:
+                if cr.get("candidate_id") == cid:
+                    meta["expression"] = cr.get("expression", "")
+                    meta["name"] = cr.get("name", "")
+                    meta["source_type"] = cr.get("source_type", "dsl")
+                    break
+            meta["generated_at"] = datetime.now().isoformat()
+            meta["time_start"] = str(df["time"].min()) if not df.empty else ""
+            meta["time_end"] = str(df["time"].max()) if not df.empty else ""
+            meta["row_count"] = len(df)
+
+            with open(artifact_dir / "metadata.yaml", "w") as fh:
+                yaml.dump(meta, fh, default_flow_style=False)
+
+        logger.info("Saved signal artifacts for %d candidates in %s",
+                     len(artifacts), batch_id)
 
     def _save_packet(self, batch_id: str, packet: Dict[str, Any]) -> None:
         d = self._batch_out_dir(batch_id)

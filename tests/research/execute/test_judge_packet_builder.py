@@ -214,7 +214,7 @@ class TestJudgePacketBuilder:
         jp = packet["judge_packet"]
         assert jp["batch_id"] == "batch_001"
         assert len(jp["candidate_briefs"]) == 2
-        assert "L001" in jp["active_logic_ids"]
+        assert "L001" in jp["logic_ids_in_batch"]
         assert jp["support_window_review"]["support_window_warning"] == "none"
 
     def test_search_context_passthrough(self):
@@ -238,12 +238,12 @@ class TestJudgePacketBuilder:
         r1 = self._make_result("C001", logic_id="L001")
         r2 = self._make_result("C002", logic_id="L002")
         packet = self.builder.build("batch_001", [r1, r2])
-        assert sorted(packet["judge_packet"]["active_logic_ids"]) == ["L001", "L002"]
+        assert sorted(packet["judge_packet"]["logic_ids_in_batch"]) == ["L001", "L002"]
 
     def test_empty_batch(self):
         packet = self.builder.build("batch_001", [])
         assert len(packet["judge_packet"]["candidate_briefs"]) == 0
-        assert packet["judge_packet"]["active_logic_ids"] == []
+        assert packet["judge_packet"]["logic_ids_in_batch"] == []
 
     def test_no_policy_snapshot_ref(self):
         packet = self.builder.build("batch_001", [self._make_result()])
