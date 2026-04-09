@@ -1,0 +1,89 @@
+logic_id: L015
+name: Fundamental-Price Momentum Divergence
+category: value_momentum
+status: active
+priority: high
+hypothesis:
+  condition: 个股基本面估值（PE/PB）的改善速度与价格动量的背离程度
+  behavior: 当PE/PB比率改善（下降=更便宜）而价格动量为负（价格未跟上），预示价值重估机会。机制为"基本面领先价格的反转信号"——机构识别后推动估值修复。
+  timeframe: 20-60d估值改善期，10-20d持有
+  direction: 做多（正方向因子）— 基本面改善快于价格
+  prior_evidence: |
+    Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20)))): ICIR=+0.323 PASS
+    Sub(CsRank(Div(Ref($pe_ratio,60),$pe_ratio)),CsRank(Div($close,Ref($close,60)))): ICIR=+0.307 PASS
+    Sub(CsRank(Div(Ref($pb_ratio,20),$pb_ratio)),CsRank(Div($close,Ref($close,20)))): ICIR=+0.326 PASS
+    Mul(above, CsRank(Div($amount,Mean($amount,20)))): ICIR=+0.345 PASS (strongest variant)
+    All variants POSITIVE direction (RARE — most factors are negative direction).
+    Novel mechanism: combines fundamental change rate with price change rate in cross-sectional comparison.
+    Key risk: correlation with existing value Barra factors (ep_ratio, book_to_price).
+    But the PRICE MOMENTUM interaction makes this more than pure value — it captures value stocks
+    that have been oversold relative to their improving fundamentals.
+contract:
+  current_focus_question: Is the PE/PB-price divergence signal independent of Barra value style
+    (ep_ratio, book_to_price)? Does the momentum interaction make this orthogonal to pure value factors?
+  direction_quota: 2
+  candidate_quota: 6
+  preferred_families:
+    - PF_fundamental_price_divergence
+  suggested_ops:
+    - Sub
+    - CsRank
+    - Div
+    - Ref
+    - Mul
+    - Corr
+  required_fields:
+    - $pe_ratio
+    - $pb_ratio
+    - $ps_ratio
+    - $close
+    - $amount
+  avoid_patterns:
+    - 'Pure value rank without price comparison: CsRank($pe_ratio) alone = standard value factor'
+    - 'Pure price momentum without fundamental: pure str_1m/momentum signal'
+    - 'Div($pe_ratio, $close): mixing price into fundamental ratio creates confounded signal'
+discovery_budget:
+  adjacent_discovery_route_quota: 1
+evidence_summary:
+  factors_generated: 0
+  factors_admitted: 0
+  rounds_without_admit: 0
+  productive_families: []
+  failed_families: []
+  current_bottleneck: null
+  transitions: []
+deepening_threads:
+  - id: T001
+    question: Is PE-price divergence independent of ep_ratio Barra factor? What is the dominant style?
+    why_matters: |
+      The signal may be capturing the Barra ep_ratio (earnings yield = 1/PE) which is a standard
+      value factor. If max_lib with existing value-based factors is high, this is style repackaging.
+      The key test is whether barra_res_icir < -0.25 and style_r2 < 0.15.
+    status: active
+    priority: high
+    next_probes:
+      - 'Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20))))'
+      - 'Sub(CsRank(Div(Ref($pb_ratio,20),$pb_ratio)),CsRank(Div($close,Ref($close,20))))'
+    stop_condition: If max_lib < 0.70 vs existing factors AND alpha_surv > 0.5 AND barra_res_icir < -0.25,
+      confirm as novel mechanism
+  - id: T002
+    question: Does amount conditioning amplify the fundamental-price divergence signal?
+    why_matters: |
+      Mul(divergence, CsRank(Div($amount,Mean($amount,20)))) showed probe ICIR=+0.345 vs +0.323 raw.
+      Amount conditioning filters to divergence signals in liquid stocks. If conditioning improves
+      alpha_surv AND keeps max_lib low, this becomes the best variant.
+    status: active
+    priority: high
+    next_probes:
+      - 'Mul(Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20)))),CsRank(Div($amount,Mean($amount,20))))'
+      - 'Mul(Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20)))),CsRank(Div($amount,Mean($amount,40))))'
+    stop_condition: If conditioning raises alpha_surv above 0.6 AND maintains ICIR_ho above +0.20
+next_actions:
+  - 'Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20)))) — baseline 20d PE divergence. Full evaluation to determine novelty vs existing value factors.'
+  - 'Sub(CsRank(Div(Ref($pb_ratio,20),$pb_ratio)),CsRank(Div($close,Ref($close,20)))) — PB variant. PB/book-to-price may have different Barra loading than PE.'
+  - 'Mul(Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20)))),CsRank(Div($amount,Mean($amount,40)))) — PE divergence × relative amount. Liquidity filter on fundamental value recovery.'
+  - 'Sub(CsRank(Div(Ref($pe_ratio,60),$pe_ratio)),CsRank(Div($close,Ref($close,60)))) — 60d window. Longer lookback captures slower fundamental improvement cycle.'
+origin_proposal_id: L015
+created_at: '2026-04-10'
+updated_at: '2026-04-10'
+last_reflected_batch: null
