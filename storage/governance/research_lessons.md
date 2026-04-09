@@ -210,3 +210,9 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 - **NM-L013-30d-exceptional-decay-record**: 5d×30d str_1m soft-decorr achieves decay=1.293 (L013 all-time record) and alpha_surv=0.956 (near-perfect Barra orthogonality). However ICIRho=-0.273 is borderline. The 30d family offers best risk quality but weakest IC. Next: test 7d×30d to combine 30d quality with 7d's stronger ICIR.
 
 - **ST-L013-softdecorr-quality-gradient**: Full soft-decorr (0.3 coeff) gradient: 30d=0.956/1.293, 40d=0.781/1.175, 50d=0.688/1.128 (alpha_surv/decay). Quality improves as window shortens. IC weakens as window shortens. 40d is the sweet spot. This pattern should be considered when exploring other factor families with similar str_1m issues.
+
+## Batch 096 Soft Lessons (2026-04-10)
+
+- **FP-L013-0.3-coeff-optimal-at-40d**: For 5d range-amount × CsRank(rel-amount-40d) soft-decorr: coeff=0.2 gives ICIRho=-0.343 (better) but alpha_surv=0.673 (worse than 0.3's 0.781). coeff=0.4 gives alpha_surv=0.940 (better) but ICIRho=-0.294 (borderline). Coefficient=0.3 is the optimal balance. Do NOT retry coefficient variations for 5d×40d.
+
+- **FP-L013-7d-30d-degrades-mono**: 7d×30d soft-decorr: mono_ho=-0.4 (WORSE than 5d×30d's -0.6). The 7d window degrades quintile stability at 30d normalization. Do NOT probe 7d×30d variations. 5d×30d is the best 30d signal.
