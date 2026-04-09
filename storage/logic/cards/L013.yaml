@@ -81,38 +81,42 @@ contract:
   - All variants max_lib > 0.85 with F017. Portfolio diversification beyond 1-2
   - admits from this family is questionable. Focus on the most orthogonal representation
   - (5d×40d + possibly 7d×40d if different enough at portfolio level).
+  - 'DO NOT retry: coefficient variations for 5d×40d (all near-duplicates of F017),'
+  - 7d×30d (mono degradation), or any normalization window without a genuinely new
+  - conditioning mechanism. The soft-decorr coefficient subspace is exhausted.
+  - Next innovation must come from a different conditioning axis.
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
   factors_generated: 1
   factors_admitted: 1
-  rounds_without_admit: 1
+  rounds_without_admit: 2
   productive_families: []
   failed_families: []
-  current_bottleneck: 'L013 is now PRODUCTIVE. The range-amount mechanism is confirmed
-    and the str_1m
+  current_bottleneck: 'Coefficient exploration confirms 0.3 is optimal for 5d×40d
+    soft-decorr.
 
-    soft-decorr approach is consistently generative. The 40d window (C001/C002) emerges
+    The coefficient axis for F017''s base (5d×40d) is now fully characterized.
 
-    as the primary sweet spot for balancing IC strength and Barra quality.
-
-
-    The soft-decorr quality gradient is now fully characterized:
-
-    30d=0.956 alpha_surv (exceptional quality, borderline IC)
-
-    40d=0.781 alpha_surv (excellent balance — BEST for admission)
-
-    50d=0.688 alpha_surv (good — original F017)
-
-    60d=0.46 alpha_surv (below threshold — no conditioning)
+    The 7d×30d hypothesis was falsified (mono degraded).
 
 
-    The 7d window consistently shows better mono_val (-0.9 vs 5d''s -0.7) and similar
+    Key confirmed facts:
 
-    or stronger probe ICIR. C002 (7d×40d) and C004 (7d×50d) are strong candidates
+    - F017 (5d×40d, 0.3 coeff) is the established optimal signal
 
-    for complementary admission once the 5d anchor is settled.'
+    - The soft-decorr coefficient continuum: 0.2 = better IC, 0.4 = better alpha purity
+
+    - 7d window helps at 40d/50d but NOT at 30d
+
+    - All soft-decorr variants show max_lib=0.85-0.99 with F017
+
+
+    The family is internally saturated for the current conditioning approach.
+
+    Next direction: explore whether different conditioning types (not relative-amount)
+
+    can produce a genuinely complementary range-amount signal, OR pivot to L012.'
   transitions:
   - from: active
     to: productive
@@ -132,15 +136,16 @@ evidence_summary:
       mechanism is confirmed and the family can continue to yield variants.'
     at: '2026-04-10 02:55:48'
 next_actions:
-- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),Sub(CsRank(Div($amount,Mean($amount,30))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
-  — 7d×30d soft-decorr: 7d showed better mono_val at other windows. 30d has exceptional
-  decay. Could combine best of both.'
-- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.2)))
-  — Test 0.2 coefficient at 40d: lower decorr may preserve more IC while still achieving
-  acceptable risk.'
-- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.4)))
-  — Test 0.4 coefficient at 40d: stronger decorr may push alpha_surv even higher.
-  Risk: too aggressive?'
+- 'Corr(Div(Sub($high,$low),$close),Sub(Div($amount,Mean($amount,40)),Mul(Div($close,Ref($close,22)),0.3)),5)
+  — Move the str_1m decorrelation INSIDE the Corr: normalize the amount series internally
+  before computing the range correlation. Different from external conditioning — may
+  produce max_lib < 0.75.'
+- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Sub(Div($close,Mean($close,5)),Div($close,Mean($close,22)))),0.3)))
+  — Replace 1m-return proxy with short-term momentum deviation (5d vs 22d MA). Different
+  str_1m proxy — may produce a slightly different signal.
+- 'L012: Sub(TsAutoCorr($amount,20),Mul(CsRank($turnover_rate),0.1)) — L012 hasn''t
+  been explored since batch_089. Pivot to explore TsAutoCorr conditioning — very different
+  mechanism from range-amount.'
 deepening_threads:
 - id: T001
   question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
@@ -199,5 +204,5 @@ deepening_threads:
     AND risk_bucket=acceptable, promote to admit
 origin_proposal_id: L013
 created_at: '2026-04-10'
-updated_at: '2026-04-10 03:13:02'
-last_reflected_batch: batch_095
+updated_at: '2026-04-10 03:25:52'
+last_reflected_batch: batch_096
