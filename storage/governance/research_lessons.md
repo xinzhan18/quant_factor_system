@@ -234,3 +234,11 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 
 - **L013 DSL exhausted**: All DSL-level L013 conditioning approaches exhausted. F017 (5d×40d, coeff=0.3, 22d return proxy) is the definitive output. Internal-decorr axis exhausted. External conditioning axis exhausted. No further DSL exploration warranted.
 
+## Batch 099 Lessons (2026-04-10)
+
+- **NM-L014-turnover-autocorr-clones-amount-autocorr**: TsAutoCorr($turnover_rate,20) max_lib=0.970 vs F001 (TsAutoCorr($amount,20)) — near-duplicate. Both signals capture trading activity persistence at 20d; amount and turnover_rate autocorrelations are interchangeable at this window. At 10d, structural separation exists (max_lib=0.413 vs F001) but style contamination persists (positive barra_res_icir). DO NOT probe TsAutoCorr($turnover_rate,N) for N≥20 — it's a functional clone of F001. Shorter windows (10d, 5d) may have independent structure but still show positive barra_res_icir. L014 parked.
+
+- **NM-L015-fundamental-price-divergence-novel-structure**: PE/PB-price momentum divergence signals achieve max_lib=0.32-0.40 vs nearest library factors (F005/F007). Genuinely novel signal class with consistent positive-direction IC (ICIR=+0.24-0.33 across 20d PE, 20d PB, 60d PE variants). The 60d window achieves risk=borderline (not poor). Key challenge: barra_res_icir is consistently negative (sign flip) for all variants — positive IC comes primarily from Barra value factor loading (ep_ratio, book_to_price). The signal captures "PE/PB improved while price lagged" which correlates with value traps. 60d window has smallest sign flip (-0.184 vs -0.21/-0.31). Root cause: PE ratio change = price_change / EPS_change — conflates earnings improvement (pure alpha) with price-driven cheapening (value trap).
+
+- **ST-L015-amount-conditioning-counterproductive**: Relative amount conditioning (40d) on fundamental-price divergence WORSENS alpha_surv: PE divergence × relative amount (C005): alpha_surv=0.338 vs PE divergence alone (C003): alpha_surv=0.500. Unlike range-amount signals (L013), fundamental divergence does NOT benefit from liquidity conditioning. Do NOT combine relative amount conditioning with fundamental-price divergence.
+
