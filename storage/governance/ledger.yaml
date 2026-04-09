@@ -930,6 +930,20 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_102:
+      batch_id: batch_102
+      candidate_count: 6
+      logic_ids:
+      - L015
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1382,6 +1396,42 @@ holdout_reviews:
     trigger_reason: reserve_for_review
     status: pending
     outcome: null
+  - review_id: HR_102_001
+    batch_id: batch_102
+    target_id: C002_102
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    outcome: null
+    detail: 'Revenue×low PB: ICIRval=0.366 strong but alpha_surv=0.503 borderline.
+      Monitor alpha_surv stability. Potential upgrade if book_to_price anti-correlation
+      eases in future evaluation windows.
+
+      '
+  - review_id: HR_102_002
+    batch_id: batch_102
+    target_id: C003_102
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    outcome: null
+    detail: 'EPS abs × low PS: max_lib=0.052 (most novel in R001), barra_res=+0.276.
+      crowd=medium limits admission. Monitor if crowding risk eases.
+
+      '
+  - review_id: HR_102_003
+    batch_id: batch_102
+    target_id: C004_102
+    trigger_reason_codes:
+    - moderate_style_exposure
+    - high_data_mining_risk
+    status: pending
+    outcome: null
+    detail: 'Triple product (EPS×Revenue×low PB): highest ICIRval=0.352 and barra_res=+0.322
+      in batch. crowd=medium. If crowding risk resolves (longer lookback variant),
+      C004 is the next admission candidate for L015.
+
+      '
 search_ledger:
   by_experiment_tag:
     ELT_L001_body_fundamental_crossover_v1:
@@ -2339,6 +2389,20 @@ search_ledger:
       reject_count_to_date: 1
       continue_count_to_date: 1
       latest_verdict: continue
+    ELT_L015_mutate_pb_ps_conditioning_v1:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reserve_count_to_date: 2
+      reject_count_to_date: 0
+      continue_count_to_date: 1
+      latest_verdict: continue
+    ELT_L015_mutate_multimetric_catalyst_v1:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reserve_count_to_date: 1
+      reject_count_to_date: 1
+      continue_count_to_date: 1
+      latest_verdict: continue
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -2488,10 +2552,10 @@ search_ledger:
       reject_count_to_date: 1
       reserve_count_to_date: 1
     PF_fundamental_price_divergence:
-      family_attempt_count_to_date: 16
-      admitted_count_to_date: 0
-      reject_count_to_date: 5
-      reserve_count_to_date: 11
+      family_attempt_count_to_date: 22
+      admitted_count_to_date: 2
+      reject_count_to_date: 6
+      reserve_count_to_date: 14
   by_logic:
     L001:
       admitted_count_to_date: 3
@@ -2563,10 +2627,10 @@ search_ledger:
       reject_count_to_date: 1
       reserve_count_to_date: 1
     L015:
-      logic_attempt_count_to_date: 16
-      admitted_count_to_date: 0
-      reject_count_to_date: 5
-      reserve_count_to_date: 11
+      logic_attempt_count_to_date: 22
+      admitted_count_to_date: 2
+      reject_count_to_date: 6
+      reserve_count_to_date: 14
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3993,4 +4057,68 @@ write_audit_log:
     actor: research.finalize
     action: finalize_batch
     target: batch_101
+    detail: updated_logics=L015
+  - timestamp: '2026-04-10T05:45:00+00:00'
+    actor: factor-judge
+    action: admit
+    target: batch_102_C001
+    level: 1
+    reason_codes:
+    - mechanism_aligned
+    - risk_model_acceptable
+    - feasibility_ok
+    detail: F018 = eps_abs_change_60d_x_low_pb. ICIRval=0.338, risk=acceptable, style_r2=0.100
+  - timestamp: '2026-04-10T05:45:00+00:00'
+    actor: factor-judge
+    action: reserve
+    target: batch_102_C002
+    level: 1
+    reason_codes:
+    - moderate_style_exposure
+  - timestamp: '2026-04-10T05:45:00+00:00'
+    actor: factor-judge
+    action: reserve
+    target: batch_102_C003
+    level: 1
+    reason_codes:
+    - moderate_style_exposure
+  - timestamp: '2026-04-10T05:45:00+00:00'
+    actor: factor-judge
+    action: reserve
+    target: batch_102_C004
+    level: 1
+    reason_codes:
+    - moderate_style_exposure
+    - high_data_mining_risk
+  - timestamp: '2026-04-10T05:45:00+00:00'
+    actor: factor-judge
+    action: admit
+    target: batch_102_C005
+    level: 1
+    reason_codes:
+    - mechanism_aligned
+    - risk_model_acceptable
+    - feasibility_ok
+    detail: F019 = revenue_change_60d_x_low_ps. ICIRval=0.266, risk=acceptable, style_r2=0.049
+  - timestamp: '2026-04-10T05:45:00+00:00'
+    actor: factor-judge
+    action: reject
+    target: batch_102_C006
+    level: 1
+    reason_codes:
+    - weak_validation_effect
+  - timestamp: '2026-04-10T05:45:00+00:00'
+    actor: factor-judge
+    action: judge_batch
+    target: batch_102
+    detail: '6 candidates: 2 admit (F018,F019), 3 reserve (C002/C003/C004), 1 reject
+      (C006). L015→productive.'
+    level: 1
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+  - timestamp: '2026-04-09T21:42:45+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_102
     detail: updated_logics=L015
