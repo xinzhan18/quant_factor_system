@@ -1,0 +1,56 @@
+batch_id: batch_086
+logic_id: L010
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L010_python_ts_kurtosis_rank_v1
+    family_id: PF_intertemporal_kurtosis
+    research_question: "Does per-stock rolling kurtosis of returns (time-series property) produce alpha orthogonal to str_1m?"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+  - experiment_lineage_tag: ELT_L010_python_momentum_continuation_v1
+    family_id: PF_momentum_continuation
+    research_question: "Does return autocorrelation within low-vol regime (momentum continuation vs mean-reversion) avoid str_1m absorption?"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L010_python_ts_kurtosis_rank_v1
+    name: ts_kurtosis_rank_v1
+    family_id: PF_intertemporal_kurtosis
+    logic_id: L010
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/ts_kurtosis_rank.py
+    params:
+      kurt_period: 60
+      vol_period: 20
+      vol_threshold: 1.0
+      ewm_span: 10
+      vol_filter_pct: 0.30
+    rationale: "Rolling kurtosis of returns is truly time-series (per-stock over time), NOT cross-sectional ranking. Should be orthogonal to str_1m because kurtosis (tail risk) and short-term reversal are different mechanisms."
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L010_python_momentum_continuation_v1
+    name: momentum_continuation_v1
+    family_id: PF_momentum_continuation
+    logic_id: L010
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/momentum_continuation.py
+    params:
+      mom_period: 20
+      acf_lag: 1
+      vol_period: 20
+      vol_threshold: 1.0
+      ewm_span: 10
+      vol_filter_pct: 0.30
+    rationale: "Return autocorrelation at lag=1 within low-vol regime. Measures momentum continuation vs mean-reversion. Autocorrelation is a time-series property (different from cross-sectional return ranking), should be orthogonal to str_1m."
