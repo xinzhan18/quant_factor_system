@@ -1,0 +1,66 @@
+batch_id: batch_082
+logic_id: L010
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L010_python_regime_adaptive_v1
+    family_id: FM_regime_adaptive_momentum
+    research_question: "Does Python-based regime-adaptive momentum work better than DSL equivalents? Can Python factors capture regime-dependent signals that DSL cannot?"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L010_python_regime_adaptive_v1
+    name: regime_adaptive_momentum_v1
+    family_id: FM_regime_adaptive_momentum
+    logic_id: L010
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/regime_adaptive_momentum.py
+    params:
+      mom_period: 5
+      vol_period: 10
+      vol_high_percentile: 0.60
+      vol_low_percentile: 0.40
+      decay_high_vol: 0.7
+      decay_low_vol: 0.3
+      vol_filter_pct: 0.30
+    rationale: "Regime-adaptive momentum: high_vol uses faster decay, low_vol uses slower decay. Volume conditioning filters illiquid stocks."
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L010_python_regime_adaptive_v1
+    name: amount_quintile_spread_v1
+    family_id: FM_regime_adaptive_momentum
+    logic_id: L010
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/amount_quintile_spread.py
+    params:
+      mom_period: 5
+      vol_period: 10
+      decay_span: 10
+      vol_filter_pct: 0.30
+    rationale: "Amount sentiment duration: quintile spread with regime-adaptive decay. Captures smart money accumulation."
+  - candidate_id: C003
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L010_python_regime_adaptive_v1
+    name: cross_sectional_residual_v1
+    family_id: FM_regime_adaptive_momentum
+    logic_id: L010
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/cross_sectional_residual.py
+    params:
+      ret_period: 5
+      ewm_span: 10
+      vol_filter: 0.3
+    rationale: "Cross-sectional residual: removes market component, keeps idiosyncratic. Volume filter for liquidity."
