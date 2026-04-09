@@ -1,0 +1,76 @@
+judge_report:
+  batch_id: batch_087
+  created_at: '2026-04-09'
+  route_verdicts:
+    R001:
+      route_id: R001
+      verdict: kill
+      reason: "120d unconditional kurtosis: IC_val=-0.0009 (essentially zero), mono_val=0.0 (no ranking power). Expanding window passes but signal is useless. Barra_residual_IC=0.007 (marginal). Holdout shows slight recovery (decay=0.34) but IC is too close to zero to matter."
+    R002:
+      route_id: R002
+      verdict: kill
+      reason: "60d skewness: IC_val=-0.023, ICIR_val=-0.300, ls_tstat=-3.05 (SIGNIFICANT NEGATIVE). This is a REVERSAL signal, not momentum. Turnover_20d dominant (0.245). alpha_surv=0.52. The skewness mechanism is not the driver — it's picking up reversal via higher moments."
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reject
+      reason_codes:
+        - weak_validation_effect
+      detail: "120d kurtosis: IC_val=-0.0009, ICIR_val=-0.009, mono_val=0.0. style_r2=0.091 (clean), str_1m=0.073. Barra_residual_IC=0.007 (near zero). Holdout decay=0.34 (good) but IC≈0 makes it irrelevant. Signal is too weak to be useful."
+    C002:
+      candidate_id: C002
+      verdict: reject
+      reason_codes:
+        - weak_validation_effect
+        - sign_flip_detected
+      detail: "60d skewness: IC_val=-0.023, ICIR_val=-0.300, ls_tstat=-3.05 (significant reversal). mono_val=-0.2 (mild inversion). Risk bucket=borderline (alpha_surv=0.52, style_r2=0.138). Turnover_20d dominant. This is a reversal signal at 60d — skewness mechanism is not the primary driver."
+  logic_recommendations:
+    L011:
+      logic_id: L011
+      recommended_status: warm
+      reason: "L011 is new (1 batch, 2 candidates). Both rejected: kurtosis too weak (IC≈0), skewness is reversal. But the negative result is informative — it confirms that unconditional higher moments at these windows don't work. The mechanism class is not dead, just the specific windows/forms tried."
+  batch_summary:
+    total: 2
+    admitted: 0
+    rejected: 2
+    reserved: 0
+    replaced: 0
+  new_lessons:
+    - "FP_L011_120d_kurtosis_weak: 120d unconditional kurtosis: IC_val=-0.0009 (useless), Barra_residual_IC=0.007. Style-clean but signal-free. Long windows don't help."
+    - "FP_L011_60d_skew_reversal: 60d skewness: IC_val=-0.023, ls_tstat=-3.05 (reversal, not momentum). Turnover_20d dominant (0.245). Skewness is a reversal amplifier, not independent alpha."
+  discovery_flags: []
+  logic_diagnostics:
+    L011:
+      thesis_update: |
+        L011 (Return Distribution Higher Moments) first batch results are informative but negative.
+        120d unconditional kurtosis produces near-zero IC — the mechanism is style-clean but signal-free.
+        60d skewness produces a significant reversal signal (IC=-0.023, ls_tstat=-3.05) — but this is
+        not an independent higher-moment effect; it's being absorbed by turnover_20d dominance.
+        The hypothesis that long-window higher moments predict returns is NOT confirmed.
+
+      evidence_for:
+        - "120d kurtosis: style_r2=0.091 (cleanest possible), str_1m=0.073"
+        - "60d skewness: expanding_window_pass=True, sign_consistency=True (reversal direction confirmed)"
+
+      evidence_against:
+        - "120d kurtosis: IC=-0.0009 (essentially zero), Barra_residual_IC=0.007 (marginal)"
+        - "60d skewness: turnover_20d=0.245 dominant, style_r2=0.138"
+        - "Both candidates: alpha_surv << 1.0 (C001=7.69 BUT from near-zero IC, C002=0.52)"
+
+      failure_boundary: |
+        L011 higher-moments mechanism is NOT working at 60-120d windows.
+        Kurtosis at 120d is signal-free. Skewness at 60d is a reversal signal absorbed by turnover.
+        The next probes (if any) should be at MUCH longer windows (240d+) or conditioned on
+        something orthogonal to turnover (e.g., fundamental rank changes).
+
+      open_questions:
+        - "Would 240d kurtosis capture structural tail risk that affects returns?"
+        - "Would conditioning skewness on fundamental changes (e.g., PE rank delta) produce independent signal?"
+        - "Is there a skewness of volume/turnover (not returns) that works?"
+
+      next_best_probes:
+        - expr: "TsKurt($close, 240)"
+          why: "240d may capture structural tail risk that 120d misses"
+        - expr: "TsSkew($close, 120) × CsRank($amount)"
+          why: "Skewness conditioned on liquidity level at longer window"
+      factor_roles: []

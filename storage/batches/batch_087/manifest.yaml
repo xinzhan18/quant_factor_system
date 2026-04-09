@@ -1,0 +1,51 @@
+batch_id: batch_087
+logic_id: L011
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L011_python_ts_kurtosis_unconditional_v1
+    family_id: FM_return_moments
+    research_question: "Does unconditional 120d rolling kurtosis produce alpha orthogonal to str_1m?"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+  - experiment_lineage_tag: ELT_L011_python_ts_skew_rank_v1
+    family_id: FM_return_moments
+    research_question: "Does 60d rolling skewness produce alpha predicting return asymmetry?"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L011_python_ts_kurtosis_unconditional_v1
+    name: ts_kurtosis_unconditional_v1
+    family_id: FM_return_moments
+    logic_id: L011
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/ts_kurtosis_unconditional.py
+    params:
+      kurt_period: 120
+      ewm_span: 10
+      vol_filter_pct: 0.30
+    rationale: "120d unconditional rolling kurtosis — structural tail risk vs transient noise. 60d vol-conditioned kurtosis failed (IC≈0). 120d captures longer-horizon return distribution shape, potentially orthogonal to str_1m."
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L011_python_ts_skew_rank_v1
+    name: ts_skew_rank_v1
+    family_id: FM_return_moments
+    logic_id: L011
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/ts_skew_rank.py
+    params:
+      skew_period: 60
+      ewm_span: 10
+      vol_filter_pct: 0.30
+    rationale: "60d rolling skewness measures return asymmetry. Negative skew (left tail) = crash risk → mean reversion. Skewness is a different higher-order moment than kurtosis — may capture different signal."

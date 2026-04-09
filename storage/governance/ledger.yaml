@@ -708,6 +708,34 @@ batch_usage:
       candidate_count: 2
       logic_ids:
       - L010
+      phase: judged
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
+    batch_087:
+      batch_id: batch_087
+      candidate_count: 2
+      logic_ids:
+      - L011
+      phase: judged
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
+    batch_088:
+      batch_id: batch_088
+      candidate_count: 2
+      logic_ids:
+      - L011
       phase: finalized
       holdout_used: true
       train_range:
@@ -737,6 +765,28 @@ global_escalations:
   proposed_lessons: []
   saturation_signal: true
   status: consumed
+- batch_id: batch_086
+  logic_proposals: []
+  proposed_forbidden: []
+  proposed_lessons:
+  - 'L010 SATURATED: 21 candidates across 6 batches, 0 admits. Regime-adaptive cross-sectional
+    mechanism confirmed as fundamentally limited. str_1m acts as universal absorber
+    for all short-window cross-sectional signals. Time-series (kurtosis, autocorrelation)
+    are style-clean but IC~0.'
+  saturation_signal: true
+  description: 'SYSTEM DEADLOCK: All 10 logics (L001-L010) are parked or saturated.
+    L004 (saturated, 10 admits) has avoid_patterns listing 15+ dead mechanisms. No
+    active logics available for mining. Need genuinely new mechanism not reducible
+    to Barra styles.'
+  status: pending
+- batch_id: batch_088
+  logic_proposals: []
+  proposed_forbidden: []
+  proposed_lessons:
+    - "L011 SATURATED: 6 candidates across 2 batches, 0 admits. ALL higher-moment signals fail: kurtosis at 60/120/240d = signal-free (IC≈0). Skewness at 60/120d = reversal absorbed by turnover."
+  saturation_signal: true
+  description: "L010 + L011 both SATURATED. System-wide deadlock confirmed. No active logics for mining."
+  status: pending
 holdout_reviews:
   reviews:
   - batch_id: batch_044
@@ -1797,6 +1847,34 @@ search_ledger:
       reserve_count_to_date: 0
       continue_count_to_date: 0
       latest_verdict: pause
+    ELT_L011_python_ts_kurtosis_unconditional_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 1
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: kill
+    ELT_L011_python_ts_skew_rank_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 1
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: kill
+    ELT_L011_python_ts_kurtosis_240d_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 1
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: kill
+    ELT_L011_python_ts_skew_120d_x_liquidity_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 1
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: kill
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -1924,6 +2002,11 @@ search_ledger:
       family_attempt_count_to_date: 2
       admitted_count_to_date: 0
       reserve_count_to_date: 0
+    FM_return_moments:
+      family_attempt_count_to_date: 6
+      admitted_count_to_date: 0
+      reject_count_to_date: 4
+      reserve_count_to_date: 0
   by_logic:
     L001:
       admitted_count_to_date: 3
@@ -1972,6 +2055,11 @@ search_ledger:
       logic_attempt_count_to_date: 21
       admitted_count_to_date: 0
       reject_count_to_date: 2
+      reserve_count_to_date: 0
+    L011:
+      logic_attempt_count_to_date: 6
+      admitted_count_to_date: 0
+      reject_count_to_date: 4
       reserve_count_to_date: 0
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
@@ -3065,6 +3153,26 @@ write_audit_log:
     reason_codes:
     - style_dominance_detected
     - poor_risk_model_bucket
+  - timestamp: '2026-04-09T21:10:00.000000'
+    actor: factor-judge
+    action: judge_batch
+    detail: '2 candidates: 0 admit, 2 reject (C001 IC=0.0, C002 reversal)'
+    target: batch_087
+  - timestamp: '2026-04-09T21:10:00.000000'
+    actor: factor-judge
+    action: reject
+    target: C001
+    level: 1
+    reason_codes:
+    - weak_validation_effect
+  - timestamp: '2026-04-09T21:10:00.000000'
+    actor: factor-judge
+    action: reject
+    target: C002
+    level: 1
+    reason_codes:
+    - weak_validation_effect
+    - sign_flip_detected
   - timestamp: '2026-04-09T20:18:14.487416'
     actor: factor-judge
     action: reject
@@ -3099,3 +3207,13 @@ write_audit_log:
     action: finalize_batch
     target: batch_086
     detail: updated_logics=L010
+  - timestamp: '2026-04-09T12:39:13+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_087
+    detail: updated_logics=L011
+  - timestamp: '2026-04-09T12:44:48+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_088
+    detail: updated_logics=L011

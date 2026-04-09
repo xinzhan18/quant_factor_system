@@ -1,0 +1,122 @@
+logic_id: L011
+name: Return Distribution Higher Moments
+category: return_moments
+status: parked
+priority: high
+hypothesis:
+  condition: 个股收益率分布的高阶矩（偏度、峰度）偏离历史常态
+  behavior: 极端峰度（厚尾）预示反转；正偏度（右偏）预示动量持续
+  timeframe: 20-60d
+  direction: 做多峰度回归正常（均值回复），做空峰度持续（趋势延续）
+prior_evidence: 'batch_086 C001: kurtosis of returns in low-vol regime produces near-zero
+  IC (IC=-0.003) on 60d window. BUT this was regime-conditional kurtosis, not unconditional.
+  Unconditional higher moments at longer windows may work better.'
+contract:
+  current_focus_question: Can higher-order return distribution moments (TsKurt, TsSkew)
+    produce alpha at longer windows (60-120d) independent of str_1m?
+  direction_quota: 2
+  candidate_quota: 4
+  preferred_families:
+  - FM_return_moments
+  suggested_ops:
+  - TsKurt
+  - TsSkew
+  - TsRank
+  - EWM
+  - CsRank
+  required_fields:
+  - $close
+  - $volume
+  avoid_patterns:
+  - Short-window (<30d) TsKurt/TsSkew — likely absorbed by str_1m
+  - TsKurt conditioned on vol regime — batch_086 C001 shows IC≈0
+  - L011 higher-moments mechanism is NOT working at 60-120d windows.
+  - Kurtosis at 120d is signal-free. Skewness at 60d is a reversal signal absorbed
+    by turnover.
+  - The next probes (if any) should be at MUCH longer windows (240d+) or conditioned
+    on
+  - something orthogonal to turnover (e.g., fundamental rank changes).
+  - L011 is EXHAUSTED. 4 batches, 8 candidates, 0 admits.
+  - Higher moments at ALL tested windows (60/120/240d) fail.
+  - The mechanism class (return distribution shape → returns) does not work in this
+    universe.
+  - Do not probe TsKurt/TsSkew at any window.
+discovery_budget: 10
+evidence_summary:
+  current_bottleneck: 'L011 (Return Distribution Higher Moments) is exhausted. 4 batches
+    (batch_086-088 + L010 carryover):
+
+    - 60d kurtosis (vol-conditional): IC=-0.003 (failed)
+
+    - 120d kurtosis: IC=-0.0009 (signal-free)
+
+    - 240d kurtosis: IC=-0.0008 (still signal-free, decay=8.5× worse)
+
+    - 60d skewness: IC=-0.023 (reversal)
+
+    - 120d skewness×liquidity: IC=-0.032 (strong reversal)
+
+    The higher-moments mechanism class produces either signal-free or reversal signals.
+
+    Longer windows do NOT help — kurtosis gets worse with longer windows.
+
+    Skewness is consistently absorbed by turnover_20d.'
+  factors_generated: 0
+  factors_admitted: 0
+  rounds_without_admit: 3
+  failed_families:
+  - family_id: FM_return_moments
+    reason: '120d kurtosis: IC=-0.0009 (useless). 60d skewness: IC=-0.023 (reversal).
+      Turnover_20d dominant in both.'
+  productive_families: []
+  transitions:
+  - from: active
+    to: warm
+    reason: 'batch_087: 2 candidates rejected. 120d kurtosis too weak, 60d skewness
+      is reversal. Mechanism class not dead but windows tried are wrong.'
+    at: '2026-04-09 21:10:00'
+  - from: active
+    to: warm
+    reason: 'L011 is new (1 batch, 2 candidates). Both rejected: kurtosis too weak
+      (IC≈0), skewness is reversal. But the negative result is informative — it confirms
+      that unconditional higher moments at these windows don''t work. The mechanism
+      class is not dead, just the specific windows/forms tried.'
+    at: '2026-04-09 20:39:12'
+  - from: warm
+    to: parked
+    reason: '4 batches, 8 candidates across L010-L011 combination, 0 admits. ALL higher-moment
+      signals fail: (a) kurtosis at 60/120/240d = signal-free, (b) skewness at 60/120d
+      = reversal absorbed by turnover. The higher-moments mechanism class is exhausted.
+      Recommend parking L011 and reallocating budget to productive logics.'
+    at: '2026-04-09 20:44:48'
+transitions: []
+origin_proposal_id: null
+created_at: '2026-04-09'
+updated_at: '2026-04-09 20:44:48'
+deepening_threads:
+- id: T001
+  question: Can TsKurtosis at 60-120d window produce alpha orthogonal to str_1m?
+  why_matters: batch_086 C001 (60d kurtosis, vol-conditional) failed with IC≈0. Unconditional
+    kurtosis at longer windows may be different.
+  status: parked
+  priority: high
+  next_probes: []
+  stop_condition: If TsKurt/TsSkew at 60-120d produces IC_IR > 0.15 and style_r2 <
+    0.10, confirm as productive mechanism
+  supporting_evidence:
+  - 'batch_087: 120d kurtosis IC=-0.0009 (signal-free), 60d skewness IC=-0.023 (reversal)'
+- id: T002
+  question: Do EXTENDED window higher moments (240d kurtosis, 120d skewness×liquidity)
+    capture structural tail risk?
+  why_matters: 'batch_087: 120d kurtosis IC≈0, 60d skewness is reversal (absorbed
+    by turnover). Longer windows (240d) and liquidity conditioning may avoid these
+    failure modes.'
+  status: parked
+  priority: high
+  next_probes:
+  - TsKurt($close, 240) — 240d structural tail risk
+  - TsSkew($close, 120) × CsRank($amount) — skewness conditioned on liquidity
+  stop_condition: If 240d kurtosis or 120d skewness×liquidity produces IC_IR > 0.15,
+    confirm extended window mechanism
+next_actions: []
+last_reflected_batch: batch_088
