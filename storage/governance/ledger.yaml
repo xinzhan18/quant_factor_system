@@ -858,6 +858,35 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_097:
+      batch_id: batch_097
+      candidate_count: 4
+      logic_ids:
+      - L012
+      - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
+    batch_098:
+      batch_id: batch_098
+      candidate_count: 4
+      logic_ids:
+      - L013
+      phase: frozen
+      holdout_used: false
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1270,6 +1299,27 @@ holdout_reviews:
     detail: 'C004 (7d×50d soft-decorr): ICIRho=-0.364 (strongest in batch), mono_ho=-0.7
       (best quintile stability). alpha_surv=0.661. Potential 2nd admit alongside C001
       as 7d×50d complement to 5d×40d anchor.'
+    outcome: null
+  - review_id: HR_097_001
+    batch_id: batch_097
+    target_id: C001
+    trigger_reason_codes:
+    - structural_discovery_low_max_lib
+    status: pending
+    detail: 'C001 decorr-inside-Corr: max_lib=0.504 vs F017 (structurally distinct).
+      alpha_surv=1.031. ICIR_ho=-0.160 too weak for direct admit. Reserve for further
+      exploration.'
+    outcome: null
+  - review_id: HR_097_002
+    batch_id: batch_097
+    target_id: C004
+    trigger_reason_codes:
+    - holdout_confirms_signal
+    - risk_poor
+    status: pending
+    detail: 'C004 TsAutoCorr(40d): ICIR_ho=-0.319, mono_ho=-0.9 strong holdout. But
+      risk=poor (alpha_surv=0.274), barra_res_icir=+0.087 positive. Reserve for Python-level
+      conditioning if available.'
     outcome: null
 search_ledger:
   by_experiment_tag:
@@ -2165,6 +2215,20 @@ search_ledger:
       continue_count_to_date: 0
       pause_count_to_date: 1
       latest_verdict: pause
+    ELT_L013_mutate_orthogonal_structure_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 1
+      reject_count_to_date: 1
+      continue_count_to_date: 1
+      latest_verdict: continue
+    ELT_L012_mutate_window_scan_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 1
+      reject_count_to_date: 1
+      kill_count_to_date: 1
+      latest_verdict: kill
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -2197,9 +2261,9 @@ search_ledger:
       reserve_count_to_date: 0
     PF_amount_autocorrelation:
       admitted_count_to_date: 0
-      family_attempt_count_to_date: 3
-      reject_count_to_date: 2
-      reserve_count_to_date: 0
+      family_attempt_count_to_date: 5
+      reject_count_to_date: 3
+      reserve_count_to_date: 1
     PF_autocorr_value:
       admitted_count_to_date: 0
       family_attempt_count_to_date: 3
@@ -2207,9 +2271,9 @@ search_ledger:
       reserve_count_to_date: 1
     PF_range_amount_flow:
       admitted_count_to_date: 1
-      family_attempt_count_to_date: 31
-      reject_count_to_date: 7
-      reserve_count_to_date: 22
+      family_attempt_count_to_date: 33
+      reject_count_to_date: 8
+      reserve_count_to_date: 23
       replace_count_to_date: 1
     PF_cross_covariance:
       admitted_count_to_date: 0
@@ -2363,15 +2427,15 @@ search_ledger:
       reject_count_to_date: 4
       reserve_count_to_date: 0
     L012:
-      logic_attempt_count_to_date: 3
+      logic_attempt_count_to_date: 5
       admitted_count_to_date: 0
-      reject_count_to_date: 2
-      reserve_count_to_date: 1
+      reject_count_to_date: 3
+      reserve_count_to_date: 2
     L013:
-      logic_attempt_count_to_date: 31
+      logic_attempt_count_to_date: 33
       admitted_count_to_date: 1
-      reject_count_to_date: 7
-      reserve_count_to_date: 22
+      reject_count_to_date: 8
+      reserve_count_to_date: 23
       replace_count_to_date: 1
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
@@ -2694,6 +2758,15 @@ search_ledger:
     escalation_note: 'Repeated across 2 batches (batch_082: 3 factors, batch_083:
       3 factors). All fail on style dominance. Suggests fundamental limitation.'
     enriched_at: '2026-04-09T20:02:09.295346'
+  - anomaly_type: decorr_inside_corr_low_redundancy
+    first_seen_batch: batch_097
+    description: C001 decorr-inside-Corr achieves max_lib=0.504 vs F017 — far lower
+      than soft-decorr variants (0.85-0.99). alpha_surv=1.031.
+    likely_mechanism: Pre-normalizing amount BEFORE correlation creates structurally
+      different measurement from external conditioning.
+    style_repackaging_risk: low
+    explainable_by_existing_logic: partial
+    escalation_status: watch
 write_audit_log:
   entries:
   - action: admit
@@ -3667,3 +3740,17 @@ write_audit_log:
     action: finalize_batch
     target: batch_096
     detail: updated_logics=L013
+  - timestamp: '2026-04-10T04:00:00'
+    actor: factor-judge
+    action: judge_batch
+    target: batch_097
+    level: 1
+    reason_codes:
+    - admit=0
+    - reserve=2
+    - reject=2
+  - timestamp: '2026-04-09T19:48:00+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_097
+    detail: updated_logics=L013,L012

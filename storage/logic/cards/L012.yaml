@@ -1,7 +1,7 @@
 logic_id: L012
 name: Amount Autocorrelation × Value Conditioning
 category: volume_persistence
-status: warm
+status: parked
 priority: high
 hypothesis:
   condition: 成交金额自相关（TsAutoCorr($amount, N)）在低估值股票中携带独立alpha
@@ -42,40 +42,42 @@ contract:
   - Simple DSL conditioning of TsAutoCorr appears fundamentally limited by Barra absorption.
   - The autocorr mechanism is different from the divergence mechanism at the style-factor
     level.
+  - DO NOT probe further TsAutoCorr window variants (5d, 10d, 20d, 40d all exhausted).
+  - 'DO NOT attempt PE conditioning (batch_089 fatal: ep_ratio dominant).'
+  - 'DO NOT attempt soft-decorr turnover subtraction (batch_089: wrong direction barra_res).'
+  - DSL-level approach is confirmed exhausted for L012.
+  - 'Only viable path: Python-level factor residualization against Barra style exposures.'
+  - If that's not available, L012 should remain parked.
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
   factors_generated: 0
   factors_admitted: 0
-  rounds_without_admit: 1
+  rounds_without_admit: 2
   productive_families: []
   failed_families: []
-  current_bottleneck: 'The PE conditioning paradigm from L009 does NOT transfer to
-    TsAutoCorr.
+  current_bottleneck: 'Window scan (batch_097) combined with all prior testing (batch_089)
+    confirms:
 
-    Three distinct failure modes were observed:
+    TsAutoCorr($amount,N) at all windows [5d, 10d, 20d, 40d] produces positive
 
-    (1) PE conditioning (20d): ep_ratio style trap — alpha_surv drops to 9%
+    barra_res_icir or risk=poor. The mechanism is fundamentally style-contaminated
+    at
 
-    (2) Soft-decorrelation (20d): near-duplicate of F001 with wrong-sign Barra residual
-    (+0.171)
+    DSL level.
 
-    (3) PE conditioning (10d): vol_20d style trap — alpha_surv=12%
 
-    The core finding is that TsAutoCorr has fundamentally different Barra structure
-    than Corr.
+    Key pattern: barra_res_icir becomes LESS negative (more positive) as window shortens
 
-    For Corr($close,$amount,N), the signal information content is orthogonal to PE
-    rank conditioning.
+    (40d: +0.087, 5d: +0.124). The shorter the TsAutoCorr window, the MORE the signal
 
-    For TsAutoCorr($amount,N), the signal information content is already embedded
-    in Barra styles —
+    is dominated by style factors (likely str_1m for short windows, mom_12_1 for longer).
 
-    conditioning just reorganizes which style factor dominates.
 
-    F001 (plain TsAutoCorr($amount,20)) remains the canonical autocorr factor.
+    DSL conditioning attempts (PE multiplier, soft-decorr turnover subtraction) all
+    failed
 
-    Conditioning does not add value and creates style contamination.'
+    in batch_089. Window scan in batch_097 confirms window tuning is equally ineffective.'
   transitions:
   - from: active
     to: warm
@@ -105,13 +107,27 @@ evidence_summary:
 
       (Python regression neutralization) could be the correct approach.'
     at: '2026-04-10 01:46:11'
+  - from: warm
+    to: parked
+    reason: 'Window scan confirms TsAutoCorr style contamination persists at all tested
+      windows
+
+      (5d, 10d, 20d, 40d). All windows produce positive barra_res_icir or risk=poor.
+
+      DSL-level conditioning is exhausted — PE conditioning (batch_089) and soft-decorr
+
+      (batch_089) both failed previously. No DSL approach has produced acceptable
+      risk.
+
+      Park L012. If Python-level residualization or advanced conditioning becomes
+      available,
+
+      L012 can be revisited.'
+    at: '2026-04-10 03:47:59'
 next_actions:
-- TsAutoCorr($amount,5) — Very short autocorr window may have different dominant style
-  (str_1m vs turnover_20d)
-- TsAutoCorr($amount,40) — Longer window may shift to mom_12_1 style space and be
-  conditionable
-- 'Python: residualize TsAutoCorr against top Barra style each day — Direct neutralization
-  may reveal clean residual alpha that conditioning can''t achieve in DSL'
+- 'Python: Sub(TsAutoCorr($amount,40), BetaFit(TsAutoCorr($amount,40), [turnover_20d_barra,
+  str_1m_barra])) — Python-level multi-style residualization. If 40d TsAutoCorr is
+  purely style exposure, residual will be noise. If there''s alpha, this reveals it.'
 deepening_threads:
 - id: T001
   question: Does CsRank($pe_ratio) conditioning on TsAutoCorr($amount,20) break the
@@ -119,7 +135,7 @@ deepening_threads:
   why_matters: F001 likely has turnover_20d style exposure (persistent high-amount
     stocks = high turnover). PE conditioning breaks this for pv_corr (F015, F016).
     Same mechanism may apply here.
-  status: active
+  status: parked
   priority: high
   next_probes:
   - Mul(TsAutoCorr($amount,20),CsRank($pe_ratio))
@@ -128,5 +144,5 @@ deepening_threads:
     confirm PE conditioning works for autocorr
 origin_proposal_id: L012
 created_at: '2026-04-10'
-updated_at: '2026-04-10 01:46:11'
-last_reflected_batch: batch_089
+updated_at: '2026-04-10 03:47:59'
+last_reflected_batch: batch_097

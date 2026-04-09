@@ -216,3 +216,12 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 - **FP-L013-0.3-coeff-optimal-at-40d**: For 5d range-amount × CsRank(rel-amount-40d) soft-decorr: coeff=0.2 gives ICIRho=-0.343 (better) but alpha_surv=0.673 (worse than 0.3's 0.781). coeff=0.4 gives alpha_surv=0.940 (better) but ICIRho=-0.294 (borderline). Coefficient=0.3 is the optimal balance. Do NOT retry coefficient variations for 5d×40d.
 
 - **FP-L013-7d-30d-degrades-mono**: 7d×30d soft-decorr: mono_ho=-0.4 (WORSE than 5d×30d's -0.6). The 7d window degrades quintile stability at 30d normalization. Do NOT probe 7d×30d variations. 5d×30d is the best 30d signal.
+
+## Batch 097 Lessons (2026-04-10)
+
+- **NM-L013-decorr-inside-corr-structurally-distinct**: Decorr-INSIDE-Corr (normalize amount before computing correlation) achieves max_lib=0.504 vs F017 — far lower than ALL soft-decorr variants (0.85-0.99). The "pre-normalize amount argument" approach creates a structurally different signal. alpha_surv=1.031 (amplified by Barra removal). Block: ICIR_ho=-0.160 too weak. The structure type is valid; need stronger IC variant. Next: probe higher coefficient (0.5, 0.7) in internal-decorr to strengthen IC.
+
+- **FP-L013-3d-window-mono-collapse**: 3d×40d soft-decorr: mono_ho=-0.1 (catastrophic collapse). Minimum stable correlation window for range-amount is 5d. 3d captures too much high-frequency noise — institutional activity signal disperses below 5d resolution. Do NOT probe 3d or shorter windows.
+
+- **FP-L012-window-scan-exhausted**: TsAutoCorr window scan: 5d (barra_res=+0.124), 10d (alpha_surv=0.090), 20d (barra_res=+0.171), 40d (barra_res=+0.087). ALL windows produce positive barra_res_icir or risk=poor. TsAutoCorr at DSL level has fundamental style contamination — window tuning does not help. L012 parked. Only Python-level style residualization can rescue 40d TsAutoCorr.
+
