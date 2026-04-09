@@ -1,0 +1,167 @@
+judge_report:
+  batch_id: batch_083
+  judged_at: '2026-04-09T20:01:50.627393'
+  batch_summary:
+    total_candidates: 3
+    admitted: 0
+    rejected: 3
+    reserved: 0
+    replaced: 0
+  candidate_verdicts:
+  - candidate_id: C001
+    name: conditional_cs_rank_v1
+    verdict: reject
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+    detail: 'IC_val=-0.028, IR_val=-0.248, mono_val=-0.9 (perfect monotonicity). Holdout:
+      decay=1.14 (good), mono_ho=-0.5. BUT: Barra_residual_IC=0.0014 (≈0), alpha_surv=0.050
+      (CRITICAL), str_1m=0.679 (VERY HIGH), style_r2=0.295. Signal is pure short-term
+      reversal — cross-sectional conditional selection does NOT produce orthogonal
+      alpha beyond str_1m.'
+  - candidate_id: C002
+    name: dvw_return_v1
+    verdict: reject
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+    detail: 'IC_val=-0.060, IR_val=-0.429 (STRONGEST in batch), ls_tstat=-6.38 (best).
+      BUT: mono_ho=0.0 (NO holdout monotonicity), alpha_surv=0.142 (borderline), str_1m=0.799
+      (EXTREMELY HIGH), style_r2=0.525 (very high). Dollar volume weighting collapses
+      to pure reversal. The monetary attention mechanism is fully absorbed by str_1m.'
+  - candidate_id: C003
+    name: rolling_beta_residual_v1
+    verdict: reject
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+    detail: 'IC_val=-0.029, IR_val=-0.265, decay=1.247 (good). Holdout mono=-0.6 (consistent).
+      BUT: Barra_residual_IC=0.004 (≈0), alpha_surv=0.133 (borderline), str_1m=0.609
+      (HIGH), style_r2=0.414. Rolling beta adjustment (vs batch_082 equal-weighted)
+      still collapses to str_1m. The simplification beta=1 was NOT the cause of style
+      absorption.'
+  route_verdicts:
+  - route_id: R001
+    experiment_lineage_tag: ELT_L010_python_conditional_rank_v1
+    verdict: kill
+    reason: Conditional CsRank mechanism collapses to str_1m (0.679). Cross-sectional
+      conditional selection does not produce orthogonal alpha.
+  - route_id: R002
+    experiment_lineage_tag: ELT_L010_python_dvw_return_v1
+    verdict: kill
+    reason: DVW return collapses to str_1m (0.799). Dollar volume weighting mechanism
+      fully absorbed by short-term reversal.
+  - route_id: R003
+    experiment_lineage_tag: ELT_L010_python_rolling_beta_residual_v1
+    verdict: kill
+    reason: Rolling beta residual collapses to str_1m (0.609). Even proper beta adjustment
+      does not produce independent alpha.
+  logic_recommendations:
+  - logic_id: L010
+    recommended_status: active
+    reason: 'CRITICAL FINDING: Across 2 batches (batch_082, batch_083), 6/6 Python
+      factor implementations exhibit str_1m dominance (0.56-0.80). This is NOT a coincidence
+      — it reveals a structural property: any short-window cross-sectional mechanism
+      in this universe collapses to short-term reversal. L010 hypothesis ("Python
+      can express what DSL cannot") is partially validated: Python pipeline works,
+      but the mechanisms that can be expressed ALL produce str_1m signals. Need to
+      pivot to genuinely different signal types: (1) long-horizon signals (>20d) that
+      avoid str_1m absorption, (2) intertemporal signals that encode time-series structure
+      rather than cross-sectional ranking, (3) fundamental data interactions beyond
+      price/volume. L010 is NOT exhausted — the design space is, for this class of
+      mechanisms.'
+  new_lessons:
+  - id: ST_L010_str_1m_absorber
+    type: ST
+    description: 6/6 Python cross-sectional mechanisms (regime-adaptive EWM, quintile
+      spread, market residual, conditional CsRank, DVW return, rolling beta residual)
+      ALL collapse to str_1m dominance (str_1m=0.56-0.80). This is a structural property
+      of short-window cross-sectional signals in this universe — NOT a parameter or
+      implementation problem. The str_1m style acts as an absorber for ANY cross-sectional
+      mechanism at <20d windows.
+    severity: high
+  - id: FP_L010_dvw_mechanism_fails
+    type: FP
+    description: DVW return (smart money flow hypothesis) produces the STRONGEST IC
+      (-0.060) but also the HIGHEST str_1m (0.799). Stronger signal = more style contamination.
+      The dollar volume weighting mechanism does NOT produce smart money alpha — it
+      produces pure short-term reversal.
+    severity: high
+  - id: FP_L010_rolling_beta_equal_weight_same
+    type: FP
+    description: Rolling beta residual (beta estimated per-stock) produces same str_1m
+      collapse as batch_082 equal-weighted market residual (beta=1). Beta=1 simplification
+      was NOT the cause — the residual mechanism itself collapses to reversal regardless
+      of beta estimation method.
+    severity: high
+  discovery_flags:
+  - anomaly_type: repeated_style_dominance_cluster
+    first_seen_batch: batch_082
+    description: 6/6 Python factors across 2 batches exhibit str_1m dominance (0.56-0.80).
+      All 3 mechanism families (regime-adaptive, amount-based, residual) collapse
+      to same style pattern.
+    likely_mechanism: Short-window cross-sectional signals (<20d) in this universe
+      are structurally equivalent to str_1m reversal. This is a universe property,
+      not a design flaw.
+    style_repackaging_risk: high
+    explainable_by_existing_logic: partial
+    escalation_status: escalated
+    escalation_note: 'Repeated across 2 batches (batch_082: 3 factors, batch_083:
+      3 factors). All fail on same dimension (style dominance). Suggests fundamental
+      limitation: Python cross-sectional short-window mechanisms cannot produce non-str_1m
+      alpha in this universe.'
+  logic_diagnostics:
+    L010:
+      thesis_update: 'L010 hypothesis: "Python因子能表达DSL无法实现的复杂机制" — 技术路径已验证（pipeline跑通），但机制层面遭遇系统性塌缩。
+
+        batch_082: regime-adaptive EWM、quintile spread、market residual → 全部str_1m主导
+
+        batch_083: conditional CsRank、DVW return、rolling beta residual → 同样全部str_1m主导
+
+        6个实现涵盖：EWM衰减变体、quintile分类、market残差、conditional ranking、金额加权、beta调整 — 全军覆没。
+
+        这不是巧合。str_1m是A股短期反转的强势风格因子，任何<20d窗口的横截面机制都被它吸收。
+
+        核心问题：Python的技术优势（条件逻辑、滚动回归、金额加权）在这些具体实现中全都表达了"短期反转"这一本质机制，而不是真正的新机制。'
+      evidence_for:
+      - 'C001: mono_val=-0.9 (perfect monotonicity), IC=-0.028, IR=-0.248 — strong
+        statistical signal'
+      - 'C002: IC=-0.060, IR=-0.429 — strongest statistical signal in entire L010
+        campaign'
+      - 'C003: decay=1.247 (best holdout stability), Barra_residual_IC≈0 — residual
+        mechanism not working'
+      - 'All 6 candidates: expanding_window_pass=True, sign_consistency=True — stable
+        direction'
+      evidence_against:
+      - 'All 6: str_1m=0.56-0.80 (HIGH to VERY HIGH), Barra_residual_IC≈0 — pure style
+        absorption'
+      - 'All 6: alpha_surv<0.15 (critical to borderline) — independent alpha near
+        zero'
+      - 'C002: mono_ho=0.0 — even the strongest IC factor has no holdout monotonicity'
+      - 'batch_082 quintile spread: mono_val=0.0 — completely non-monotonic despite
+        theoretical appeal'
+      failure_boundary: '不再用任何<20d窗口的横截面机制：已被6个实现证明全部塌缩为str_1m。
+
+        不再尝试DVW return（金额加权）：最强IC但最严重style污染。
+
+        不再改进market residual方法（beta估计vs等权）：beta细节不影响结果。
+
+        不再用EWM做regime-adaptive decay：已被证明是str_1m变体。
+
+        这些是机制层面的边界，不是参数调优问题。'
+      open_questions:
+      - Python的真正优势是否在于A股<20d窗口以外的信号类型？
+      - 跨时间序列结构（intertemporal）是否比横截面机制更有潜力？
+      - 基本面数据×技术指标的交互是否产生独立于str_1m的alpha？
+      - 是否应该探索>20d甚至>60d的Python因子？
+      next_best_probes:
+      - expr: 'Python: TsAutoCorr($close, 20) — time-series autocorrelation at medium
+          horizon, NOT cross-sectional'
+        why: 避免str_1m吸收的横截面机制，转向时间序列自相关。20d窗口已经避开了str_1m的最强吸收带。
+      - expr: 'Python: Cov($close, $amount, 20) — inter-field covariance at medium
+          horizon'
+        why: 20d协方差是已知的有效信号，但之前的实现可能参数不对。这个用Python实现，确保向量化计算正确性。
+      - expr: 'Python: conditional on PE ratio — long only high-quality stocks with
+          positive momentum'
+        why: 所有6个失败案例都是无条件的横截面信号。加入基本面过滤（PE低 + 动量正）可能打破str_1m吸收。
+      factor_roles: []
