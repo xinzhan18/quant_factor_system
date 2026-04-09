@@ -661,6 +661,20 @@ batch_usage:
       - L010
       candidate_count: 3
       phase: judged
+    batch_083:
+      batch_id: batch_083
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
+      holdout_used: true
+      logic_ids:
+      - L010
+      candidate_count: 3
+      phase: judged
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1679,6 +1693,24 @@ search_ledger:
       reserve_count_to_date: 0
       continue_count_to_date: 0
       latest_verdict: kill
+    ELT_L010_python_conditional_rank_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: kill
+    ELT_L010_python_dvw_return_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: kill
+    ELT_L010_python_rolling_beta_residual_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: kill
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -1764,6 +1796,18 @@ search_ledger:
       family_attempt_count_to_date: 3
       admitted_count_to_date: 0
       reserve_count_to_date: 0
+    PF_conditional_cs_rank:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+    PF_dvw_signal:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
+    PF_rolling_beta_residual:
+      family_attempt_count_to_date: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
   by_logic:
     L001:
       admitted_count_to_date: 3
@@ -1809,7 +1853,7 @@ search_ledger:
       reject_count_to_date: 9
       reserve_count_to_date: 42
     L010:
-      logic_attempt_count_to_date: 6
+      logic_attempt_count_to_date: 9
       admitted_count_to_date: 0
       reject_count_to_date: 0
       reserve_count_to_date: 0
@@ -2122,6 +2166,18 @@ search_ledger:
     style_repackaging_risk: medium
     explainable_by_existing_logic: partial
     escalation_status: watch
+  - anomaly_type: repeated_style_dominance_cluster
+    first_seen_batch: batch_082
+    description: 6/6 Python factors across 2 batches exhibit str_1m dominance (0.56-0.80).
+      All 3 mechanism families collapse to same style pattern.
+    likely_mechanism: Short-window cross-sectional signals (<20d) in this universe
+      are structurally equivalent to str_1m reversal.
+    style_repackaging_risk: high
+    explainable_by_existing_logic: partial
+    escalation_status: escalated
+    escalation_note: 'Repeated across 2 batches (batch_082: 3 factors, batch_083:
+      3 factors). All fail on style dominance. Suggests fundamental limitation.'
+    enriched_at: '2026-04-09T20:02:09.295346'
 write_audit_log:
   entries:
   - action: admit
@@ -2830,6 +2886,30 @@ write_audit_log:
     - poor_split_stability
     - mechanism_unclear
   - timestamp: '2026-04-09T19:52:07.848182'
+    actor: factor-judge
+    action: reject
+    target: C003
+    level: 1
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+  - timestamp: '2026-04-09T20:02:09.295353'
+    actor: factor-judge
+    action: reject
+    target: C001
+    level: 1
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+  - timestamp: '2026-04-09T20:02:09.295353'
+    actor: factor-judge
+    action: reject
+    target: C002
+    level: 1
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+  - timestamp: '2026-04-09T20:02:09.295353'
     actor: factor-judge
     action: reject
     target: C003
