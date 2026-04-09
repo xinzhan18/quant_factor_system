@@ -1,0 +1,52 @@
+batch_id: batch_088
+logic_id: L011
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L011_python_ts_kurtosis_240d_v1
+    family_id: FM_return_moments
+    research_question: "Does 240d rolling kurtosis capture structural tail risk missed by 120d?"
+    route_id: R001
+    route_type: decorrelate
+    source_thread_id: T002
+  - experiment_lineage_tag: ELT_L011_python_ts_skew_120d_x_liquidity_v1
+    family_id: FM_return_moments
+    research_question: "Does 120d skewness conditioned on liquidity avoid turnover absorption?"
+    route_id: R002
+    route_type: decorrelate
+    source_thread_id: T002
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L011_python_ts_kurtosis_240d_v1
+    name: ts_kurtosis_240d_v1
+    family_id: FM_return_moments
+    logic_id: L011
+    route_id: R001
+    route_type: decorrelate
+    source_thread_id: T002
+    source_type: python
+    module_path: storage/factors/python/ts_kurtosis_240d.py
+    params:
+      kurt_period: 240
+      ewm_span: 10
+      vol_filter_pct: 0.30
+    rationale: "240d kurtosis — structural tail risk at ~1 year horizon. If 120d is signal-free, 240d may capture a different structural property of return distributions."
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L011_python_ts_skew_120d_x_liquidity_v1
+    name: ts_skew_120d_x_liquidity_v1
+    family_id: FM_return_moments
+    logic_id: L011
+    route_id: R002
+    route_type: decorrelate
+    source_thread_id: T002
+    source_type: python
+    module_path: storage/factors/python/ts_skew_120d_x_liquidity.py
+    params:
+      skew_period: 120
+      liq_filter_pct: 0.50
+      ewm_span: 10
+      vol_filter_pct: 0.30
+    rationale: "120d skewness × liquidity filter. 60d skewness was pure reversal (absorbed by turnover). Conditioning on amount rank may isolate skewness from turnover effects."
