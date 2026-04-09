@@ -1,7 +1,7 @@
 logic_id: L013
 name: Range-Amount Correlation
 category: microstructure_flow
-status: active
+status: productive
 priority: high
 hypothesis:
   condition: 日内价格区间波动（(high-low)/close）与成交金额的协同运动强度
@@ -71,57 +71,72 @@ contract:
   - 'NEW BOUNDARY: CsRank(Div($amount, Mean($amount, 30-40d))): str_1m=37-42%, risk=borderline'
   - 'NOT YET TESTED: 50d window (should be between 40d and 60d str_1m values)'
   - 'NOT YET TESTED: Python str_1m residualization of 30d/40d variants'
+  - 'PROVEN: Raw relative-amount conditioning at 30-50d windows produces str_1m=20-42%,'
+  - blocking acceptable risk. DSL soft-decorrelation is required for 30-50d variants.
+  - Internal normalization achieves clean risk but weak ICIR — do not pursue internal
+  - normalization further as standalone signal without compositing.
+  - CsRank($amount), CsRank($turnover_rate), CsRank($volume), PE conditioning all
+  - previously proven fatal — do not revisit.
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
-  factors_generated: 0
-  factors_admitted: 0
-  rounds_without_admit: 5
+  factors_generated: 1
+  factors_admitted: 1
+  rounds_without_admit: 0
   productive_families: []
   failed_families: []
-  current_bottleneck: 'MILESTONE: alpha_surv>0.5 achieved in conditioned range-amount
-    for the first time.
+  current_bottleneck: 'CONFIRMED: Range-amount correlation (Corr((high-low)/close,
+    amount, N)) is a genuine
 
-    C002 (5d×30d): alpha_surv=0.589, decay=1.219, ICIRho=-0.338, mono_ho=-0.7.
+    new mechanism class, orthogonal to all pv_corr factors (max_lib=0.065 for raw
+    signal,
 
-    C001 (5d×40d): alpha_surv=0.533, decay=1.159, ICIRho=-0.365, mono_ho=-0.7.
+    0.326 for conditioned variant). The mechanism captures "intraday volatility intensity
 
-
-    NEW UNDERSTANDING: str_1m exposure is NON-MONOTONIC across normalization windows:
-
-    - 20d: str_1m≈8% (pure recent momentum → REVERSES in 2024 → mono collapse)
-
-    - 30d: str_1m=37% (HIGH)
-
-    - 40d: str_1m=38-42% (HIGH)
-
-    - 60d: str_1m=14-17% (medium — longer baseline dilutes momentum component)
+    co-moving with capital flow" — distinct from "price direction × volume" (pv_corr
+    family).
 
 
-    The "why": At 30-40d, the normalization window captures enough history to create
-    stable
+    The conditioning problem is now solved: str_1m soft-decorrelation via DSL achieves
 
-    cross-sectional ranking but not enough to fully dilute the momentum component.
-    The result is
+    acceptable risk (alpha_surv=0.688) without Python post-processing. The 50d normalization
 
-    a stable (non-reversing) str_1m exposure that DOESN''T cause quintile collapse
-    but IS
-
-    flagged as borderline risk.
+    window is the admission-feasible regime for external conditioning.
 
 
-    The core alpha is clearly real (barra_res_icir=-0.23 for all conditioned variants,
+    The internal normalization family (Corr with internally normalized amount) produces
 
-    consistently negative = clean). The str_1m is an overlay effect from the CsRank
-    conditioning.'
-  transitions: []
+    perfect risk profiles (alpha_surv≈1.0) but insufficient raw signal. This may serve
+
+    better as a component in composite signals.'
+  transitions:
+  - from: active
+    to: productive
+    reason: 'First L013 admit achieved (F017, batch_094). The mechanism is confirmed:
+      range-amount
+
+      correlation conditioned by relative-amount with DSL-level str_1m decorrelation.
+
+      alpha_surv=0.688, barra_res_icir=-0.274, risk=acceptable. T004 stop condition
+      met.
+
+      The logic has produced a genuinely new factor class (max_lib=0.326 nearest,
+      range-amount
+
+      is orthogonal to all pv_corr factors). Status should move to productive as the
+
+      mechanism is confirmed and the family can continue to yield variants.'
+    at: '2026-04-10 02:55:48'
 next_actions:
-- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,50))))
-  — 50d normalization: should be between 40d (str_1m=38%) and 60d (str_1m=14-17%).
-  If str_1m<20% here, this is the admission window.'
-- 'Python: Sub(Corr(range/close, amount, 5) × CsRank(Div($amount,Mean($amount,30))),
-  factor_residualized_vs_str1m) — Direct str_1m orthogonalization of C002 — removes
-  str_1m loading to achieve acceptable risk bucket'
+- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
+  — Apply the proven soft-decorrelation to 40d window (where alpha_surv=0.533 before
+  decorr). Should exceed C004's alpha_surv=0.688.
+- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,30))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
+  — Apply to 30d window (where alpha_surv=0.589 before decorr — highest observed).
+  Could produce alpha_surv>0.7.
+- Mul(Corr(Div(Sub($high,$low),$close),$amount,7),Sub(CsRank(Div($amount,Mean($amount,50))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
+  — 7d window showed better mono_ho at 60d normalization. Apply soft-decorr to 7d×50d
+  variant.
 deepening_threads:
 - id: T001
   question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
@@ -180,5 +195,5 @@ deepening_threads:
     AND risk_bucket=acceptable, promote to admit
 origin_proposal_id: L013
 created_at: '2026-04-10'
-updated_at: '2026-04-10 02:37:39'
-last_reflected_batch: batch_093
+updated_at: '2026-04-10 02:55:48'
+last_reflected_batch: batch_094

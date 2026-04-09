@@ -194,3 +194,11 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 - **FP-L013-str1m-nonmonotonic-intermediate-windows**: str_1m exposure across normalization windows is NON-MONOTONIC: 20d≈8% → 30d=37% → 40d=38-42% → 60d=14-17%. Intermediate windows (30-40d) produce 2-3x HIGHER str_1m than both shorter (20d) and longer (60d) windows. The 30d-40d regime captures cross-sectional momentum that loads heavily on str_1m. At 20d the signal IS momentum (reverting). At 60d the long baseline dilutes it. At 30-40d it's a stable (non-reversing) str_1m overlay that blocks acceptable risk bucket. Next: probe 50d window or Python residualization.
 
 
+
+## Batch 094 Soft Lessons (2026-04-10)
+
+- **NM-L013-str1m-soft-decorr-works**: DSL-level str_1m soft-decorrelation via Sub(CsRank(Div($amount,Mean($amount,50))), Mul(CsRank(Div($close,Ref($close,22))),0.3)) achieves risk=acceptable (alpha_surv=0.688) on range-amount signal. The 0.3 coefficient subtracts 30% of 1-month return rank from the relative-amount conditioner, neutralizing the intermediate-window momentum overlay. FIRST L013 ADMIT: F017. Approach generalizes to any factor where 30-50d normalization window produces str_1m=20-42% style load.
+
+- **NM-L013-50d-transition-boundary**: 50d normalization window is the transition zone between intermediate str_1m regime (30-40d = 38-42%) and longer baseline (60d = 14-17%). At 50d, alpha_surv=0.500 (exact borderline/acceptable boundary), dom_style=None (str_1m dropped significantly but risk bucket still borderline). The raw 50d conditioning is at the critical boundary — DSL decorrelation pushes it to acceptable. Non-monotonic str_1m pattern boundary is: 20d=8% → 30-40d=37-42% → 50d=~20% → 60d=14-17%.
+
+- **ST-L013-internal-norm-alpha-surv-universal**: Internal normalization family (Corr(range/close, amount/Mean(amount,N), 5)) consistently produces alpha_surv≈1.0 across ALL tested windows (20d: 1.001, 40d: 0.992, 50d: 0.983) but ICIRho is consistently weak (-0.14 to -0.16). This is a stable pattern: exceptional Barra residual profile but insufficient raw signal strength. Do not pursue internal normalization further as standalone signal — may serve as composite component.

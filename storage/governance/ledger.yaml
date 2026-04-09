@@ -816,6 +816,20 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_094:
+      batch_id: batch_094
+      candidate_count: 4
+      logic_ids:
+      - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1156,8 +1170,8 @@ holdout_reviews:
     - moderate_style_exposure
     status: pending
     detail: 'C002 (5d×30d): alpha_surv=0.589 (highest conditioned in L013!), decay=1.219
-      (highest ever!), ICIRho=-0.338, mono_ho=-0.7. str_1m=37%. Primary candidate if
-      str_1m exposure can be reduced below 20%.'
+      (highest ever!), ICIRho=-0.338, mono_ho=-0.7. str_1m=37%. Primary candidate
+      if str_1m exposure can be reduced below 20%.'
     outcome: null
   - review_id: HR_093_002
     batch_id: batch_093
@@ -1167,6 +1181,36 @@ holdout_reviews:
     status: pending
     detail: 'C001 (5d×40d): alpha_surv=0.533 (first >0.5 milestone!), decay=1.159,
       ICIRho=-0.365, mono_ho=-0.7. str_1m=38%.'
+    outcome: null
+  - review_id: HR_094_001
+    batch_id: batch_094
+    target_id: C001
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C001 (5d×50d raw): alpha_surv=0.500 (exact boundary), ICIRho=-0.389,
+      decay=1.129, mono_ho=-0.7. 50d is the transition zone where str_1m drops from
+      38% to borderline. Soft-decorr variant (C004) admitted as F017.'
+    outcome: null
+  - review_id: HR_094_002
+    batch_id: batch_094
+    target_id: C002
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C002 (7d×50d raw): alpha_surv=0.464, ICIRho=-0.389, decay=1.093,
+      mono_ho=-0.7. 7d variant shows good stability. Soft-decorr approach should
+      be applied to yield 7d×50d admit candidate.'
+    outcome: null
+  - review_id: HR_094_003
+    batch_id: batch_094
+    target_id: C003
+    trigger_reason_codes:
+    - weak_validation_effect
+    status: pending
+    detail: 'C003 (internal 50d norm): alpha_surv=0.983, ICIRho=-0.160, mono_ho=-0.9.
+      Exceptional risk profile but insufficient signal strength. Potential composite
+      component or risk-quality anchor.'
     outcome: null
 search_ledger:
   by_experiment_tag:
@@ -2039,6 +2083,13 @@ search_ledger:
       reserve_count_to_date: 4
       continue_count_to_date: 1
       latest_verdict: continue
+    ELT_L013_mutate_relative_amount_v3:
+      batches_seen: 1
+      admitted_count_to_date: 1
+      reject_count_to_date: 0
+      reserve_count_to_date: 3
+      continue_count_to_date: 1
+      latest_verdict: continue
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -2080,10 +2131,10 @@ search_ledger:
       reject_count_to_date: 2
       reserve_count_to_date: 1
     PF_range_amount_flow:
-      admitted_count_to_date: 0
-      family_attempt_count_to_date: 19
+      admitted_count_to_date: 1
+      family_attempt_count_to_date: 23
       reject_count_to_date: 7
-      reserve_count_to_date: 12
+      reserve_count_to_date: 15
     PF_cross_covariance:
       admitted_count_to_date: 0
       family_attempt_count_to_date: 4
@@ -2241,10 +2292,10 @@ search_ledger:
       reject_count_to_date: 2
       reserve_count_to_date: 1
     L013:
-      logic_attempt_count_to_date: 19
-      admitted_count_to_date: 0
+      logic_attempt_count_to_date: 23
+      admitted_count_to_date: 1
       reject_count_to_date: 7
-      reserve_count_to_date: 12
+      reserve_count_to_date: 15
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3484,3 +3535,28 @@ write_audit_log:
     action: finalize_batch
     target: batch_093
     detail: updated_logics=L013
+  - request_id: batch_094_C004_admit
+    timestamp: '2026-04-09T18:55:38.320515+00:00'
+    actor: judge
+    level: level_1
+    target: factor_registry
+    action: admit
+    status: accepted
+    rejection_reason_codes: null
+  - timestamp: '2026-04-09T18:55:48+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_094
+    detail: updated_logics=L013
+  - timestamp: '2026-04-10T04:30:00+00:00'
+    actor: factor-judge
+    action: judge_batch
+    target: batch_094
+    level: 1
+    detail: '4 candidates: 1 admit (C004→F017, str_1m soft-decorr), 3 reserve (C001/C002/C003).
+      FIRST L013 ADMIT. alpha_surv=0.688, barra_res_icir=-0.274, risk=acceptable.
+      T004 stop condition met. L013→productive.'
+    reason_codes:
+    - mechanism_aligned
+    - risk_model_acceptable
+    - feasibility_ok
