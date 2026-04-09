@@ -225,3 +225,12 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 
 - **FP-L012-window-scan-exhausted**: TsAutoCorr window scan: 5d (barra_res=+0.124), 10d (alpha_surv=0.090), 20d (barra_res=+0.171), 40d (barra_res=+0.087). ALL windows produce positive barra_res_icir or risk=poor. TsAutoCorr at DSL level has fundamental style contamination — window tuning does not help. L012 parked. Only Python-level style residualization can rescue 40d TsAutoCorr.
 
+
+## Batch 098 Lessons (2026-04-10)
+
+- **FP-L013-internal-decorr-icir-ceiling**: Internal-decorr (decorr-inside-Corr) ICIR ceiling confirmed at ~-0.15 to -0.16 regardless of coefficient (0.3/0.5/0.7) or str_1m proxy (22d return, 5d/22d MA deviation). Parameter tuning cannot break through. The structure pre-subtracts too much variation from the amount series. alpha_surv>1.0 cluster confirmed (1.031→1.067→1.110 as coefficient increases). Do NOT probe further internal-decorr variants at DSL level.
+
+- **FP-L013-ma-deviation-proxy-worsens-risk**: 5d/22d MA-deviation as str_1m proxy in external conditioning: max_lib=0.902 (near-dup F017) AND alpha_surv=0.404 (WORSE than F017 at 0.781). MA-deviation is a purer momentum signal than simple 22d return — loads MORE on str_1m Barra factor. Do NOT use MA-deviation as external conditioning str_1m proxy. The simple 22d return (close/Ref(close,22)) is confirmed optimal for external conditioning.
+
+- **L013 DSL exhausted**: All DSL-level L013 conditioning approaches exhausted. F017 (5d×40d, coeff=0.3, 22d return proxy) is the definitive output. Internal-decorr axis exhausted. External conditioning axis exhausted. No further DSL exploration warranted.
+

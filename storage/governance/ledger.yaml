@@ -878,6 +878,21 @@ batch_usage:
       candidate_count: 4
       logic_ids:
       - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
+    batch_099:
+      batch_id: batch_099
+      candidate_count: 6
+      logic_ids:
+      - L014
+      - L015
       phase: frozen
       holdout_used: false
       train_range:
@@ -2216,16 +2231,23 @@ search_ledger:
       pause_count_to_date: 1
       latest_verdict: pause
     ELT_L013_mutate_orthogonal_structure_v1:
-      batches_seen: 1
+      batches_seen: 2
       admitted_count_to_date: 0
-      reserve_count_to_date: 1
+      reserve_count_to_date: 4
       reject_count_to_date: 1
       continue_count_to_date: 1
-      latest_verdict: continue
+      latest_verdict: pause
     ELT_L012_mutate_window_scan_v1:
       batches_seen: 1
       admitted_count_to_date: 0
       reserve_count_to_date: 1
+      reject_count_to_date: 1
+      kill_count_to_date: 1
+      latest_verdict: kill
+    ELT_L013_mutate_str1m_proxy_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 0
       reject_count_to_date: 1
       kill_count_to_date: 1
       latest_verdict: kill
@@ -2271,9 +2293,9 @@ search_ledger:
       reserve_count_to_date: 1
     PF_range_amount_flow:
       admitted_count_to_date: 1
-      family_attempt_count_to_date: 33
-      reject_count_to_date: 8
-      reserve_count_to_date: 23
+      family_attempt_count_to_date: 37
+      reject_count_to_date: 9
+      reserve_count_to_date: 26
       replace_count_to_date: 1
     PF_cross_covariance:
       admitted_count_to_date: 0
@@ -2372,6 +2394,16 @@ search_ledger:
       admitted_count_to_date: 0
       reject_count_to_date: 4
       reserve_count_to_date: 0
+    PF_turnover_autocorrelation:
+      family_attempt_count_to_date: 0
+      admitted_count_to_date: 0
+      reject_count_to_date: 0
+      reserve_count_to_date: 0
+    PF_fundamental_price_divergence:
+      family_attempt_count_to_date: 0
+      admitted_count_to_date: 0
+      reject_count_to_date: 0
+      reserve_count_to_date: 0
   by_logic:
     L001:
       admitted_count_to_date: 3
@@ -2432,11 +2464,21 @@ search_ledger:
       reject_count_to_date: 3
       reserve_count_to_date: 2
     L013:
-      logic_attempt_count_to_date: 33
+      logic_attempt_count_to_date: 37
       admitted_count_to_date: 1
-      reject_count_to_date: 8
-      reserve_count_to_date: 23
+      reject_count_to_date: 9
+      reserve_count_to_date: 26
       replace_count_to_date: 1
+    L014:
+      logic_attempt_count_to_date: 0
+      admitted_count_to_date: 0
+      reject_count_to_date: 0
+      reserve_count_to_date: 0
+    L015:
+      logic_attempt_count_to_date: 0
+      admitted_count_to_date: 0
+      reject_count_to_date: 0
+      reserve_count_to_date: 0
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3754,3 +3796,17 @@ write_audit_log:
     action: finalize_batch
     target: batch_097
     detail: updated_logics=L013,L012
+  - timestamp: '2026-04-10T04:30:00'
+    actor: factor-judge
+    action: judge_batch
+    target: batch_098
+    level: 1
+    reason_codes:
+    - admit=0
+    - reserve=3
+    - reject=1
+  - timestamp: '2026-04-09T19:56:21+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_098
+    detail: updated_logics=L013

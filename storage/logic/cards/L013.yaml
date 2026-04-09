@@ -1,7 +1,7 @@
 logic_id: L013
 name: Range-Amount Correlation
 category: microstructure_flow
-status: productive
+status: saturated
 priority: high
 hypothesis:
   condition: 日内价格区间波动（(high-low)/close）与成交金额的协同运动强度
@@ -93,26 +93,54 @@ contract:
   - The external conditioning subspace is saturated. All further external variants
   - will show max_lib>0.85 vs F017. Only the "internal conditioning" axis offers
   - 'structural diversification. Next focus: strengthen internal-conditioning IC.'
+  - 'DO NOT retry at DSL level:'
+  - Internal-decorr coefficient variations (0.3/0.5/0.7 all show ICIR ceiling)
+  - Internal-decorr proxy variations (Ref-close and MA-deviation both fail)
+  - External conditioning variations (all max_lib>0.85, fully saturated)
+  - 3d window (fatal mono_ho)
+  - 7d×30d (fatal mono_ho)
+  - Coefficient variations for any window at 5d×40d (batch_096 exhausted)
+  - DSL-level exploration of L013 is complete.
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
   factors_generated: 1
   factors_admitted: 1
-  rounds_without_admit: 3
+  rounds_without_admit: 4
   productive_families: []
   failed_families: []
-  current_bottleneck: "Two signal structures now confirmed for L013:\n1. External\
-    \ conditioning (F017 anchor): Corr(range,amount,5) × CsRank(softdecorr-amount)\n\
-    \   → max_lib=0.85-0.99 within family (all variants are near-duplicates of F017)\n\
-    2. Internal conditioning (new): Corr(range, normalized-amount, 5)\n   → max_lib=0.504\
-    \ vs F017 (structurally distinct!)\n\nThe internal structure shows excellent Barra\
-    \ orthogonality (alpha_surv=1.031) but\nweak IC (ICIR_ho=-0.160). This mirrors\
-    \ the known internal-normalization family pattern\nbut with lower max_lib — it's\
-    \ a genuinely different calculation, not just parameter tuning.\n\nThe 3d window\
-    \ failure (mono_ho=-0.1) establishes 5d as the minimum viable window.\n\nCurrent\
-    \ bottleneck: the internal-conditioning structure needs IC amplification.\nThe\
-    \ question is: can a stronger normalization (higher coefficient? different proxy?\n\
-    compositing with external?) reach ICIR_ho > -0.25 while keeping max_lib < 0.6?"
+  current_bottleneck: 'L013 signal space is now exhausted at DSL level. Two families
+    characterized:
+
+
+    EXTERNAL CONDITIONING (F017 family):
+
+    - All variants: max_lib>0.85 vs F017 (fully internally correlated)
+
+    - Coefficient axis: 0.2/0.3/0.4 → 0.3 is optimal (batch_096)
+
+    - Window axis: 5d×40d optimal; 7d×30d fatal; 3d×40d fatal (batch_097)
+
+    - Proxy axis: Ref-close (22d return) optimal; MA-deviation worsens risk (batch_098)
+
+    - ONE ADMITTED: F017 (5d×40d, coeff=0.3, 22d return proxy)
+
+
+    INTERNAL CONDITIONING (decorr-inside-Corr):
+
+    - max_lib=0.50-0.51 vs F017 (structurally distinct!)
+
+    - alpha_surv=1.03-1.11 (exceptionally Barra-pure)
+
+    - ICIR ceiling: -0.15 to -0.16 regardless of coefficient or proxy
+
+    - No variant meets -0.25 barra_res_icir threshold
+
+    - STRUCTURE IS EXHAUSTED at DSL level
+
+
+    Both families are exhausted. F017 is the definitive output of L013 at current
+    capability.'
   transitions:
   - from: active
     to: productive
@@ -131,20 +159,26 @@ evidence_summary:
 
       mechanism is confirmed and the family can continue to yield variants.'
     at: '2026-04-10 02:55:48'
+  - from: productive
+    to: saturated
+    reason: "L013 signal space for current conditioning approaches is exhausted:\n\
+      - External soft-decorr family: coefficient axis (batch_096), proxy axis (batch_098)\n\
+      \  ALL produce max_lib>0.85 vs F017 — fully internally correlated\n- Internal-decorr\
+      \ (decorr-inside-Corr): ICIR ceiling at ~-0.15 confirmed (coeff\n  0.3/0.5/0.7,\
+      \ proxy Ref-close/MA-deviation all the same). Cannot reach -0.25 threshold\n\
+      - Window variations: 3d fatal, 7d×30d fatal, coefficient axis exhausted\nF017\
+      \ is the one admitted factor. The mechanism is confirmed, but all DSL-level\n\
+      variations are either near-duplicates or too weak for admission. Recommend SATURATED.\n\
+      If Python-level approaches (Barra residualization, factor compositing) become\n\
+      available, L013 internal-decorr family (alpha_surv>1.0) could be revisited."
+    at: '2026-04-10 03:56:20'
 next_actions:
-- Corr(Div(Sub($high,$low),$close),Sub(Div($amount,Mean($amount,40)),Mul(Div($close,Ref($close,22)),0.5)),5)
-  — Higher coefficient (0.5 vs 0.3) in internal decorr. More aggressive str_1m removal
-  may strengthen the residual signal and push ICIR_ho toward -0.25.
-- Corr(Div(Sub($high,$low),$close),Sub(Div($amount,Mean($amount,40)),Mul(Div($close,Ref($close,22)),0.7)),5)
-  — Even higher coefficient (0.7). Test if there's a threshold where internal-decorr
-  IC strengthens.
-- Corr(Div(Sub($high,$low),$close),Sub(Div($amount,Mean($amount,40)),Mul(Sub(Div($close,Mean($close,5)),Div($close,Mean($close,22))),0.5)),5)
-  — Replace Ref-close proxy with 5d/22d MA deviation proxy. Different str_1m characterization
-  may produce different signal quality.
-- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Sub(Div($close,Mean($close,5)),Div($close,Mean($close,22)))),0.3)))
-  — External conditioning but with 5d/22d MA deviation as str_1m proxy. Different
-  proxy for external conditioning family — may produce a variant distinct enough from
-  F017.
+- 'Python: residualize(Corr(range/close, normalized-amount, 5), [vol_20d, str_1m])
+  then check IC — The alpha_surv>1.0 cluster suggests clean mechanism exists post-Barra.
+  Python residualization could extract it.'
+- Mul(F017_values, 0.5) + Mul(InternalDecorr_values, 0.5) portfolio composite — F017
+  and internal-decorr have max_lib=0.50 — a 50/50 composite may have better risk-adjusted
+  IC than either alone.
 deepening_threads:
 - id: T001
   question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
@@ -194,7 +228,7 @@ deepening_threads:
     is because high daily amount = large cap = often growth stocks. Industry normalization
     removes cross-sector size bias while preserving intra-sector institutional activity
     signal.
-  status: active
+  status: parked
   priority: high
   next_probes:
   - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,40))))
@@ -203,5 +237,5 @@ deepening_threads:
     AND risk_bucket=acceptable, promote to admit
 origin_proposal_id: L013
 created_at: '2026-04-10'
-updated_at: '2026-04-10 03:47:59'
-last_reflected_batch: batch_097
+updated_at: '2026-04-10 03:56:20'
+last_reflected_batch: batch_098
