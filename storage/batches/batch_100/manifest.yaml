@@ -1,0 +1,135 @@
+batch_id: batch_100
+created_at: '2026-04-10T04:35:00+00:00'
+status: frozen
+logic_ids:
+  - L015
+
+routes:
+  - route_id: R001
+    logic_id: L015
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_ps_revenue_proxy_v1
+    research_question: 'Does PS ratio (revenue-based) divergence have lower barra_res sign flip than PE-based divergence? PS changes are slower (revenue less volatile than EPS) and may load differently on Barra value factors. Also tests pure EPS change proxy (price-removed earnings momentum) at 60d horizon.'
+    family_id: PF_fundamental_price_divergence
+
+  - route_id: R002
+    logic_id: L015
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pe_independence_filter_v1
+    research_question: 'Does filtering PE divergence by PE-price independence (low rolling correlation between PE change rate and price change rate) reduce value trap contamination and improve barra_res sign? The independence filter selects stocks where PE moves due to earnings, not price — pure alpha signal.'
+    family_id: PF_fundamental_price_divergence
+
+candidates:
+  - candidate_id: C001
+    logic_id: L015
+    route_id: R001
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_ps_revenue_proxy_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Sub(CsRank(Div(Ref($ps_ratio,20),$ps_ratio)),CsRank(Div($close,Ref($close,20))))'
+    rationale: 'PS ratio divergence 20d. PS = Price/Revenue (revenue-based valuation). Revenue changes are slower and less noisy than EPS. If PS improves (declines = cheaper) but price has not risen, predicts value re-rating. Key test: does PS ratio have lower loading on Barra ep_ratio / book_to_price factors, reducing the sign flip seen in PE variants?'
+    implementation_reason: 'PE variants (C003/C004 in batch_099) showed barra_res sign flip due to Barra ep_ratio loading. PS ratio measures revenue efficiency, orthogonal to earnings-based value factors. If PS divergence has positive barra_res_icir, it is a clean earnings-independent mechanism. Probe ICIR=+0.325 (strong).'
+    lineage:
+      parent_expression: 'Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20))))'
+      parent_factor_id: null
+      transformation: replace_pe_with_ps_ratio
+    probe_ic: 0.0453
+    probe_icir: 0.3248
+    probe_verdict: pass
+
+  - candidate_id: C002
+    logic_id: L015
+    route_id: R001
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_ps_revenue_proxy_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Sub(CsRank(Div(Ref($ps_ratio,60),$ps_ratio)),CsRank(Div($close,Ref($close,60))))'
+    rationale: 'PS ratio divergence 60d. Tests whether slower revenue cycles (quarterly revenue changes) produce better barra_res profile at longer lookback. The 60d window for PE divergence (C006 in batch_099) had risk=borderline and smaller sign flip (-0.184 vs -0.213). PS at 60d may further reduce sign flip due to quarterly revenue reporting cycles.'
+    implementation_reason: 'The 60d window for PE had the best risk bucket (borderline) in batch_099. Testing PS at 60d tests whether the combination of (a) slower fundamental metric + (b) longer lookback produces the cleanest Barra profile. Probe ICIR=+0.275 (passes, weaker than 20d).'
+    lineage:
+      parent_expression: 'Sub(CsRank(Div(Ref($ps_ratio,20),$ps_ratio)),CsRank(Div($close,Ref($close,20))))'
+      parent_factor_id: null
+      transformation: extend_lookback_20d_to_60d
+    probe_ic: 0.0429
+    probe_icir: 0.2752
+    probe_verdict: pass
+
+  - candidate_id: C003
+    logic_id: L015
+    route_id: R001
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_ps_revenue_proxy_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60))))'
+    rationale: 'Pure EPS change proxy at 60d. EPS_today / EPS_60d_ago = (close/pe_ratio) / (close_60d_ago/pe_ratio_60d_ago). This is PRICE-REMOVED earnings momentum — it captures only the EPS change rate without any confounding from price change. If this has positive barra_res_icir, confirms earnings momentum is barra-clean. If still negative, even pure earnings change is absorbed by Barra value factors in this universe.'
+    implementation_reason: 'The 20d EPS proxy failed probe (ICIR=0.066) because quarterly EPS does not change within 20d. At 60d, quarterly earnings revisions are more likely to be captured. This is the critical test of whether earnings-only momentum (no price contamination) can produce clean alpha vs Barra value factors. Probe ICIR=+0.231 (passes).'
+    lineage:
+      parent_expression: 'Sub(CsRank(Div(Ref($pe_ratio,60),$pe_ratio)),CsRank(Div($close,Ref($close,60))))'
+      parent_factor_id: null
+      transformation: extract_eps_component_remove_price
+    probe_ic: 0.0171
+    probe_icir: 0.2310
+    probe_verdict: pass
+
+  - candidate_id: C004
+    logic_id: L015
+    route_id: R002
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pe_independence_filter_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20)))),Sub(1,Corr(Div(Ref($pe_ratio,5),$pe_ratio),Div($close,Ref($close,5)),20)))'
+    rationale: 'PE divergence 20d × (1 - PE-price rolling correlation). The independence filter Sub(1,Corr(...)) weights down stocks where PE and price co-move (value traps: price drives PE change). Stocks with low PE-price correlation have PE moving independently of price → earnings-driven change. This should reduce value trap contamination and improve barra_res_icir sign.'
+    implementation_reason: 'The PE divergence barra_res sign flip is caused by value trap stocks dominating after Barra removal. The 20d rolling correlation Corr(PE_change_5d, price_change_5d) measures how much PE tracks price in recent weeks. Multiplying by (1-corr) reduces weight on value traps. Probe ICIR=+0.323 (same as raw PE divergence, meaning independence filter adds info without losing signal).'
+    lineage:
+      parent_expression: 'Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20))))'
+      parent_factor_id: null
+      transformation: add_pe_price_independence_filter
+    probe_ic: 0.0438
+    probe_icir: 0.3230
+    probe_verdict: pass
+
+  - candidate_id: C005
+    logic_id: L015
+    route_id: R002
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pe_independence_filter_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(Sub(1,Corr(Div(Ref($pe_ratio,5),$pe_ratio),Div($close,Ref($close,5)),20)),CsRank(Div(Ref($pe_ratio,60),$pe_ratio)))'
+    rationale: 'PE improvement 60d × (1 - PE-price correlation). This variant uses ONLY the PE improvement rank (not the divergence), weighted by price-independence. CsRank(Div(Ref($pe_ratio,60),$pe_ratio)) = PE improved rank (higher = more PE improvement). Multiplied by independence filter = PE improvement that is price-independent = pure earnings-driven improvement signal. Different from C004 which uses the full PE-price divergence.'
+    implementation_reason: 'C004 uses the divergence (PE improvement minus price change rank). C005 uses only the PE improvement component, weighted by independence. The price-change rank component may add noise — if the independence filter already separates genuine improvement from price-driven changes, the explicit price subtraction may be redundant. Testing C005 vs C004 reveals whether the divergence structure or the independence filter is more important. Probe ICIR=+0.295.'
+    lineage:
+      parent_expression: 'Sub(CsRank(Div(Ref($pe_ratio,20),$pe_ratio)),CsRank(Div($close,Ref($close,20))))'
+      parent_factor_id: null
+      transformation: remove_price_rank_use_pe_only_with_independence
+    probe_ic: 0.0333
+    probe_icir: 0.2950
+    probe_verdict: pass
+
+  - candidate_id: C006
+    logic_id: L015
+    route_id: R002
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pe_independence_filter_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(Sub(CsRank(Div(Ref($pe_ratio,60),$pe_ratio)),CsRank(Div($close,Ref($close,60)))),Sub(1,Corr(Div(Ref($pe_ratio,5),$pe_ratio),Div($close,Ref($close,5)),20)))'
+    rationale: 'PE divergence 60d × (1 - PE-price rolling correlation). This combines the BEST base signal from batch_099 (PE 60d divergence: risk=borderline, mono_ho=+1.0, smallest sign flip) with the independence filter. The 60d divergence captures quarterly earnings cycles; the independence filter removes value-trap stocks where the improvement is price-driven. The combination should produce lower sign flip than either component alone.'
+    implementation_reason: 'C006 in batch_099 was the most promising signal: risk=borderline, mono_ho=+1.0 (perfect), max_lib=0.321 (most novel), barra_res=-0.184 (smallest sign flip). The independence filter is expected to reduce sign flip further by removing stocks where PE and price co-move. This is the highest-priority admission candidate in batch_100. Probe ICIR=+0.306 (same magnitude as raw 60d variant).'
+    lineage:
+      parent_expression: 'Sub(CsRank(Div(Ref($pe_ratio,60),$pe_ratio)),CsRank(Div($close,Ref($close,60))))'
+      parent_factor_id: null
+      transformation: add_pe_price_independence_filter_to_60d_variant
+    probe_ic: 0.0438
+    probe_icir: 0.3063
+    probe_verdict: pass

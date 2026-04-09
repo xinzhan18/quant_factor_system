@@ -64,42 +64,64 @@ contract:
   - 'DO NOT use: 20d price momentum as denominator (overlaps with str_1m Barra factor)'
   - DO NOT repeat PE/PB divergence with same structure without addressing value trap
     issue
+  - 'CONFIRMED DEAD ENDS:'
+  - 'Sub(CsRank(fundamental_change), CsRank(price_change)): ALL variants (PE/PB/PS
+    at any window) = sign flip'
+  - 'PE-price independence filter (1 - rolling correlation): ADDS str_1m, does not
+    remove it'
+  - 'Relative amount conditioning: worsens alpha_surv (C005 in batch_099)'
+  - '20d price momentum component: unavoidable str_1m loading'
+  - 'VIABLE PATH:'
+  - 'Pure fundamental change WITHOUT price component: EPS/Revenue/EPS_acceleration'
 discovery_budget:
   adjacent_discovery_route_quota: 1
 evidence_summary:
   factors_generated: 0
   factors_admitted: 0
-  rounds_without_admit: 1
+  rounds_without_admit: 2
   productive_families: []
   failed_families: []
-  current_bottleneck: 'L015 thesis partially confirmed: fundamental-price divergence
-    IS a novel signal class
+  current_bottleneck: 'L015 thesis refined by batch_100: the sign flip in PE/PB/PS
+    divergence signals comes from the PRICE CHANGE
 
-    (max_lib=0.32-0.40 vs library). The mechanism exists and has consistent IC.
+    COMPONENT, not the fundamental change component. Sub(CsRank(fundamental_change),
+    CsRank(price_change))
 
-    But the barra_res sign flip reveals the positive IC comes primarily from Barra
-    value
-
-    factor loading, not from pure alpha. The 60d window (risk=borderline, smaller
-    sign flip)
-
-    is the most promising direction.
+    = CsRank(earnings_momentum) - CsRank(price_momentum_reversal).
 
 
-    Key insight: PE ratio change conflates earnings improvement (pure alpha) with
-    price-driven
+    The CsRank(price_change) component directly loads on str_1m Barra factor (positive
+    direction = reversal
 
-    cheapening (value trap). The DSL CsRank approach cannot separate these.
+    after price DECLINE, but str_1m positive means recent price increase = opposite
+    direction loading).
+
+    This is the root cause of the sign flip: the subtraction creates a negative loading
+    on str_1m.
 
 
-    Next direction: can we isolate the earnings improvement component?
+    C003 (pure EPS change 60d) PROVES the earnings component alone is barra-clean
+    (barra_res_icir=+0.394,
 
-    - Pure earnings proxy: `Div(Div($close,$pe_ratio),Div(Ref($close,20),Ref($pe_ratio,20)))`
-    = EPS ratio change
+    alpha_surv=3.017). The mechanism exists and is orthogonal to ALL library factors
+    (max_lib=0.025).
 
-    - This equals EPS_today/EPS_20d_ago = pure earnings change, no price contamination
+    The ONLY problem is signal weakness (ICIRval=0.123).
 
-    - If this has positive direction and positive barra_res_icir, it''s pure alpha'
+
+    Path forward is clear: amplify pure earnings momentum. Options:
+
+    1. Longer lookback (120d): captures 2 quarterly earnings cycles — should strengthen
+    signal
+
+    2. EPS acceleration: compare EPS_today to Mean(EPS, 60d) — amplifies stocks with
+    ACCELERATING earnings
+
+    3. Revenue change proxy: CsRank(Div(Div($close,$ps_ratio), Div(Ref($close,120),Ref($ps_ratio,120))))
+    — revenue momentum at 120d
+
+    4. Multi-metric earnings momentum: Mul(CsRank(EPS_change), CsRank(Revenue_change))
+    — both improving'
   transitions: []
 deepening_threads:
 - id: T001
@@ -140,21 +162,19 @@ deepening_threads:
   stop_condition: If conditioning raises alpha_surv above 0.6 AND maintains ICIR_ho
     above +0.20
 next_actions:
-- 'CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,20),Ref($pe_ratio,20)))) — Pure
-  EPS change proxy: EPS_today/EPS_20d_ago. No price contamination — earnings momentum.
-  If this has positive direction + positive barra_res_icir, confirms the earnings
-  improvement mechanism.'
-- Sub(CsRank(Div(Ref($ps_ratio,20),$ps_ratio)),CsRank(Div($close,Ref($close,20))))
-  — PS ratio (revenue/price) divergence. PS changes more slowly than PE (revenue less
-  volatile than EPS). May have different Barra loading and smaller sign flip.
-- Mul(Sub(CsRank(Div(Ref($pe_ratio,60),$pe_ratio)),CsRank(Div($close,Ref($close,60)))),If(Lt($pe_ratio,CsRank($pe_ratio)),1,0))
-  — PE divergence 60d conditioned on ALREADY LOW PE (percentile-based filter). Reduces
-  value trap by only selecting stocks that are fundamentally cheap AND improving.
-- Corr(Div(Ref($pe_ratio,5),$pe_ratio),Div($close,Ref($close,5)),20) — Rolling 20d
-  correlation between 5d PE change rate and 5d price change rate. High correlation
-  = PE moves with price (not independent). Low correlation = PE moves independently
-  of price = pure earnings signal.
+- CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,120),Ref($pe_ratio,120)))) — EPS
+  change at 120d (2 quarterly cycles). Captures more earnings revision momentum. If
+  ICIRval>0.20 with barra_res_icir positive, this is the admission candidate.
+- 'CsRank(Div(Div($close,$pe_ratio),Mean(Div($close,$pe_ratio),60))) — EPS acceleration:
+  EPS_today vs 60d-average EPS. Amplifies stocks with recent EPS breakout above their
+  own 3-month average. More sensitive to quarterly earnings beats.'
+- CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,120),Ref($ps_ratio,120)))) — Revenue
+  change at 120d. Revenue grows more smoothly than EPS (less quarterly noise). May
+  be stronger signal than EPS at same horizon.
+- 'Mul(CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,120),Ref($pe_ratio,120)))),CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,120),Ref($ps_ratio,120)))))
+  — Multi-metric confirmation: EPS_change × Revenue_change at 120d. Stocks with BOTH
+  improving earnings and revenue have stronger signal than either alone.'
 origin_proposal_id: L015
 created_at: '2026-04-10'
-updated_at: '2026-04-10 04:22:31'
-last_reflected_batch: batch_099
+updated_at: '2026-04-10 04:48:13'
+last_reflected_batch: batch_100
