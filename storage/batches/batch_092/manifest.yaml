@@ -1,0 +1,90 @@
+batch_id: batch_092
+created_at: '2026-04-10T02:50:00+00:00'
+status: frozen
+logic_ids:
+  - L013
+
+routes:
+  - route_id: R001
+    logic_id: L013
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v1
+    research_question: Does CsRank(Div($amount, Mean($amount,60))) avoid book_to_price style trap while preserving IC amplification vs CsRank($amount)?
+    family_id: PF_range_amount_flow
+
+candidates:
+  - candidate_id: C001
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),CsRank(Div($amount,Mean($amount,60))))'
+    rationale: '7d range-amount × CsRank(relative-amount-60d). Probe ICIR=-0.433. Div($amount,Mean($amount,60)) captures abnormal activity vs own 60d history — removes cross-stock size bias while preserving intraday aggression signal.'
+    implementation_reason: 'Relative amount normalization hypothesis — high Div($amount, Mean) means today is unusually active for THIS stock, not just a large cap. Should reduce book_to_price from CsRank($amount) absolute.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),CsRank($amount))'
+      parent_factor_id: null
+      transformation: replace_abs_amount_rank_with_rel_amount_60d
+    probe_ic: -0.0407
+    probe_icir: -0.4331
+    probe_verdict: pass
+
+  - candidate_id: C002
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,60))))'
+    rationale: '5d range-amount × CsRank(relative-amount-60d). Probe ICIR=-0.425. Direct counterpart to batch_090 C003 (5d × abs-amount-rank) with relative normalization. Shorter window test for relative conditioning.'
+    implementation_reason: '5d version to directly compare with batch_090 C003 performance on same window. If style_r2 drops while maintaining alpha_surv, relative amount normalization is confirmed to reduce book_to_price.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount))'
+      parent_factor_id: null
+      transformation: replace_abs_amount_rank_with_rel_amount_60d_5d
+    probe_ic: -0.0379
+    probe_icir: -0.4253
+    probe_verdict: pass
+
+  - candidate_id: C003
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,20))))'
+    rationale: '5d range-amount × CsRank(relative-amount-20d). Probe ICIR=-0.318. Shorter lookback (20d vs 60d) captures more recent abnormal activity patterns. Comparison of 20d vs 60d normalization windows.'
+    implementation_reason: '20d is more responsive to recent regime changes. Might capture shorter-cycle institutional aggression patterns. Weaker probe than 60d but may have different style profile.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,60))))'
+      parent_factor_id: null
+      transformation: shorten_normalization_window_20d
+    probe_ic: -0.0254
+    probe_icir: -0.3178
+    probe_verdict: pass
+
+  - candidate_id: C004
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Corr(Div(Sub($high,$low),$close),Div($amount,Mean($amount,20)),5)'
+    rationale: '5d range-amount correlation using RELATIVE amount inside Corr. ICIR probe=-0.299. Normalizes the amount signal within the Corr itself — range vs relative-flow correlation. Different from multiplying conditioner outside the Corr.'
+    implementation_reason: 'Internal normalization approach — tests whether the Corr-internal relative amount produces clean signal without the multiplicative style exposure from CsRank conditioner.'
+    lineage:
+      parent_expression: 'Corr(Div(Sub($high,$low),$close),$amount,5)'
+      parent_factor_id: null
+      transformation: internal_amount_normalization_20d
+    probe_ic: -0.0171
+    probe_icir: -0.2987
+    probe_verdict: pass
