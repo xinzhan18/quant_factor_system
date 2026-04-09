@@ -788,6 +788,34 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_092:
+      batch_id: batch_092
+      candidate_count: 4
+      logic_ids:
+      - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
+    batch_093:
+      batch_id: batch_093
+      candidate_count: 4
+      logic_ids:
+      - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1101,6 +1129,44 @@ holdout_reviews:
     status: pending
     detail: 'range-amount 10d reserve: max_lib=0.065 (novel), alpha_surv=0.734, barra_res=-0.201,
       but ICIR_ho=-0.144 borderline. Needs holdout confirmation before promotion.'
+    outcome: null
+  - review_id: HR_092_001
+    batch_id: batch_092
+    target_id: C002
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C002 (5d×rel60d) PRIMARY RESERVE: ICIRho=-0.408, decay=1.165, ls_t_ho=-3.596,
+      mono_ho=-0.7. Strongest reserve in L013 history. Confirm holdout sustainability
+      and str_1m style stability.'
+    outcome: null
+  - review_id: HR_092_002
+    batch_id: batch_092
+    target_id: C001
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C001 (7d×rel60d) SECONDARY RESERVE: ICIRho=-0.408, decay=1.132, ls_t_ho=-3.122,
+      mono_ho=-0.9. Same quality profile as C002. str_1m style_r2=0.172.'
+    outcome: null
+  - review_id: HR_093_001
+    batch_id: batch_093
+    target_id: C002
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C002 (5d×30d): alpha_surv=0.589 (highest conditioned in L013!), decay=1.219
+      (highest ever!), ICIRho=-0.338, mono_ho=-0.7. str_1m=37%. Primary candidate if
+      str_1m exposure can be reduced below 20%.'
+    outcome: null
+  - review_id: HR_093_002
+    batch_id: batch_093
+    target_id: C001
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C001 (5d×40d): alpha_surv=0.533 (first >0.5 milestone!), decay=1.159,
+      ICIRho=-0.365, mono_ho=-0.7. str_1m=38%.'
     outcome: null
 search_ledger:
   by_experiment_tag:
@@ -1952,6 +2018,27 @@ search_ledger:
       reserve_count_to_date: 3
       continue_count_to_date: 1
       latest_verdict: continue
+    ELT_L013_mutate_turnover_conditioning_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 4
+      reserve_count_to_date: 0
+      continue_count_to_date: 0
+      latest_verdict: pause
+    ELT_L013_mutate_relative_amount_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 0
+      reserve_count_to_date: 4
+      continue_count_to_date: 1
+      latest_verdict: continue
+    ELT_L013_mutate_relative_amount_v2:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 0
+      reserve_count_to_date: 4
+      continue_count_to_date: 1
+      latest_verdict: continue
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -1994,9 +2081,9 @@ search_ledger:
       reserve_count_to_date: 1
     PF_range_amount_flow:
       admitted_count_to_date: 0
-      family_attempt_count_to_date: 11
+      family_attempt_count_to_date: 19
       reject_count_to_date: 7
-      reserve_count_to_date: 4
+      reserve_count_to_date: 12
     PF_cross_covariance:
       admitted_count_to_date: 0
       family_attempt_count_to_date: 4
@@ -2154,10 +2241,10 @@ search_ledger:
       reject_count_to_date: 2
       reserve_count_to_date: 1
     L013:
-      logic_attempt_count_to_date: 11
+      logic_attempt_count_to_date: 19
       admitted_count_to_date: 0
       reject_count_to_date: 7
-      reserve_count_to_date: 4
+      reserve_count_to_date: 12
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3380,8 +3467,20 @@ write_audit_log:
     actor: factor-judge
     action: judge_batch
     target: batch_091
-    detail: '4 candidates: 0 admit, 0 reserve, 4 reject. CsRank($turnover_rate) causes mono_ho=0 (quintile collapse). Corr(range/turnover) degenerate. CsRank($volume) alpha_surv=0.18 poor.'
+    detail: '4 candidates: 0 admit, 0 reserve, 4 reject. CsRank($turnover_rate) causes
+      mono_ho=0 (quintile collapse). Corr(range/turnover) degenerate. CsRank($volume)
+      alpha_surv=0.18 poor.'
     level: 1
     reason_codes:
     - style_dominance_detected
     - poor_split_stability
+  - timestamp: '2026-04-09T18:25:39+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_092
+    detail: updated_logics=L013
+  - timestamp: '2026-04-09T18:37:40+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_093
+    detail: updated_logics=L013

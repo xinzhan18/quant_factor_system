@@ -180,3 +180,17 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 - **FP-L013-turnover-rank-kills-mono**: CsRank($turnover_rate) conditioning on range-amount: mono_ho≈0 (quintile collapse) despite ICIR_ho=-0.37. Turnover_20d Barra style is fast-moving and flips at val/holdout boundary, destroying quintile structure. CsRank($amount) is better because book_to_price is slow-moving and preserves mono_ho=-1.0. Do NOT use CsRank($turnover_rate) or CsRank($volume) for range-amount conditioning.
 
 - **FP-L013-range-turnover-corr-degenerate**: Corr(Div(Sub($high,$low),$close),$turnover_rate,5) = ICIRval=0. The range vs turnover_rate correlation is degenerate — no signal. Range-AMOUNT is the working mechanism, not range-turnover. The dollar flow ($amount) is essential, not the share velocity ($turnover_rate).
+
+## Batch 092 Soft Lessons (2026-04-10)
+
+- **NM-L013-rel60d-decay-gt1**: CsRank(Div($amount, Mean($amount, 60))) conditioning on 5d/7d range-amount: decay=1.13-1.17 (signal STRENGTHENS on holdout — unprecedented across all L013 batches). ls_t_ho=-3.1 to -3.6 (highly significant). mono_ho=-0.7 to -0.9 (preserved). The 60d relative normalization creates a stable "abnormal activity" signal size-neutral enough to persist into holdout. Block: alpha_surv=0.44-0.46 (below 0.5), str_1m style 14-17% of variance. This is the best found conditioning for range-amount — next: probe 30d/40d windows to push alpha_surv above 0.5.
+
+- **FP-L013-rel20d-mono-collapse**: CsRank(Div($amount, Mean($amount, 20))) conditioning: mono_ho=-0.1 (quintile collapse) despite alpha_surv=0.680 (excellent!). The 20d relative amount is too momentum-like (str_1m) and reverses in 2024 holdout. For relative amount conditioning, lookback must be ≥40d to avoid str_1m instability. Do NOT probe shorter lookbacks (<30d).
+
+## Batch 093 Soft Lessons (2026-04-10)
+
+- **NM-L013-alpha-surv-gt05-milestone**: CsRank(Div($amount, Mean($amount, 30-40d))) conditioning achieves alpha_surv>0.5 for the first time in conditioned range-amount. C001 (5d×40d): 0.533, C002 (5d×30d): 0.589 (record high). All signals decay>1 (C002 decay=1.219, L013 record). mono_ho=-0.7 preserved. The 30-40d window is the alpha_surv sweet spot for relative amount conditioning.
+
+- **FP-L013-str1m-nonmonotonic-intermediate-windows**: str_1m exposure across normalization windows is NON-MONOTONIC: 20d≈8% → 30d=37% → 40d=38-42% → 60d=14-17%. Intermediate windows (30-40d) produce 2-3x HIGHER str_1m than both shorter (20d) and longer (60d) windows. The 30d-40d regime captures cross-sectional momentum that loads heavily on str_1m. At 20d the signal IS momentum (reverting). At 60d the long baseline dilutes it. At 30-40d it's a stable (non-reversing) str_1m overlay that blocks acceptable risk bucket. Next: probe 50d window or Python residualization.
+
+

@@ -13,8 +13,9 @@ hypothesis:
     range magnitude, NOT range-amount correlation. Mechanism is orthogonal to all
     existing factors.'
 contract:
-  current_focus_question: What window (5d, 7d) maximizes IC strength for Corr(range/close,
-    amount, N) while preserving the clean Barra residual (barra_res<0, alpha_surv>0.7)?
+  current_focus_question: Does the 30d-40d relative amount normalization window find
+    the alpha_surv>0.5 + stable mono_ho sweet spot between 20d (alpha_surv=0.68, mono
+    collapse) and 60d (alpha_surv=0.46, stable mono)?
   direction_quota: 2
   candidate_quota: 4
   preferred_families:
@@ -55,44 +56,72 @@ contract:
   - 'Corr(range/close, turnover_rate, N): degenerate signal, do not probe'
   - 'Raw window variants [3d-10d]: plateau at ICIR_ho~-0.15, do not probe'
   - 'PE conditioning: batch_089 failure, do not revisit'
+  - 'UPDATED PROVEN FAILURES:'
+  - 'CsRank($amount): book_to_price, alpha_surv=0.43 (batch_090)'
+  - 'CsRank($turnover_rate): turnover_20d, mono_ho=0 collapse (batch_091)'
+  - 'CsRank($volume): turnover_20d, alpha_surv=0.18 (batch_091)'
+  - 'CsRank(Div($amount, Mean($amount, 20))): str_1m, mono_ho collapse (batch_092)'
+  - 'NOT YET TESTED: CsRank(Div($amount, Mean($amount, 30))) and CsRank(Div($amount,
+    Mean($amount, 40)))'
+  - 'PROVEN FAILURES (accumulated):'
+  - 'Raw Corr(range/close, amount, N): ICIR_ho plateau at -0.14 to -0.16 (all windows)'
+  - 'CsRank($turnover_rate): turnover_20d → FATAL mono_ho collapse (batch_091)'
+  - 'CsRank($volume): alpha_surv=0.18 (batch_091)'
+  - 'CsRank(Div($amount, Mean($amount, 20))): str_1m, mono_ho=-0.1 collapse (batch_092)'
+  - 'NEW BOUNDARY: CsRank(Div($amount, Mean($amount, 30-40d))): str_1m=37-42%, risk=borderline'
+  - 'NOT YET TESTED: 50d window (should be between 40d and 60d str_1m values)'
+  - 'NOT YET TESTED: Python str_1m residualization of 30d/40d variants'
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
   factors_generated: 0
   factors_admitted: 0
-  rounds_without_admit: 3
+  rounds_without_admit: 5
   productive_families: []
   failed_families: []
-  current_bottleneck: 'CsRank conditioning research is now complete:
+  current_bottleneck: 'MILESTONE: alpha_surv>0.5 achieved in conditioned range-amount
+    for the first time.
 
-    - CsRank($amount): book_to_price style (manageable, mono_ho=-1.0 preserved) —
-    BEST CONDITIONER
+    C002 (5d×30d): alpha_surv=0.589, decay=1.219, ICIRho=-0.338, mono_ho=-0.7.
 
-    - CsRank($turnover_rate): turnover_20d style (FATAL mono collapse, mono_ho≈0)
+    C001 (5d×40d): alpha_surv=0.533, decay=1.159, ICIRho=-0.365, mono_ho=-0.7.
 
-    - CsRank($volume): turnover_20d style (alpha_surv=0.18, risk=poor)
 
-    - CsRank($pe_ratio): ep_ratio trap (batch_089)
+    NEW UNDERSTANDING: str_1m exposure is NON-MONOTONIC across normalization windows:
 
-    Every CsRank(X) conditioning introduces the Barra style of X.
+    - 20d: str_1m≈8% (pure recent momentum → REVERSES in 2024 → mono collapse)
 
-    The fundamental insight: the book_to_price style from CsRank($amount) is "benign"
-    in
+    - 30d: str_1m=37% (HIGH)
 
-    that it preserves quintile structure (mono_ho=-1.0 in batch_090 C003). Turnover-related
+    - 40d: str_1m=38-42% (HIGH)
 
-    styles destroy quintile structure. This is because book_to_price is a slow-moving
-    style
+    - 60d: str_1m=14-17% (medium — longer baseline dilutes momentum component)
 
-    that doesn''t flip across the validation-holdout boundary, while turnover is fast-moving.'
+
+    The "why": At 30-40d, the normalization window captures enough history to create
+    stable
+
+    cross-sectional ranking but not enough to fully dilute the momentum component.
+    The result is
+
+    a stable (non-reversing) str_1m exposure that DOESN''T cause quintile collapse
+    but IS
+
+    flagged as borderline risk.
+
+
+    The core alpha is clearly real (barra_res_icir=-0.23 for all conditioned variants,
+
+    consistently negative = clean). The str_1m is an overlay effect from the CsRank
+    conditioning.'
   transitions: []
 next_actions:
-- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,60))))
-  — Relative amount 60d lookback: captures abnormal activity vs own history. Less
-  large-cap bias. ICIR probe=-0.425.'
-- Python Barra residualization of Corr(range/close, amount, 5) — Direct residualization
-  removes style without introducing new style. batch_090 C004 (alpha_surv=1.024) shows
-  the clean alpha IS there.
+- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,50))))
+  — 50d normalization: should be between 40d (str_1m=38%) and 60d (str_1m=14-17%).
+  If str_1m<20% here, this is the admission window.'
+- 'Python: Sub(Corr(range/close, amount, 5) × CsRank(Div($amount,Mean($amount,30))),
+  factor_residualized_vs_str1m) — Direct str_1m orthogonalization of C002 — removes
+  str_1m loading to achieve acceptable risk bucket'
 deepening_threads:
 - id: T001
   question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
@@ -145,11 +174,11 @@ deepening_threads:
   status: active
   priority: high
   next_probes:
-  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank($amount),CsRank($turnover_rate)))
-  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($volume))
-  stop_condition: If alpha_surv > 0.5 AND barra_res_icir < -0.25 AND risk_bucket=acceptable,
-    promote to admit
+  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,40))))
+  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,30))))
+  stop_condition: If alpha_surv > 0.5 AND barra_res_icir < -0.25 AND mono_ho <= -0.5
+    AND risk_bucket=acceptable, promote to admit
 origin_proposal_id: L013
 created_at: '2026-04-10'
-updated_at: '2026-04-10 02:13:31'
-last_reflected_batch: batch_091
+updated_at: '2026-04-10 02:37:39'
+last_reflected_batch: batch_093
