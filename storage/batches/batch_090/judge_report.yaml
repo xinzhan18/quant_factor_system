@@ -1,0 +1,282 @@
+judge_report:
+  batch_id: batch_090
+  judgment_timestamp: '2026-04-10T02:30:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 4
+    admitted: 0
+    rejected: 1
+    reserved: 3
+    replaced: 0
+    gate_pass: 4
+    gate_fail: 0
+    gate_warn: 0
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      logic_id: L013
+      route_type: mutate
+      experiment_lineage_tag: ELT_L013_mutate_window_scan_5d_7d_v1
+      verdict: continue
+      reason: |
+        3 reserves (C002/C003/C004) in one batch — strong evidence the mechanism is real
+        and the family is developing well.
+        C003 (5d × amount-rank): ICIR_ho=-0.396, mono_ho=-1.0 (PERFECT), barra_res_icir=-0.331.
+        This is the strongest quality profile seen in L013. Risk=borderline only due to
+        book_to_price exposure from CsRank($amount) conditioning.
+        C004 (5d raw): alpha_surv=1.024 (AMPLIFIED) — the factor is stronger after Barra removal.
+        decay=1.066 (strengthens on holdout) — unusual and valuable.
+        Key finding: CsRank($amount) conditioning amplifies IC but introduces book_to_price style.
+        Next: test CsZscore($amount) or per-industry amount conditioning to reduce style exposure.
+        Also explore: does 3d, 4d window further improve C004's mechanism?
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - weak_validation_effect
+        - mechanism_aligned
+      detail: |
+        Corr(Div(Sub($high,$low),$close),$amount,7): 6-dim analysis:
+        1. Mechanism: ALIGNED — alpha_surv=0.771, barra_res_icir=-0.200, dom=vol_20d, style_r2=0.031.
+           Same mechanism class as C005 (batch_089 reserve, 10d). Good quality profile.
+        2. Statistical: WEAK — ICIR_val=-0.258, ICIR_ho=-0.141. Essentially identical to C005 reserve
+           (ICIR_ho=-0.144). Window shortening from 10d to 7d did NOT improve holdout IC.
+           win_val=0.374, win_ho=0.458 (borderline). ls_t_val=-2.434, ls_t_ho=-1.896.
+        3. Stability: split=medium, exp_stab=0.672. decay=0.744 (weakens on holdout).
+        4. Redundancy: low (novel mechanism).
+        5. Feasibility: ok.
+        6. Risk: ACCEPTABLE — same quality as C005 but no improvement.
+        REJECT: No improvement over already-reserved C005 (batch_089). Both 7d and 10d produce
+        the same weak ICIR_ho bottleneck. Window shortening alone does not solve the IC problem.
+        The mechanism needs conditioning (not window reduction) to overcome this barrier.
+
+    C002:
+      candidate_id: C002
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - moderate_style_exposure
+        - feasibility_ok
+        - mechanism_aligned
+      detail: |
+        Mul(Corr(Div(Sub($high,$low),$close),$amount,7),CsRank($amount)): 6-dim analysis:
+        1. Mechanism: ALIGNED but partially contaminated — CsRank($amount) introduces book_to_price
+           style (dom=book_to_price, style_r2=0.180). alpha_surv=0.388 (only 39% clean alpha).
+           barra_res_icir=-0.309 (correct direction, strong residual signal).
+        2. Statistical: STRONG validation — ICIR_val=-0.689, mono_val=-1.0 (PERFECT), ls_t_val=-8.557.
+           But holdout weakens: ICIR_ho=-0.408, mono_ho=-0.8, ls_t_ho=-1.991 (borderline).
+           win_val=0.252 (very consistent direction), win_ho=0.332.
+        3. Stability: split=good, exp_stab=0.768. decay=0.695 (validates well, holdout weakens).
+        4. Redundancy: low (novel).
+        5. Feasibility: ok.
+        6. Risk: BORDERLINE — book_to_price dominant (high daily $amount stocks = often growth stocks).
+           style_r2=0.180 elevated. alpha_surv=0.388 insufficient for admit.
+        RESERVE: Strong IC but book_to_price contamination from CsRank($amount). Weaker than C003
+        on all key metrics. Secondary reserve behind C003.
+
+    C003:
+      candidate_id: C003
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - moderate_style_exposure
+        - mechanism_aligned
+        - feasibility_ok
+      detail: |
+        Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount)): 6-dim analysis:
+        1. Mechanism: ALIGNED — barra_res_icir=-0.331 (BEST in batch, very clean residual).
+           dom=book_to_price, style_r2=0.140 (lower than C002). alpha_surv=0.430 (borderline).
+        2. Statistical: STRONG — ICIR_val=-0.668, mono_val=-1.0 (PERFECT!), ls_t_val=-8.048.
+           ICIR_ho=-0.396, mono_ho=-1.0 (PERFECT HOLDOUT!), ls_t_ho=-1.902 (borderline).
+           win_val=0.231, win_ho=0.348. Perfect monotonicity on BOTH validation and holdout is rare.
+        3. Stability: split=good, exp_stab=0.747. decay=0.715 (validation stronger than holdout).
+        4. Redundancy: low.
+        5. Feasibility: ok.
+        6. Risk: BORDERLINE — book_to_price dominant. style_r2=0.140. alpha_surv=0.430 < threshold.
+        RESERVE: Best overall profile in batch. Perfect mono on both periods suggests the mechanism
+        is real and consistent. The only gate is risk=borderline (book_to_price from CsRank($amount)).
+        If book_to_price can be addressed (per-industry amount normalization), this is a strong admit.
+        Holdout review: confirm ICIR_ho sustainability and whether mono=-1.0 holds.
+
+    C004:
+      candidate_id: C004
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - risk_model_acceptable
+        - mechanism_aligned
+        - feasibility_ok
+        - weak_validation_effect
+      detail: |
+        Corr(Div(Sub($high,$low),$close),$amount,5): 6-dim analysis:
+        1. Mechanism: ALIGNED — alpha_surv=1.024 (AMPLIFIED — factor is STRONGER after Barra removal!).
+           barra_res_icir=-0.211 stronger than raw ICIR (-0.196). dom=vol_20d, style_r2=0.026 (minimal).
+           This unusual alpha_surv>1 means vol_20d has negative IC itself, so removing it amplifies
+           the range-amount residual. True mechanism quality is UNDERSTATED by raw IC.
+        2. Statistical: WEAK validation — ICIR_val=-0.196, mono_val=-0.7, ls_t_val=-1.863.
+           BUT: ICIR_ho=-0.156, mono_ho=-1.0 (PERFECT holdout!), ls_t_ho=-2.003 (significant!).
+           decay=1.066 (STRENGTHENS on holdout!) — very rare and valuable.
+        3. Stability: split=medium, exp_stab=0.649. decay>1 confirms holdout strengthening.
+        4. Redundancy: low.
+        5. Feasibility: ok.
+        6. Risk: ACCEPTABLE (best in batch for raw signals) — vol_20d dominant but style_r2=0.026.
+        RESERVE: The unusual profile (weak validation IC, STRONGER holdout, alpha_surv>1) suggests
+        the 5d raw signal may have a slow-start pattern — signal builds over time and becomes cleaner.
+        This is the opposite of overfitting. If longer holdout confirms, this becomes admit candidate.
+        Pure 5d is better quality than the conditioned versions (acceptable vs borderline risk).
+
+  logic_recommendations:
+    L013:
+      logic_id: L013
+      recommended_status: active
+      reason: |
+        3 reserves in one batch. C003 (5d×amount-rank) is the strongest reserve: ICIR_ho=-0.396,
+        mono_ho=-1.0 (PERFECT), barra_res_icir=-0.331. C004 has exceptional quality (alpha_surv>1, decay>1).
+        The mechanism is real and developing well. The main obstacle is:
+        (1) Raw signals: IC too weak to admit (ICIR_ho~-0.14 to -0.16)
+        (2) Conditioned signals: strong IC but book_to_price contamination from CsRank($amount/turnover)
+        Next action: investigate per-industry amount normalization to remove book_to_price while preserving IC.
+        Also: test 3d-4d windows for the raw signal to see if IC can be pushed higher.
+        L013 should stay ACTIVE — clear path forward identified.
+
+  logic_diagnostics:
+    L013:
+      thesis_update: |
+        The range-amount mechanism at shorter windows (5d, 7d) doesn't improve holdout IC over 10d (C005 reserve).
+        All raw variants have ICIR_ho in -0.14 to -0.16 range. The mechanism is there but raw window
+        adjustment isn't the solution. Amount conditioning (CsRank($amount)) dramatically amplifies IC
+        (ICIR_val from -0.26 to -0.67!) but introduces book_to_price style contamination.
+        C004 (5d raw) has alpha_surv=1.024 — the factor improves AFTER Barra removal. This suggests
+        vol_20d Barra factor has negative IC in its own right, and the raw range-amount IC includes
+        a "negative drag" from vol exposure. The pure alpha (style-neutral) is stronger than observed.
+
+      evidence_for:
+        - "C003: mono_val=-1.0, mono_ho=-1.0 (PERFECT BOTH) — consistent ranking mechanism"
+        - "C003: barra_res_icir=-0.331 (strongest residual in batch)"
+        - "C004: alpha_surv=1.024 — mechanism amplified by Barra removal"
+        - "C004: decay=1.066 — holdout STRONGER than validation (rare positive)"
+        - "All 4 candidates: redundancy=low, exp_pass=True — clean mechanism"
+
+      evidence_against:
+        - "All raw signals (C001/C004): ICIR_ho < -0.16 — raw IC ceiling appears to be ~-0.16"
+        - "C002/C003: book_to_price dominance from CsRank($amount) — alpha_surv=0.39-0.43"
+        - "C001/C004: split=medium — some instability across periods"
+        - "C002/C003: ls_t_ho~-1.9 — borderline statistical significance on holdout"
+
+      failure_boundary: |
+        PROVEN for L013 at this stage:
+        - Raw window range [5d, 7d, 10d]: ICIR_ho ceiling is ~-0.14 to -0.16. Window alone cannot push
+          past this. Do not probe more raw window variants without a mechanism change.
+        - CsRank($amount) conditioning: strong IC but book_to_price trap (style_r2=0.14-0.18).
+          Not ready for admit due to alpha_surv < 0.5.
+        - PE conditioning (batch_089): catastrophic holdout collapse. Do not revisit.
+
+      open_questions:
+        - "Can per-industry amount normalization (Sub($amount, Mean($amount, 20_industry))) remove book_to_price while preserving IC amplification?"
+        - "Is there a window below 5d where alpha_surv=1.0+ persists but ICIR strengthens?"
+        - "Why does CsRank($amount) introduce book_to_price? Is it capturing large-cap growth stocks with high daily volume?"
+        - "Can CsZscore($amount, industry_group) conditioning achieve similar IC without book_to_price?"
+
+      next_best_probes:
+        - expr: "Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank($amount),CsRank($turnover_rate)))"
+          why: "Amount minus turnover rank: amplifies amount signal while subtracting turnover component that may carry book_to_price"
+        - expr: "Corr(Div(Sub($high,$low),$close),$amount,3)"
+          why: "3d floor test: probe shows ICIR=-0.210 (weaker than 5d), confirm 5d is the floor"
+        - expr: "Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($volume))"
+          why: "Volume rank instead of amount rank: does CsRank($volume) introduce same book_to_price or different style?"
+
+      factor_roles:
+        - candidate_id: C003
+          role: primary_reserve_admit_candidate
+          summary: "Best overall profile — perfect mono both ways, strong barra residual. Gate is book_to_price from CsRank($amount). Address style, this becomes admit."
+        - candidate_id: C004
+          role: mechanism_quality_anchor
+          summary: "alpha_surv=1.024, decay=1.066 — proves the raw mechanism has genuine Barra-clean alpha. The raw IC is understated by vol_20d interference. Pure 5d is the cleanest signal."
+        - candidate_id: C005_batch089
+          role: baseline_mechanism_seed
+          summary: "10d reserve in batch_089. This batch confirms mechanism quality but window shortening alone doesn't improve holdout."
+
+  new_lessons:
+    - lesson_id: NM_L013_amount_rank_conditioning_amplifies
+      classification: NM
+      batch_ids: [batch_090]
+      description: |
+        CsRank($amount) conditioning on range-amount dramatically amplifies IC:
+        5d raw ICIR_val=-0.196 → 5d×amount_rank ICIR_val=-0.668 (3.4x amplification!).
+        BUT: introduces book_to_price style contamination (alpha_surv drops from 1.024 to 0.430).
+        The amplification is real (barra_res_icir=-0.331) but not admissible due to style.
+        Next: per-industry amount normalization may preserve amplification without book_to_price.
+      style_repackaging_risk: medium
+      implication: CsRank($amount) is a promising direction but needs industry neutralization.
+
+    - lesson_id: NM_L013_alpha_surv_gt1_at_5d
+      classification: NM
+      batch_ids: [batch_090]
+      description: |
+        C004 (5d raw range-amount): alpha_surv=1.024, decay=1.066.
+        alpha_surv > 1 means the factor is AMPLIFIED by Barra removal — raw IC understates true quality.
+        This is because vol_20d Barra factor has negative IC and the raw range-amount signal carries
+        vol_20d exposure. Removing vol_20d makes the residual signal STRONGER.
+        decay > 1 means the signal STRENGTHENS on holdout — opposite of overfitting.
+      style_repackaging_risk: low
+      implication: 5d raw range-amount is a high-quality signal. The bottleneck is weak raw IC (-0.196), not mechanism quality. Amplification mechanism (CsRank($amount) without book_to_price) is the key next step.
+
+    - lesson_id: FP_L013_raw_window_scan_plateau
+      classification: FP
+      batch_ids: [batch_090]
+      description: |
+        Raw Corr(range/close, amount, N) for N in [5,7,10] all have ICIR_ho in [-0.141, -0.156] range.
+        Window shortening alone does not break past the ~-0.15 holdout IC ceiling.
+        The mechanism's raw IC potential is limited by the vol_20d style interference.
+        Conditioning or normalization is required to push past this barrier.
+      style_repackaging_risk: low
+      implication: Do not probe more raw window variants for L013 without a structural change (conditioning, normalization, or different transformation).
+
+  discovery_flags:
+    - anomaly_type: repeated_near_miss_cluster
+      batch_ids: [batch_089, batch_090]
+      description: |
+        Two consecutive batches produce strong reserves but no admits for L013 range-amount family.
+        C005 (batch_089, 10d): ICIR_ho=-0.144, alpha_surv=0.734.
+        C003 (batch_090, 5d×amount_rank): ICIR_ho=-0.396, mono_ho=-1.0, barra_res_icir=-0.331.
+        C004 (batch_090, 5d raw): alpha_surv=1.024, decay=1.066.
+        The mechanism is clearly real and consistent. The blocks are:
+        (1) Raw: IC ceiling at ~-0.15 holdout
+        (2) Conditioned: book_to_price from CsRank($amount)
+        Both blocks have identified solutions. High probability of admission in next 1-2 batches.
+      likely_mechanism: "Institutional aggression signal captured by range-amount correlation. CsRank($amount) amplification path identified."
+      style_repackaging_risk: low
+      explainable_by_existing_logic: no
+      escalation_status: watch
+
+  holdout_reviews_triggered:
+    - review_id: HR_090_001
+      batch_id: batch_090
+      target_id: C003
+      trigger_reason: moderate_style_exposure
+      status: pending
+      detail: "C003: ICIR_ho=-0.396, mono_ho=-1.0 (perfect), barra_res_icir=-0.331. Reserve due to book_to_price exposure only. Confirm IC sustained and mono=-1.0 persists."
+    - review_id: HR_090_002
+      batch_id: batch_090
+      target_id: C004
+      trigger_reason: weak_validation_effect
+      status: pending
+      detail: "C004: alpha_surv=1.024, decay=1.066 (unusual strengthening profile). Reserve due to weak validation IC (-0.196). Confirm holdout strengthening is genuine."
+    - review_id: HR_090_003
+      batch_id: batch_090
+      target_id: C002
+      trigger_reason: moderate_style_exposure
+      status: pending
+      detail: "C002: ICIR_ho=-0.408, barra_res_icir=-0.309. Secondary reserve behind C003. Confirm sustainability."
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_090/judge_report.yaml
+    ledger_updated: false

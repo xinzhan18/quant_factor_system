@@ -760,6 +760,20 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_090:
+      batch_id: batch_090
+      candidate_count: 4
+      logic_ids:
+      - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1917,6 +1931,13 @@ search_ledger:
       reserve_count_to_date: 1
       continue_count_to_date: 1
       latest_verdict: continue
+    ELT_L013_mutate_window_scan_5d_7d_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 1
+      reserve_count_to_date: 3
+      continue_count_to_date: 1
+      latest_verdict: continue
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -1959,9 +1980,9 @@ search_ledger:
       reserve_count_to_date: 1
     PF_range_amount_flow:
       admitted_count_to_date: 0
-      family_attempt_count_to_date: 3
-      reject_count_to_date: 2
-      reserve_count_to_date: 1
+      family_attempt_count_to_date: 7
+      reject_count_to_date: 3
+      reserve_count_to_date: 4
     PF_cross_covariance:
       admitted_count_to_date: 0
       family_attempt_count_to_date: 4
@@ -2119,10 +2140,10 @@ search_ledger:
       reject_count_to_date: 2
       reserve_count_to_date: 1
     L013:
-      logic_attempt_count_to_date: 3
+      logic_attempt_count_to_date: 7
       admitted_count_to_date: 0
-      reject_count_to_date: 2
-      reserve_count_to_date: 1
+      reject_count_to_date: 3
+      reserve_count_to_date: 4
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3295,3 +3316,44 @@ write_audit_log:
     action: finalize_batch
     target: batch_089
     detail: updated_logics=L012,L013
+  - review_id: HR_090_001
+    batch_id: batch_090
+    target_id: C003
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C003 5d×amount_rank: ICIR_ho=-0.396, mono_ho=-1.0 (perfect), barra_res_icir=-0.331.
+      Borderline risk (book_to_price). Confirm IC and mono sustainability.'
+    outcome: null
+  - review_id: HR_090_002
+    batch_id: batch_090
+    target_id: C004
+    trigger_reason_codes:
+    - weak_validation_effect
+    status: pending
+    detail: 'C004 5d raw: alpha_surv=1.024, decay=1.066. Unusual strengthening profile.
+      Confirm holdout behavior is genuine.'
+    outcome: null
+  - review_id: HR_090_003
+    batch_id: batch_090
+    target_id: C002
+    trigger_reason_codes:
+    - moderate_style_exposure
+    status: pending
+    detail: 'C002 7d×amount_rank: ICIR_ho=-0.408, secondary reserve. Confirm sustainability.'
+    outcome: null
+  - timestamp: '2026-04-10T02:30:00+00:00'
+    actor: factor-judge
+    action: judge_batch
+    target: batch_090
+    detail: '4 candidates: 0 admit, 3 reserve (C002/C003/C004), 1 reject (C001). L013→active.
+      HR_090_001/002/003 triggered.'
+    level: 1
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+  - timestamp: '2026-04-09T18:00:53+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_090
+    detail: updated_logics=L013
