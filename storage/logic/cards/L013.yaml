@@ -42,46 +42,50 @@ contract:
   - 'PE conditioning on 10d: catastrophic holdout collapse (decay=0.312, mono_ho=-0.30)'
   - PE conditioning is INCOMPATIBLE with range-amount mechanism
   - Next exploration should NOT include PE conditioning or windows >= 10d.
+  - 'PROVEN for L013 at this stage:'
+  - 'Raw window range [5d, 7d, 10d]: ICIR_ho ceiling is ~-0.14 to -0.16. Window alone
+    cannot push'
+  - past this. Do not probe more raw window variants without a mechanism change.
+  - 'CsRank($amount) conditioning: strong IC but book_to_price trap (style_r2=0.14-0.18).'
+  - Not ready for admit due to alpha_surv < 0.5.
+  - 'PE conditioning (batch_089): catastrophic holdout collapse. Do not revisit.'
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
   factors_generated: 0
   factors_admitted: 0
-  rounds_without_admit: 1
+  rounds_without_admit: 2
   productive_families: []
   failed_families: []
-  current_bottleneck: 'The range-amount correlation mechanism IS valid and novel.
+  current_bottleneck: 'The range-amount mechanism at shorter windows (5d, 7d) doesn''t
+    improve holdout IC over 10d (C005 reserve).
 
-    C005 (10d): max_lib=0.065, alpha_surv=0.734, barra_res=-0.201, style_r2=0.042.
+    All raw variants have ICIR_ho in -0.14 to -0.16 range. The mechanism is there
+    but raw window
 
-    These are the BEST mechanism quality metrics in all of batch_089.
+    adjustment isn''t the solution. Amount conditioning (CsRank($amount)) dramatically
+    amplifies IC
 
-    The mechanism: when high-volatility days (wide range) consistently co-occur with
-    high monetary
+    (ICIR_val from -0.26 to -0.67!) but introduces book_to_price style contamination.
 
-    flow days ($amount) over N days, this captures aggressive institutional participation.
+    C004 (5d raw) has alpha_surv=1.024 — the factor improves AFTER Barra removal.
+    This suggests
 
-    This is orthogonal to pv_corr (which uses close price direction vs amount).
+    vol_20d Barra factor has negative IC in its own right, and the raw range-amount
+    IC includes
 
-    HOWEVER: the current 10d window is too slow. The signal has strong validation
-    (ICIR=-0.271)
-
-    but weak holdout (ICIR=-0.144), indicating the 10d averaging creates some train/val
-    leakage.
-
-    The dominant vol_20d Barra exposure (0.194) is real but manageable given low style_r2
-    (0.042).
-
-    Shorter windows (5d, 7d) should preserve the clean residual while increasing IC
-    signal frequency.'
+    a "negative drag" from vol exposure. The pure alpha (style-neutral) is stronger
+    than observed.'
   transitions: []
 next_actions:
-- 'Corr(Div(Sub($high,$low),$close),$amount,5) — 5d window: higher frequency, less
-  train/val leakage, preserve clean residual hypothesis'
-- 'Corr(Div(Sub($high,$low),$close),$amount,7) — 7d window: midpoint between floor
-  and current 10d — window scan'
-- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount)) — Amount-based
-  conditioning (not PE) — may amplify signal without ep_ratio style trap
+- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank($amount),CsRank($turnover_rate)))
+  — Amount minus turnover rank: amplifies amount signal while subtracting turnover
+  component that may carry book_to_price'
+- 'Corr(Div(Sub($high,$low),$close),$amount,3) — 3d floor test: probe shows ICIR=-0.210
+  (weaker than 5d), confirm 5d is the floor'
+- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($volume)) — Volume rank
+  instead of amount rank: does CsRank($volume) introduce same book_to_price or different
+  style?'
 deepening_threads:
 - id: T001
   question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
@@ -103,25 +107,40 @@ deepening_threads:
   status: answered
   priority: medium
   next_probes: []
-  result: 'FALSIFIED. C006 (10d×PE): decay=0.312, mono_ho=-0.30. PE conditioning
-    is INCOMPATIBLE with range-amount — it adds ep_ratio style and causes holdout
-    collapse. Do NOT probe PE conditioning with range-amount again.'
+  result: 'FALSIFIED. C006 (10d×PE): decay=0.312, mono_ho=-0.30. PE conditioning is
+    INCOMPATIBLE with range-amount — it adds ep_ratio style and causes holdout collapse.
+    Do NOT probe PE conditioning with range-amount again.'
   stop_condition: If dominant_style shifts from vol_20d after PE conditioning, confirm
     conditioning works
 - id: T003
-  question: What window (5d, 7d) produces strongest IC while preserving clean Barra residual?
+  question: What window (5d, 7d) produces strongest IC while preserving clean Barra
+    residual?
   why_matters: C005 (10d) has alpha_surv=0.734 and barra_res=-0.201 but ICIR_ho=-0.144
-    (too weak). Shorter windows = higher frequency institutional signal. Window floor
-    may exist below which mechanism collapses.
+    (too weak). Shorter windows = higher frequency institutional signal.
+  status: answered
+  priority: high
+  next_probes: []
+  result: 'PLATEAU FOUND. Window range [5d, 7d, 10d] all have ICIR_ho in [-0.141, -0.156].
+    Raw window reduction does not improve holdout IC. 5d raw (C004) has alpha_surv=1.024
+    and decay=1.066 — exceptional quality but weak IC. CsRank($amount) conditioning
+    amplifies IC (ICIR_val=-0.668) but introduces book_to_price style. Need industry
+    normalization to fix style contamination.'
+  stop_condition: If ICIR_val > 0.35 AND barra_res < -0.15 AND alpha_surv > 0.6, promote
+    to admit candidate
+- id: T004
+  question: Can per-industry amount normalization amplify range-amount IC without book_to_price style trap?
+  why_matters: CsRank($amount) amplifies ICIR from -0.20 to -0.67 but introduces book_to_price
+    style (style_r2=0.14-0.18, alpha_surv=0.43). Book_to_price from CsRank($amount) is because
+    high daily amount = large cap = often growth stocks. Industry normalization removes cross-sector
+    size bias while preserving intra-sector institutional activity signal.
   status: active
   priority: high
   next_probes:
-  - Corr(Div(Sub($high,$low),$close),$amount,5)
-  - Corr(Div(Sub($high,$low),$close),$amount,7)
-  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount))
-  stop_condition: If ICIR_val > 0.35 AND barra_res < -0.15 AND alpha_surv > 0.6,
-    promote to admit candidate
+  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank($amount),CsRank($turnover_rate)))
+  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($volume))
+  stop_condition: If alpha_surv > 0.5 AND barra_res_icir < -0.25 AND risk_bucket=acceptable,
+    promote to admit
 origin_proposal_id: L013
 created_at: '2026-04-10'
-updated_at: '2026-04-10 01:46:11'
-last_reflected_batch: batch_089
+updated_at: '2026-04-10 02:00:53'
+last_reflected_batch: batch_090

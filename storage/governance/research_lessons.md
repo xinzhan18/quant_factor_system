@@ -166,3 +166,11 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 - **NM-L013-range-amount-novel-mechanism**: Corr(Div(Sub($high,$low),$close),$amount,10) confirmed as novel mechanism. max_lib=0.065 (most novel in v2 system), alpha_surv=0.734, barra_res=-0.201, style_r2=0.042. Range-amount captures institutional aggression (volatile days co-occurring with high monetary flow). Orthogonal to ALL pv_corr factors. 10d window is too slow (ICIR_ho=-0.144, decay=0.715). Next: 5d, 7d windows.
 
 - **FP-L013-pe-conditioning-kills-range-amount**: PE conditioning on range-amount 10d: decay=0.312, mono_ho=-0.30 (catastrophic). PE conditioning is INCOMPATIBLE with range-amount mechanism. It adds ep_ratio style that dominates and causes holdout collapse. Do NOT probe PE conditioning with range-amount signals. Non-PE conditioning (e.g. CsRank($amount)) is the only viable path.
+
+## Batch 090 Soft Lessons (2026-04-10)
+
+- **NM-L013-amount-rank-amplifies-ic**: CsRank($amount) conditioning on range-amount 5d: ICIR_val jumps from -0.196 to -0.668 (3.4x!). But introduces book_to_price style (style_r2=0.14-0.18, alpha_surv=0.43). The amplification IS real (barra_res_icir=-0.331, mono_ho=-1.0 PERFECT). Need per-industry amount normalization to preserve amplification without book_to_price.
+
+- **NM-L013-alpha-surv-gt1-5d-raw**: C004 (5d raw range-amount): alpha_surv=1.024, decay=1.066. Factor AMPLIFIED by Barra removal and STRENGTHENS on holdout. This means the raw IC understates true quality — vol_20d Barra has negative IC and its removal improves the signal. The 5d raw range-amount is a clean mechanism but needs IC amplification.
+
+- **FP-L013-raw-window-plateau**: Raw Corr(range/close, amount, N) for N in [5,7,10]: ICIR_ho plateau at ~[-0.14,-0.16]. Window shortening alone cannot overcome this. Do not probe more raw window variants. Structural change (industry-normalized conditioning) required.
