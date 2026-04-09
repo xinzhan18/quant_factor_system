@@ -49,43 +49,50 @@ contract:
   - 'CsRank($amount) conditioning: strong IC but book_to_price trap (style_r2=0.14-0.18).'
   - Not ready for admit due to alpha_surv < 0.5.
   - 'PE conditioning (batch_089): catastrophic holdout collapse. Do not revisit.'
+  - 'PROVEN FAILURES:'
+  - 'CsRank($turnover_rate) conditioning: mono_ho collapse, do not probe'
+  - 'CsRank($volume) conditioning: alpha_surv=0.18, do not probe'
+  - 'Corr(range/close, turnover_rate, N): degenerate signal, do not probe'
+  - 'Raw window variants [3d-10d]: plateau at ICIR_ho~-0.15, do not probe'
+  - 'PE conditioning: batch_089 failure, do not revisit'
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
   factors_generated: 0
   factors_admitted: 0
-  rounds_without_admit: 2
+  rounds_without_admit: 3
   productive_families: []
   failed_families: []
-  current_bottleneck: 'The range-amount mechanism at shorter windows (5d, 7d) doesn''t
-    improve holdout IC over 10d (C005 reserve).
+  current_bottleneck: 'CsRank conditioning research is now complete:
 
-    All raw variants have ICIR_ho in -0.14 to -0.16 range. The mechanism is there
-    but raw window
+    - CsRank($amount): book_to_price style (manageable, mono_ho=-1.0 preserved) —
+    BEST CONDITIONER
 
-    adjustment isn''t the solution. Amount conditioning (CsRank($amount)) dramatically
-    amplifies IC
+    - CsRank($turnover_rate): turnover_20d style (FATAL mono collapse, mono_ho≈0)
 
-    (ICIR_val from -0.26 to -0.67!) but introduces book_to_price style contamination.
+    - CsRank($volume): turnover_20d style (alpha_surv=0.18, risk=poor)
 
-    C004 (5d raw) has alpha_surv=1.024 — the factor improves AFTER Barra removal.
-    This suggests
+    - CsRank($pe_ratio): ep_ratio trap (batch_089)
 
-    vol_20d Barra factor has negative IC in its own right, and the raw range-amount
-    IC includes
+    Every CsRank(X) conditioning introduces the Barra style of X.
 
-    a "negative drag" from vol exposure. The pure alpha (style-neutral) is stronger
-    than observed.'
+    The fundamental insight: the book_to_price style from CsRank($amount) is "benign"
+    in
+
+    that it preserves quintile structure (mono_ho=-1.0 in batch_090 C003). Turnover-related
+
+    styles destroy quintile structure. This is because book_to_price is a slow-moving
+    style
+
+    that doesn''t flip across the validation-holdout boundary, while turnover is fast-moving.'
   transitions: []
 next_actions:
-- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank($amount),CsRank($turnover_rate)))
-  — Amount minus turnover rank: amplifies amount signal while subtracting turnover
-  component that may carry book_to_price'
-- 'Corr(Div(Sub($high,$low),$close),$amount,3) — 3d floor test: probe shows ICIR=-0.210
-  (weaker than 5d), confirm 5d is the floor'
-- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($volume)) — Volume rank
-  instead of amount rank: does CsRank($volume) introduce same book_to_price or different
-  style?'
+- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,60))))
+  — Relative amount 60d lookback: captures abnormal activity vs own history. Less
+  large-cap bias. ICIR probe=-0.425.'
+- Python Barra residualization of Corr(range/close, amount, 5) — Direct residualization
+  removes style without introducing new style. batch_090 C004 (alpha_surv=1.024) shows
+  the clean alpha IS there.
 deepening_threads:
 - id: T001
   question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
@@ -120,19 +127,21 @@ deepening_threads:
   status: answered
   priority: high
   next_probes: []
-  result: 'PLATEAU FOUND. Window range [5d, 7d, 10d] all have ICIR_ho in [-0.141, -0.156].
+  result: PLATEAU FOUND. Window range [5d, 7d, 10d] all have ICIR_ho in [-0.141, -0.156].
     Raw window reduction does not improve holdout IC. 5d raw (C004) has alpha_surv=1.024
     and decay=1.066 — exceptional quality but weak IC. CsRank($amount) conditioning
     amplifies IC (ICIR_val=-0.668) but introduces book_to_price style. Need industry
-    normalization to fix style contamination.'
+    normalization to fix style contamination.
   stop_condition: If ICIR_val > 0.35 AND barra_res < -0.15 AND alpha_surv > 0.6, promote
     to admit candidate
 - id: T004
-  question: Can per-industry amount normalization amplify range-amount IC without book_to_price style trap?
+  question: Can per-industry amount normalization amplify range-amount IC without
+    book_to_price style trap?
   why_matters: CsRank($amount) amplifies ICIR from -0.20 to -0.67 but introduces book_to_price
-    style (style_r2=0.14-0.18, alpha_surv=0.43). Book_to_price from CsRank($amount) is because
-    high daily amount = large cap = often growth stocks. Industry normalization removes cross-sector
-    size bias while preserving intra-sector institutional activity signal.
+    style (style_r2=0.14-0.18, alpha_surv=0.43). Book_to_price from CsRank($amount)
+    is because high daily amount = large cap = often growth stocks. Industry normalization
+    removes cross-sector size bias while preserving intra-sector institutional activity
+    signal.
   status: active
   priority: high
   next_probes:
@@ -142,5 +151,5 @@ deepening_threads:
     promote to admit
 origin_proposal_id: L013
 created_at: '2026-04-10'
-updated_at: '2026-04-10 02:00:53'
-last_reflected_batch: batch_090
+updated_at: '2026-04-10 02:13:31'
+last_reflected_batch: batch_091
