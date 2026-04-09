@@ -1,0 +1,129 @@
+judge_report:
+  batch_id: batch_082
+  judged_at: '2026-04-09T19:51:25.761109'
+  batch_summary:
+    total_candidates: 3
+    admitted: 0
+    rejected: 3
+    reserved: 0
+    replaced: 0
+  candidate_verdicts:
+  - candidate_id: C001
+    name: regime_adaptive_momentum_v1
+    verdict: reject
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+    detail: 'IC_val=-0.026, IR_val=-0.221, mono_val=-0.5 (consistent negative). Holdout:
+      IC=-0.032, IR=-0.243, decay=1.20, mono_ho=-0.6. Stability ok, redundancy low,
+      feasibility good. BUT: Barra_residual_IC=-0.0025 (essentially 0 = pure style),
+      alpha_surv=0.095 (critical failure), str_1m=0.563 (dominant style), style_r2=0.233.
+      Signal is short-term reversal absorbed by str_1m. ls_tstat_ho=-0.95 confirms
+      no net alpha on holdout.'
+  - candidate_id: C002
+    name: amount_quintile_spread_v1
+    verdict: reject
+    reason_codes:
+    - weak_validation_effect
+    - poor_split_stability
+    - mechanism_unclear
+    detail: 'IC_val=-0.003 (critically weak), IR_val=-0.027. mono_val=0.0, mono_ho=0.0
+      = NO monotonicity whatsoever. split_stability=poor, train_val_decay=0.155 (severe
+      collapse). Holdout: IC=-0.008, IR=-0.076, decay=2.58 (massive overfitting).
+      Risk bucket borderline but validation collapse is fatal. Factor has no ranking
+      power — signals cluster without differentiation.'
+  - candidate_id: C003
+    name: cross_sectional_residual_v1
+    verdict: reject
+    reason_codes:
+    - style_dominance_detected
+    - poor_risk_model_bucket
+    detail: 'IC_val=-0.034, IR_val=-0.287 (strong), mono_val=-0.5. Holdout: IC=-0.041,
+      IR=-0.269, decay=1.21 (good). BUT: Barra_residual_IC=0.003 (essentially 0),
+      alpha_surv=0.081 (critical failure), str_1m=0.719 (extremely high), style_r2=0.434
+      (very high). style_crowding_risk=HIGH. The "cross-sectional residual" mechanism
+      collapses to pure str_1m. Market component removal provides no orthogonal alpha
+      beyond style.'
+  route_verdicts:
+  - route_id: R001
+    experiment_lineage_tag: ELT_L010_python_regime_adaptive_v1
+    verdict: kill
+    reason: 'All 3 candidates fail on risk model review (poor/borderline). Systematic
+      style dominance: str_1m absorbs regime-adaptive momentum, turnover_20d absorbs
+      quintile spread. Cross-sectional residual also collapses to str_1m. The Python
+      expressions are syntactically valid but mechanically equivalent to style repackaging
+      — they do not express new mechanisms. L010 hypothesis (Python can express what
+      DSL cannot) is NOT validated by these implementations.'
+  logic_recommendations:
+  - logic_id: L010
+    recommended_status: active
+    reason: 'Python feasibility is PARTIALLY confirmed: pipeline executed successfully,
+      3/3 passed precheck and gate. The regime-adaptive mechanism is conceptually
+      valid but implementations failed on style dominance. Need fundamentally different
+      mechanism design — not just regime-classified momentum/reversal, but genuinely
+      novel cross-sectional operations (e.g., conditional ranking, residual decomposition
+      beyond market removal). This batch did NOT falsify the hypothesis that Python
+      can express novel mechanisms — it falsified these specific implementations.'
+  new_lessons:
+  - id: FP_L010_all_style_dominance
+    type: FP
+    description: All 3 Python factor implementations (regime-adaptive momentum, quintile
+      spread, cross-sectional residual) exhibit severe style dominance (str_1m=0.56-0.72).
+      Python-based regime classification does NOT produce orthogonal alpha — it collapses
+      to short-term reversal patterns already captured by Barra styles.
+    severity: high
+  - id: NM_L010_python_feasibility
+    type: NM
+    description: 'Python factor pipeline works end-to-end: precheck → compute → evaluation
+      → risk review. The infrastructure is sound. Python CAN express novel mechanisms
+      in principle — but the specific designs tested here (regime-adaptive EWM, quintile
+      spread, market residual) do not deliver novel signals.'
+    severity: medium
+  discovery_flags: []
+  logic_diagnostics:
+    L010:
+      thesis_update: 'L010 hypothesis: "Python因子能表达DSL无法实现的复杂机制：regime-adaptive参数变化、cross-sectional
+        regression residuals、conditional logic。"
+
+        本批验证结果：regime-adaptive momentum（高vol用快decay，低vol用慢decay）的IC=-0.026（validation）、-0.032（holdout），统计强度够，但
+        Barra_residual_IC=-0.0025、alpha_surv=0.095，说明信号被 str_1m 吸收，不是独立alpha。
+
+        Cross-sectional residual（去除market component） Barra_residual_IC=0.003、style_r2=0.434、str_1m=0.719（极高），同样完全被风格吸收。
+
+        Quintile spread 机制：validation monotonicity=0.0（完全无单调性），机制根本不成立。
+
+        结论：Python技术路径可行（管道跑通），但这三个具体实现都塌缩为风格信号，不是真正的机制创新。'
+      evidence_for:
+      - 'C001: IC_val=-0.026, IR_val=-0.221, expanding_window_pass=True, 3个support
+        window sign consistent'
+      - 'C003: IC_val=-0.034, IR_val=-0.287, 统计强度强于C001'
+      - 'All 3: pipeline execution successful — Python factor infrastructure works'
+      evidence_against:
+      - 'C001: Barra_residual_IC=-0.0025 (≈0), alpha_surv=0.095 (临界失败), str_1m=0.563
+        (dominant)'
+      - 'C003: Barra_residual_IC=0.003 (≈0), style_r2=0.434, str_1m=0.719 (extremely
+        high)'
+      - 'C002: mono_val=0.0, mono_ho=0.0 — 完全没有单调性，机制不成立'
+      - 'All: ls_tstat_ho<|1| (C001=-0.95, C003=-0.61)，没有净alpha'
+      failure_boundary: '不再用EWM+regime classification组合做动量/反转——已被证明塌缩为str_1m。
+
+        不再用quintile spread范式——本批证明无单调性。
+
+        Cross-sectional residual（等权market return假设）过于简化，不产生独立alpha。
+
+        这些边界是机制层面的，不只是参数调优问题。'
+      open_questions:
+      - 是否有其他Python机制能真正产生DSL无法表达的独立alpha？
+      - Regime classification用volatility percentile是否是最优方式？
+      - Cross-sectional residual能否用beta-adjusted（而非等权）产生真正残差？
+      - Python的真正优势是否在于多步条件逻辑而非单步变换？
+      next_best_probes:
+      - expr: 'Conditional CsRank: If(vol_pct>0.6, Rank(ret_fast), If(vol_pct<0.4,
+          Rank(ret_slow), Rank(ret)))'
+        why: 纯粹的if-else条件逻辑，DSL完全无法表达（需要嵌套If+跨截面Rank）。用rank而非EWM避免str_1m吸收。
+      - expr: 'Cross-sectional dollar volume weighted return (DVW return): ret * amount
+          / mean(amount over universe)'
+        why: 金额加权收益是smart money代理，DSL无法直接表达金额加权操作。这是机制层面的创新，不只是参数变化。
+      - expr: Residual of ret on market_excess using rolling beta (not equal-weighted)
+        why: 当前cross_sectional_residual用等权market return（beta=1简化假设）。Rolling beta调整可能产生真正残差——但这需要Python，DSL无法做滚动回归。
+      factor_roles: []
