@@ -73,55 +73,73 @@ contract:
   - '20d price momentum component: unavoidable str_1m loading'
   - 'VIABLE PATH:'
   - 'Pure fundamental change WITHOUT price component: EPS/Revenue/EPS_acceleration'
+  - 'CONFIRMED DEAD ENDS (from all L015 batches):'
+  - 'Sub(CsRank(fundamental_change), CsRank(price_change)): str_1m trap'
+  - 'PE-price independence filter: adds str_1m'
+  - 'Relative amount conditioning: worsens alpha_surv (C005 batch_099)'
+  - 'BV change × low PB: dominated by book_to_price Barra'
+  - 'EPS at 20d: too short for quarterly EPS (probe FAIL)'
+  - 'EPS at 250d: weaker than 120d (ICIR=0.130)'
+  - 'VIABLE DIRECTIONS (to explore):'
+  - 1. Revenue change × low PB (instead of low PE) — avoids ep_ratio loading
+  - 2. Revenue change × CsRank(1/$ps_ratio) = low PS conditioning — pure PS-based
+  - 3. EPS/Revenue change × size conditioning (small cap premium) — size instead of
+    value
+  - 4. EPS change × low amount (neglected stocks with improving earnings)
 discovery_budget:
   adjacent_discovery_route_quota: 1
 evidence_summary:
   factors_generated: 0
   factors_admitted: 0
-  rounds_without_admit: 2
+  rounds_without_admit: 3
   productive_families: []
   failed_families: []
-  current_bottleneck: 'L015 thesis refined by batch_100: the sign flip in PE/PB/PS
-    divergence signals comes from the PRICE CHANGE
+  current_bottleneck: 'L015 thesis confirmed and refined by batch_101. The "value
+    catalyst" mechanism is valid and barra-clean:
 
-    COMPONENT, not the fundamental change component. Sub(CsRank(fundamental_change),
-    CsRank(price_change))
+    Fundamental improvement (EPS/Revenue change) × cheap valuation (low PE) predicts
+    positive returns
 
-    = CsRank(earnings_momentum) - CsRank(price_momentum_reversal).
-
-
-    The CsRank(price_change) component directly loads on str_1m Barra factor (positive
-    direction = reversal
-
-    after price DECLINE, but str_1m positive means recent price increase = opposite
-    direction loading).
-
-    This is the root cause of the sign flip: the subtraction creates a negative loading
-    on str_1m.
+    with barra_res_icir POSITIVE across all tested variants.
 
 
-    C003 (pure EPS change 60d) PROVES the earnings component alone is barra-clean
-    (barra_res_icir=+0.394,
+    The sign flip is fully resolved. The root cause was identified (price component
+    in divergence formula
 
-    alpha_surv=3.017). The mechanism exists and is orthogonal to ALL library factors
-    (max_lib=0.025).
-
-    The ONLY problem is signal weakness (ICIRval=0.123).
+    loads on str_1m). The solution (pure fundamental change without price component)
+    works.
 
 
-    Path forward is clear: amplify pure earnings momentum. Options:
+    NEW INSIGHT: The Barra ep_ratio factor is INVERSELY related to earnings momentum
+    in CSI1000.
 
-    1. Longer lookback (120d): captures 2 quarterly earnings cycles — should strengthen
-    signal
+    This means:
 
-    2. EPS acceleration: compare EPS_today to Mean(EPS, 60d) — amplifies stocks with
-    ACCELERATING earnings
+    1. Value stocks (high ep_ratio, low PE) tend to have DECLINING earnings
 
-    3. Revenue change proxy: CsRank(Div(Div($close,$ps_ratio), Div(Ref($close,120),Ref($ps_ratio,120))))
-    — revenue momentum at 120d
+    2. Growth stocks (low ep_ratio, high PE) tend to have IMPROVING earnings
 
-    4. Multi-metric earnings momentum: Mul(CsRank(EPS_change), CsRank(Revenue_change))
-    — both improving'
+    3. After Barra removal, pure earnings momentum is amplified (ep_ratio DETRACTS
+    from it)
+
+    4. Adding low-PE conditioning adds ep_ratio style (partially fighting the earnings
+    signal)
+
+
+    OPTIMAL DIRECTION: Find a value conditioner that:
+
+    (1) Amplifies the IC when applied to earnings/revenue change
+
+    (2) Does NOT add ep_ratio Barra style loading
+
+    Options: low trading volume (attention/neglect), low market cap, low PS ratio,
+    momentum reversal
+
+
+    ADMISSION CANDIDATE (NEAR): C004 (revenue × low PE) — ICIRval=0.265, mono_val=1.0,
+    barra_res=+0.220.
+
+    Need: style_r2 < 0.15 (currently 0.187). Alternative conditioning may unlock admission.'
   transitions: []
 deepening_threads:
 - id: T001
@@ -162,19 +180,22 @@ deepening_threads:
   stop_condition: If conditioning raises alpha_surv above 0.6 AND maintains ICIR_ho
     above +0.20
 next_actions:
-- CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,120),Ref($pe_ratio,120)))) — EPS
-  change at 120d (2 quarterly cycles). Captures more earnings revision momentum. If
-  ICIRval>0.20 with barra_res_icir positive, this is the admission candidate.
-- 'CsRank(Div(Div($close,$pe_ratio),Mean(Div($close,$pe_ratio),60))) — EPS acceleration:
-  EPS_today vs 60d-average EPS. Amplifies stocks with recent EPS breakout above their
-  own 3-month average. More sensitive to quarterly earnings beats.'
-- CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,120),Ref($ps_ratio,120)))) — Revenue
-  change at 120d. Revenue grows more smoothly than EPS (less quarterly noise). May
-  be stronger signal than EPS at same horizon.
-- 'Mul(CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,120),Ref($pe_ratio,120)))),CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,120),Ref($ps_ratio,120)))))
-  — Multi-metric confirmation: EPS_change × Revenue_change at 120d. Stocks with BOTH
-  improving earnings and revenue have stronger signal than either alone.'
+- Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($pb_ratio,-1)))
+  — Revenue change 60d × low PB conditioning. PB is less correlated with ep_ratio
+  style than PE. If this reduces style_r2 below 0.15 while maintaining ICIRval > 0.25
+  and barra_res > 0, this is the admission candidate.
+- Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($market_cap,-1)))
+  — Revenue change 60d × small cap (neglected stocks). Size conditioning may amplify
+  the earnings momentum without adding ep_ratio style. Small-cap stocks with improving
+  revenue have largest re-rating potential (coverage/attention asymmetry).
+- Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($pb_ratio,-1)))
+  — Absolute EPS change 60d × low PB. If PB conditioning has less ep_ratio style loading
+  than PE conditioning, this amplifies EPS momentum with cleaner Barra profile.
+- Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($ps_ratio,-1)))
+  — Revenue change 60d × low PS (pure PS-based value-catalyst). CsRank(-ps_ratio)
+  = cheap revenue stocks. Avoids ep_ratio loading entirely. Most coherent single-metric
+  approach.
 origin_proposal_id: L015
 created_at: '2026-04-10'
-updated_at: '2026-04-10 04:48:13'
-last_reflected_batch: batch_100
+updated_at: '2026-04-10 05:18:12'
+last_reflected_batch: batch_101
