@@ -1,0 +1,79 @@
+batch_id: batch_075
+logic_id: L009
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L009_genesis_corr_amount_pe_ps_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does amount-based Corr × PE/PS conditioning at 10d/20d improve on 5d C003?"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+  - experiment_lineage_tag: ELT_L009_genesis_corr_amount_tur_rank_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does amount-based Corr × turnover_rank conditioning produce stronger signal than PE/PS conditioning?"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_pe_ps_v1
+    expression: Mul(Corr($close, $amount, 10), CsRank($pe_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_pe_rank
+    rationale: "Amount-based Corr × PE rank 10d — tests if 10d improves on 5d C003 (IR=-0.3440)"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_pe_ps_v1
+    expression: Mul(Corr($close, $amount, 20), CsRank($pe_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_20d_x_pe_rank
+    rationale: "Amount-based Corr × PE rank 20d — tests longer window for PE conditioning"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C003
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_pe_ps_v1
+    expression: Mul(Corr($close, $amount, 10), CsRank($ps_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_ps_rank
+    rationale: "Amount-based Corr × PS rank 10d — tests PS vs PE conditioning (IR=-0.4120)"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C004
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_tur_rank_v1
+    expression: Mul(Corr($close, $amount, 5), CsRank($turnover_rate))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_5d_x_tur_rank
+    rationale: "Amount-based Corr × turnover rank 5d — NEW MECHANISM: turnover_rank conditioning (IR=-0.5194)"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C005
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_tur_rank_v1
+    expression: Mul(Corr($close, $amount, 10), CsRank($turnover_rate))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_tur_rank
+    rationale: "Amount-based Corr × turnover rank 10d — STRONGEST in L009 series (IR=-0.5526)"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl

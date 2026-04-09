@@ -1,0 +1,127 @@
+logic_id: L013
+name: Range-Amount Correlation
+category: microstructure_flow
+status: active
+priority: high
+hypothesis:
+  condition: 日内价格区间波动（(high-low)/close）与成交金额的协同运动强度
+  behavior: 高波动日与大单日的共现（正相关）预示机构主动参与；两者背离（负相关）预示被动/噪声交易。与pv_corr（价格方向×成交量）互补——range-amount捕捉"波动烈度×资金量"，而非"价格方向×成交量"。
+  timeframe: 10-20d形成，5-15d持有
+  direction: 做多range-amount相关性异常（有条件地）
+  prior_evidence: 'pv_corr family (F003-F016): ALL use $close as Corr first arg. Range
+    vs amount is completely unexplored in v2. Legacy F022 (range_compression_60) used
+    range magnitude, NOT range-amount correlation. Mechanism is orthogonal to all
+    existing factors.'
+contract:
+  current_focus_question: What window (5d, 7d) maximizes IC strength for Corr(range/close,
+    amount, N) while preserving the clean Barra residual (barra_res<0, alpha_surv>0.7)?
+  direction_quota: 2
+  candidate_quota: 4
+  preferred_families:
+  - PF_range_amount_flow
+  suggested_ops:
+  - Corr
+  - Div
+  - Sub
+  - Mul
+  - CsRank
+  required_fields:
+  - $high
+  - $low
+  - $close
+  - $amount
+  - $pe_ratio
+  - $turnover_rate
+  avoid_patterns:
+  - Corr($high,$low,N) — price-only, no flow information
+  - Pure range/close without amount correlation — similar to ATR, absorbed by vol
+    Barra
+  - Large windows (>30d) — range compression artifact, weaker signal
+  - 'PROVEN FAILURES for L013:'
+  - '20d window: split_stability=poor, severe train_val_decay — too slow'
+  - 'PE conditioning on 10d: catastrophic holdout collapse (decay=0.312, mono_ho=-0.30)'
+  - PE conditioning is INCOMPATIBLE with range-amount mechanism
+  - Next exploration should NOT include PE conditioning or windows >= 10d.
+discovery_budget:
+  adjacent_discovery_route_quota: 2
+evidence_summary:
+  factors_generated: 0
+  factors_admitted: 0
+  rounds_without_admit: 1
+  productive_families: []
+  failed_families: []
+  current_bottleneck: 'The range-amount correlation mechanism IS valid and novel.
+
+    C005 (10d): max_lib=0.065, alpha_surv=0.734, barra_res=-0.201, style_r2=0.042.
+
+    These are the BEST mechanism quality metrics in all of batch_089.
+
+    The mechanism: when high-volatility days (wide range) consistently co-occur with
+    high monetary
+
+    flow days ($amount) over N days, this captures aggressive institutional participation.
+
+    This is orthogonal to pv_corr (which uses close price direction vs amount).
+
+    HOWEVER: the current 10d window is too slow. The signal has strong validation
+    (ICIR=-0.271)
+
+    but weak holdout (ICIR=-0.144), indicating the 10d averaging creates some train/val
+    leakage.
+
+    The dominant vol_20d Barra exposure (0.194) is real but manageable given low style_r2
+    (0.042).
+
+    Shorter windows (5d, 7d) should preserve the clean residual while increasing IC
+    signal frequency.'
+  transitions: []
+next_actions:
+- 'Corr(Div(Sub($high,$low),$close),$amount,5) — 5d window: higher frequency, less
+  train/val leakage, preserve clean residual hypothesis'
+- 'Corr(Div(Sub($high,$low),$close),$amount,7) — 7d window: midpoint between floor
+  and current 10d — window scan'
+- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount)) — Amount-based
+  conditioning (not PE) — may amplify signal without ep_ratio style trap
+deepening_threads:
+- id: T001
+  question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
+    < 0.75)?
+  why_matters: pv_corr uses close-direction × amount. Range-amount uses volatility-magnitude
+    × amount. If max_lib < 0.75 vs F003-F016, this is a genuinely new mechanism.
+  status: answered
+  priority: high
+  next_probes: []
+  result: 'CONFIRMED. C005: max_lib=0.065 (most novel in v2), barra_res=-0.201, alpha_surv=0.734.
+    Range-amount is a genuinely new mechanism class orthogonal to all pv_corr factors.
+    Stop condition met: max_lib < 0.75 AND barra_res < 0.'
+  stop_condition: If max_lib < 0.75 AND Barra_residual < 0, confirm as new mechanism
+    class
+- id: T002
+  question: Does PE conditioning rescue range-amount from vol_20d Barra absorption?
+  why_matters: Range (high-low) is correlated with vol_20d Barra factor. PE conditioning
+    may filter to "institutional volatility in cheap names" and break vol style trap.
+  status: answered
+  priority: medium
+  next_probes: []
+  result: 'FALSIFIED. C006 (10d×PE): decay=0.312, mono_ho=-0.30. PE conditioning
+    is INCOMPATIBLE with range-amount — it adds ep_ratio style and causes holdout
+    collapse. Do NOT probe PE conditioning with range-amount again.'
+  stop_condition: If dominant_style shifts from vol_20d after PE conditioning, confirm
+    conditioning works
+- id: T003
+  question: What window (5d, 7d) produces strongest IC while preserving clean Barra residual?
+  why_matters: C005 (10d) has alpha_surv=0.734 and barra_res=-0.201 but ICIR_ho=-0.144
+    (too weak). Shorter windows = higher frequency institutional signal. Window floor
+    may exist below which mechanism collapses.
+  status: active
+  priority: high
+  next_probes:
+  - Corr(Div(Sub($high,$low),$close),$amount,5)
+  - Corr(Div(Sub($high,$low),$close),$amount,7)
+  - Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount))
+  stop_condition: If ICIR_val > 0.35 AND barra_res < -0.15 AND alpha_surv > 0.6,
+    promote to admit candidate
+origin_proposal_id: L013
+created_at: '2026-04-10'
+updated_at: '2026-04-10 01:46:11'
+last_reflected_batch: batch_089

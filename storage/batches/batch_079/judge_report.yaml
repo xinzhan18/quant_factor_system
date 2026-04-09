@@ -1,0 +1,203 @@
+judge_report:
+  batch_id: batch_079
+  judgment_timestamp: '2026-04-09T03:20:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 3
+    admitted: 0
+    rejected: 0
+    reserved: 3
+    replaced: 0
+    gate_pass: 3
+    gate_fail: 0
+    gate_warn: 0
+
+  admitted_factors: []
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      route_type: decorrelate
+      experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v3
+      verdict: continue
+      reason: |
+        No candidate surpasses F015 but all pass gate.
+        C001 (PS conditioning): max_lib=0.752 (better than F015), alpha_surv=0.306 (worse),
+        mono stable, decay=1.32, style_r2=0.084 (cleanest).
+        C002 (8% subtraction): max_lib=0.750 (better than F015), alpha_surv=0.377 (almost same),
+        mono stable, decay=1.17.
+        C003 (volume timing): max_lib=0.729 (best), alpha_surv=0.348 (worse), mono decays -0.3→-0.6,
+        style_r2=0.181 (highest contamination).
+        PS conditioning (C001): lower alpha_surv, not better overall.
+        8% subtraction (C002): very close to F015, marginal improvement.
+        Volume timing (C003): mono decay and high style contamination disqualify.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - moderate_style_exposure
+      detail: |
+        Sub(Mul(Corr($close,$amount,10),CsRank($ps_ratio)),Mul(CsRank($turnover_rate),0.1)): Gate pass.
+        ICIR_val=-0.340, ICIR_ho=-0.336, decay=1.32 (IC strengthens).
+        mono_val=-0.7, mono_ho=-0.7 (STABLE).
+        ls_tstat_val=-3.36, ls_tstat_ho=-3.32.
+        Barra_res=-0.0106 (NEGATIVE = clean).
+        alpha_surv=0.306 (WORSE than F015's 0.383).
+        max_lib_corr=0.7515 (better than F015's 0.740).
+        style_r2=0.084 (cleanest in batch_079).
+        RESERVE: PS conditioning achieves better redundancy but lower alpha_surv.
+        The PS fundamental (price-to-sales) is less effective than PE for this mechanism.
+
+    C002:
+      candidate_id: C002
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - moderate_style_exposure
+      detail: |
+        Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.08)): Gate pass.
+        ICIR_val=-0.390, ICIR_ho=-0.371, decay=1.17 (IC strengthens).
+        mono_val=-0.7, mono_ho=-0.7 (STABLE).
+        ls_tstat_val=-3.18, ls_tstat_ho=-5.24 (strong on holdout).
+        Barra_res=-0.0119 (NEGATIVE = clean).
+        alpha_surv=0.377 (almost same as F015's 0.383).
+        max_lib_corr=0.7496 (better than F015's 0.740).
+        style_r2=0.144 (lowest contamination in this batch).
+        RESERVE: 8% subtraction achieves similar metrics to F015 but doesn't improve enough.
+        The 8% vs 10% difference is marginal — F015 remains the optimal configuration.
+
+    C003:
+      candidate_id: C003
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - regime_instability
+        - high_subspace_redundancy
+      detail: |
+        Mul(Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)),TsRank($volume,20)): Gate pass.
+        ICIR_val=-0.379, ICIR_ho=-0.383, decay=1.18 (IC strengthens).
+        mono_val=-0.3, mono_ho=-0.6 (DECAYS — validation signal almost flat).
+        ls_tstat_val=-3.66, ls_tstat_ho=-4.47.
+        Barra_res=-0.0102 (NEGATIVE = clean).
+        alpha_surv=0.348 (WORSE than F015's 0.383).
+        max_lib_corr=0.7285 (BEST in batch_079).
+        style_r2=0.181 (HIGHEST contamination in batch_079).
+        str_1m=0.456 (very high style exposure).
+        RESERVE: Volume timing conditioning adds style contamination that kills alpha_surv.
+        TsRank(volume,20) introduces regime instability — mono decays.
+
+  logic_recommendations:
+    L009:
+      logic_id: L009
+      recommended_status: productive
+      reason: |
+        L009 remains productive with F015 as the anchor.
+        batch_079 confirms F015 (10d, 10%) remains optimal.
+        PS conditioning (C001): lower alpha_surv despite better redundancy.
+        8% subtraction (C002): marginal difference from 10%.
+        Volume timing (C003): high style contamination disqualifies.
+        Soft decorrelation parameter space is now fully mapped:
+        - 5%: max_lib=0.763, alpha_surv=0.367
+        - 8%: max_lib=0.750, alpha_surv=0.377
+        - 10%: max_lib=0.740, alpha_surv=0.383
+        - 15%: max_lib=0.715, alpha_surv=0.403 (but mono decays)
+        direction_quota: 3
+        candidate_quota: 6
+
+  logic_diagnostics:
+    L009:
+      thesis_update: |
+        batch_079 completes the soft decorrelation parameter space mapping.
+        F015 (10d, 10%) remains the optimal configuration.
+        PS conditioning: achieves better redundancy (0.752) but lower alpha_surv (0.306).
+        8% subtraction: very close to F015 (max_lib=0.750, alpha_surv=0.377).
+        Volume timing conditioning: adds style contamination that kills alpha_surv.
+        The full parameter space is now mapped:
+        - 5%: C003 batch_077 (max_lib=0.763, alpha_surv=0.367)
+        - 8%: C002 batch_079 (max_lib=0.750, alpha_surv=0.377)
+        - 10%: F015 (max_lib=0.740, alpha_surv=0.383)
+        - 15%: C001 batch_078 (max_lib=0.715, alpha_surv=0.403 but mono decays)
+        L009 Corr mechanism is well-explored. Consider moving to crossover or other mechanisms.
+
+      evidence_for:
+        - "F015 (ADMITTED): max_lib=0.740, alpha_surv=0.383, Barra_res=-0.0115, mono stable"
+        - "C002 (8%): max_lib=0.750, alpha_surv=0.377, mono stable — marginal improvement"
+        - "C001 (PS): max_lib=0.752, alpha_surv=0.306, style_r2=0.084 (cleanest)"
+        - "All candidates: NEGATIVE Barra residual (clean)"
+        - "Soft decorrelation parameter space fully mapped"
+
+      evidence_against:
+        - "C001 (PS): alpha_surv=0.306 (WORST in batch), too low despite good redundancy"
+        - "C002 (8%): marginal improvement doesn't justify replace"
+        - "C003 (volume): mono decays -0.3→-0.6, style_r2=0.181 (highest)"
+        - "Volume timing adds style contamination that kills alpha_surv"
+
+      failure_boundary: |
+        PS conditioning: lower alpha_surv than PE conditioning.
+        8% subtraction: marginal improvement over 10%.
+        Volume timing: TsRank(volume) adds style contamination.
+        15% subtraction: kills mono stability (confirmed batch_078).
+        Soft decorrelation is fully mapped — 10% subtraction + 10d window is optimal.
+
+      open_questions:
+        - "Should L009 explore crossover with other mechanisms?"
+        - "Could a blend of F015 and C002 (8%) achieve better metrics?"
+        - "Is there other fundamental conditioning that outperforms PE?"
+
+      next_best_probes:
+        - expr: "Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.09))"
+          why: "9% subtraction — fills the gap between 8% and 10%, tests if 9% is the true optimal"
+        - expr: "Add(F015, Corr($close,$amount,5))"
+          why: "Crossover: F015 + shorter-window Corr — tests if blending timeframes helps"
+        - expr: "Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)) × (1-CsRank($volume))"
+          why: "Volume regime gating — multiply by low-volume signal to filter noise"
+
+  new_lessons:
+    - lesson_id: ADMIT_L009_ps_conditioning_inferior
+      classification: FP
+      batch_ids:
+        - batch_079
+      description: |
+        PS (price-to-sales) conditioning achieves better redundancy (0.752) than PE conditioning
+        but alpha_surv drops to 0.306 (vs 0.383 for PE). The PS fundamental is less effective
+        at capturing the conditioning signal that makes PE-based Corr work.
+      style_repackaging_risk: medium
+      implication: "Stop exploring PS conditioning for L009 Corr mechanism."
+
+    - lesson_id: ADMIT_L009_8pct_marginal
+      classification: NM
+      batch_ids:
+        - batch_079
+      description: |
+        8% subtraction (C002) achieves max_lib=0.750, alpha_surv=0.377 — very close to F015's
+        0.740 and 0.383. The improvement is marginal and doesn't justify a replace.
+        The 10% subtraction is confirmed as the optimal coefficient.
+      style_repackaging_risk: medium
+      implication: "Stop exploring subtraction coefficients between 8-12%. 10% is optimal."
+
+    - lesson_id: ADMIT_L009_volume_timing_kills_alpha
+      classification: FP
+      batch_ids:
+        - batch_079
+      description: |
+        TsRank(volume,20) timing conditioning adds high style contamination (str_1m=0.456, style_r2=0.181)
+        that kills alpha_surv. Volume timing is not orthogonal to the Corr mechanism — it adds
+        regime-dependent noise rather than independent signal.
+      style_repackaging_risk: medium
+      implication: "Stop exploring volume timing conditioning for L009 Corr mechanism."
+
+  discovery_flags: []
+
+  holdout_reviews_triggered: []
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_079/judge_report.yaml
+    ledger_updated: false
+    admitted_factor: null

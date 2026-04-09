@@ -1,0 +1,79 @@
+batch_id: batch_074
+logic_id: L009
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L009_genesis_corr_turnover_pe_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does turnover-based Corr × PE rank conditioning produce cleaner Barra residual than amount-based?"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+  - experiment_lineage_tag: ELT_L009_genesis_corr_turnover_ps_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does PS rank conditioning differ from PE rank for turnover-based Corr?"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_turnover_pe_v1
+    expression: Mul(Corr($close, $turnover_rate, 5), CsRank($pe_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_turnover_5d_x_pe_rank
+    rationale: "Turnover-based Corr × PE rank 5d — tests if turnover field differs from amount field when PE conditioned"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: dsl
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_turnover_pe_v1
+    expression: Mul(Corr($close, $turnover_rate, 10), CsRank($pe_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_turnover_10d_x_pe_rank
+    rationale: "Turnover-based Corr × PE rank 10d — strongest train IR=-0.4121 in L009 series"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: dsl
+  - candidate_id: C003
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_turnover_pe_v1
+    expression: Mul(Corr($close, $turnover_rate, 20), CsRank($pe_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_turnover_20d_x_pe_rank
+    rationale: "Turnover-based Corr × PE rank 20d — tests longer window"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: dsl
+  - candidate_id: C004
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_turnover_ps_v1
+    expression: Mul(Corr($close, $turnover_rate, 5), CsRank($ps_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_turnover_5d_x_ps_rank
+    rationale: "Turnover-based Corr × PS rank — tests if PS conditioning differs from PE"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+    source_type: dsl
+  - candidate_id: C005
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_turnover_ps_v1
+    expression: Div(Corr($close, $turnover_rate, 10), (1+CsRank($turnover_rate)))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_turnover_10d_div_tur_rank
+    rationale: "Turnover normalization — tests if normalizing by turnover_rank preserves signal better than volume"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+    source_type: dsl

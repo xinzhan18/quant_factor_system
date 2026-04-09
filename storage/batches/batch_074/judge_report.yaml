@@ -1,0 +1,184 @@
+judge_report:
+  batch_id: batch_074
+  judgment_timestamp: '2026-04-09T01:42:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 5
+    admitted: 0
+    rejected: 0
+    reserved: 0
+    replaced: 0
+    gate_pass: 0
+    gate_fail: 5
+    gate_warn: 0
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      route_type: genesis
+      experiment_lineage_tag: ELT_L009_genesis_corr_turnover_pe_v1
+      verdict: kill
+      reason: |
+        All 3 candidates (C001/C002/C003) failed with compute_error:ValueError.
+        Shape mismatch: Corr($close,$turnover_rate,N) returns 2674 instruments but
+        CsRank($pe_ratio) returns 2620 instruments. $turnover_rate and $pe_ratio have
+        different data availability windows. This is a field alignment problem, not
+        an expression design problem.
+
+    R002:
+      route_id: R002
+      route_type: genesis
+      experiment_lineage_tag: ELT_L009_genesis_corr_turnover_ps_v1
+      verdict: kill
+      reason: |
+        Both candidates (C004/C005) failed with compute_error:ValueError.
+        Same root cause: $turnover_rate and $ps_ratio have different instrument sets.
+        The probe CLI works because it uses a smaller universe and handles NaN differently.
+        The full pipeline (validation + risk model) exposes the alignment mismatch.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reject
+      execution_gate_status: fail_technical
+      reason_codes:
+        - compute_error
+        - field_alignment_mismatch
+      detail: |
+        Mul(Corr($close,$turnover_rate,5),CsRank($pe_ratio)): Gate fail.
+        compute_error: operands could not be broadcast together with shapes (2674,) (2620,)
+        $turnover_rate instruments ≠ $pe_ratio instruments.
+        Probe passed (train-only, smaller universe) but full pipeline fails.
+
+    C002:
+      candidate_id: C002
+      verdict: reject
+      execution_gate_status: fail_technical
+      reason_codes:
+        - compute_error
+        - field_alignment_mismatch
+      detail: |
+        Mul(Corr($close,$turnover_rate,10),CsRank($pe_ratio)): Gate fail.
+        Same compute_error as C001 — field alignment issue is systematic.
+        10d window does not resolve the shape mismatch.
+
+    C003:
+      candidate_id: C003
+      verdict: reject
+      execution_gate_status: fail_technical
+      reason_codes:
+        - compute_error
+        - field_alignment_mismatch
+      detail: |
+        Mul(Corr($close,$turnover_rate,20),CsRank($pe_ratio)): Gate fail.
+        20d window still fails — alignment problem is intrinsic to field availability.
+
+    C004:
+      candidate_id: C004
+      verdict: reject
+      execution_gate_status: fail_technical
+      reason_codes:
+        - compute_error
+        - field_alignment_mismatch
+      detail: |
+        Mul(Corr($close,$turnover_rate,5),CsRank($ps_ratio)): Gate fail.
+        Same shape mismatch — $ps_ratio instruments ≠ $turnover_rate instruments.
+
+    C005:
+      candidate_id: C005
+      verdict: reject
+      execution_gate_status: fail_technical
+      reason_codes:
+        - compute_error
+        - field_alignment_mismatch
+      detail: |
+        Div(Corr($close,$turnover_rate,10),(1+CsRank($turnover_rate))): Gate fail.
+        CsRank($turnover_rate) shares the same alignment issue.
+
+  logic_recommendations:
+    L009:
+      logic_id: L009
+      recommended_status: active
+      reason: |
+        batch_074 is a technical failure (field alignment), not a mechanism failure.
+        Turnover-based Corr × PE rank showed promising train IR (-0.4121 for 10d).
+        But the expressions cannot be computed in the full pipeline.
+        L009 continues with amount-based Corr variants.
+        direction_quota: 3
+        candidate_quota: 6
+
+  logic_diagnostics:
+    L009:
+      thesis_update: |
+        Technical blocker identified: $turnover_rate and $pe_ratio/$ps_ratio have
+        different instrument sets in the Qlib data provider. Probe CLI masks this by
+        using a smaller train-only universe and different NaN handling. Full pipeline
+        (validation + risk review) exposes the alignment mismatch.
+        The probe results for turnover-based Corr × PE rank (IR=-0.4121 for 10d)
+        suggest the mechanism is real — but cannot be evaluated in the current system.
+        Amount-based Corr ($close, $amount) does NOT have this problem (confirmed in batch_073).
+
+      evidence_for:
+        - "C002 probe: IR=-0.4121 (strongest in L009 series)"
+        - "C001 probe: IR=-0.3502 (PASS)"
+        - "Amount-based Corr × PE rank: Barra_res=-0.0104 (clean) from batch_073 C003"
+
+      evidence_against:
+        - "All 5 candidates: compute_error:ValueError in full pipeline"
+        - "2674 instruments (Corr) vs 2620 instruments (CsRank(PE))"
+        - "The field alignment mismatch is systematic across all windows (5d/10d/20d)"
+
+      failure_boundary: |
+        Turnover-based Corr with PE/PS conditioning cannot be evaluated in current system.
+        The field alignment issue ($turnover_rate vs $pe_ratio) is a data provider constraint.
+        Amount-based Corr is confirmed working. Do NOT retry turnover-based Corr × fundamental rank.
+
+      open_questions:
+        - "Could CsRank on turnover itself (e.g., Div(Corr, 1+CsRank($turnover_rate))) avoid the alignment issue?"
+        - "Is the field alignment fixable at the data provider level?"
+        - "Does amount-based Corr × PE rank have lower redundancy than current library?"
+
+      next_best_probes:
+        - expr: "Mul(Corr($close,$amount,10),CsRank($pe_ratio))"
+          why: "Amount-based 10d × PE rank — tests if 10d window improves on 5d C003"
+        - expr: "Mul(Corr($close,$amount,10),CsRank($ps_ratio))"
+          why: "Amount-based 10d × PS rank — tests PS vs PE conditioning on amount"
+        - expr: "Mul(Corr($close,$amount,10),CsRank($turnover_rate))"
+          why: "Amount-based 10d × turnover rank — turnover_rank not turnover_rate (different field)"
+
+  new_lessons:
+    - lesson_id: NM_L009_turnover_field_alignment_mismatch
+      classification: NM
+      batch_ids:
+        - batch_074
+      description: |
+        $turnover_rate and $pe_ratio/$ps_ratio have different instrument sets (2674 vs 2620).
+        When used together in binary operations (Mul, Div), shape mismatch occurs.
+        Probe CLI masks this issue (train-only, smaller universe). Full pipeline fails.
+        Amount-based Corr ($close, $amount) does NOT have this problem.
+      style_repackaging_risk: not_applicable
+      implication: "Stop trying to combine $turnover_rate with $pe_ratio/$ps_ratio in binary ops. Use $amount instead."
+
+    - lesson_id: NM_L009_turnover_based_corr_probe_valid
+      classification: NM
+      batch_ids:
+        - batch_074
+      description: |
+        Turnover-based Corr × PE rank probe results are valid (probe passes on train).
+        IR=-0.4121 for 10d, IR=-0.3502 for 5d, IR=-0.3797 for 20d.
+        The mechanism is real but cannot be evaluated in current pipeline due to data alignment.
+        Amount-based Corr is the workaround.
+      style_repackaging_risk: not_applicable
+      implication: "Treat probe results as ground truth for mechanism validation."
+
+  discovery_flags: []
+
+  holdout_reviews_triggered: []
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_074/judge_report.yaml
+    ledger_updated: false

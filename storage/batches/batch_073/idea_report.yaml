@@ -1,0 +1,50 @@
+idea_report:
+  batch_id: batch_073
+  logic_id: L009
+  created_at: '2026-04-09'
+  strategy_decision:
+    selected_strategy: deepen
+    decision_basis_codes:
+      - active_thread_has_clear_probe
+      - expected_information_gain_high
+    selected_threads:
+      - T002
+      - T001
+      - T004
+    rejected_threads_with_reason: []
+    selected_families:
+      - PF_price_volume_correlation
+    why_now: "Key finding from batch_072: Cov is style trap (+Barra_res), Corr is residual alpha (-Barra_res). Cov-Corr residual (Sub(Cov, Corr)) shows IC IR=-0.5556 — STRONGER than either pure Cov or pure Corr! This suggests the residual between magnitude and directional co-movement captures unique variance. Need to validate: (1) Does Cov-Corr residual have cleaner Barra_res than pure Cov? (2) Does PE rank conditioning differ from PE/PS/PB fundamental conditioning? (3) Does volume normalization reduce redundancy?"
+  probe_results:
+    - expr: "Sub(Cov($close, $amount, 5), Corr($close, $amount, 5))"
+      ic_mean: -0.0588
+      ic_ir: -0.5556
+      win_rate: 28.50
+      verdict: pass
+      route: R001
+    - expr: "Sub(Cov($close, $amount, 10), Corr($close, $amount, 10))"
+      ic_mean: -0.0702
+      ic_ir: -0.5550
+      win_rate: 27.76
+      verdict: pass
+      route: R001
+    - expr: "Sub(Cov($close, $amount, 20), Corr($close, $amount, 20))"
+      ic_mean: -0.0702
+      ic_ir: -0.4850
+      win_rate: 32.95
+      verdict: pass
+      route: R001
+    - expr: "Mul(Corr($close, $amount, 5), CsRank($pe_ratio))"
+      ic_mean: -0.0266
+      ic_ir: -0.3440
+      win_rate: 36.33
+      verdict: pass
+      route: R002
+    - expr: "Div(Corr($close, $amount, 5), (1+CsRank($volume)))"
+      ic_mean: -0.0153
+      ic_ir: -0.2060
+      win_rate: 41.43
+      verdict: pass
+      route: R003
+  routes_designed: 3
+  candidates_frozen: 5

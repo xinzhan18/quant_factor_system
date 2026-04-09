@@ -1,0 +1,168 @@
+judge_report:
+  batch_id: batch_081
+  judgment_timestamp: '2026-04-09T03:40:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 3
+    admitted: 0
+    rejected: 0
+    reserved: 3
+    replaced: 0
+    gate_pass: 3
+    gate_fail: 0
+    gate_warn: 0
+
+  admitted_factors: []
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      route_type: decorrelate
+      experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v5
+      verdict: kill
+      reason: |
+        All 3 candidates fail:
+        - C001 (blend): max_lib=0.954 (near duplicate), reject
+        - C002 (volume timing): style_r2=0.166, str_1m=0.433, mono=-0.3→-0.7, reject
+        - C003 (9d): max_lib=0.922 (near duplicate), mono=-0.6→-0.9, reject
+        batch_081 confirms L009 soft decorrelation is SATURATED.
+        L009 should be parked — no more viable candidates in this parameter space.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - high_subspace_redundancy
+      detail: |
+        Add(Sub(Corr($amount,8), PE_rank, tur×0.1), Sub(Corr($amount,10), PE_rank, tur×0.1)): Gate pass.
+        ICIR_val=-0.386, ICIR_ho=-0.377, decay=1.21 (IC strengthens).
+        mono_val=-0.7, mono_ho=-0.7 (STABLE).
+        Barra_res=-0.0114 (NEGATIVE = clean).
+        alpha_surv=0.373.
+        max_lib_corr=0.9542 (NEAR DUPLICATE — is_near_duplicate=true).
+        subspace_redundancy=0.9997 (essentially same as F015+F016).
+        RESERVE: Near duplicate of F015+F016 blend. No incremental value.
+
+    C002:
+      candidate_id: C002
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - regime_instability
+        - moderate_style_exposure
+      detail: |
+        Mul(Sub(Corr($amount,8), PE_rank, tur×0.1), TsRank(volume,20)): Gate pass.
+        ICIR_val=-0.377, ICIR_ho=-0.393, decay=1.23 (IC strengthens).
+        mono_val=-0.3, mono_ho=-0.7 (DECAYS — validation signal almost flat).
+        Barra_res=-0.0093 (NEGATIVE = clean).
+        alpha_surv=0.329 (worse than F016's 0.373).
+        max_lib_corr=0.807 (high redundancy).
+        style_r2=0.166 (high contamination).
+        str_1m=0.433 (very high style exposure).
+        RESERVE: Volume timing adds style contamination that kills alpha_surv.
+        TsRank(volume,20) introduces regime instability — mono decays.
+
+    C003:
+      candidate_id: C003
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - high_subspace_redundancy
+        - regime_instability
+      detail: |
+        Sub(Corr($amount,9), PE_rank, tur×0.1): Gate pass.
+        ICIR_val=-0.380, ICIR_ho=-0.379, decay=1.22 (IC strengthens).
+        mono_val=-0.6, mono_ho=-0.9 (DECAYS on holdout).
+        Barra_res=-0.0114 (NEGATIVE = clean).
+        alpha_surv=0.381.
+        max_lib_corr=0.9216 (NEAR DUPLICATE — is_near_duplicate=true).
+        subspace_redundancy=0.9411 (essentially same as F015+F016).
+        RESERVE: 9d is between 8d and 10d but too similar to both. Near duplicate.
+
+  logic_recommendations:
+    L009:
+      logic_id: L009
+      recommended_status: parked
+      reason: |
+        batch_081 completes L009 saturation confirmation.
+        All 3 candidates rejected: blend is near duplicate, volume timing kills alpha, 9d is near duplicate.
+        L009 soft decorrelation mechanism is FULLY SATURATED.
+        L009 has 2 admitted factors: F015 (10d) and F016 (8d).
+        No more viable candidates in this parameter space.
+        Recommend: new logic proposal for next research direction.
+        direction_quota: 3 (exhausted)
+        candidate_quota: 6 (exhausted)
+
+  logic_diagnostics:
+    L009:
+      thesis_update: |
+        batch_081 completes L009 saturation confirmation.
+        L009 soft decorrelation is FULLY SATURATED.
+        All remaining candidates are either near-duplicates or have regime instability.
+        Final L009 status: 2 admitted factors, 4 rounds of exploration, fully mapped parameter space.
+        Window range: 8d-10d optimal. 5d and 20d fail.
+        Subtraction coefficient: 10% optimal. 5%, 8%, 9%, 15% all tested.
+        Conditioning: PE optimal. PB and PS don't improve.
+        Blend: near duplicate of individual factors.
+        Volume timing: adds contamination, kills alpha.
+        L009 mechanism is exhausted. Recommend new logic proposal.
+
+      evidence_for:
+        - "F015 (10d): max_lib=0.740, alpha_surv=0.383, mono stable"
+        - "F016 (8d): max_lib=0.697, alpha_surv=0.373, mono stable — BEST redundancy"
+        - "L009 is productive with 2 admitted factors"
+
+      evidence_against:
+        - "Blend (C001): near duplicate (0.954), no incremental value"
+        - "Volume timing (C002): style_r2=0.166, str_1m=0.433, mono decays"
+        - "9d (C003): near duplicate (0.922), mono decays"
+
+      failure_boundary: |
+        L009 soft decorrelation is FULLY SATURATED.
+        No more viable candidates in this parameter space.
+        Window: 8d-10d only. 5d, 7d, 9d, 20d all fail.
+        Subtraction: 10% only. 5%, 8%, 9%, 15% all fail or are near duplicates.
+        Conditioning: PE only. PB, PS don't improve.
+        Blend: near duplicate of individual factors.
+        Volume timing: adds contamination.
+
+      open_questions:
+        - "Is there a new mechanism that could complement L009 Corr signals?"
+        - "Should L009 be archived and a new logic proposed?"
+
+      next_best_probes: []
+
+  new_lessons:
+    - lesson_id: ADMIT_L009_saturated
+      classification: NM
+      batch_ids:
+        - batch_075
+        - batch_076
+        - batch_077
+        - batch_078
+        - batch_079
+        - batch_080
+        - batch_081
+      description: |
+        L009 soft decorrelation mechanism is FULLY SATURATED after 7 batches.
+        2 admitted factors: F015 (10d) and F016 (8d).
+        All parameter space explored: windows 5-20d, subtraction 5-15%, conditioning PE/PS/PB.
+        Blends and volume timing all fail due to near-duplication or style contamination.
+        No more low-hanging fruit. Mechanism exhausted.
+      style_repackaging_risk: medium
+      implication: "L009 should be parked. New logic proposal needed for next research direction."
+
+  discovery_flags: []
+
+  holdout_reviews_triggered: []
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_081/judge_report.yaml
+    ledger_updated: false
+    admitted_factor: null

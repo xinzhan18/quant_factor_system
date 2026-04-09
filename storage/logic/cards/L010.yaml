@@ -1,0 +1,71 @@
+logic_id: L010
+name: Regime-Adaptive Cross-Sectional Signals
+category: regime_adaptive
+status: parked
+priority: high
+hypothesis:
+  condition: "个股在不同波动率 regime 下表现出不同的动量/反转特性"
+  behavior: "高波动 regime 下动量更快，低波动 regime 下动量更慢；去除市场/行业因子后的 residual 信号更干净"
+  timeframe: 5-20d
+  direction: "做多低估值+合理regime的股票"
+prior_evidence: "L009 soft decorrelation achieved 2 admissions (F015, F016) with max_lib<0.75. DSL limitations: cannot express regime-dependent parameter changes. Python factors can capture: conditional logic, cross-sectional operations, regression residuals."
+contract:
+  current_focus_question: "Python因子是否能表达DSL无法实现的复杂机制？"
+  direction_quota: 3
+  candidate_quota: 6
+  preferred_families:
+    - FM_regime_adaptive_momentum
+    - FM_cross_sectional_residual
+  suggested_ops:
+    - Corr
+    - Cov
+    - EWM
+    - TsRank
+    - CsRank
+    - Div
+    - Sub
+    - Mul
+  required_fields:
+    - $close
+    - $volume
+    - $amount
+    - $pe_ratio
+    - $turnover_rate
+  avoid_patterns:
+    - "Pure momentum without regime adaptation"
+    - "Long窗口（>30d）"
+    - "无filter的信号"
+discovery_budget: 10
+evidence_summary:
+  current_bottleneck: "L010 (regime-adaptive cross-sectional signals) has now produced 21 candidates across 6 batches. ALL cross-sectional short-window signals get absorbed by str_1m or turnover_20d. Time-series mechanisms (kurtosis, autocorrelation) are clean but near-zero IC. Market-level regime classification is too coarse."
+  factors_generated: 0
+  factors_admitted: 0
+  rounds_without_admit: 1
+  failed_families: []
+  productive_families: []
+  transitions:
+    - from: active
+      to: warm
+      reason: "19 candidates across 6 batches (batch_081-086). 0 admits. The regime-adaptive cross-sectional mechanism appears fundamentally limited."
+      at: '2026-04-09 20:27:01'
+    - from: warm
+      to: parked
+      reason: "Parked: 21 candidates across 6 batches (batch_081-086). 0 admits. Regime-adaptive cross-sectional mechanism confirmed as fundamentally limited. No further probes recommended."
+      at: '2026-04-09 21:05:00'
+origin_proposal_id: null
+created_at: '2026-04-09'
+updated_at: '2026-04-09 21:05:00'
+deepening_threads:
+  - id: T001
+    question: "Python因子是否能表达DSL无法实现的regime-adaptive机制？"
+    why_matters: "DSL无法表达条件逻辑（if-else based on regime）"
+    status: parked
+    priority: high
+    next_probes: []
+    stop_condition: "如果Python因子能达到admission标准，确认Python路径可行"
+    supporting_evidence:
+      - "21 candidates across 6 batches (batch_081-086). 0 admits."
+      - "All cross-sectional short-window signals absorbed by str_1m"
+      - "Time-series mechanisms (kurtosis, autocorrelation) clean but IC~0"
+next_actions: []
+last_reflected_batch: batch_086

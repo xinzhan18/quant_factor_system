@@ -1,0 +1,203 @@
+judge_report:
+  batch_id: batch_078
+  judgment_timestamp: '2026-04-09T02:45:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 3
+    admitted: 0
+    rejected: 0
+    reserved: 3
+    replaced: 0
+    gate_pass: 3
+    gate_fail: 0
+    gate_warn: 0
+
+  admitted_factors: []
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      route_type: decorrelate
+      experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v2
+      verdict: continue
+      reason: |
+        All 3 candidates pass gate but none surpass F015.
+        C001: max_lib=0.7152 (better than F015's 0.740), alpha_surv=0.403 (better than F015's 0.383),
+        but mono decays -0.6→-1.0 on holdout — disqualifying for admission.
+        C002: max_lib=0.777 (worse than F015's 0.740), alpha_surv=0.345 (worse than F015's 0.383),
+        mono stable but redundancy not improved.
+        C003: decay_ratio=0.77 (<1 = signal weakens on holdout) — disqualifying.
+        Soft decorrelation continues to be the right approach but 15% subtraction kills mono stability.
+        5d window too short for PE-based Corr. 20d window too slow (decay<1).
+        F015 (10d, 10%) remains the best.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - regime_instability
+      detail: |
+        Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.15)): Gate pass.
+        ICIR_val=-0.337, ICIR_ho=-0.347, decay=1.26 (IC strengthens).
+        mono_val=-0.6, mono_ho=-1.0 (DECAYS on holdout — disqualifying).
+        ls_tstat_val=-2.69, ls_tstat_ho=-5.40.
+        Barra_res=-0.0104 (NEGATIVE = clean).
+        alpha_surv=0.4025 (BETTER than F015's 0.383).
+        max_lib_corr=0.7152 (BETTER than F015's 0.740).
+        RESERVE: 15% subtraction achieves better redundancy and alpha_surv but mono decays.
+        The stronger subtraction coefficient kills monotonicity stability.
+
+    C002:
+      candidate_id: C002
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - high_subspace_redundancy
+      detail: |
+        Sub(Mul(Corr($close,$amount,5),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)): Gate pass.
+        ICIR_val=-0.329, ICIR_ho=-0.374, decay=1.31 (IC strengthens).
+        mono_val=-0.6, mono_ho=-0.6 (STABLE).
+        ls_tstat_val=-2.85, ls_tstat_ho=-4.47.
+        Barra_res=-0.0087 (NEGATIVE = clean).
+        alpha_surv=0.3454 (WORSE than F015's 0.383).
+        max_lib_corr=0.7767 (WORSE than F015's 0.740 — borderline above 0.78 threshold).
+        style_r2=0.086 (cleanest in batch_078).
+        RESERVE: 5d window with 10% subtraction is stable but doesn't improve over F015.
+        5d window is too short — PE conditioning needs 10d to be effective.
+
+    C003:
+      candidate_id: C003
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - regime_instability
+      detail: |
+        Sub(Mul(Corr($close,$amount,20),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)): Gate pass.
+        ICIR_val=-0.400, ICIR_ho=-0.278, decay=0.77 (<1 = WEAKENS on holdout — disqualifying).
+        mono_val=-0.7, mono_ho=-0.7 (STABLE).
+        ls_tstat_val=-5.08, ls_tstat_ho=-4.50.
+        Barra_res=-0.0152 (NEGATIVE = cleanest in batch_078).
+        alpha_surv=0.424 (HIGHEST in batch_078, better than F015's 0.383).
+        max_lib_corr=? (not computed due to holdout failure).
+        RESERVE: 20d window is too slow — decay_ratio<1 means signal weakens on holdout.
+        Long windows capture slower signals but L009 Corr mechanism is fundamentally short-horizon.
+
+  logic_recommendations:
+    L009:
+      logic_id: L009
+      recommended_status: productive
+      reason: |
+        L009 remains productive with F015 as the anchor.
+        batch_078 confirms: 10% subtraction with 10d window is the optimal configuration.
+        15% subtraction (C001): better alpha_surv but mono decays.
+        5d window (C002): stable but doesn't improve redundancy.
+        20d window (C003): alpha_surv=0.424 but decay<1 — too slow.
+        F015 configuration (10d, 10%) remains optimal.
+        direction_quota: 3
+        candidate_quota: 6
+
+  logic_diagnostics:
+    L009:
+      thesis_update: |
+        batch_078 confirms the soft decorrelation optimal configuration is 10d window + 10% subtraction coefficient.
+        F015 (10d, 10%): max_lib=0.740, alpha_surv=0.383, mono stable, decay=1.19.
+        15% subtraction (C001): max_lib=0.715 (better!), alpha_surv=0.403 (better!), but mono decays -0.6→-1.0.
+        5d window (C002): max_lib=0.777 (worse), alpha_surv=0.345 (worse), mono stable.
+        20d window (C003): alpha_surv=0.424 (best!) but decay_ratio=0.77 (<1) — too slow.
+        The soft decorrelation parameter space is now well-mapped:
+        - 5%: C003 in batch_077 (max_lib=0.763, alpha_surv=0.367)
+        - 10%: F015 (max_lib=0.740, alpha_surv=0.383) + C002 batch_078
+        - 15%: C001 batch_078 (max_lib=0.715, alpha_surv=0.403 but mono decays)
+        The 10% subtraction is the sweet spot — 15% starts to kill monotonicity.
+        The 10d window is optimal — 5d is too short, 20d is too slow.
+
+      evidence_for:
+        - "F015 (ADMITTED): max_lib=0.740, alpha_surv=0.383, Barra_res=-0.0115, mono stable, decay=1.19"
+        - "C001: max_lib=0.715 (best), alpha_surv=0.403 (best), but mono decays"
+        - "C002: max_lib=0.777, alpha_surv=0.345, mono stable, style_r2=0.086 (cleanest)"
+        - "C003: alpha_surv=0.424 (highest), Barra_res=-0.0152 (cleanest), but decay<1"
+        - "All candidates: NEGATIVE Barra residual (clean)"
+        - "Soft decorrelation parameter space is now well-mapped"
+
+      evidence_against:
+        - "C001: mono decays -0.6→-1.0 on holdout (disqualifying)"
+        - "C002: max_lib=0.777 (worse than F015's 0.740), alpha_surv=0.345 (worse)"
+        - "C003: decay_ratio=0.77 (<1 = signal weakens on holdout)"
+        - "15% subtraction kills mono stability"
+        - "5d window is too short for PE-conditioned Corr"
+        - "20d window is too slow for L009 mechanism"
+
+      failure_boundary: |
+        15% subtraction coefficient: kills mono stability despite better alpha_surv and redundancy.
+        5d window: too short for PE conditioning to be effective.
+        20d window: too slow — decay_ratio<1 means signal weakens on holdout.
+        Pure Corr×PE without decorrelation: redundancy 0.78-0.81 (too high).
+        Div normalization: redundancy 0.70-0.74 but alpha_surv=0.21-0.28 (too low).
+        10% subtraction + 10d window is the confirmed optimal configuration.
+
+      open_questions:
+        - "Is there any benefit to exploring 8% or 12% subtraction coefficients?"
+        - "Could the optimal subtraction coefficient be asset-class specific?"
+        - "Should L009 consider other conditioning variables beyond PE ratio?"
+
+      next_best_probes:
+        - expr: "Sub(Mul(Corr($close,$amount,10),CsRank($ps_ratio)),Mul(CsRank($turnover_rate),0.1))"
+          why: "PS (price-to-sales) conditioning as alternative to PE — tests if different fundamental conditioning achieves similar decorrelation"
+        - expr: "Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)) × TsRank($volume,20)"
+          why: "Volume regime conditioning — tests if volume trend adds orthogonal timing signal"
+        - expr: "Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.08))"
+          why: "8% subtraction — tests if slightly weaker subtraction achieves better mono stability"
+
+  new_lessons:
+    - lesson_id: ADMIT_L009_optimal_soft_decorr_config
+      classification: ST
+      batch_ids:
+        - batch_077
+        - batch_078
+      description: |
+        F015 (10d, 10%) is the optimal soft decorrelation configuration.
+        15% subtraction: better redundancy and alpha but kills mono stability.
+        5d window: too short for PE conditioning effectiveness.
+        20d window: too slow — decay<1 means signal weakens on holdout.
+        The parameter space is now well-mapped: 10d + 10% is optimal.
+      style_repackaging_risk: medium
+      implication: "Stop exploring subtraction coefficients outside 8-12% range and windows outside 8-12d range."
+
+    - lesson_id: ADMIT_L009_15pct_kills_mono
+      classification: NM
+      batch_ids:
+        - batch_078
+      description: |
+        15% subtraction coefficient achieves better redundancy (0.715 vs 0.740) and better alpha_surv
+        (0.403 vs 0.383) compared to F015, but mono decays from -0.6 to -1.0 on holdout.
+        The stronger subtraction removes too much signal along with the style contamination.
+        Monotonicity stability is a hard requirement — stronger decorrelation is not always better.
+      style_repackaging_risk: medium
+      implication: "15% subtraction coefficient is not viable despite better raw metrics."
+
+    - lesson_id: ADMIT_L009_20d_too_slow
+      classification: FP
+      batch_ids:
+        - batch_078
+      description: |
+        20d window with 10% soft decorrelation achieves the highest alpha_surv (0.424) and
+        cleanest Barra_res (-0.0152), but decay_ratio=0.77 (<1) means IC WEAKENS on holdout.
+        Long windows (20d) are fundamentally misaligned with L009 Corr mechanism.
+        The mechanism captures short-horizon price-volume co-movement — 20d is too slow.
+      style_repackaging_risk: medium
+      implication: "Stop exploring 20d+ windows for L009 Corr mechanism."
+
+  discovery_flags: []
+
+  holdout_reviews_triggered: []
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_078/judge_report.yaml
+    ledger_updated: false
+    admitted_factor: null

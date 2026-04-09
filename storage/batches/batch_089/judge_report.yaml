@@ -1,0 +1,383 @@
+judge_report:
+  batch_id: batch_089
+  judgment_timestamp: '2026-04-10T02:00:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 6
+    admitted: 0
+    rejected: 5
+    reserved: 1
+    replaced: 0
+    gate_pass: 6
+    gate_fail: 0
+    gate_warn: 0
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      logic_id: L012
+      route_type: genesis
+      experiment_lineage_tag: ELT_L012_genesis_autocorr_amount_pe_v1
+      verdict: pause
+      reason: |
+        All 3 L012 candidates rejected. The PE conditioning paradigm does NOT transfer to TsAutoCorr.
+        C001 (20d×PE): dominant_style switches from turnover_20d to ep_ratio (0.227) — EP style trap, alpha_surv=0.090.
+        C002 (20d soft-decorr): is_near_duplicate=True (max_lib=0.993 vs F001), barra_res_icir=+0.171 (WRONG direction after style removal).
+        C003 (10d×PE): dominant_style=vol_20d (0.140), alpha_surv=0.124, mono_ho=-0.5 (weak).
+        Key insight: The soft-decorrelation (Sub(autocorr, 0.1×tur_rank)) does NOT remove turnover style —
+        it produces a signal where Barra residual has WRONG sign (+0.171), meaning the observable IC
+        is entirely driven by Barra style exposure. The mechanism assumed is invalid for autocorr conditioning.
+
+    R002:
+      route_id: R002
+      logic_id: L013
+      route_type: genesis
+      experiment_lineage_tag: ELT_L013_genesis_range_amount_corr_v1
+      verdict: continue
+      reason: |
+        C005 (10d raw) reserves: alpha_surv=0.734, barra_res=-0.201 (very clean), max_lib=0.065 (highly novel).
+        The range-amount correlation mechanism IS real — it produces clean Barra-residual alpha.
+        But IC is weak (ICIR_val=-0.271, ICIR_ho=-0.144) and train_val_decay=0.54 (overfitting).
+        C004 (20d): split_stability=poor, train_val_decay=0.32 — too noisy at 20d.
+        C006 (10d×PE): mono_ho=-0.30 collapse — PE conditioning kills the mechanism.
+        Next probes: find window and conditioning that preserves clean Barra residual while improving IC strength.
+        Range-amount at 5d, 7d; or with CsRank($amount) conditioning instead of PE.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - style_dominance_detected
+        - weak_validation_effect
+      detail: |
+        Mul(TsAutoCorr($amount,20),CsRank($pe_ratio)): 6-dim analysis:
+        1. Mechanism: DRIFTED — dominant_style=ep_ratio(0.227), not the expected turnover reduction.
+           PE conditioning replaces turnover_20d trap with ep_ratio trap. alpha_surv=0.090 (9% only).
+           barra_res_icir=-0.027 (correct direction but negligible).
+        2. Statistical: borderline — ICIR_val=-0.325, mono_val=-0.90 (good), but decay=0.847 (<1),
+           holdout quintiles NOT monotone (q3>q4>q5 violated: q5 < q3 but Q4 > Q5).
+        3. Stability: medium — split_stability=good, but holdout decay reduces confidence.
+        4. Redundancy: HIGH — max_lib=0.869 vs F001. Adding PE makes it MORE correlated with F001's style.
+        5. Feasibility: ok.
+        6. Risk: POOR — alpha_surv=0.090, dominant_style=ep_ratio, risk_bucket=poor.
+        REJECT: EP style trap with near-zero clean alpha. PE conditioning failed to help.
+
+    C002:
+      candidate_id: C002
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - high_subspace_redundancy
+        - moderate_style_exposure
+      detail: |
+        Sub(TsAutoCorr($amount,20),Mul(CsRank($turnover_rate),0.1)): 6-dim analysis:
+        1. Mechanism: FAILED — barra_residual_icir=+0.171 (POSITIVE = wrong direction after style removal).
+           is_near_duplicate=True (max_lib=0.993 vs F001).
+           The soft-decorrelation did NOT remove turnover style — dominant_style=turnover_20d(0.258),
+           and the residual after Barra removal goes in the WRONG direction.
+           The outstanding holdout metrics (ICIR_ho=-0.419, mono_ho=-1.0, decay=1.885) are 100% Barra style.
+        2. Statistical: train_validation_decay=0.597 (signal drops 40% on validation).
+           The holdout "strength" is driven by turnover_20d Barra factor performing well in 2024 holdout.
+        3. Stability: split_stability=medium, not reliable.
+        4. Redundancy: CRITICAL — is_near_duplicate=True (0.993). Essentially F001.
+        5. Feasibility: ok.
+        6. Risk: borderline — but barra_res_icir POSITIVE is a fatal residual quality issue.
+        REJECT: Near-duplicate of F001 with wrong-direction Barra residual. The soft-decorrelation
+        mechanism is fundamentally broken for TsAutoCorr.
+
+    C003:
+      candidate_id: C003
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - style_dominance_detected
+        - weak_validation_effect
+      detail: |
+        Mul(TsAutoCorr($amount,10),CsRank($pe_ratio)): 6-dim analysis:
+        1. Mechanism: DRIFTED — dominant_style=vol_20d(0.140), barra_res_icir=+0.031 (wrong direction).
+           10d autocorr × PE creates vol_20d dominance (different from 20d×PE ep_ratio dominance).
+           alpha_surv=0.124 (12% only).
+        2. Statistical: weak — mono_val=-0.40 (very poor), mono_ho=-0.50 (borderline).
+           ls_tstat_val=-1.702 (NOT statistically significant). Win rate holdout=0.330 (poor).
+           Holdout quintiles NOT monotone.
+        3. Stability: split_stability=good, but weak mono throughout.
+        4. Redundancy: LOW (max_lib=0.397) — the 10d PE variant is genuinely more orthogonal than 20d.
+           This is the only positive aspect.
+        5. Feasibility: ok.
+        6. Risk: POOR — vol_20d dominant, alpha_surv=0.124, barra_res POSITIVE.
+        REJECT: Vol style trap + very weak monotonicity + low clean alpha. The orthogonality (max_lib=0.40)
+        is a positive signal for the direction but not sufficient to overcome the quality issues.
+
+    C004:
+      candidate_id: C004
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - poor_split_stability
+        - weak_validation_effect
+        - style_dominance_detected
+      detail: |
+        Corr(Div(Sub($high,$low),$close),$amount,20): 6-dim analysis:
+        1. Mechanism: partial — max_lib=0.067 (EXCELLENT novelty). barra_res_icir=-0.041 (correct direction, weak).
+           But dominant_style=vol_20d(0.319) — heavy vol contamination. alpha_surv=0.250 (low).
+           The range = (high-low)/close IS a vol measure, captured by vol_20d Barra at 20d window.
+        2. Statistical: WEAK — ICIR_val=-0.157, ls_tstat_val=-1.887 (NOT significant).
+           search_adjusted_strength_bucket=weak.
+        3. Stability: POOR split_stability. train_validation_decay=0.319 (catastrophic 68% decay).
+           expanding_window_ic_stability=0.554 (low).
+        4. Redundancy: EXCELLENT (max_lib=0.067) — genuinely novel mechanism.
+        5. Feasibility: ok.
+        6. Risk: POOR — vol_20d dominant (0.319), alpha_surv=0.250.
+        REJECT: Poor split stability + catastrophic train-validation decay + weak statistical evidence.
+        The mechanism is potentially interesting but the 20d window is too slow and noisy.
+        NOTE: The barra_res_icir IS in correct direction (-0.041), suggesting genuine mechanism exists.
+        This is qualitatively different from C001-C003 — it's a window problem, not a mechanism problem.
+
+    C005:
+      candidate_id: C005
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - risk_model_acceptable
+        - mechanism_aligned
+        - feasibility_ok
+        - weak_validation_effect
+        - high_data_mining_risk
+      detail: |
+        Corr(Div(Sub($high,$low),$close),$amount,10): 6-dim analysis:
+        1. Mechanism: ALIGNED — max_lib=0.065 (most novel in batch), barra_res_icir=-0.201 (VERY CLEAN),
+           alpha_surv=0.734 (73% of alpha survives Barra removal!), style_r2=0.042 (minimal style).
+           dominant_style=vol_20d(0.194) BUT style_r2 is very low. This suggests the mechanism
+           has genuine orthogonal alpha, with vol_20d correlation as secondary effect, not dominant absorber.
+        2. Statistical: BORDERLINE — mono_val=-1.0 (PERFECT!), ICIR_val=-0.271, ls_tstat_val=-3.808 (sig).
+           BUT: validation_holdout_decay=0.715 (<1), ICIR_ho=-0.144 (weak on holdout).
+           The pattern: strong validation, weak holdout — possible train/val overfitting.
+        3. Stability: medium — train_validation_decay=0.536, split_stability=medium.
+        4. Redundancy: EXCELLENT (max_lib=0.065) — most novel factor explored in v2 system.
+        5. Feasibility: ok.
+        6. Risk: ACCEPTABLE — best risk bucket in batch. barra_res=-0.201 (best in batch),
+           alpha_surv=0.734 (best in batch), style_r2=0.042 (lowest in batch).
+        RESERVE: Exceptional novelty and alpha quality profile (alpha_surv, barra_res) but IC
+        too weak on holdout and significant decay. The mechanism IS real but 10d window is still too slow.
+        Next probe: 5d and 7d windows — shorter windows may have stronger IC while preserving clean residual.
+        Holdout review recommended.
+
+    C006:
+      candidate_id: C006
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - weak_validation_effect
+        - regime_instability
+      detail: |
+        Mul(Corr(Div(Sub($high,$low),$close),$amount,10),CsRank($pe_ratio)): 6-dim analysis:
+        1. Mechanism: DRIFTED — PE conditioning makes dominant_style=ep_ratio(0.303). The clean range-amount
+           mechanism is destroyed by PE conditioning. validation_holdout_decay=0.312 (catastrophic).
+           mono_val=-1.0 (perfect) then mono_ho=-0.30 (collapses) — the "perfect" validation is overfitting.
+        2. Statistical: CATASTROPHIC DECAY — ICIR_val=-0.310 → ICIR_ho=-0.125, mono_ho=-0.30.
+           ls_tstat_ho=-1.631 (NOT significant). expanding_window_ic_stability=0.280 (very unstable).
+        3. Stability: split_stability=good (validation only) but regime collapse on holdout.
+        4. Redundancy: low (novel) — but this doesn't help.
+        5. Feasibility: ok.
+        6. Risk: borderline — barra_res=-0.184 (negative = correct), but ep_ratio becomes dominant.
+        REJECT: Catastrophic holdout collapse (decay=0.312, mono=-0.30). PE conditioning is INCOMPATIBLE
+        with range-amount mechanism — it inflates validation through ep_ratio style and then collapses on holdout.
+
+  logic_recommendations:
+    L012:
+      logic_id: L012
+      recommended_status: warm
+      reason: |
+        3/3 candidates rejected. PE conditioning on TsAutoCorr produces style traps (ep_ratio or vol_20d).
+        Soft-decorrelation creates wrong-sign Barra residuals — mechanically broken.
+        The core hypothesis (PE conditions autocorr similarly to pv_corr) is FALSIFIED in genesis round 1.
+        Key insight: TsAutoCorr has different Barra structure than Corr — the PE conditioning that works
+        for pv_corr does NOT transfer to autocorr. The conditioning paradigm is direction-specific.
+        Move to warm: the underlying mechanism (autocorr × value) is unresolved but the simple DSL forms
+        are exhausted. Complex Python implementations could potentially capture this in a cleaner way,
+        but that would require L012 to evolve beyond simple DSL expressions.
+        If Python logic exploration is allowed: TsAutoCorr residualized against turnover regime
+        (Python regression neutralization) could be the correct approach.
+
+    L013:
+      logic_id: L013
+      recommended_status: active
+      reason: |
+        1 reserve (C005), 5 rejects — but the reserve is qualitatively important.
+        C005: max_lib=0.065 (most novel in v2), alpha_surv=0.734, barra_res=-0.201, risk=acceptable.
+        The range-amount mechanism IS real — it captures genuine Barra-clean alpha.
+        BUT: current window (10d) is too slow with decay pattern (train_val_decay=0.536, val_ho_decay=0.715).
+        20d is worse (split_stability=poor, train_val_decay=0.319).
+        PE conditioning kills the mechanism (decay=0.312).
+        Next probes: 5d and 7d windows for range-amount correlation.
+        Hypothesis: shorter windows = higher-frequency institutional activity signal, less vol Barra absorption.
+        The quality of C005's residual (barra_res=-0.201, alpha_surv=0.734) is comparable to admitted factors.
+        The IC just needs to be amplified at shorter windows.
+
+  logic_diagnostics:
+    L012:
+      thesis_update: |
+        The PE conditioning paradigm from L009 does NOT transfer to TsAutoCorr.
+        Three distinct failure modes were observed:
+        (1) PE conditioning (20d): ep_ratio style trap — alpha_surv drops to 9%
+        (2) Soft-decorrelation (20d): near-duplicate of F001 with wrong-sign Barra residual (+0.171)
+        (3) PE conditioning (10d): vol_20d style trap — alpha_surv=12%
+        The core finding is that TsAutoCorr has fundamentally different Barra structure than Corr.
+        For Corr($close,$amount,N), the signal information content is orthogonal to PE rank conditioning.
+        For TsAutoCorr($amount,N), the signal information content is already embedded in Barra styles —
+        conditioning just reorganizes which style factor dominates.
+        F001 (plain TsAutoCorr($amount,20)) remains the canonical autocorr factor.
+        Conditioning does not add value and creates style contamination.
+
+      evidence_for:
+        - "C003: max_lib=0.397 (orthogonal) confirms PE conditioning creates genuinely different factor"
+        - "All 3 candidates have expanding_window_pass=True (computationally clean)"
+        - "mono_val is reasonable (-0.4 to -0.9) suggesting signal direction is consistent"
+
+      evidence_against:
+        - "C001: alpha_surv=0.090, dominant_style=ep_ratio — 91% absorbed by Barra"
+        - "C002: barra_res_icir=+0.171 (wrong direction), near-duplicate F001 (0.993)"
+        - "C003: barra_res_icir=+0.031 (wrong direction), alpha_surv=0.124"
+        - "None of the 3 approaches produce clean Barra residual (negative ICIR)"
+
+      failure_boundary: |
+        PROVEN FAILURES for L012:
+        - PE conditioning on TsAutoCorr($amount,20): ep_ratio trap, do not probe
+        - Soft-decorrelation Sub(autocorr, 0.1×tur_rank): wrong-direction residual, do not probe
+        - PE conditioning on TsAutoCorr($amount,10): vol_20d trap, do not probe
+        Simple DSL conditioning of TsAutoCorr appears fundamentally limited by Barra absorption.
+        The autocorr mechanism is different from the divergence mechanism at the style-factor level.
+
+      open_questions:
+        - "Can Python-based regression residualization of TsAutoCorr against Barra styles produce clean alpha?"
+        - "Is there a non-PE, non-turnover conditioning variable that produces orthogonal autocorr signal?"
+        - "Does TsAutoCorr at very short windows (3d, 5d) have different Barra structure?"
+        - "Is the autocorr mechanism for $amount fundamentally a style-factor proxy or a genuine mechanism?"
+
+      next_best_probes:
+        - expr: "TsAutoCorr($amount,5)"
+          why: "Very short autocorr window may have different dominant style (str_1m vs turnover_20d)"
+        - expr: "TsAutoCorr($amount,40)"
+          why: "Longer window may shift to mom_12_1 style space and be conditionable"
+        - expr: "Python: residualize TsAutoCorr against top Barra style each day"
+          why: "Direct neutralization may reveal clean residual alpha that conditioning can't achieve in DSL"
+
+    L013:
+      thesis_update: |
+        The range-amount correlation mechanism IS valid and novel.
+        C005 (10d): max_lib=0.065, alpha_surv=0.734, barra_res=-0.201, style_r2=0.042.
+        These are the BEST mechanism quality metrics in all of batch_089.
+        The mechanism: when high-volatility days (wide range) consistently co-occur with high monetary
+        flow days ($amount) over N days, this captures aggressive institutional participation.
+        This is orthogonal to pv_corr (which uses close price direction vs amount).
+        HOWEVER: the current 10d window is too slow. The signal has strong validation (ICIR=-0.271)
+        but weak holdout (ICIR=-0.144), indicating the 10d averaging creates some train/val leakage.
+        The dominant vol_20d Barra exposure (0.194) is real but manageable given low style_r2 (0.042).
+        Shorter windows (5d, 7d) should preserve the clean residual while increasing IC signal frequency.
+
+      evidence_for:
+        - "C005: max_lib=0.065 — most novel factor in v2 system (nearest factor is F006, not F001)"
+        - "C005: alpha_surv=0.734, barra_res=-0.201 — very clean Barra residual in correct direction"
+        - "C005: style_r2=0.042 (lowest in batch) — minimal style contamination"
+        - "C005: risk_bucket=acceptable — first non-poor/borderline risk in batch_089"
+        - "C005: mono_val=-1.0 (PERFECT) — strong validation ranking quality"
+
+      evidence_against:
+        - "C004 (20d): split_stability=poor, train_val_decay=0.319 — 20d is too slow"
+        - "C005 (10d): validation_holdout_decay=0.715 — IC decays to holdout"
+        - "C006 (10d×PE): decay=0.312, mono_ho=-0.30 — PE conditioning kills mechanism"
+        - "dominant_style=vol_20d for all candidates — range IS a vol proxy, risk unavoidable"
+
+      failure_boundary: |
+        PROVEN FAILURES for L013:
+        - 20d window: split_stability=poor, severe train_val_decay — too slow
+        - PE conditioning on 10d: catastrophic holdout collapse (decay=0.312, mono_ho=-0.30)
+        - PE conditioning is INCOMPATIBLE with range-amount mechanism
+        Next exploration should NOT include PE conditioning or windows >= 10d.
+
+      open_questions:
+        - "Do 5d and 7d windows of Corr(range/close, amount, N) produce stronger IC while keeping clean residual?"
+        - "Is there a window floor below which the mechanism collapses (like timing_range had 3d floor)?"
+        - "Can CsRank($amount) conditioning (not PE) improve IC without destroying the clean residual?"
+        - "Is the vol_20d dominance inherent to range-based factors, or is it window-specific?"
+
+      next_best_probes:
+        - expr: "Corr(Div(Sub($high,$low),$close),$amount,5)"
+          why: "5d window: higher frequency, less train/val leakage, preserve clean residual hypothesis"
+        - expr: "Corr(Div(Sub($high,$low),$close),$amount,7)"
+          why: "7d window: midpoint between floor and current 10d — window scan"
+        - expr: "Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount))"
+          why: "Amount-based conditioning (not PE) — may amplify signal without ep_ratio style trap"
+
+  new_lessons:
+    - lesson_id: FP_L012_autocorr_conditioning
+      classification: FP
+      batch_ids: [batch_089]
+      description: |
+        PE conditioning and soft-decorrelation on TsAutoCorr($amount,N) produce style traps.
+        C001 (20d×PE): ep_ratio dominant, alpha_surv=9%.
+        C002 (20d soft-decorr): barra_res POSITIVE (+0.171 = wrong direction), near-duplicate F001.
+        C003 (10d×PE): vol_20d dominant, alpha_surv=12%.
+        The pv_corr conditioning paradigm (PE + soft-decorr) does NOT transfer to autocorr dimension.
+        TsAutoCorr has different Barra structure than Corr — conditioning reorganizes which style dominates
+        rather than revealing clean alpha.
+      style_repackaging_risk: high
+      implication: Do not probe any PE conditioning or soft-decorr variants of TsAutoCorr. L012 conditioning approach is exhausted at DSL level.
+
+    - lesson_id: NM_L013_range_amount_mechanism_confirmed
+      classification: NM
+      batch_ids: [batch_089]
+      description: |
+        C005: Corr(Div(Sub($high,$low),$close),$amount,10) confirms novel mechanism.
+        max_lib=0.065 (most novel in v2 system), alpha_surv=0.734, barra_res=-0.201, style_r2=0.042.
+        Range-amount correlation captures institutional aggression (volatile days = high monetary flow).
+        This is orthogonal to all pv_corr factors (nearest factor F006 at 0.065 correlation).
+        The mechanism IS real but current 10d window is too slow (decay=0.715 on holdout).
+        Shorter windows (5d, 7d) are the next probes.
+      style_repackaging_risk: low
+      implication: Continue L013 exploration at shorter windows. Do NOT use PE conditioning — it kills the mechanism.
+
+    - lesson_id: FP_L013_pe_conditioning_incompatible
+      classification: FP
+      batch_ids: [batch_089]
+      description: |
+        C006: PE conditioning on range-amount 10d produces decay=0.312, mono_ho=-0.30.
+        The clean Barra residual in C005 is destroyed by PE conditioning.
+        PE conditioning is INCOMPATIBLE with range-amount mechanism.
+        Contrast: PE conditioning HELPS pv_corr (L009), HURTS range-amount (L013).
+        The difference: pv_corr needs PE to break turnover trap; range-amount's purity comes from
+        vol_20d exposure, not turnover. PE adds ep_ratio style that dominates and creates instability.
+      style_repackaging_risk: high
+      implication: Do not probe PE conditioning with range-amount signals. Use non-PE conditioning or no conditioning.
+
+  discovery_flags:
+    - anomaly_type: repeated_near_miss_cluster
+      batch_ids: [batch_089]
+      description: |
+        C005 (range-amount 10d) is a high-quality reserve with exceptional mechanism properties
+        (max_lib=0.065, alpha_surv=0.734, barra_res=-0.201) but IC too weak.
+        This is a classic "mechanism confirmed, scale wrong" pattern — similar to how L009 found
+        the mechanism at batch_063 but needed several rounds to find the right window.
+        The range-amount family at 5d-7d is a high-priority unexplored window space.
+      likely_mechanism: "Range-amount captures institutional aggression at high frequency — shorter window reduces noise accumulation"
+      style_repackaging_risk: low
+      explainable_by_existing_logic: no
+      escalation_status: watch
+
+  holdout_reviews_triggered:
+    - review_id: HR_089_001
+      batch_id: batch_089
+      target_id: C005
+      trigger_reason: weak_validation_effect
+      status: pending
+      detail: "Range-amount 10d: alpha_surv=0.734, barra_res=-0.201 (excellent quality), but ICIR_ho=-0.144 (weak). Reserve for holdout: is the clean residual sustained at holdout level?"
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_089/judge_report.yaml
+    ledger_updated: true

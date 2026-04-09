@@ -1,0 +1,36 @@
+idea_report:
+  batch_id: batch_080
+  logic_id: L009
+  created_at: '2026-04-09'
+  strategy_decision:
+    selected_strategy: deepen
+    decision_basis_codes:
+      - active_thread_has_clear_probe
+      - expected_information_gain_high
+    selected_threads:
+      - T002
+    rejected_threads_with_reason: []
+    selected_families:
+      - PF_price_volume_correlation
+    why_now: "batch_079 completed soft decorrelation mapping. batch_080 fills remaining parameter space: 9% subtraction (8-10% gap), 7d and 8d windows (5-10d gap)."
+  probe_results:
+    - expr: "Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.09))"
+      ic_mean: -0.0262
+      ic_ir: -0.3407
+      win_rate: 35.75
+      verdict: pass
+      route: R001
+    - expr: "Sub(Mul(Corr($close,$amount,8),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1))"
+      ic_mean: -0.0240
+      ic_ir: -0.3220
+      win_rate: 35.91
+      verdict: pass
+      route: R001
+    - expr: "Sub(Mul(Corr($close,$amount,7),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1))"
+      ic_mean: -0.0233
+      ic_ir: -0.3178
+      win_rate: 34.84
+      verdict: pass
+      route: R001
+  routes_designed: 1
+  candidates_frozen: 3

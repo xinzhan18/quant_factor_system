@@ -1,0 +1,85 @@
+batch_id: batch_072
+logic_id: L009
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L009_genesis_cov_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does Cov(close, amount) provide better spread than Corr? Cov measures magnitude co-movement vs directional."
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+  - experiment_lineage_tag: ELT_L009_genesis_pure_corr5d_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Confirm if 5d pure Corr is genuine signal or noise — batch_071 C005 showed best decay_ratio=1.611"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T003
+  - experiment_lineage_tag: ELT_L009_genesis_cov_volregime_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does volume-based regime conditioning on Cov provide better spread?"
+    route_id: R003
+    route_type: genesis
+    source_thread_id: T004
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_cov_v1
+    expression: Cov($close, $amount, 10)
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: pure_cov_amount_10d
+    rationale: "Cov instead of Corr — Cov measures magnitude co-movement (does co-movement AMPLITUDE predict returns?), vs Corr measures direction. batch_071 showed pure Corr is strongest; Cov tests if magnitude adds info."
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_cov_v1
+    expression: Cov($close, $amount, 5)
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: pure_cov_amount_5d
+    rationale: "5d Cov — probe shows IC IR=-0.5565 (stronger than 10d), tests if shorter window captures faster price-volume co-movement"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C003
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_cov_v1
+    expression: Cov($close, $amount, 20)
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: pure_cov_amount_20d
+    rationale: "20d Cov — probe shows IC IR=-0.4850, tests longer window (consistent with F072 20d but with Cov instead of Corr)"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C004
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_pure_corr5d_v1
+    expression: Corr($close, $amount, 5)
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: pure_corr_amount_5d
+    rationale: "5d pure Corr — batch_071 C005 showed BEST decay_ratio=1.611 (IC strengthens on holdout). Confirm if this is genuine signal or noise with full validation."
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T003
+    source_type: dsl
+  - candidate_id: C005
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_cov_volregime_v1
+    expression: Mul(Cov($close, $amount, 10), TsRank($volume, 20))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: cov_10d_x_vol_rank
+    rationale: "Volume regime conditioning on Cov — TsRank(volume, 20) captures whether high-volume regimes change the price-volume co-movement relationship. Tests if regime-adaptive Cov works better than pure Cov."
+    route_id: R003
+    route_type: genesis
+    source_thread_id: T004
+    source_type: dsl

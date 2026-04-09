@@ -1,0 +1,48 @@
+idea_report:
+  batch_id: batch_074
+  logic_id: L009
+  created_at: '2026-04-09'
+  strategy_decision:
+    selected_strategy: deepen
+    decision_basis_codes:
+      - active_thread_has_clear_probe
+      - expected_information_gain_high
+    selected_threads:
+      - T001
+    rejected_threads_with_reason: []
+    selected_families:
+      - PF_price_volume_correlation
+    why_now: "batch_073 found PE rank conditioning (CsRank) produces NEGATIVE Barra residual (-0.0104) on amount-based Corr. Turnover-based Corr failed on pure Corr but PE conditioning was never tested. Turnover-based 10d × PE rank shows IR=-0.4121 (strongest in L009). Need to validate if turnover-based with PE/PS conditioning produces cleaner Barra residual than amount-based."
+  probe_results:
+    - expr: "Mul(Corr($close,$turnover_rate,5),CsRank($pe_ratio))"
+      ic_mean: -0.0263
+      ic_ir: -0.3502
+      win_rate: 36.24
+      verdict: pass
+      route: R001
+    - expr: "Mul(Corr($close,$turnover_rate,10),CsRank($pe_ratio))"
+      ic_mean: -0.0330
+      ic_ir: -0.4121
+      win_rate: 32.70
+      verdict: pass
+      route: R001
+    - expr: "Mul(Corr($close,$turnover_rate,20),CsRank($pe_ratio))"
+      ic_mean: -0.0331
+      ic_ir: -0.3797
+      win_rate: 35.01
+      verdict: pass
+      route: R001
+    - expr: "Mul(Corr($close,$turnover_rate,5),CsRank($ps_ratio))"
+      ic_mean: -0.0322
+      ic_ir: -0.3848
+      win_rate: 34.84
+      verdict: pass
+      route: R002
+    - expr: "Div(Corr($close,$turnover_rate,10),(1+CsRank($turnover_rate)))"
+      ic_mean: -0.0177
+      ic_ir: -0.2049
+      win_rate: 38.71
+      verdict: pass
+      route: R002
+  routes_designed: 2
+  candidates_frozen: 5

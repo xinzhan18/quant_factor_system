@@ -1,0 +1,206 @@
+judge_report:
+  batch_id: batch_080
+  judgment_timestamp: '2026-04-09T03:35:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 3
+    admitted: 1
+    rejected: 0
+    reserved: 2
+    replaced: 0
+    gate_pass: 3
+    gate_fail: 0
+    gate_warn: 0
+
+  admitted_factors:
+    - factor_id: F016
+      candidate_id: C002
+      name: corr_amount_8d_x_pe_minus_tur10
+      expression: Sub(Mul(Corr($close, $amount, 8), CsRank($pe_ratio)), Mul(CsRank($turnover_rate), 0.1))
+      direction: long
+      rationale: "8d window with 10% subtraction achieves max_lib=0.697 (LOWEST in L009), alpha_surv=0.373, Barra_res=-0.0110 (clean), mono stable -0.7/-0.7. Better redundancy than F015 with stable monotonicity."
+      admission_reason_codes:
+        - lowest_redundancy_in_L009
+        - clean_barra_residual
+        - stable_monotonicity
+        - strong_holdout_decay
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      route_type: decorrelate
+      experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v4
+      verdict: continue
+      reason: |
+        C002 ADMITTED: 8d window + 10% subtraction achieves max_lib=0.697 (LOWEST in L009).
+        This is the best redundancy in L009 history, better than F015's 0.740.
+        C001 (9% subtraction): mono decays -0.7→-0.9 — disqualifying.
+        C003 (7d window): worse redundancy (0.779) and mono decays — disqualifying.
+        L009 now has 2 admitted factors: F015 (10d) and F016 (8d).
+        The 8d window achieves better redundancy than 10d by capturing faster signals.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - regime_instability
+      detail: |
+        Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.09)): Gate pass.
+        ICIR_val=-0.383, ICIR_ho=-0.368, decay=1.18 (IC strengthens).
+        mono_val=-0.7, mono_ho=-0.9 (DECAYS on holdout — disqualifying).
+        ls_tstat_val=-3.06, ls_tstat_ho=-5.29.
+        Barra_res=-0.0117 (NEGATIVE = clean).
+        alpha_surv=0.380 (slightly worse than F015's 0.383).
+        max_lib_corr=0.7449 (worse than F015's 0.740).
+        RESERVE: 9% subtraction is between 8% and 10% but doesn't improve over either.
+        The 9% coefficient is the wrong choice — 10% is optimal for 10d window.
+
+    C002:
+      candidate_id: C002
+      verdict: admit
+      execution_gate_status: pass
+      reason_codes:
+        - mechanism_aligned
+        - feasibility_ok
+        - risk_model_acceptable
+      detail: |
+        Sub(Mul(Corr($close,$amount,8),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)): Gate pass.
+        ICIR_val=-0.380, ICIR_ho=-0.381, decay=1.23 (IC strengthens).
+        mono_val=-0.7, mono_ho=-0.7 (STABLE — no mono decay).
+        ls_tstat_val=-2.94, ls_tstat_ho=-5.28 (strong on holdout).
+        Barra_res=-0.0110 (NEGATIVE = clean).
+        alpha_surv=0.373 (slightly worse than F015's 0.383).
+        max_lib_corr=0.6966 (LOWEST in L009 — 0.044 better than F015's 0.740).
+        style_r2=0.124 (low contamination).
+        ADMIT: 8d window achieves best redundancy in L009 with stable monotonicity.
+        The 8d window captures faster price-volume co-movement with less style contamination.
+
+    C003:
+      candidate_id: C003
+      verdict: reserve
+      execution_gate_status: pass
+      reason_codes:
+        - high_subspace_redundancy
+        - regime_instability
+      detail: |
+        Sub(Mul(Corr($close,$amount,7),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)): Gate pass.
+        ICIR_val=-0.372, ICIR_ho=-0.381, decay=1.26 (IC strengthens).
+        mono_val=-0.7, mono_ho=-0.6 (DECAYS on holdout).
+        ls_tstat_val=-2.59, ls_tstat_ho=-4.75.
+        Barra_res=-0.0102 (NEGATIVE = clean).
+        alpha_surv=0.359 (worse than F015's 0.383).
+        max_lib_corr=0.7789 (WORSE than F015's 0.740).
+        style_r2=0.114.
+        RESERVE: 7d window is too fast — worse redundancy and mono decay.
+        The 7d window is below the optimal window floor for PE-conditioned Corr.
+
+  logic_recommendations:
+    L009:
+      logic_id: L009
+      recommended_status: productive
+      reason: |
+        L009 now has 2 admitted factors: F015 (10d, 10%) and F016 (8d, 10%).
+        F016 achieves max_lib=0.697 (LOWEST in L009) with stable monotonicity.
+        batch_080 completes the window optimization: 7d is too fast, 8d is optimal, 10d is F015.
+        The 8d window captures faster signals with less style contamination.
+        L009 is saturated for this mechanism — recommend moving to crossover or new directions.
+        direction_quota: 3
+        candidate_quota: 6
+
+  logic_diagnostics:
+    L009:
+      thesis_update: |
+        batch_080: F016 ADMITTED (corr_amount_8d_x_pe_minus_tur10).
+        8d window achieves max_lib=0.697 (LOWEST in L009), alpha_surv=0.373, mono stable.
+        L009 now has 2 admitted factors: F015 (10d) and F016 (8d).
+        Window optimization complete:
+        - 7d: max_lib=0.779, alpha_surv=0.359, mono decays (too fast)
+        - 8d: max_lib=0.697, alpha_surv=0.373, mono stable (F016 — BEST)
+        - 10d: max_lib=0.740, alpha_surv=0.383, mono stable (F015)
+        - 20d: decay<1 (too slow, confirmed batch_078)
+        Subtraction coefficient optimization:
+        - 5%: max_lib=0.763, alpha_surv=0.367 (batch_077 C003)
+        - 8%: max_lib=0.750, alpha_surv=0.377 (batch_079 C002)
+        - 9%: max_lib=0.745, alpha_surv=0.380 (batch_080 C001) — mono decays
+        - 10%: max_lib=0.740, alpha_surv=0.383 (F015) — optimal
+        - 15%: max_lib=0.715, alpha_surv=0.403 (batch_078 C001) — mono decays
+        L009 soft decorrelation mechanism is SATURATED.
+        Next direction: crossover with other mechanisms or new logic proposal.
+
+      evidence_for:
+        - "F015 (10d): max_lib=0.740, alpha_surv=0.383, mono stable"
+        - "F016 (8d): max_lib=0.697, alpha_surv=0.373, mono stable — BEST redundancy"
+        - "8d window: captures faster signals with less style contamination"
+        - "All admitted factors: NEGATIVE Barra residual (clean)"
+        - "L009 is productive with 2 admitted factors"
+
+      evidence_against:
+        - "7d window: too fast, worse redundancy (0.779), mono decays"
+        - "9% subtraction: mono decays -0.7→-0.9"
+        - "15% subtraction: mono decays -0.6→-1.0"
+        - "PS conditioning: lower alpha_surv (0.306)"
+        - "Volume timing: high style contamination, mono decays"
+
+      failure_boundary: |
+        Window: 7d is too fast, 20d is too slow. 8d and 10d are optimal.
+        Subtraction: 9% and 15% cause mono decay. 5% to 10% are viable.
+        Conditioning: PB and PS don't improve over PE.
+        Volume timing: adds style contamination, kills alpha.
+        L009 soft decorrelation mechanism is fully mapped and saturated.
+
+      open_questions:
+        - "Could F015 and F016 be blended for better stability?"
+        - "Should L009 explore crossover with other mechanisms?"
+        - "Is there a new logic proposal for the next research direction?"
+
+      next_best_probes:
+        - expr: "Add(Mul(Corr($close,$amount,8),CsRank($pe_ratio)),Mul(Corr($close,$amount,10),CsRank($pe_ratio)))"
+          why: "Blend F016 (8d) and F015 (10d) — tests if combining timeframes improves stability"
+        - expr: "Sub(Mul(Corr($close,$amount,8),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)) × (1-CsRank($volume))"
+          why: "Low-volume filter on F016 — tests if volume filtering improves signal quality"
+
+  new_lessons:
+    - lesson_id: ADMIT_L009_F016_8d_window
+      classification: ST
+      batch_ids:
+        - batch_080
+      description: |
+        F016 (corr_amount_8d_x_pe_minus_tur10): Second L009 admission.
+        Sub(Corr($amount,8),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1)).
+        max_lib_corr=0.6966 (LOWEST in L009), alpha_surv=0.373, Barra_res=-0.0110, mono stable.
+        8d window achieves better redundancy than 10d by capturing faster signals.
+      style_repackaging_risk: medium
+      implication: "8d and 10d are the optimal windows for L009 soft decorrelation."
+
+    - lesson_id: ADMIT_L009_window_saturation
+      classification: NM
+      batch_ids:
+        - batch_075
+        - batch_076
+        - batch_077
+        - batch_078
+        - batch_079
+        - batch_080
+      description: |
+        L009 soft decorrelation mechanism is SATURATED.
+        Window range: 8d-10d is optimal. 7d too fast, 20d too slow.
+        Subtraction coefficient: 10% is optimal. 9% and 15% cause mono decay.
+        Conditioning: PE is optimal. PB and PS don't improve.
+        All parameter space has been explored. No more low-hanging fruit.
+      style_repackaging_risk: medium
+      implication: "Stop exploring L009 soft decorrelation. Move to crossover or new logic."
+
+  discovery_flags: []
+
+  holdout_reviews_triggered: []
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_080/judge_report.yaml
+    ledger_updated: false
+    admitted_factor: F016

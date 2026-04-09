@@ -1,0 +1,176 @@
+logic_id: L009
+name: Regime-Adaptive Price-Volume Co-movement
+category: microstructure
+status: parked
+priority: high
+hypothesis:
+  condition: A-share市场的价格-成交量协同运动强度（Corr(close, turnover, N)）在波动率 regime 切换时产生非对称信息信号
+  behavior: 当价格与成交量协同运动时（正相关 = 知情交易者参与），后续收益方向性更强；不同波动率 regime 下协同强度的预测效力不同
+  timeframe: 5-20d形成，持有5-15d
+  direction: 做多高协同强度（知情买入信号）
+  prior_evidence: batch_060-062发现：F072(Corr($close,$turnover_rate,20)) mono_OOS=-0.9,
+    ls_tstat=-5.23, Q1>>Q5显著。Rel-tur(L008)产生quintuple compression——所有quintile正收益。F072机制根本不同：测量价格-成交量协同方向性，而非竞争强度比率。
+contract:
+  current_focus_question: 软 decorrelation (Sub) 是否能进一步降低 redundancy 而保留 alpha?
+  direction_quota: 3
+  candidate_quota: 6
+  preferred_families:
+  - PF_price_volume_correlation
+  - PF_regime_adaptive_microstructure
+  suggested_ops:
+  - Corr
+  - Cov
+  - CsRank
+  - Mul
+  - Div
+  - Sub
+  - Mean
+  - Std
+  - TsRank
+  avoid_patterns:
+  - '15% subtraction coefficient: kills mono stability despite better alpha_surv and
+    redundancy.'
+  - '5d window: too short for PE conditioning to be effective.'
+  - '20d window: too slow — decay_ratio<1 means signal weakens on holdout.'
+  - 'Pure Corr×PE without decorrelation: redundancy 0.78-0.81 (too high).'
+  - 'Div normalization: redundancy 0.70-0.74 but alpha_surv=0.21-0.28 (too low).'
+  - 10% subtraction + 10d window is the confirmed optimal configuration.
+  - 'PS conditioning: lower alpha_surv than PE conditioning.'
+  - '8% subtraction: marginal improvement over 10%.'
+  - 'Volume timing: TsRank(volume) adds style contamination.'
+  - '15% subtraction: kills mono stability (confirmed batch_078).'
+  - Soft decorrelation is fully mapped — 10% subtraction + 10d window is optimal.
+  - 'Window: 7d is too fast, 20d is too slow. 8d and 10d are optimal.'
+  - 'Subtraction: 9% and 15% cause mono decay. 5% to 10% are viable.'
+  - 'Conditioning: PB and PS don''t improve over PE.'
+  - 'Volume timing: adds style contamination, kills alpha.'
+  - L009 soft decorrelation mechanism is fully mapped and saturated.
+  - L009 soft decorrelation is FULLY SATURATED.
+  - No more viable candidates in this parameter space.
+  - 'Window: 8d-10d only. 5d, 7d, 9d, 20d all fail.'
+  - 'Subtraction: 10% only. 5%, 8%, 9%, 15% all fail or are near duplicates.'
+  - 'Conditioning: PE only. PB, PS don''t improve.'
+  - 'Blend: near duplicate of individual factors.'
+  - 'Volume timing: adds contamination.'
+required_fields:
+- $close
+- $turnover_rate
+- $volume
+- $amount
+- $pe_ratio
+avoid_patterns:
+- Corr($close, $turnover_rate) — shape mismatch confirmed, do not probe
+- PB rank conditioning — no redundancy benefit vs PE/PS (confirmed batch_077)
+- Pure Corr without decorrelation — redundancy 0.78-0.81 (too high)
+- Div normalization — kills alpha_surv (0.21-0.28), too aggressive
+- Rel-tur conditioning — quintuple compression, long-only only
+- Pure rel-tur without conditioning — sign flip confirmed
+- Inverse rel-tur — expanding_window=FALSE, regime instability
+- Subtraction residual on rel-tur — same quintuple compression
+- Z-score blend of shadow factors — str_1m style dominance confirmed
+- Pure Corr($close, $volume) without regime conditioning — needs window and conditioning
+- High redundancy vs existing factors is the primary concern
+discovery_budget: 10
+evidence_summary:
+  current_bottleneck: 'batch_081 completes L009 saturation confirmation.
+
+    L009 soft decorrelation is FULLY SATURATED.
+
+    All remaining candidates are either near-duplicates or have regime instability.
+
+    Final L009 status: 2 admitted factors, 4 rounds of exploration, fully mapped parameter
+    space.
+
+    Window range: 8d-10d optimal. 5d and 20d fail.
+
+    Subtraction coefficient: 10% optimal. 5%, 8%, 9%, 15% all tested.
+
+    Conditioning: PE optimal. PB and PS don''t improve.
+
+    Blend: near duplicate of individual factors.
+
+    Volume timing: adds contamination, kills alpha.
+
+    L009 mechanism is exhausted. Recommend new logic proposal.'
+  factors_generated: 1
+  factors_admitted: 1
+  rounds_without_admit: 4
+  failed_families: []
+  productive_families:
+  - PF_price_volume_correlation
+  transitions:
+  - from: productive
+    to: parked
+    reason: 'batch_081 completes L009 saturation confirmation.
+
+      All 3 candidates rejected: blend is near duplicate, volume timing kills alpha,
+      9d is near duplicate.
+
+      L009 soft decorrelation mechanism is FULLY SATURATED.
+
+      L009 has 2 admitted factors: F015 (10d) and F016 (8d).
+
+      No more viable candidates in this parameter space.
+
+      Recommend: new logic proposal for next research direction.
+
+      direction_quota: 3 (exhausted)
+
+      candidate_quota: 6 (exhausted)'
+    at: '2026-04-09 03:34:56'
+transitions: []
+origin_proposal_id: null
+created_at: '2026-04-09'
+updated_at: '2026-04-09 03:34:56'
+deepening_threads:
+- id: T001
+  question: Corr($close, $turnover_rate, N) × PE conditioning 是否产生独立于Barra风格的alpha?
+  why_matters: F072(20d) shows mono=-0.9, ls_tstat=-5.23. PE conditioning is essential
+    for most microstructure signals in L001/L004. Need to confirm if it helps or hurts
+    here.
+  status: parked
+  priority: high
+  next_probes:
+  - Corr($close, $turnover_rate, 10) × CsRank($pe_ratio)
+  - Corr($close, $turnover_rate, 20) × CsRank($pe_ratio)
+  stop_condition: 如果Corr × PE产生mono < -0.5且Barra_res < 0，确认PE conditioning有效
+  note: Turnover-based Corr has shape mismatch issue — amount-based is the only viable
+    path
+- id: T002
+  question: Corr($close, $amount, N) 是否比 Corr($close, $turnover_rate) 更强?
+  why_matters: $amount是price×volume monetary，理论上更能反映知情交易规模
+  status: productive
+  priority: medium
+  next_probes:
+  - Corr($close, $amount, 10) × CsRank($pe_ratio) — F015 baseline
+  - Sub(Corr($close,$amount,10), CsRank($pe_ratio), tur×0.15) — 15% subtraction test
+  - Sub(Corr($close,$amount,5), CsRank($pe_ratio), tur×0.1) — 5d window with soft
+    decorrelation
+  - Sub(Corr($close,$amount,20), CsRank($pe_ratio), tur×0.1) — 20d window with soft
+    decorrelation
+  stop_condition: 如果$amount variant产生更高的ICIR或更干净的Barra residual，确认金额维度更优
+  note: F015 ADMITTED — amount-based Corr confirmed as viable. Soft decorrelation
+    (Sub with 0.1 coefficient) is the breakthrough.
+- id: T003
+  question: Corr($close, $turnover_rate, N) 的最佳窗口是多少?
+  why_matters: F072用20d。但更短窗口(如10d, 5d)可能更有效——类似timing_range的5d floor
+  status: parked
+  priority: medium
+  next_probes:
+  - Corr($close, $turnover_rate, 5) × CsRank($pe_ratio)
+  - Corr($close, $turnover_rate, 10) × CsRank($pe_ratio)
+  - Corr($close, $turnover_rate, 20) × CsRank($pe_ratio)
+  stop_condition: 找到Corr信号的窗口floor和optimal
+  note: Turnover-based Corr has shape mismatch — amount-based is the only viable path
+- id: T004
+  question: 波动率regime conditioning是否能增强Corr信号的spread?
+  why_matters: L008 quintuple compression是因为所有quintile正收益。波动率regime conditioning可能分离Q1和Q5的收益来源
+  status: parked
+  priority: high
+  next_probes:
+  - Sub(Mul(Corr($close,$amount,10),CsRank($pe_ratio)),Mul(CsRank($turnover_rate),0.1))
+    × TsRank($volume,20)
+  - ConditionalCorr($close, $amount, regime=high_vol) — if available
+  stop_condition: 如果regime conditioning产生更明显的spread和更负的ls_tstat，确认机制有效性
+next_actions: []
+last_reflected_batch: batch_081
