@@ -1,0 +1,57 @@
+batch_id: batch_085
+logic_id: L010
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L010_python_market_regime_quality_v1
+    family_id: PF_market_regime_quality
+    research_question: "Does market-regime momentum + quality gate (amount mid-range) produce clean residual alpha?"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+  - experiment_lineage_tag: ELT_L010_python_momentum_only_low_vol_v1
+    family_id: PF_low_vol_momentum_only
+    research_question: "Does momentum ONLY in low-vol regime (no flip) avoid str_1m absorption?"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L010_python_market_regime_quality_v1
+    name: market_regime_quality_v1
+    family_id: PF_market_regime_quality
+    logic_id: L010
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/market_regime_quality.py
+    params:
+      mom_period: 20
+      vol_period: 20
+      vol_threshold: 1.0
+      ewm_span: 10
+      amt_low_pct: 0.20
+      amt_high_pct: 0.80
+      vol_filter_pct: 0.30
+    rationale: "Market-regime momentum + amount mid-range quality gate. Aims to replicate C002's positive IC while removing str_1m contamination via quality filtering."
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L010_python_momentum_only_low_vol_v1
+    name: momentum_only_low_vol_v1
+    family_id: PF_low_vol_momentum_only
+    logic_id: L010
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T001
+    source_type: python
+    module_path: storage/factors/python/momentum_only_low_vol.py
+    params:
+      mom_period: 20
+      vol_period: 20
+      vol_threshold: 1.0
+      ewm_span: 10
+      vol_filter_pct: 0.30
+    rationale: "Momentum ONLY in low-vol regime (no flip in high-vol). Hypothesis: the flip (risk-off) adds str_1m style. Pure momentum in low-vol may be cleaner."
