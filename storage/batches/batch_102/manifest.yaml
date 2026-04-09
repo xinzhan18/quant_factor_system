@@ -1,0 +1,135 @@
+batch_id: batch_102
+created_at: '2026-04-10T05:25:00+00:00'
+status: frozen
+logic_ids:
+  - L015
+
+routes:
+  - route_id: R001
+    logic_id: L015
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pb_ps_conditioning_v1
+    research_question: 'Does using PB or PS as the value conditioner (instead of PE) reduce ep_ratio style loading while maintaining the barra-clean earnings catalyst mechanism? Batch_101 confirmed low-PE conditioning adds ep_ratio style (style_r2=0.187-0.287). PB and PS are less correlated with ep_ratio Barra factor — may achieve style_r2 < 0.15 (acceptable risk bucket threshold).'
+    family_id: PF_fundamental_price_divergence
+
+  - route_id: R002
+    logic_id: L015
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_multimetric_catalyst_v1
+    research_question: 'Does multi-metric confirmation (EPS improvement AND Revenue improvement simultaneously) conditioned on low PB produce stronger and more stable barra-clean alpha? The combination selects stocks where multiple fundamental metrics are simultaneously improving — reducing noise from single-metric quarterly sparsity. Probe ICIR=+0.393 (strongest in entire L015 series).'
+    family_id: PF_fundamental_price_divergence
+
+candidates:
+  - candidate_id: C001
+    logic_id: L015
+    route_id: R001
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pb_ps_conditioning_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($pb_ratio,-1)))'
+    rationale: 'Absolute EPS change 60d × low PB conditioning. Uses PB (not PE) as value anchor. CsRank(Mul($pb_ratio,-1)) = low price-to-book stocks. PB ratio is less correlated with ep_ratio Barra factor than PE ratio. If style_r2 drops below 0.15 vs batch_101 C001 (EPS×PE: style_r2=0.257), this is the admission candidate. Probe ICIR=+0.332 (stronger than EPS×PE at +0.315).'
+    implementation_reason: 'Batch_101 confirmed positive barra_res_icir (+0.284) for absolute EPS × low PE. The only blocker was style_r2=0.257 (ep_ratio style from low-PE conditioning). Switching to low PB removes the PE-based ep_ratio contamination. Book-to-price ratio measures asset cheapness — different from earnings yield (ep_ratio). If the ep_ratio style loading is primarily from the PE conditioner (not the EPS change itself), PB conditioning should have lower style_r2.'
+    lineage:
+      parent_expression: 'Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($pe_ratio,-1)))'
+      parent_factor_id: null
+      transformation: replace_pe_conditioning_with_pb_conditioning
+    probe_ic: 0.0394
+    probe_icir: 0.3324
+    probe_verdict: pass
+
+  - candidate_id: C002
+    logic_id: L015
+    route_id: R001
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pb_ps_conditioning_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($pb_ratio,-1)))'
+    rationale: 'Revenue change 60d × low PB conditioning. Revenue metric (PS-based) + book value anchor (PB conditioning). Revenue and PB use different accounting metrics — revenue is flow (income statement), book value is stock (balance sheet). Cross-metric combination: stocks with improving revenue efficiency AND cheap to their book assets. Probe ICIR=+0.323 (strong). May have lower ep_ratio style loading than EPS×PE (batch_101 C004: style_r2=0.187).'
+    implementation_reason: 'Batch_101 C004 (Revenue×low PE) had the best balance: ICIRval=0.265, mono_val=1.0, barra_res=+0.220, style_r2=0.187 (lowest among conditioned variants). This replaces PE conditioning with PB conditioning while keeping the same revenue metric. If style_r2 drops from 0.187 to below 0.15, this is the clean admission candidate. Revenue is smoother than EPS (less quarterly sparsity).'
+    lineage:
+      parent_expression: 'Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($pe_ratio,-1)))'
+      parent_factor_id: null
+      transformation: replace_pe_conditioning_with_pb_conditioning_revenue_metric
+    probe_ic: 0.0366
+    probe_icir: 0.3233
+    probe_verdict: pass
+
+  - candidate_id: C003
+    logic_id: L015
+    route_id: R001
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_pb_ps_conditioning_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($ps_ratio,-1)))'
+    rationale: 'Absolute EPS change 60d × low PS conditioning. PS = price/revenue. Low PS means cheap revenue valuation. CsRank(-ps_ratio) = stocks cheapest relative to their revenue base. Combining EPS improvement with revenue-based cheapness: stocks that are cheap on revenue AND have improving earnings. The PS conditioner is most orthogonal to PE (revenue vs earnings are different income statement lines). May have lowest ep_ratio style loading of all conditioners tested. Probe ICIR=+0.310.'
+    implementation_reason: 'Three conditioners tested: PE (adds ep_ratio via earnings yield), PB (adds book_to_price), PS (adds revenue-based valuation). PS is the most orthogonal to all standard Barra value factors (ep_ratio is earnings-based, book_to_price is asset-based; PS is revenue-based and not a standard Barra factor). Using PS as the conditioner may achieve lower style_r2 than PE or PB conditioning.'
+    lineage:
+      parent_expression: 'Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($pe_ratio,-1)))'
+      parent_factor_id: null
+      transformation: replace_pe_conditioning_with_ps_conditioning
+    probe_ic: 0.0327
+    probe_icir: 0.3097
+    probe_verdict: pass
+
+  - candidate_id: C004
+    logic_id: L015
+    route_id: R002
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_multimetric_catalyst_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60))))),CsRank(Mul($pb_ratio,-1)))'
+    rationale: 'Multi-metric earnings catalyst: Absolute EPS change × Revenue change × low PB. THREE-WAY product requiring (1) EPS improving, (2) Revenue improving simultaneously, AND (3) cheap on book value. The triple constraint selects stocks with comprehensive fundamental improvement at low valuation. Probe ICIR=+0.393 (STRONGEST in entire L015 series, highest probe IC since F017). This is the most promising admission candidate in L015.'
+    implementation_reason: 'Single-metric earnings signals (EPS alone: ICIR=0.21, Revenue alone: ICIR=0.20) are weak due to quarterly sparsity. Requiring BOTH EPS AND Revenue to improve simultaneously (via Mul) dramatically boosts IC (ICIR=0.393) because: (1) fewer stocks meet both criteria = more concentrated signal; (2) dual confirmation reduces quarterly noise (if one metric is noisy, the other stabilizes). Adding low PB conditions on value (cheap assets). If barra_res_icir is positive and style_r2 < 0.15, this is the definitive L015 admission candidate.'
+    lineage:
+      parent_expression: 'Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($pb_ratio,-1)))'
+      parent_factor_id: null
+      transformation: add_revenue_change_as_second_metric
+    probe_ic: 0.0377
+    probe_icir: 0.3931
+    probe_verdict: pass
+
+  - candidate_id: C005
+    logic_id: L015
+    route_id: R002
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_multimetric_catalyst_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($ps_ratio,-1)))'
+    rationale: 'Revenue change 60d × low PS (pure PS-based catalyst). Revenue improves (cheap to revenue base). CsRank(-ps_ratio) = cheap revenue valuation. Pure single-metric revenue catalyst using PS for both the change metric AND the valuation anchor. The most coherent single-metric approach: "revenue growing faster than price" = the company is becoming cheaper relative to its growing revenue. Probe ICIR=+0.290.'
+    implementation_reason: 'PS is the only metric not directly tested as both change and conditioner. Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60))) = revenue_change_ratio × CsRank(-ps_ratio) = "cheap revenue stock with growing revenue". This is a revenue momentum × revenue value signal — fully self-consistent and avoids mixing PE and PS metrics.'
+    lineage:
+      parent_expression: 'Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($pe_ratio,-1)))'
+      parent_factor_id: null
+      transformation: replace_pe_conditioning_with_ps_for_pure_ps_catalyst
+    probe_ic: 0.0292
+    probe_icir: 0.2904
+    probe_verdict: pass
+
+  - candidate_id: C006
+    logic_id: L015
+    route_id: R002
+    family_id: PF_fundamental_price_divergence
+    route_type: mutate
+    experiment_lineage_tag: ELT_L015_mutate_multimetric_catalyst_v1
+    source_thread_id: T001
+    source_type: dsl
+    expression: 'Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))))'
+    rationale: 'Dual-metric EPS × Revenue change (no value conditioning). Tests whether the multi-metric signal alone (without value conditioner) is barra-clean. Probe ICIR=+0.231 (same as single EPS or Revenue alone, no amplification). Included as structural control: if C004 (with low PB) has better barra_res than C006 (no conditioning), then the PB conditioner improves the Barra profile. If similar, the conditioning does not matter for Barra quality.'
+    implementation_reason: 'Batch_100 C003 (pure EPS base) had barra_res_icir=+0.418 but ICIRval=0.071. Batch_101 C003 (absolute EPS base) also had barra_res_icir=+0.418 but ICIRval=0.071. The pure signal is barra-clean but weak. This dual-metric base (EPS × Revenue without conditioning) tests whether the combination amplifies IC while maintaining barra cleanness without adding ep_ratio or book_to_price style. Control for C004 in R002.'
+    lineage:
+      parent_expression: 'CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60))))'
+      parent_factor_id: null
+      transformation: add_revenue_change_as_second_metric_no_conditioning
+    probe_ic: 0.0224
+    probe_icir: 0.2309
+    probe_verdict: pass

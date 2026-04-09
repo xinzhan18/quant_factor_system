@@ -92,3 +92,17 @@ factors:
   expression: Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
   status: active
   admitted_batch: batch_095
+- factor_id: F018
+  name: eps_abs_change_60d_x_low_pb
+  expression: 'Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($pb_ratio,-1)))'
+  status: active
+  admitted_batch: batch_102
+  family_id: PF_fundamental_price_divergence
+  logic_id: L015
+- factor_id: F019
+  name: revenue_change_60d_x_low_ps
+  expression: 'Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($ps_ratio,-1)))'
+  status: active
+  admitted_batch: batch_102
+  family_id: PF_fundamental_price_divergence
+  logic_id: L015

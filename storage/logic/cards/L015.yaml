@@ -1,7 +1,7 @@
 logic_id: L015
 name: Fundamental-Price Momentum Divergence
 category: value_momentum
-status: active
+status: productive
 priority: high
 hypothesis:
   condition: 个股基本面估值（PE/PB）的改善速度与价格动量的背离程度
@@ -86,61 +86,65 @@ contract:
   - 3. EPS/Revenue change × size conditioning (small cap premium) — size instead of
     value
   - 4. EPS change × low amount (neglected stocks with improving earnings)
+  - 'PE conditioning is permanently excluded: adds ep_ratio style regardless of change
+    metric.'
+  - 'Sub(CsRank(fundamental), CsRank(price)) form is excluded: price term adds str_1m.'
+  - Book value change (PB-based Sub) in batch_101 showed alpha_surv=0.212 (dominated
+    by
+  - book_to_price style) — PB as CHANGE metric fails, only PB as CONDITIONER works.
+  - Soft-decorrelation approach (sub turnover_rate) from batch_099 failed to help
+    L015.
+  - Direct PE independence filter (batch_100 R002) adds str_1m — completely excluded.
 discovery_budget:
   adjacent_discovery_route_quota: 1
 evidence_summary:
-  factors_generated: 0
-  factors_admitted: 0
-  rounds_without_admit: 3
+  factors_generated: 2
+  factors_admitted: 2
+  admitted_factor_ids: [F018, F019]
+  rounds_without_admit: 0
   productive_families: []
   failed_families: []
-  current_bottleneck: 'L015 thesis confirmed and refined by batch_101. The "value
-    catalyst" mechanism is valid and barra-clean:
+  current_bottleneck: 'L015 mechanism is confirmed and production-quality: fundamental
+    improvement (EPS or Revenue
 
-    Fundamental improvement (EPS/Revenue change) × cheap valuation (low PE) predicts
-    positive returns
+    via ratio-change proxy) conditioned on cheap valuation (low PB or low PS) produces
 
-    with barra_res_icir POSITIVE across all tested variants.
+    barra-clean positive alpha in CSI1000. The sign-flip problem (batches 099-100)
+    was caused
 
+    entirely by price component contamination in the expression. Once the pure fundamental
 
-    The sign flip is fully resolved. The root cause was identified (price component
-    in divergence formula
+    ratio change was isolated (batch_100: barra_res_icir=+0.394), conditioning on
+    orthogonal
 
-    loads on str_1m). The solution (pure fundamental change without price component)
-    works.
-
-
-    NEW INSIGHT: The Barra ep_ratio factor is INVERSELY related to earnings momentum
-    in CSI1000.
-
-    This means:
-
-    1. Value stocks (high ep_ratio, low PE) tend to have DECLINING earnings
-
-    2. Growth stocks (low ep_ratio, high PE) tend to have IMPROVING earnings
-
-    3. After Barra removal, pure earnings momentum is amplified (ep_ratio DETRACTS
-    from it)
-
-    4. Adding low-PE conditioning adds ep_ratio style (partially fighting the earnings
-    signal)
+    value metrics amplifies the signal while keeping style loading low.
 
 
-    OPTIMAL DIRECTION: Find a value conditioner that:
+    Key hierarchy of conditioners by Barra cleanliness:
 
-    (1) Amplifies the IC when applied to earnings/revenue change
+    1. PS conditioning: style_r2=0.049 (cleanest)
 
-    (2) Does NOT add ep_ratio Barra style loading
+    2. PB conditioning: style_r2=0.100 (acceptable)
 
-    Options: low trading volume (attention/neglect), low market cap, low PS ratio,
-    momentum reversal
+    3. PE conditioning: style_r2=0.190-0.287 (borderline/too high)
 
 
-    ADMISSION CANDIDATE (NEAR): C004 (revenue × low PE) — ICIRval=0.265, mono_val=1.0,
-    barra_res=+0.220.
+    Both admitted factors use this clean architecture. The remaining reserve candidates
 
-    Need: style_r2 < 0.15 (currently 0.187). Alternative conditioning may unlock admission.'
-  transitions: []
+    (C002: Revenue×PB, C003: EPS×PS) are borderline due to alpha_surv or crowding,
+
+    not due to mechanism failure.'
+  transitions:
+  - from: active
+    to: productive
+    reason: 'First admits from L015: F018 (EPS abs × low PB) and F019 (Revenue × low
+      PS). Cross-batch series (batch_099 → batch_102) systematically resolved the
+      barra sign-flip root cause and demonstrated two viable value catalyst mechanisms.
+      Mechanism is confirmed: pure fundamental ratio change + orthogonal valuation
+      conditioning = barra-clean alpha. L015 should be marked productive to enable
+      continued yield extraction from the remaining reserve candidates and multi-metric
+      direction (C004).'
+    at: '2026-04-10 05:42:44'
 deepening_threads:
 - id: T001
   question: Is PE-price divergence independent of ep_ratio Barra factor? What is the
@@ -180,22 +184,16 @@ deepening_threads:
   stop_condition: If conditioning raises alpha_surv above 0.6 AND maintains ICIR_ho
     above +0.20
 next_actions:
-- Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($pb_ratio,-1)))
-  — Revenue change 60d × low PB conditioning. PB is less correlated with ep_ratio
-  style than PE. If this reduces style_r2 below 0.15 while maintaining ICIRval > 0.25
-  and barra_res > 0, this is the admission candidate.
-- Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($market_cap,-1)))
-  — Revenue change 60d × small cap (neglected stocks). Size conditioning may amplify
-  the earnings momentum without adding ep_ratio style. Small-cap stocks with improving
-  revenue have largest re-rating potential (coverage/attention asymmetry).
-- Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($pb_ratio,-1)))
-  — Absolute EPS change 60d × low PB. If PB conditioning has less ep_ratio style loading
-  than PE conditioning, this amplifies EPS momentum with cleaner Barra profile.
-- Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($ps_ratio,-1)))
-  — Revenue change 60d × low PS (pure PS-based value-catalyst). CsRank(-ps_ratio)
-  = cheap revenue stocks. Avoids ep_ratio loading entirely. Most coherent single-metric
-  approach.
+- Mul(Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,80),Ref($pe_ratio,80)))),CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,80),Ref($ps_ratio,80))))),CsRank(Mul($pb_ratio,-1)))
+  — C004 triple product with 80d lookback instead of 60d — longer window spreads universe
+  selection and may reduce crowding risk
+- Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,120),Ref($ps_ratio,120)))),CsRank(Mul($ps_ratio,-1)))
+  — Revenue change × low PS at 120d — tests whether PS catalyst has better half-life
+  with longer lookback (F019 at 60d, F020 candidate at 120d)
+- Mul(CsRank(Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60)))),CsRank(Mul($ps_ratio,-1)))
+  — C003 EPS abs × low PS — re-examine crowding risk; if crowding reduces in a future
+  window, this is the third potential admit
 origin_proposal_id: L015
 created_at: '2026-04-10'
-updated_at: '2026-04-10 05:18:12'
-last_reflected_batch: batch_101
+updated_at: '2026-04-10 05:42:44'
+last_reflected_batch: batch_102

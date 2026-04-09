@@ -242,3 +242,13 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 
 - **ST-L015-amount-conditioning-counterproductive**: Relative amount conditioning (40d) on fundamental-price divergence WORSENS alpha_surv: PE divergence × relative amount (C005): alpha_surv=0.338 vs PE divergence alone (C003): alpha_surv=0.500. Unlike range-amount signals (L013), fundamental divergence does NOT benefit from liquidity conditioning. Do NOT combine relative amount conditioning with fundamental-price divergence.
 
+
+## Batch 102 Lessons (2026-04-10)
+
+- **NM-L015-pb-conditioning-reduces-ep-ratio**: PB conditioning (CsRank(-pb_ratio)) on EPS abs change reduces ep_ratio style loading from 0.257 (PE conditioned, batch_101) to 0.100 (PB conditioned, batch_102 C001). Mechanism: PB = price/book uses book equity (balance sheet) vs PE = price/earnings (income statement). Different accounting line → lower cross-correlation with ep_ratio Barra factor. PB conditioning is the preferred conditioner when PE-based conditioners add excessive ep_ratio style. C001 admitted as F018 (risk=acceptable).
+
+- **NM-L015-ps-conditioning-lowest-barra-loading**: PS conditioning achieves style_r2=0.049 — the lowest in entire L015 series. PS (price/sales) uses revenue (top of income statement) which is structurally uncorrelated with all standard Barra value factors (ep_ratio=earnings yield, book_to_price=asset ratio). PS-conditioned signals are the most orthogonal to the Barra style framework. C005 (Revenue × low PS) admitted as F019 (risk=acceptable, style_r2=0.049). When maximum Barra cleanness is required in a fundamental signal, use PS conditioning.
+
+- **NM-L015-dual-metric-amplifies-ic-but-crowding**: Triple-product (EPS change × Revenue change × low PB) amplifies probe ICIR from 0.332 to 0.393 (+18%) but adds medium crowding risk (crowd=medium → borderline admission). Multi-metric signals concentrate signal into a small universe. ICIRval=0.352, barra_res_icir=+0.322 are strong but crowding prevents admission. Next: test 80d lookback variant to spread universe selection and reduce crowding.
+
+- **NM-L015-conditioner-hierarchy-confirmed**: Barra style loading by conditioner type (ascending cleanliness): PE → ep_ratio style_r2=0.190-0.287 (borderline/reject), PB → style_r2=0.100 (acceptable), PS → style_r2=0.049 (best). Use this hierarchy when choosing value conditioner for any fundamental factor in CSI1000 universe. The PS conditioner is uniquely clean because revenue is not a Barra factor input.
