@@ -1,0 +1,90 @@
+batch_id: batch_091
+created_at: '2026-04-10T02:15:00+00:00'
+status: frozen
+logic_ids:
+  - L013
+
+routes:
+  - route_id: R001
+    logic_id: L013
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_turnover_conditioning_v1
+    research_question: Does CsRank($turnover_rate) conditioning avoid book_to_price style trap while maintaining IC amplification? Is CsRank($turnover_rate) a viable replacement for CsRank($amount)?
+    family_id: PF_range_amount_flow
+
+candidates:
+  - candidate_id: C001
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_turnover_conditioning_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),CsRank($turnover_rate))'
+    rationale: '7d range-amount × CsRank($turnover_rate). Probe ICIR=-0.545 — strongest turnover-conditioned variant. turnover_rate is already size-normalized (shares_traded/total_shares), so CsRank($turnover_rate) should avoid book_to_price from CsRank($amount).'
+    implementation_reason: 'Turnover_rate is a liquidity/velocity proxy normalized by float. High turnover = high institutional activity relative to supply. Should avoid size-cap correlation that CsRank($amount) carries.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),CsRank($amount))'
+      parent_factor_id: null
+      transformation: replace_amount_rank_with_turnover_rank
+    probe_ic: -0.0625
+    probe_icir: -0.5453
+    probe_verdict: pass
+
+  - candidate_id: C002
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_turnover_conditioning_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($turnover_rate))'
+    rationale: '5d range-amount × CsRank($turnover_rate). Probe ICIR=-0.535. Direct counterpart to batch_090 C003 (5d×amount_rank) — same window, different conditioning variable. If style_r2 drops and alpha_surv improves vs C003, turnover conditioning is superior.'
+    implementation_reason: 'Shorter window allows higher-frequency institutional activity signal. 5d window was confirmed as the floor (3d ICIR=-0.210 is weaker).'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount))'
+      parent_factor_id: null
+      transformation: replace_amount_rank_with_turnover_rank_5d
+    probe_ic: -0.0574
+    probe_icir: -0.5349
+    probe_verdict: pass
+
+  - candidate_id: C003
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_turnover_conditioning_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Corr(Div(Sub($high,$low),$close),$turnover_rate,5)'
+    rationale: '5d correlation of range/close with TURNOVER_RATE directly. Probe ICIR=-0.305. Uses turnover_rate as the second variable instead of $amount. Tests whether range-TURNOVER correlation captures same mechanism as range-amount but with different style profile.'
+    implementation_reason: 'Turnover_rate is already share-count normalized. If this replicates range-amount signal with better alpha_surv, it is a cleaner mechanism expression.'
+    lineage:
+      parent_expression: 'Corr(Div(Sub($high,$low),$close),$amount,5)'
+      parent_factor_id: null
+      transformation: replace_amount_with_turnover_rate
+    probe_ic: -0.0169
+    probe_icir: -0.3049
+    probe_verdict: pass
+
+  - candidate_id: C004
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_turnover_conditioning_v1
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($volume))'
+    rationale: '5d range-amount × CsRank($volume). Probe ICIR=-0.381. $volume = shares traded (not dollar-weighted). CsRank($volume) may have different size proxy effect than CsRank($amount) since low-priced small-cap stocks can have high share volume.'
+    implementation_reason: 'Exploratory — volume rank conditioning as alternative to amount rank. Weaker probe signal (-0.381 vs -0.535 for turnover) but may have better risk profile.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank($amount))'
+      parent_factor_id: null
+      transformation: replace_amount_rank_with_volume_rank
+    probe_ic: -0.0367
+    probe_icir: -0.3810
+    probe_verdict: pass

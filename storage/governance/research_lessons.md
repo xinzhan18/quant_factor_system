@@ -174,3 +174,9 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 - **NM-L013-alpha-surv-gt1-5d-raw**: C004 (5d raw range-amount): alpha_surv=1.024, decay=1.066. Factor AMPLIFIED by Barra removal and STRENGTHENS on holdout. This means the raw IC understates true quality — vol_20d Barra has negative IC and its removal improves the signal. The 5d raw range-amount is a clean mechanism but needs IC amplification.
 
 - **FP-L013-raw-window-plateau**: Raw Corr(range/close, amount, N) for N in [5,7,10]: ICIR_ho plateau at ~[-0.14,-0.16]. Window shortening alone cannot overcome this. Do not probe more raw window variants. Structural change (industry-normalized conditioning) required.
+
+## Batch 091 Soft Lessons (2026-04-10)
+
+- **FP-L013-turnover-rank-kills-mono**: CsRank($turnover_rate) conditioning on range-amount: mono_ho≈0 (quintile collapse) despite ICIR_ho=-0.37. Turnover_20d Barra style is fast-moving and flips at val/holdout boundary, destroying quintile structure. CsRank($amount) is better because book_to_price is slow-moving and preserves mono_ho=-1.0. Do NOT use CsRank($turnover_rate) or CsRank($volume) for range-amount conditioning.
+
+- **FP-L013-range-turnover-corr-degenerate**: Corr(Div(Sub($high,$low),$close),$turnover_rate,5) = ICIRval=0. The range vs turnover_rate correlation is degenerate — no signal. Range-AMOUNT is the working mechanism, not range-turnover. The dollar flow ($amount) is essential, not the share velocity ($turnover_rate).

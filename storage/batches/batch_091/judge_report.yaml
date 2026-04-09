@@ -1,0 +1,186 @@
+judge_report:
+  batch_id: batch_091
+  judgment_timestamp: '2026-04-10T02:45:00+00:00'
+  evaluation_profile_id: research_eval_v1
+
+  batch_summary:
+    total_candidates: 4
+    admitted: 0
+    rejected: 4
+    reserved: 0
+    replaced: 0
+    gate_pass: 3
+    gate_fail: 1
+    gate_warn: 0
+
+  route_verdicts:
+    R001:
+      route_id: R001
+      logic_id: L013
+      route_type: mutate
+      experiment_lineage_tag: ELT_L013_mutate_turnover_conditioning_v1
+      verdict: pause
+      reason: |
+        All 4 candidates rejected. CsRank($turnover_rate) conditioning introduces turnover_20d
+        Barra style (dom=turnover_20d, style_r2=0.16-0.19) AND causes quintile collapse on holdout
+        (mono_ho≈0 for C001/C002). This is WORSE than CsRank($amount) which preserved mono_ho=-1.0.
+        CsRank($volume) conditioning: extremely low alpha_surv=0.181, risk=poor.
+        Corr(range/close, turnover_rate): gate failure (degenerate, ICIRval=0).
+        Key finding: every CsRank(X) conditioning introduces Barra style of X and the turnover_20d
+        style is MORE harmful (causes mono collapse) than book_to_price style. CsRank($amount) from
+        batch_090 remains the best conditioner despite book_to_price.
+        Next: relative amount normalization (Div($amount, Mean($amount,60))) as conditioning.
+
+  candidate_verdicts:
+    C001:
+      candidate_id: C001
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - poor_split_stability
+        - moderate_style_exposure
+      detail: |
+        Mul(Corr(range/close,$amount,7),CsRank($turnover_rate)): 6-dim:
+        1. Mechanism: CONTAMINATED — turnover_20d dominant (0.192), alpha_surv=0.436.
+           barra_res_icir=-0.299 (correct direction). Style change: book_to_price → turnover_20d.
+        2. Statistical: ICIRval=-0.610, mono_val=-1.0 (PERFECT validation). BUT:
+           ICIRho=-0.368, mono_ho=0.0 (CATASTROPHIC — zero quintile monotonicity on holdout!).
+           ls_t_ho=-1.143 (NOT significant). The validation signal DOES NOT PERSIST.
+        3. Stability: decay=0.812. The quintile structure completely collapses on holdout.
+        4. Redundancy: low.
+        5. Feasibility: ok.
+        6. Risk: BORDERLINE due to turnover_20d.
+        REJECT: mono_ho=0.0 is fatal. Perfect validation monotonicity that collapses to zero
+        on holdout indicates the turnover conditioning creates a train/val leakage artifact.
+
+    C002:
+      candidate_id: C002
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - poor_split_stability
+        - moderate_style_exposure
+      detail: |
+        Mul(Corr(range/close,$amount,5),CsRank($turnover_rate)): 6-dim:
+        1. Mechanism: CONTAMINATED — turnover_20d dominant (0.159), alpha_surv=0.466.
+           barra_res_icir=-0.312 (correct direction).
+        2. Statistical: ICIRval=-0.596, mono_val=-1.0 (perfect validation). BUT:
+           ICIRho=-0.371, mono_ho=-0.1 (near-zero holdout monotonicity).
+           ls_t_ho=-1.334 (NOT significant). Same failure as C001 at shorter window.
+        3. Stability: decay=0.840. Quintile structure nearly collapses on holdout.
+        4. Redundancy: low.
+        5. Risk: BORDERLINE.
+        REJECT: mono_ho=-0.1 essentially = C001's failure. CsRank($turnover_rate) conditioning
+        is consistently fatal for holdout quintile structure, regardless of window.
+
+    C003:
+      candidate_id: C003
+      verdict: reject
+      execution_gate_status: fail_technical
+      reason_codes:
+        - sign_flip_detected
+      detail: |
+        Corr(Div(Sub($high,$low),$close),$turnover_rate,5): GATE FAIL.
+        ICIRval=0.0 — expression computed to near-zero signal. The range vs turnover_rate
+        correlation at 5d appears degenerate. Unlike range vs amount (which captures
+        dollar flow concentration), range vs turnover (shares/outstanding) may not have
+        a meaningful relationship at this frequency. The mechanism doesn't transfer.
+        REJECT: gate_fail_technical.
+
+    C004:
+      candidate_id: C004
+      verdict: reject
+      execution_gate_status: pass
+      reason_codes:
+        - style_dominance_detected
+        - weak_validation_effect
+      detail: |
+        Mul(Corr(range/close,$amount,5),CsRank($volume)): 6-dim:
+        1. Mechanism: DOMINATED by style — alpha_surv=0.181 (only 18% clean alpha!).
+           dom=turnover_20d (shares traded = similar Barra as turnover_rate).
+           barra_res_icir=-0.062 (correct direction but very weak residual).
+        2. Statistical: ICIRval=-0.257, mono_val=-0.4 (WEAK). Despite mono_ho=-1.0 (perfect!),
+           the validation signal is too weak and alpha_surv is catastrophically low.
+        3. Stability: decay=1.122 (strengthens on holdout). mono_ho=-1.0 is notable.
+        4. Redundancy: low.
+        5. Risk: POOR — turnover_20d dominant with very low alpha_surv.
+        REJECT: alpha_surv=0.181 fatal. The $volume rank introduces same turnover_20d style
+        as $turnover_rate but with much less clean residual.
+
+  logic_recommendations:
+    L013:
+      logic_id: L013
+      recommended_status: active
+      reason: |
+        4/4 rejected but for informative reasons. CsRank($turnover_rate) confirmed WORSE than
+        CsRank($amount) for this mechanism — turnover conditioning causes quintile collapse.
+        This narrows the search: CsRank($amount) is the best discovered conditioner (batch_090 C003
+        remains primary reserve). Next: relative amount conditioning — Div($amount, Mean($amount,60))
+        captures abnormal activity across size tiers without the large-cap size bias.
+        Also: time to consider Python implementation for direct Barra residualization.
+        L013 remains ACTIVE — the mechanism is confirmed real, the bottleneck is style contamination.
+
+  logic_diagnostics:
+    L013:
+      thesis_update: |
+        CsRank conditioning research is now complete:
+        - CsRank($amount): book_to_price style (manageable, mono_ho=-1.0 preserved) — BEST CONDITIONER
+        - CsRank($turnover_rate): turnover_20d style (FATAL mono collapse, mono_ho≈0)
+        - CsRank($volume): turnover_20d style (alpha_surv=0.18, risk=poor)
+        - CsRank($pe_ratio): ep_ratio trap (batch_089)
+        Every CsRank(X) conditioning introduces the Barra style of X.
+        The fundamental insight: the book_to_price style from CsRank($amount) is "benign" in
+        that it preserves quintile structure (mono_ho=-1.0 in batch_090 C003). Turnover-related
+        styles destroy quintile structure. This is because book_to_price is a slow-moving style
+        that doesn't flip across the validation-holdout boundary, while turnover is fast-moving.
+
+      evidence_for:
+        - "batch_090 C003: CsRank($amount) preserves mono_ho=-1.0 despite book_to_price exposure"
+        - "batch_091 C001/C002: CsRank($turnover_rate) causes mono_ho=0/-0.1 — quintile collapse"
+        - "batch_091 C003: Corr(range/turnover) = ICIRval=0 — range-turnover correlation is degenerate"
+
+      evidence_against:
+        - "C003 (batch_090) alpha_surv=0.430 — still below 0.5 threshold for admit"
+        - "All conditioned variants have book_to_price or turnover style contamination"
+
+      failure_boundary: |
+        PROVEN FAILURES:
+        - CsRank($turnover_rate) conditioning: mono_ho collapse, do not probe
+        - CsRank($volume) conditioning: alpha_surv=0.18, do not probe
+        - Corr(range/close, turnover_rate, N): degenerate signal, do not probe
+        - Raw window variants [3d-10d]: plateau at ICIR_ho~-0.15, do not probe
+        - PE conditioning: batch_089 failure, do not revisit
+
+      open_questions:
+        - "Does CsRank(Div($amount, Mean($amount,60))) avoid book_to_price while preserving IC?"
+        - "Can Python Barra residualization create a clean admit-quality factor?"
+        - "Is book_to_price contamination inherent to range-amount, or can it be removed without Python?"
+
+      next_best_probes:
+        - expr: "Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,60))))"
+          why: "Relative amount 60d lookback: captures abnormal activity vs own history. Less large-cap bias. ICIR probe=-0.425."
+        - expr: "Python Barra residualization of Corr(range/close, amount, 5)"
+          why: "Direct residualization removes style without introducing new style. batch_090 C004 (alpha_surv=1.024) shows the clean alpha IS there."
+
+  new_lessons:
+    - lesson_id: FP_L013_turnover_rank_kills_mono
+      classification: FP
+      batch_ids: [batch_091]
+      description: |
+        CsRank($turnover_rate) conditioning on range-amount: mono_ho≈0 (quintile collapse) despite
+        ICIR_ho=-0.37. Strong pairwise IC but zero quintile structure on holdout. This is because
+        turnover_20d Barra factor is fast-moving and flips cross-sectionally at the val/holdout boundary.
+        CsRank($amount) is BETTER because book_to_price is slow-moving and stable. Mono_ho=-1.0
+        preserved. Do NOT use turnover/volume rank conditioning for range-amount mechanism.
+      style_repackaging_risk: high
+      implication: For L013, CsRank($amount) remains the best conditioner. CsRank($turnover_rate) and CsRank($volume) are proven failures for quintile quality.
+
+  discovery_flags: []
+  holdout_reviews_triggered: []
+
+  audit:
+    judge_actor: factor-judge
+    judgment_mode: autonomous
+    artifacts_written:
+      - storage/batches/batch_091/judge_report.yaml
+    ledger_updated: false
