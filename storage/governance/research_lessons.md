@@ -202,3 +202,11 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 - **NM-L013-50d-transition-boundary**: 50d normalization window is the transition zone between intermediate str_1m regime (30-40d = 38-42%) and longer baseline (60d = 14-17%). At 50d, alpha_surv=0.500 (exact borderline/acceptable boundary), dom_style=None (str_1m dropped significantly but risk bucket still borderline). The raw 50d conditioning is at the critical boundary — DSL decorrelation pushes it to acceptable. Non-monotonic str_1m pattern boundary is: 20d=8% → 30-40d=37-42% → 50d=~20% → 60d=14-17%.
 
 - **ST-L013-internal-norm-alpha-surv-universal**: Internal normalization family (Corr(range/close, amount/Mean(amount,N), 5)) consistently produces alpha_surv≈1.0 across ALL tested windows (20d: 1.001, 40d: 0.992, 50d: 0.983) but ICIRho is consistently weak (-0.14 to -0.16). This is a stable pattern: exceptional Barra residual profile but insufficient raw signal strength. Do not pursue internal normalization further as standalone signal — may serve as composite component.
+
+## Batch 095 Soft Lessons (2026-04-10)
+
+- **NM-L013-40d-beats-50d-softdecorr**: 5d×40d soft-decorr (alpha_surv=0.781, decay=1.175) EXCEEDS 5d×50d (F017: alpha_surv=0.688, decay=1.128). The 40d window is optimal for 5d range-amount with str_1m soft-decorr. Replaced F017 with 40d variant. Key insight: higher pre-decorr alpha_surv (0.533 at 40d vs 0.500 at 50d) → higher post-decorr quality.
+
+- **NM-L013-30d-exceptional-decay-record**: 5d×30d str_1m soft-decorr achieves decay=1.293 (L013 all-time record) and alpha_surv=0.956 (near-perfect Barra orthogonality). However ICIRho=-0.273 is borderline. The 30d family offers best risk quality but weakest IC. Next: test 7d×30d to combine 30d quality with 7d's stronger ICIR.
+
+- **ST-L013-softdecorr-quality-gradient**: Full soft-decorr (0.3 coeff) gradient: 30d=0.956/1.293, 40d=0.781/1.175, 50d=0.688/1.128 (alpha_surv/decay). Quality improves as window shortens. IC weakens as window shortens. 40d is the sweet spot. This pattern should be considered when exploring other factor families with similar str_1m issues.

@@ -2,12 +2,12 @@
 tags:
   - index
   - factor-library
-updated: "2026-04-08"
+updated: "2026-04-10"
 ---
 
 # Factor Library
 
-共 **14 个录取因子**（F001-F014），均来自新系统（evaluation_version=v2）。
+共 **15 个录取因子**（F001-F014, F017），均来自新系统（evaluation_version=v2）。
 
 ## Hypotheses (Logic Cards)
 
@@ -21,6 +21,7 @@ updated: "2026-04-08"
 | [[L006 A股涨跌停微结构\|L006]] | A股涨跌停微结构 | parked | 0 | 0% |
 | [[L007 聪明钱流量持续性\|L007]] | 聪明钱流量持续性 | parked | 0 | 0% |
 | [[L008 量能竞争强度\|L008]] | 量能竞争强度 x 估值 | active | 0 | 0% |
+| [[L013 Range-Amount Correlation\|L013]] | Range-Amount Correlation | productive | 1 | — |
 
 ## Factor Families
 
@@ -31,6 +32,7 @@ updated: "2026-04-08"
 | [[FM shadow_liquidity]] | F002 | [[L001 蜡烛图微观结构\|L001]] | saturated |
 | [[FM timing_range]] | F013-F014 | [[L001 蜡烛图微观结构\|L001]] | saturated |
 | [[FM volume_autocorrelation]] | F001 | [[L003 成交量分布动态\|L003]] | saturated |
+| [[FM range_amount_flow]] | F017 | [[L013 Range-Amount Correlation\|L013]] | active |
 
 ## 因子总览
 
@@ -50,3 +52,4 @@ updated: "2026-04-08"
 | F012 | amount_x_rel_tur_7d | — | — | [[L004 量价背离\|L004]] | [[FM rel_tur_encoding]] | batch_044 | — |
 | F013 | vol_range_timing_5d_x_pe | — | — | [[L001 蜡烛图微观结构\|L001]] | [[FM timing_range]] | batch_052 | — |
 | F014 | vol_range_timing_5d_amount_x_pe | — | — | [[L001 蜡烛图微观结构\|L001]] | [[FM timing_range]] | batch_055 | — |
+| [[F017_range_amount_corr_50d_str1m_decorr\|F017]] | range_amount_corr_50d_str1m_decorr | C | — | [[L013 Range-Amount Correlation\|L013]] | [[FM range_amount_flow]] | batch_094 | ✓ |

@@ -1,0 +1,232 @@
+batch_id: batch_095
+logic_ids: [L013]
+judged_at: '2026-04-10T06:00:00+00:00'
+
+batch_summary:
+  total_candidates: 4
+  admitted: 0
+  reserved: 3
+  rejected: 0
+  replaced: 1
+
+candidate_verdicts:
+  C001:
+    verdict: replace
+    replace_target: F017
+    reason_codes: [mechanism_aligned, feasibility_ok, risk_model_acceptable]
+    detail: |
+      5d×40d str_1m soft-decorr. ICIRval=-0.307, ICIRho=-0.322, decay=1.175,
+      mono_val=-0.7, mono_ho=-0.6, ls_t_ho=-2.40. alpha_surv=0.781 (vs F017: 0.688),
+      barra_res_icir=-0.269. risk=acceptable. max_lib=0.974 vs F017 (near-duplicate).
+
+      5-DIM COMPARE vs F017:
+      1. Stability (primary): C001 decay=1.175 > F017 1.128 → C001 BETTER
+      2. Mechanism (primary): same range-amount+soft-decorr, same 5d, 40d vs 50d → essentially SAME
+      3. Redundancy: max_lib=0.974 → near-duplicate → SUPPORTS replace
+      4. Strength (secondary): C001 ICIRho=-0.322 vs F017=-0.362 → F017 slightly stronger (regression=-0.040, non-fatal)
+      5. Feasibility: similar → neutral
+
+      The 40d normalization window produces meaningfully better alpha_surv (0.781 vs 0.688,
+      +0.093 / +13.5%). The decay advantage (1.175 vs 1.128) confirms the 40d signal
+      strengthens more on holdout. The ICIRho regression (-0.040) is minor and non-fatal.
+      Primary dimensions (stability, mechanism) favor replacement. REPLACE F017.
+    admission_payload:
+      factor_id: F017
+      candidate_id: C001
+      name: range_amount_corr_40d_str1m_decorr
+      expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))'
+      direction: short
+      batch_id: batch_095
+      logic_id: L013
+      route_id: R001
+      route_type: mutate
+      family_id: PF_range_amount_flow
+      experiment_lineage_tag: ELT_L013_mutate_relative_amount_v4
+      rationale: '5d range-amount × (CsRank(rel-amount-40d) - 0.3×CsRank(1m-return)). Replaces F017 (50d): alpha_surv 0.688→0.781 (+13.5%). Better decay (1.175 vs 1.128).'
+      ic_mean_train: null
+      ic_mean_validation: -0.02641
+      ic_ir_train: null
+      ic_ir_validation: -0.3074
+      monotonicity_validation: -0.7
+      ls_tstat: -2.4015
+      alpha_survival_ratio: 0.781
+      barra_residual_ic: -0.023
+      max_lib_corr: 0.974
+      holdout_ic_mean: -0.02940
+      holdout_ic_ir: -0.3219
+      holdout_decay_ratio: 1.175
+
+  C002:
+    verdict: reserve
+    reason_codes: [high_subspace_redundancy, mechanism_aligned, risk_model_acceptable]
+    detail: |
+      7d×40d str_1m soft-decorr. ICIRval=-0.331, ICIRho=-0.326, mono_val=-0.9,
+      mono_ho=-0.6, decay=1.128, ls_t_ho=-2.57. alpha_surv=0.751, risk=acceptable.
+      max_lib=0.859 vs F017 (high but not near-duplicate). The 7d window shows better
+      mono_val (-0.9 vs 5d's -0.7) — consistent with batch_092 observation. Reserve
+      as a strong complement: if C001 replaces F017, C002 could be evaluated as a
+      complementary 7d admit. The 7d/5d diversity adds some cross-sectional variation.
+    admission_payload: null
+
+  C003:
+    verdict: reserve
+    reason_codes: [high_subspace_redundancy, weak_validation_effect, risk_model_acceptable]
+    detail: |
+      5d×30d str_1m soft-decorr. ICIRval=-0.241, ICIRho=-0.273, mono_ho=-0.6.
+      decay=1.293 (L013 ALL-TIME RECORD!). alpha_surv=0.956 (exceptional — second only
+      to internal normalization family). risk=acceptable. max_lib=0.914 vs F017.
+      The extraordinary decay (1.293) and near-perfect alpha_surv (0.956) demonstrate
+      that the 30d window achieves the clearest Barra-residual range-amount signal.
+      However ICIRho=-0.273 is borderline (barely above the -0.25 threshold).
+      Reserve: the exceptional risk quality warrants further monitoring. If the 30d
+      variant can be strengthened (perhaps different coefficient or 7d×30d), it may
+      produce the cleanest L013 signal.
+    admission_payload: null
+
+  C004:
+    verdict: reserve
+    reason_codes: [high_subspace_redundancy, mechanism_aligned, risk_model_acceptable]
+    detail: |
+      7d×50d str_1m soft-decorr. ICIRval=-0.382, ICIRho=-0.364 (STRONGEST in batch),
+      mono_val=-0.9, mono_ho=-0.7 (best quintile stability), decay=1.089. alpha_surv=0.661,
+      risk=acceptable. max_lib=0.882 vs F017 (5d×50d). This is the 7d complement to
+      F017. Stronger ICIR (-0.364 vs F017's -0.362) and better mono_ho (-0.7 vs -0.6).
+      Reserve: After C001 replaces F017, C004 should be evaluated for admission as a
+      complementary 7d×50d signal. The 7d window provides slightly different cross-sectional
+      characteristics from the 5d window.
+    admission_payload: null
+
+route_verdicts:
+  R001:
+    route_id: R001
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v4
+    verdict: continue
+    reason: |
+      1 replace (C001 upgrades F017 with better alpha_surv). 3 reserves with strong
+      profiles. The soft-decorr approach at 30d, 40d, 50d windows ALL achieve risk=acceptable,
+      confirming the method generalizes across normalization windows.
+      Next probes: (1) Test whether 7d variants (C002, C004) merit admission alongside
+      the 5d anchor. (2) Investigate the 30d window exceptional decay=1.293 and alpha_surv=0.956
+      — can a stronger ICIR be achieved at 30d? (3) Consider Python-level str_1m
+      residualization for the best candidate (C003: 5d×30d) to fully clear ICIRho.
+
+logic_recommendations:
+  L013:
+    recommended_status: productive
+    reason: |
+      L013 is actively generating quality output. batch_094 produced first admit (F017).
+      batch_095 immediately upgrades it via replace (C001 → better F017). Multiple reserve
+      candidates have risk=acceptable. The mechanism is confirmed and the soft-decorr
+      family is producing consistent improvements. Keep productive.
+
+new_lessons:
+  - id: NM-L013-40d-softdecorr-exceeds-50d
+    type: NM
+    lesson: |
+      5d×40d soft-decorr (alpha_surv=0.781, decay=1.175) EXCEEDS 5d×50d (F017: alpha_surv=0.688,
+      decay=1.128). The 40d normalization window is better than 50d for the soft-decorr variant:
+      higher pre-decorr alpha_surv (0.533 vs 0.500) translates to higher post-decorr quality.
+      The 40d window is the optimal window for the 5d range-amount with str_1m soft-decorr.
+    evidence_batches: [batch_094, batch_095]
+
+  - id: NM-L013-30d-exceptional-decay
+    type: NM
+    lesson: |
+      5d×30d str_1m soft-decorr achieves decay=1.293 (L013 all-time record) and
+      alpha_surv=0.956 (near-perfect Barra orthogonality). The 30d normalization window
+      creates the most stable and Barra-clean range-amount signal after decorr. However
+      ICIRho=-0.273 is borderline. The 30d family offers exceptional risk quality but
+      may need a stronger conditioning variant (7d×30d?) to achieve sufficient IC.
+    evidence_batches: [batch_095]
+
+  - id: ST-L013-softdecorr-window-quality-gradient
+    type: ST
+    lesson: |
+      str_1m soft-decorr quality gradient across normalization windows (all 5d, 0.3 coeff):
+      30d: alpha_surv=0.956, decay=1.293, ICIRho=-0.273 (best risk, weakest IC)
+      40d: alpha_surv=0.781, decay=1.175, ICIRho=-0.322 (balance)
+      50d: alpha_surv=0.688, decay=1.128, ICIRho=-0.362 (admitted as F017)
+      The alpha_surv and decay improve as window SHORTENS. ICIRho weakens as window shortens.
+      Sweet spot is 40d (C001→replaces F017) for balance of quality and signal strength.
+    evidence_batches: [batch_095]
+
+discovery_flags:
+  - anomaly_type: softdecorr_quality_gradient_30d_exceptional
+    description: |
+      5d×30d str_1m soft-decorr: decay=1.293 (unprecedented in L013) and alpha_surv=0.956.
+      The 30d window achieves exceptional Barra orthogonality after soft-decorr.
+      The signal is near-pure alpha after Barra factor removal. This is the cleanest
+      range-amount signal yet discovered — stronger risk quality than even the internal
+      normalization family.
+    likely_mechanism: |
+      The 30d normalization creates a cross-sectional signal that is highly idiosyncratic
+      relative to Barra factors. Combined with the str_1m soft-decorr, the 30d variant
+      captures a very clean "abnormal institutional activity vs recent history" signal.
+    style_repackaging_risk: very_low
+    explainable_by_existing_logic: partial
+    escalation_status: watch
+    first_seen_batch: batch_095
+
+logic_diagnostics:
+  L013:
+    thesis_update: |
+      L013 is now PRODUCTIVE. The range-amount mechanism is confirmed and the str_1m
+      soft-decorr approach is consistently generative. The 40d window (C001/C002) emerges
+      as the primary sweet spot for balancing IC strength and Barra quality.
+
+      The soft-decorr quality gradient is now fully characterized:
+      30d=0.956 alpha_surv (exceptional quality, borderline IC)
+      40d=0.781 alpha_surv (excellent balance — BEST for admission)
+      50d=0.688 alpha_surv (good — original F017)
+      60d=0.46 alpha_surv (below threshold — no conditioning)
+
+      The 7d window consistently shows better mono_val (-0.9 vs 5d's -0.7) and similar
+      or stronger probe ICIR. C002 (7d×40d) and C004 (7d×50d) are strong candidates
+      for complementary admission once the 5d anchor is settled.
+
+    evidence_for:
+      - "C001: alpha_surv=0.781, decay=1.175 — best balanced soft-decorr variant yet"
+      - "C003: alpha_surv=0.956, decay=1.293 — extraordinary risk quality at 30d"
+      - "C004: ICIRho=-0.364, mono_ho=-0.7 — strongest IC+monotonicity in batch"
+      - "All 4 candidates: risk=acceptable (unprecedented in L013 history)"
+      - "Soft-decorr generalizes across normalization windows: 30d, 40d, 50d all acceptable"
+
+    evidence_against:
+      - "High redundancy (max_lib=0.86-0.97): all variants similar to each other and F017"
+      - "C003 ICIRho=-0.273 borderline — 30d window needs IC enhancement"
+      - "mono_ho=-0.6 for C001/C002/C003 (not improving from F017's -0.6)"
+      - "Batch adding multiple correlated variants — marginal diversification"
+
+    failure_boundary: |
+      The remaining limit is internal redundancy within the soft-decorr family.
+      All variants max_lib > 0.85 with F017. Portfolio diversification beyond 1-2
+      admits from this family is questionable. Focus on the most orthogonal representation
+      (5d×40d + possibly 7d×40d if different enough at portfolio level).
+
+    open_questions:
+      - "Is 7d×40d (C002) truly complementary to 5d×40d (C001) at portfolio level, or effectively the same?"
+      - "Can 30d window achieve stronger ICIRho (maybe 7d×30d or different decorr coefficient)?"
+      - "What is the optimal soft-decorr coefficient — is 0.3 at 40d still optimal?"
+      - "Is there a 5d×40d + internal_norm_component composite that captures both clean IC and exceptional alpha_surv?"
+
+    next_best_probes:
+      - expr: "Mul(Corr(Div(Sub($high,$low),$close),$amount,7),Sub(CsRank(Div($amount,Mean($amount,30))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))"
+        why: "7d×30d soft-decorr: 7d showed better mono_val at other windows. 30d has exceptional decay. Could combine best of both."
+      - expr: "Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.2)))"
+        why: "Test 0.2 coefficient at 40d: lower decorr may preserve more IC while still achieving acceptable risk."
+      - expr: "Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.4)))"
+        why: "Test 0.4 coefficient at 40d: stronger decorr may push alpha_surv even higher. Risk: too aggressive?"
+
+    factor_roles:
+      - factor_id: F017
+        role: replaced_by_C001
+        summary: "Original 5d×50d soft-decorr. alpha_surv=0.688. Superseded by 40d variant."
+      - candidate_id: C001
+        role: replace_anchor
+        summary: "5d×40d: alpha_surv=0.781, best balanced signal. Replaces F017."
+      - candidate_id: C003
+        role: exceptional_risk_quality_reserve
+        summary: "5d×30d: alpha_surv=0.956, decay=1.293 (records). Needs IC enhancement."
+      - candidate_id: C004
+        role: strong_complementary_reserve
+        summary: "7d×50d: ICIRho=-0.364 (strongest), mono_ho=-0.7 (best). Potential 2nd admit."
