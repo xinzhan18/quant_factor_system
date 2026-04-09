@@ -1,0 +1,90 @@
+batch_id: batch_095
+created_at: '2026-04-10T05:00:00+00:00'
+status: frozen
+logic_ids:
+  - L013
+
+routes:
+  - route_id: R001
+    logic_id: L013
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v4
+    research_question: 'Apply proven str_1m soft-decorrelation (0.3 coefficient) to 30d and 40d normalization windows (pre-decorr alpha_surv=0.533/0.589). Test 7d window variants. Can alpha_surv exceed 0.688 (F017 baseline)?'
+    family_id: PF_range_amount_flow
+
+candidates:
+  - candidate_id: C001
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v4
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))'
+    rationale: '5d×40d with str_1m soft-decorr. Probe ICIR=-0.332. Pre-decorr: alpha_surv=0.533 (batch_093 C001). Applying same 0.3 coefficient as F017 (50d). Expected alpha_surv≈0.65-0.72.'
+    implementation_reason: 'F017 (50d) achieved alpha_surv=0.688 with pre-decorr alpha_surv=0.500. The 40d window had higher pre-decorr alpha_surv (0.533). If the soft-decorr adds ~0.15-0.2 to alpha_surv, the 40d variant may exceed F017.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,40))))'
+      parent_factor_id: null
+      transformation: str1m_soft_decorrelation_0.3_at_40d
+    probe_ic: -0.0264
+    probe_icir: -0.3317
+    probe_verdict: pass
+
+  - candidate_id: C002
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v4
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))'
+    rationale: '7d×40d with str_1m soft-decorr. Probe ICIR=-0.390 (STRONGEST in batch). At batch_092, 7d×60d showed mono_ho=-0.9 vs 5d×60d mono_ho=-0.7. If the 7d mono_ho advantage persists at 40d, this may be the strongest L013 variant.'
+    implementation_reason: '7d window captures slightly slower institutional aggression patterns. The 40d pre-decorr batch showed C003 (7d×40d) had alpha_surv=0.501 — below 5d×40d (0.533). But 7d probe ICIR is stronger (-0.390 vs -0.332). Testing whether ICIR strength translates to holdout quality.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),CsRank(Div($amount,Mean($amount,40))))'
+      parent_factor_id: null
+      transformation: str1m_soft_decorrelation_0.3_at_7d_40d
+    probe_ic: -0.0328
+    probe_icir: -0.3903
+    probe_verdict: pass
+
+  - candidate_id: C003
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v4
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,30))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))'
+    rationale: '5d×30d with str_1m soft-decorr. Probe ICIR=-0.280. Pre-decorr: alpha_surv=0.589 (batch_093 C002 — HIGHEST in L013 history). Testing if the highest pre-decorr alpha_surv translates to highest post-decorr alpha_surv.'
+    implementation_reason: 'The 30d window achieved alpha_surv=0.589 before decorr (highest ever). However str_1m at 30d=37% (vs 38-42% at 40d). The 30d window is slightly cleaner in str_1m than 40d. If the soft-decorr effectively neutralizes the 37% str_1m overlay, post-decorr alpha_surv could reach 0.70+.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),CsRank(Div($amount,Mean($amount,30))))'
+      parent_factor_id: null
+      transformation: str1m_soft_decorrelation_0.3_at_30d
+    probe_ic: -0.0222
+    probe_icir: -0.2797
+    probe_verdict: pass
+
+  - candidate_id: C004
+    logic_id: L013
+    route_id: R001
+    family_id: PF_range_amount_flow
+    route_type: mutate
+    experiment_lineage_tag: ELT_L013_mutate_relative_amount_v4
+    source_thread_id: T004
+    source_type: dsl
+    expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),Sub(CsRank(Div($amount,Mean($amount,50))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))'
+    rationale: '7d×50d soft-decorr. Probe ICIR=-0.342. Complementary 7d variant to admitted F017 (5d×50d). Tests whether 7d window advantage (better mono_ho at batch_092) persists after soft-decorr at 50d.'
+    implementation_reason: 'F017 uses 5d×50d. The 7d×50d raw conditioning (batch_094 C002) had mono_ho=-0.7 (same as 5d) but stronger ICIRval (-0.405 vs -0.383). If soft-decorr benefits both windows equally, 7d×50d may produce slightly different risk/return profile than F017 and worth admitting as a complement.'
+    lineage:
+      parent_expression: 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),CsRank(Div($amount,Mean($amount,50))))'
+      parent_factor_id: null
+      transformation: str1m_soft_decorrelation_0.3_at_7d_50d
+    probe_ic: -0.0286
+    probe_icir: -0.3421
+    probe_verdict: pass

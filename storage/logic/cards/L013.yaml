@@ -77,38 +77,42 @@ contract:
   - normalization further as standalone signal without compositing.
   - CsRank($amount), CsRank($turnover_rate), CsRank($volume), PE conditioning all
   - previously proven fatal — do not revisit.
+  - The remaining limit is internal redundancy within the soft-decorr family.
+  - All variants max_lib > 0.85 with F017. Portfolio diversification beyond 1-2
+  - admits from this family is questionable. Focus on the most orthogonal representation
+  - (5d×40d + possibly 7d×40d if different enough at portfolio level).
 discovery_budget:
   adjacent_discovery_route_quota: 2
 evidence_summary:
   factors_generated: 1
   factors_admitted: 1
-  rounds_without_admit: 0
+  rounds_without_admit: 1
   productive_families: []
   failed_families: []
-  current_bottleneck: 'CONFIRMED: Range-amount correlation (Corr((high-low)/close,
-    amount, N)) is a genuine
+  current_bottleneck: 'L013 is now PRODUCTIVE. The range-amount mechanism is confirmed
+    and the str_1m
 
-    new mechanism class, orthogonal to all pv_corr factors (max_lib=0.065 for raw
-    signal,
+    soft-decorr approach is consistently generative. The 40d window (C001/C002) emerges
 
-    0.326 for conditioned variant). The mechanism captures "intraday volatility intensity
-
-    co-moving with capital flow" — distinct from "price direction × volume" (pv_corr
-    family).
+    as the primary sweet spot for balancing IC strength and Barra quality.
 
 
-    The conditioning problem is now solved: str_1m soft-decorrelation via DSL achieves
+    The soft-decorr quality gradient is now fully characterized:
 
-    acceptable risk (alpha_surv=0.688) without Python post-processing. The 50d normalization
+    30d=0.956 alpha_surv (exceptional quality, borderline IC)
 
-    window is the admission-feasible regime for external conditioning.
+    40d=0.781 alpha_surv (excellent balance — BEST for admission)
+
+    50d=0.688 alpha_surv (good — original F017)
+
+    60d=0.46 alpha_surv (below threshold — no conditioning)
 
 
-    The internal normalization family (Corr with internally normalized amount) produces
+    The 7d window consistently shows better mono_val (-0.9 vs 5d''s -0.7) and similar
 
-    perfect risk profiles (alpha_surv≈1.0) but insufficient raw signal. This may serve
+    or stronger probe ICIR. C002 (7d×40d) and C004 (7d×50d) are strong candidates
 
-    better as a component in composite signals.'
+    for complementary admission once the 5d anchor is settled.'
   transitions:
   - from: active
     to: productive
@@ -128,15 +132,15 @@ evidence_summary:
       mechanism is confirmed and the family can continue to yield variants.'
     at: '2026-04-10 02:55:48'
 next_actions:
-- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
-  — Apply the proven soft-decorrelation to 40d window (where alpha_surv=0.533 before
-  decorr). Should exceed C004's alpha_surv=0.688.
-- Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,30))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
-  — Apply to 30d window (where alpha_surv=0.589 before decorr — highest observed).
-  Could produce alpha_surv>0.7.
-- Mul(Corr(Div(Sub($high,$low),$close),$amount,7),Sub(CsRank(Div($amount,Mean($amount,50))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
-  — 7d window showed better mono_ho at 60d normalization. Apply soft-decorr to 7d×50d
-  variant.
+- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,7),Sub(CsRank(Div($amount,Mean($amount,30))),Mul(CsRank(Div($close,Ref($close,22))),0.3)))
+  — 7d×30d soft-decorr: 7d showed better mono_val at other windows. 30d has exceptional
+  decay. Could combine best of both.'
+- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.2)))
+  — Test 0.2 coefficient at 40d: lower decorr may preserve more IC while still achieving
+  acceptable risk.'
+- 'Mul(Corr(Div(Sub($high,$low),$close),$amount,5),Sub(CsRank(Div($amount,Mean($amount,40))),Mul(CsRank(Div($close,Ref($close,22))),0.4)))
+  — Test 0.4 coefficient at 40d: stronger decorr may push alpha_surv even higher.
+  Risk: too aggressive?'
 deepening_threads:
 - id: T001
   question: Is Corr(range/close, amount, N) orthogonal to pv_corr family (max_lib
@@ -195,5 +199,5 @@ deepening_threads:
     AND risk_bucket=acceptable, promote to admit
 origin_proposal_id: L013
 created_at: '2026-04-10'
-updated_at: '2026-04-10 02:55:48'
-last_reflected_batch: batch_094
+updated_at: '2026-04-10 03:13:02'
+last_reflected_batch: batch_095

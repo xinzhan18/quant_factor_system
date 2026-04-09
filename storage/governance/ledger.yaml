@@ -830,6 +830,20 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_095:
+      batch_id: batch_095
+      candidate_count: 4
+      logic_ids:
+      - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1198,9 +1212,9 @@ holdout_reviews:
     trigger_reason_codes:
     - moderate_style_exposure
     status: pending
-    detail: 'C002 (7d×50d raw): alpha_surv=0.464, ICIRho=-0.389, decay=1.093,
-      mono_ho=-0.7. 7d variant shows good stability. Soft-decorr approach should
-      be applied to yield 7d×50d admit candidate.'
+    detail: 'C002 (7d×50d raw): alpha_surv=0.464, ICIRho=-0.389, decay=1.093, mono_ho=-0.7.
+      7d variant shows good stability. Soft-decorr approach should be applied to yield
+      7d×50d admit candidate.'
     outcome: null
   - review_id: HR_094_003
     batch_id: batch_094
@@ -1211,6 +1225,37 @@ holdout_reviews:
     detail: 'C003 (internal 50d norm): alpha_surv=0.983, ICIRho=-0.160, mono_ho=-0.9.
       Exceptional risk profile but insufficient signal strength. Potential composite
       component or risk-quality anchor.'
+    outcome: null
+  - review_id: HR_095_001
+    batch_id: batch_095
+    target_id: C002
+    trigger_reason_codes:
+    - high_subspace_redundancy
+    status: pending
+    detail: 'C002 (7d×40d soft-decorr): alpha_surv=0.751, ICIRho=-0.326, mono_val=-0.9,
+      decay=1.128. High redundancy vs F017 (max_lib=0.859). Primary complementary 7d
+      candidate to 5d anchor (C001→F017). Evaluate at portfolio level.'
+    outcome: null
+  - review_id: HR_095_002
+    batch_id: batch_095
+    target_id: C003
+    trigger_reason_codes:
+    - high_subspace_redundancy
+    - weak_validation_effect
+    status: pending
+    detail: 'C003 (5d×30d soft-decorr): alpha_surv=0.956 (exceptional!), decay=1.293
+      (L013 all-time record!). ICIRho=-0.273 borderline. The 30d window achieves near-perfect
+      Barra residual after soft-decorr. Needs IC enhancement (try 7d×30d?)'
+    outcome: null
+  - review_id: HR_095_003
+    batch_id: batch_095
+    target_id: C004
+    trigger_reason_codes:
+    - high_subspace_redundancy
+    status: pending
+    detail: 'C004 (7d×50d soft-decorr): ICIRho=-0.364 (strongest in batch), mono_ho=-0.7
+      (best quintile stability). alpha_surv=0.661. Potential 2nd admit alongside C001
+      as 7d×50d complement to 5d×40d anchor.'
     outcome: null
 search_ledger:
   by_experiment_tag:
@@ -2090,6 +2135,14 @@ search_ledger:
       reserve_count_to_date: 3
       continue_count_to_date: 1
       latest_verdict: continue
+    ELT_L013_mutate_relative_amount_v4:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 0
+      reserve_count_to_date: 3
+      replace_count_to_date: 1
+      continue_count_to_date: 1
+      latest_verdict: continue
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -2132,9 +2185,10 @@ search_ledger:
       reserve_count_to_date: 1
     PF_range_amount_flow:
       admitted_count_to_date: 1
-      family_attempt_count_to_date: 23
+      family_attempt_count_to_date: 27
       reject_count_to_date: 7
-      reserve_count_to_date: 15
+      reserve_count_to_date: 18
+      replace_count_to_date: 1
     PF_cross_covariance:
       admitted_count_to_date: 0
       family_attempt_count_to_date: 4
@@ -2292,10 +2346,11 @@ search_ledger:
       reject_count_to_date: 2
       reserve_count_to_date: 1
     L013:
-      logic_attempt_count_to_date: 23
+      logic_attempt_count_to_date: 27
       admitted_count_to_date: 1
       reject_count_to_date: 7
-      reserve_count_to_date: 15
+      reserve_count_to_date: 18
+      replace_count_to_date: 1
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3556,6 +3611,31 @@ write_audit_log:
     detail: '4 candidates: 1 admit (C004→F017, str_1m soft-decorr), 3 reserve (C001/C002/C003).
       FIRST L013 ADMIT. alpha_surv=0.688, barra_res_icir=-0.274, risk=acceptable.
       T004 stop condition met. L013→productive.'
+    reason_codes:
+    - mechanism_aligned
+    - risk_model_acceptable
+    - feasibility_ok
+  - request_id: batch_095_C001_replace_F017
+    timestamp: '2026-04-09T19:12:51.742185+00:00'
+    actor: judge
+    level: level_1
+    target: factor_registry
+    action: replace
+    status: accepted
+    rejection_reason_codes: null
+  - timestamp: '2026-04-09T19:13:03+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_095
+    detail: updated_logics=L013
+  - timestamp: '2026-04-10T06:00:00+00:00'
+    actor: factor-judge
+    action: judge_batch
+    target: batch_095
+    level: 1
+    detail: '4 candidates: 0 admit, 3 reserve, 1 replace (C001→F017 upgraded: alpha_surv
+      0.688→0.781, decay 1.128→1.175). ALL 4 risk=acceptable. Soft-decorr family confirmed
+      productive. 40d window optimal for 5d anchor. 30d exceptional decay=1.293.'
     reason_codes:
     - mechanism_aligned
     - risk_model_acceptable
