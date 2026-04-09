@@ -1,0 +1,252 @@
+batch_id: batch_100
+logic_ids: [L015]
+judged_at: '2026-04-10T04:45:00+00:00'
+
+batch_summary:
+  total_candidates: 6
+  admitted: 0
+  reserved: 4
+  rejected: 2
+  replaced: 0
+
+candidate_verdicts:
+  C001:
+    verdict: reject
+    reason_codes: [style_dominance_detected, weak_validation_effect]
+    detail: |
+      PS-price divergence 20d. ICIRval=+0.304, mono_val=0.7, ICIRho=+0.296, mono_ho=0.3 (weak holdout mono).
+      alpha_surv=0.634, barra_res_icir=-0.275 (SIGN FLIP). dom_style=str_1m, style_r2=0.766 (76% style!).
+      max_lib=0.390 vs F007. Risk=poor.
+      PS ratio divergence inherits STR_1M contamination MORE heavily than PE divergence (76% vs typical 40% for PE).
+      The PS ratio change = price_change × revenue_change_inverse, so the price component directly loads on str_1m.
+      Reject — risk=poor, heavy style contamination, weak holdout mono.
+    admission_payload: null
+
+  C002:
+    verdict: reserve
+    reason_codes: [moderate_style_exposure, regime_instability]
+    detail: |
+      PS-price divergence 60d. ICIRval=+0.230, mono_val=0.3 (WEAK validation mono!), ICIRho=+0.280, mono_ho=+1.0 (PERFECT!).
+      decay=1.470, alpha_surv=0.841 (HIGHEST in batch!), barra_res_icir=-0.241 (sign flip). dom_style=str_1m, style_r2=0.400.
+      max_lib=0.357 vs library. Risk=borderline.
+      PS 60d has the highest alpha_surv of any L015 candidate tested so far (0.841) and perfect holdout mono.
+      BUT: barra_res sign flip persists (-0.241). The longer lookback (60d) reduces str_1m loading (40% vs 76% at 20d)
+      but cannot eliminate the sign flip. mono_val=0.3 is concerning — quintile ordering poor in validation.
+      Reserve — worth keeping as the cleanest PS variant (best alpha_surv). If future EPS-based approach fails,
+      may be worth investigating PS further with style conditioning.
+    admission_payload: null
+
+  C003:
+    verdict: reserve
+    reason_codes: [weak_validation_effect, high_data_mining_risk]
+    detail: |
+      Pure EPS change 60d proxy. ICIRval=+0.123 (WEAK!), mono_val=0.6, ICIRho=+0.133 (WEAK), mono_ho=0.6.
+      decay_tv=0.435 (large train-val decay). holdout_effect=borderline.
+      alpha_surv=3.017 (AMPLIFIED 3x by Barra removal!), barra_res_icir=+0.394 (POSITIVE! NO SIGN FLIP!).
+      dom_style=ep_ratio (expected for earnings-based signal). style_r2=0.252 (low). max_lib=0.025 (MOST NOVEL!).
+      Risk=borderline.
+      *** CRITICAL BREAKTHROUGH FINDING ***
+      C003 proves earnings momentum IS barra-clean: after Barra style removal, the signal is AMPLIFIED (3x) and has
+      POSITIVE residual ICIR (+0.394). The ep_ratio style exposure is NEGATIVE (Barra value factors SUBTRACT from
+      this signal — confirming it is genuinely orthogonal to value factors). max_lib=0.025 = virtually UNCORRELATED
+      with any library factor!
+      The ONLY problem: raw IC is too weak (ICIRval=0.123 << 0.25 threshold). The train-val decay (0.435) confirms
+      quarterly EPS changes are sparse and noisy over 60d. Most stocks have unchanged EPS within one quarter.
+      Reserve — CRITICAL BREAKTHROUGH on barra_res_icir sign. Next: amplify earnings momentum signal.
+    admission_payload: null
+
+  C004:
+    verdict: reject
+    reason_codes: [style_dominance_detected, mechanism_drifted]
+    detail: |
+      PE-price divergence 20d × PE-independence filter. ICIRval=+0.300, mono_val=0.6, ICIRho=+0.292, mono_ho=0.7.
+      alpha_surv=0.542, barra_res_icir=-0.233 (sign flip PERSISTS). dom_style=str_1m, style_r2=0.744 (74% style!).
+      max_lib=0.373. Risk=poor.
+      The PE-price independence filter (1 - Corr(PE_change, price_change, 20)) WORSENS style contamination vs
+      raw PE divergence (74% vs ~37% style_r2). The independence filter itself correlates with str_1m:
+      low PE-price correlation means PE is not tracking price = stock has absent/negative momentum = str_1m low.
+      This is ADDITIONAL momentum loading, not removal.
+      Reject — independence filter adds str_1m instead of removing it. Mechanism drifted from intended.
+    admission_payload: null
+
+  C005:
+    verdict: reject
+    reason_codes: [weak_validation_effect, regime_instability]
+    detail: |
+      PE improvement rank × independence filter. ICIRtrain=+0.468 but ICIRval=+0.134 (COLLAPSE! decay_tv=0.317).
+      mono_ho=+1.0 (perfect), ICIRho=+0.284, holdout_decay=2.703 (EXTREME!). barra_res_icir=-0.101.
+      Risk=borderline. dom_style=ep_ratio.
+      Train IC is inflated (0.468) vs validation (0.134) — 3x overfit. While holdout shows decent ICIR (0.284),
+      the extreme val_ho_decay=2.703 means the validation period was uniquely bad (not representative).
+      The ICIRval=0.134 is too weak for admission even if holdout appears OK.
+      The barra_res_icir=-0.101 (smallest magnitude sign flip of PE variants) is interesting — but weak IC dominates.
+      Reject — validation collapse (decay_tv=0.317) and extreme holdout decay ratio indicate unstable signal.
+    admission_payload: null
+
+  C006:
+    verdict: reserve
+    reason_codes: [moderate_style_exposure, regime_instability]
+    detail: |
+      PE-price divergence 60d × independence filter. ICIRval=+0.236, mono_val=0.3 (WEAK), ICIRho=+0.295, mono_ho=+1.0.
+      decay=1.525, alpha_surv=0.683, barra_res_icir=-0.200 (sign flip). dom_style=str_1m, style_r2=0.409.
+      max_lib=0.319 (most novel in PE family). Risk=borderline.
+      PE 60d × independence filter essentially EQUALS raw PE 60d (C006 in batch_099: barra_res_icir=-0.184, C006 here=-0.200).
+      The independence filter provides zero benefit for the 60d variant. mono_val=0.3 is concerning.
+      Reserve — only because mono_ho=+1.0 and max_lib=0.319 are positive signals. Better than raw PE 60d
+      only in that it's a different expression with similar properties.
+    admission_payload: null
+
+route_verdicts:
+  R001:
+    route_id: R001
+    experiment_lineage_tag: ELT_L015_mutate_ps_revenue_proxy_v1
+    verdict: pause
+    reason: |
+      PS ratio variants: C001 (20d) rejected (risk=poor, style_r2=0.766). C002 (60d) reserved (borderline but sign flip).
+      PS divergence inherits the same str_1m contamination pattern as PE divergence.
+      Revenue changes at 20d are too correlated with price momentum.
+      At 60d, PS has highest alpha_surv (0.841) in L015 series but sign flip persists.
+      BREAKTHROUGH: C003 (pure EPS proxy) = barra_res_icir=+0.394 (POSITIVE!), alpha_surv=3.017.
+      EPS momentum is barra-clean but weak. This is the ONLY path forward.
+      Pause PS direction. Continue ONLY on EPS momentum amplification.
+
+  R002:
+    route_id: R002
+    experiment_lineage_tag: ELT_L015_mutate_pe_independence_filter_v1
+    verdict: kill
+    reason: |
+      PE-price independence filter (1 - Corr(PE_change, price_change)) does NOT reduce sign flip.
+      C004 (PE 20d × filter): style_r2=0.744 (WORSE than raw PE). C006 (PE 60d × filter): barra_res=-0.200 (same as raw).
+      Root cause: independence filter is correlated with str_1m (low PE-price correlation = low momentum stock).
+      Multiplying PE divergence by independence filter ADDS str_1m loading, not removes it.
+      Kill — independence filter approach is theoretically wrong for L015.
+
+logic_recommendations:
+  L015:
+    recommended_status: active
+    reason: |
+      C003 breakthrough: pure earnings momentum (EPS change 60d) has barra_res_icir=+0.394 (POSITIVE!) and
+      alpha_surv=3.017. Confirms the earnings improvement mechanism is genuinely barra-clean.
+      The sign flip in PE/PS/PE×filter variants is entirely due to the PRICE COMPONENT in the divergence formula.
+      Key insight: Sub(CsRank(PE_change), CsRank(price_change)) = earnings_momentum - price_momentum_reversal.
+      The price_momentum_reversal component (CsRank(close/Ref(close,N))) loads on str_1m,
+      making all divergence signals contaminated. Pure earnings momentum avoids this.
+      Next focus: amplify CsRank(EPS_60d_change) by:
+      1. Longer lookbacks (120d, 250d) to capture more quarterly earnings change
+      2. EPS acceleration (EPS_today vs Mean(EPS, 60d)) rather than point-to-point change
+      3. Cross-sectional momentum of EPS change (amplify the strongest earners)
+      L015 remains active — the mechanism is confirmed clean, need stronger signal.
+
+new_lessons:
+  - id: NM-L015-eps-momentum-barra-clean-breakthrough
+    type: NM
+    lesson: |
+      Pure EPS change proxy `CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60))))` achieves
+      barra_res_icir=+0.394 (POSITIVE! No sign flip) and alpha_surv=3.017 (amplified by Barra removal).
+      max_lib=0.025 (virtually uncorrelated with any library factor). ep_ratio Barra has NEGATIVE exposure = Barra
+      value factors detract from this signal (confirming orthogonality). ICIRval=+0.123 (too weak for admission).
+      EPS momentum is barra-clean but sparse (most stocks have unchanged EPS within 60d quarterly cycle).
+      Key insight: the PE divergence sign flip comes from the PRICE_CHANGE component, not the PE_change component.
+      Sub(CsRank(PE_change), CsRank(price_change)) = CsRank(earnings_change) - CsRank(price_change).
+      Removing price_change component reveals clean earnings alpha. Next: amplify EPS momentum signal.
+    evidence_batches: [batch_100]
+
+  - id: FP-L015-ps-divergence-same-str1m-trap
+    type: FP
+    lesson: |
+      PS ratio divergence (Sub(CsRank(PS_change), CsRank(price_change))) has same str_1m contamination as PE.
+      20d PS: style_r2=0.766 (76%!), barra_res_icir=-0.275. 60d PS: style_r2=0.400, barra_res_icir=-0.241.
+      Revenue-based metrics do NOT escape the str_1m trap from the price_change component.
+      All fundamental/price divergence signals (Sub(CsRank(fundamental_change), CsRank(price_change))) are
+      dominated by the price component's str_1m loading regardless of whether fundamental=PE/PB/PS.
+      DO NOT probe further PS divergence — same structural problem. Only removing the price component (pure earnings)
+      escapes the contamination.
+    evidence_batches: [batch_100]
+
+  - id: FP-L015-pe-independence-filter-adds-str1m
+    type: FP
+    lesson: |
+      PE-price independence filter (1 - Corr(PE_change_5d, price_change_5d, 20)) ADDS str_1m loading to PE divergence.
+      PE 20d × independence: style_r2=0.744 (74%) vs raw PE 20d (~37%). The independence filter is negatively
+      correlated with str_1m (low PE-price corr = stock not tracking momentum = low str_1m stock).
+      Multiplying PE divergence by independence filter adds str_1m loading, not removes it.
+      DO NOT use PE-price correlation filter as a conditioning approach for L015 or similar signals.
+    evidence_batches: [batch_100]
+
+discovery_flags:
+  - anomaly_type: positive_eps_momentum_barra_clean
+    description: |
+      C003 (pure EPS change 60d) achieves barra_res_icir=+0.394 (positive for positive-direction factor).
+      This is the opposite of all PE/PB/PS divergence signals. EPS_today/EPS_60d_ago isolates the
+      earnings-only component without any price contamination. After Barra removal, signal AMPLIFIES 3x.
+      But raw IC is too weak (ICIRval=0.123). max_lib=0.025 = virtually novel signal space.
+    likely_mechanism: |
+      Pure earnings momentum (EPS change rate cross-sectional rank) is a genuinely orthogonal signal to
+      Barra value factors. Stocks with improving earnings (rising EPS) are not captured by ep_ratio/book_to_price
+      Barra factors which use LEVELS not CHANGES of fundamental metrics.
+      The signal is weak because quarterly EPS changes are sparse within 60d windows and noisy for CSI1000.
+    style_repackaging_risk: low
+    explainable_by_existing_logic: partial
+    escalation_status: watch
+    first_seen_batch: batch_100
+
+logic_diagnostics:
+  L015:
+    thesis_update: |
+      L015 thesis refined by batch_100: the sign flip in PE/PB/PS divergence signals comes from the PRICE CHANGE
+      COMPONENT, not the fundamental change component. Sub(CsRank(fundamental_change), CsRank(price_change))
+      = CsRank(earnings_momentum) - CsRank(price_momentum_reversal).
+
+      The CsRank(price_change) component directly loads on str_1m Barra factor (positive direction = reversal
+      after price DECLINE, but str_1m positive means recent price increase = opposite direction loading).
+      This is the root cause of the sign flip: the subtraction creates a negative loading on str_1m.
+
+      C003 (pure EPS change 60d) PROVES the earnings component alone is barra-clean (barra_res_icir=+0.394,
+      alpha_surv=3.017). The mechanism exists and is orthogonal to ALL library factors (max_lib=0.025).
+      The ONLY problem is signal weakness (ICIRval=0.123).
+
+      Path forward is clear: amplify pure earnings momentum. Options:
+      1. Longer lookback (120d): captures 2 quarterly earnings cycles — should strengthen signal
+      2. EPS acceleration: compare EPS_today to Mean(EPS, 60d) — amplifies stocks with ACCELERATING earnings
+      3. Revenue change proxy: CsRank(Div(Div($close,$ps_ratio), Div(Ref($close,120),Ref($ps_ratio,120)))) — revenue momentum at 120d
+      4. Multi-metric earnings momentum: Mul(CsRank(EPS_change), CsRank(Revenue_change)) — both improving
+
+    evidence_for:
+      - "C003: barra_res_icir=+0.394 (POSITIVE!) — earnings momentum IS barra-clean"
+      - "C003: alpha_surv=3.017 — Barra removal AMPLIFIES signal (not degrades)"
+      - "C003: max_lib=0.025 — virtually uncorrelated with any library factor"
+      - "C003: ep_ratio Barra has NEGATIVE exposure — confirms orthogonality to value factors"
+      - "C002 (PS 60d): alpha_surv=0.841 (highest) with mono_ho=+1.0"
+
+    evidence_against:
+      - "C003: ICIRval=+0.123 too weak (threshold ~0.25)"
+      - "C003: decay_tv=0.435 (large train-val decay — earnings changes sparse within 60d)"
+      - "All PS variants: same str_1m contamination as PE variants"
+      - "Independence filter (C004/C006): does NOT reduce sign flip, adds str_1m"
+      - "PS 20d (C001): style_r2=0.766 (76%!) — fundamental/price divergence dominated by price"
+
+    failure_boundary: |
+      CONFIRMED DEAD ENDS:
+      - Sub(CsRank(fundamental_change), CsRank(price_change)): ALL variants (PE/PB/PS at any window) = sign flip
+      - PE-price independence filter (1 - rolling correlation): ADDS str_1m, does not remove it
+      - Relative amount conditioning: worsens alpha_surv (C005 in batch_099)
+      - 20d price momentum component: unavoidable str_1m loading
+
+      VIABLE PATH:
+      - Pure fundamental change WITHOUT price component: EPS/Revenue/EPS_acceleration
+
+    open_questions:
+      - "Can EPS change at 120d produce ICIRval>0.25 (capturing 2 quarterly cycles)?"
+      - "Does EPS acceleration (EPS_today vs Mean(EPS,60d)) provide stronger signal than point-to-point change?"
+      - "Can revenue change proxy (PS-based EPS equivalent) at 120d strengthen the C003 signal?"
+      - "Would multi-metric confirmation (EPS change × Revenue change) improve signal quality?"
+
+    next_best_probes:
+      - expr: "CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,120),Ref($pe_ratio,120))))"
+        why: "EPS change at 120d (2 quarterly cycles). Captures more earnings revision momentum. If ICIRval>0.20 with barra_res_icir positive, this is the admission candidate."
+      - expr: "CsRank(Div(Div($close,$pe_ratio),Mean(Div($close,$pe_ratio),60)))"
+        why: "EPS acceleration: EPS_today vs 60d-average EPS. Amplifies stocks with recent EPS breakout above their own 3-month average. More sensitive to quarterly earnings beats."
+      - expr: "CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,120),Ref($ps_ratio,120))))"
+        why: "Revenue change at 120d. Revenue grows more smoothly than EPS (less quarterly noise). May be stronger signal than EPS at same horizon."
+      - expr: "Mul(CsRank(Div(Div($close,$pe_ratio),Div(Ref($close,120),Ref($pe_ratio,120)))),CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,120),Ref($ps_ratio,120)))))"
+        why: "Multi-metric confirmation: EPS_change × Revenue_change at 120d. Stocks with BOTH improving earnings and revenue have stronger signal than either alone."

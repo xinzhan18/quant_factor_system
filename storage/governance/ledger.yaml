@@ -902,6 +902,20 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_100:
+      batch_id: batch_100
+      candidate_count: 6
+      logic_ids:
+      - L015
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -1335,6 +1349,24 @@ holdout_reviews:
     detail: 'C004 TsAutoCorr(40d): ICIR_ho=-0.319, mono_ho=-0.9 strong holdout. But
       risk=poor (alpha_surv=0.274), barra_res_icir=+0.087 positive. Reserve for Python-level
       conditioning if available.'
+    outcome: null
+  - review_id: HR_97003
+    batch_id: batch_100
+    target_id: batch_100_C002
+    trigger_reason: reserve_for_review
+    status: pending
+    outcome: null
+  - review_id: HR_97004
+    batch_id: batch_100
+    target_id: batch_100_C003
+    trigger_reason: reserve_for_review
+    status: pending
+    outcome: null
+  - review_id: HR_97005
+    batch_id: batch_100
+    target_id: batch_100_C006
+    trigger_reason: reserve_for_review
+    status: pending
     outcome: null
 search_ledger:
   by_experiment_tag:
@@ -2265,6 +2297,20 @@ search_ledger:
       reject_count_to_date: 1
       continue_count_to_date: 1
       latest_verdict: continue
+    ELT_L015_mutate_ps_revenue_proxy_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 2
+      reject_count_to_date: 1
+      continue_count_to_date: 0
+      latest_verdict: pause
+    ELT_L015_mutate_pe_independence_filter_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reserve_count_to_date: 1
+      reject_count_to_date: 2
+      continue_count_to_date: 0
+      latest_verdict: kill
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -2414,10 +2460,10 @@ search_ledger:
       reject_count_to_date: 1
       reserve_count_to_date: 1
     PF_fundamental_price_divergence:
-      family_attempt_count_to_date: 4
+      family_attempt_count_to_date: 10
       admitted_count_to_date: 0
-      reject_count_to_date: 1
-      reserve_count_to_date: 3
+      reject_count_to_date: 3
+      reserve_count_to_date: 7
   by_logic:
     L001:
       admitted_count_to_date: 3
@@ -2489,10 +2535,10 @@ search_ledger:
       reject_count_to_date: 1
       reserve_count_to_date: 1
     L015:
-      logic_attempt_count_to_date: 4
+      logic_attempt_count_to_date: 10
       admitted_count_to_date: 0
-      reject_count_to_date: 1
-      reserve_count_to_date: 3
+      reject_count_to_date: 3
+      reserve_count_to_date: 7
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3838,3 +3884,44 @@ write_audit_log:
     action: finalize_batch
     target: batch_099
     detail: updated_logics=L014,L015
+  - timestamp: '2026-04-10T04:48:09'
+    actor: factor-judge
+    action: reject
+    target: batch_100_C001
+    level: 1
+    reason_codes: []
+  - timestamp: '2026-04-10T04:48:09'
+    actor: factor-judge
+    action: reserve
+    target: batch_100_C002
+    level: 1
+    reason_codes: []
+  - timestamp: '2026-04-10T04:48:09'
+    actor: factor-judge
+    action: reserve
+    target: batch_100_C003
+    level: 1
+    reason_codes: []
+  - timestamp: '2026-04-10T04:48:09'
+    actor: factor-judge
+    action: reject
+    target: batch_100_C004
+    level: 1
+    reason_codes: []
+  - timestamp: '2026-04-10T04:48:09'
+    actor: factor-judge
+    action: reject
+    target: batch_100_C005
+    level: 1
+    reason_codes: []
+  - timestamp: '2026-04-10T04:48:09'
+    actor: factor-judge
+    action: reserve
+    target: batch_100_C006
+    level: 1
+    reason_codes: []
+  - timestamp: '2026-04-09T20:48:14+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_100
+    detail: updated_logics=L015
