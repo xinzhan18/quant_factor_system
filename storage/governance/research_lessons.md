@@ -158,3 +158,11 @@ Accumulated hard-won lessons from factor research. Read this at the start of eve
 ## Batch 058 Soft Lessons (2026-04-07)
 
 - **FP-L004-ep-conditioning-style-trap**: EP conditioning (Div(1,$pe_ratio)) on pv_corr: alpha_surv=0.092 (POOR), str_1m=0.318 (style trap), style_r2=0.161. EP is too similar to PE — fundamental conditioning breaks turnover trap but introduces style trap. Do not probe EP alone as conditioner.
+
+## Batch 089 Soft Lessons (2026-04-10)
+
+- **FP-L012-autocorr-conditioning-all-fail**: PE conditioning AND soft-decorrelation on TsAutoCorr($amount,N) ALL produce style traps. 20d×PE: ep_ratio dominant (alpha_surv=9%). 20d soft-decorr: barra_res=+0.171 (WRONG direction), near-duplicate F001 (0.993). 10d×PE: vol_20d dominant (alpha_surv=12%). The pv_corr conditioning paradigm does NOT transfer to TsAutoCorr. TsAutoCorr has different Barra structure — conditioning reorganizes which style dominates rather than revealing clean alpha. L012 at DSL level is exhausted.
+
+- **NM-L013-range-amount-novel-mechanism**: Corr(Div(Sub($high,$low),$close),$amount,10) confirmed as novel mechanism. max_lib=0.065 (most novel in v2 system), alpha_surv=0.734, barra_res=-0.201, style_r2=0.042. Range-amount captures institutional aggression (volatile days co-occurring with high monetary flow). Orthogonal to ALL pv_corr factors. 10d window is too slow (ICIR_ho=-0.144, decay=0.715). Next: 5d, 7d windows.
+
+- **FP-L013-pe-conditioning-kills-range-amount**: PE conditioning on range-amount 10d: decay=0.312, mono_ho=-0.30 (catastrophic). PE conditioning is INCOMPATIBLE with range-amount mechanism. It adds ep_ratio style that dominates and causes holdout collapse. Do NOT probe PE conditioning with range-amount signals. Non-PE conditioning (e.g. CsRank($amount)) is the only viable path.

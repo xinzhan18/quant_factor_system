@@ -1,0 +1,49 @@
+batch_id: batch_081
+logic_id: L009
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v5
+    family_id: PF_price_volume_correlation
+    research_question: "Does blending 8d and 10d improve stability? Does 9d fill the gap? Does volume timing on F016 add orthogonal signal?"
+    route_id: R001
+    route_type: decorrelate
+    source_thread_id: T002
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v5
+    expression: Add(Sub(Mul(Corr($close, $amount, 8), CsRank($pe_ratio)), Mul(CsRank($turnover_rate), 0.1)),Sub(Mul(Corr($close, $amount, 10), CsRank($pe_ratio)), Mul(CsRank($turnover_rate), 0.1)))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_8d_10d_blend
+    rationale: "Blend F016 (8d) and F015 (10d) — tests if combining timeframes improves stability"
+    route_id: R001
+    route_type: decorrelate
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v5
+    expression: Mul(Sub(Mul(Corr($close, $amount, 8), CsRank($pe_ratio)), Mul(CsRank($turnover_rate), 0.1)), TsRank($volume, 20))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_8d_x_pe_minus_tur10_x_vol_timing
+    rationale: "F016 with volume timing conditioning — tests if TsRank(volume,20) adds orthogonal timing signal"
+    route_id: R001
+    route_type: decorrelate
+    source_thread_id: T004
+    source_type: dsl
+  - candidate_id: C003
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v5
+    expression: Sub(Mul(Corr($close, $amount, 9), CsRank($pe_ratio)), Mul(CsRank($turnover_rate), 0.1))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_9d_x_pe_minus_tur10
+    rationale: "9d window with 10% subtraction — fills the gap between 8d and 10d"
+    route_id: R001
+    route_type: decorrelate
+    source_thread_id: T002
+    source_type: dsl

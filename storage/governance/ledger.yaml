@@ -745,6 +745,21 @@ batch_usage:
       - '2022-01-01'
       - '2023-12-31'
       validation_window_id: val_2022_2023
+    batch_089:
+      batch_id: batch_089
+      candidate_count: 6
+      logic_ids:
+      - L012
+      - L013
+      phase: finalized
+      holdout_used: true
+      train_range:
+      - '2015-01-01'
+      - '2021-12-31'
+      validation_range:
+      - '2022-01-01'
+      - '2023-12-31'
+      validation_window_id: val_2022_2023
 global_escalations:
 - batch_id: batch_058
   logic_proposals: []
@@ -783,9 +798,12 @@ global_escalations:
   logic_proposals: []
   proposed_forbidden: []
   proposed_lessons:
-    - "L011 SATURATED: 6 candidates across 2 batches, 0 admits. ALL higher-moment signals fail: kurtosis at 60/120/240d = signal-free (IC≈0). Skewness at 60/120d = reversal absorbed by turnover."
+  - 'L011 SATURATED: 6 candidates across 2 batches, 0 admits. ALL higher-moment signals
+    fail: kurtosis at 60/120/240d = signal-free (IC≈0). Skewness at 60/120d = reversal
+    absorbed by turnover.'
   saturation_signal: true
-  description: "L010 + L011 both SATURATED. System-wide deadlock confirmed. No active logics for mining."
+  description: L010 + L011 both SATURATED. System-wide deadlock confirmed. No active
+    logics for mining.
   status: pending
 holdout_reviews:
   reviews:
@@ -1045,6 +1063,16 @@ holdout_reviews:
     - high_data_mining_risk
     status: pending
     detail: 'Div decorrelate: max_lib=0.70/0.74 but alpha_surv=0.21-0.28'
+    outcome: null
+  - review_id: HR_089_001
+    batch_id: batch_089
+    target_id: C005
+    trigger_reason_codes:
+    - high_data_mining_risk
+    - borderline_icir
+    status: pending
+    detail: 'range-amount 10d reserve: max_lib=0.065 (novel), alpha_surv=0.734, barra_res=-0.201,
+      but ICIR_ho=-0.144 borderline. Needs holdout confirmation before promotion.'
     outcome: null
 search_ledger:
   by_experiment_tag:
@@ -1875,6 +1903,20 @@ search_ledger:
       reserve_count_to_date: 0
       continue_count_to_date: 0
       latest_verdict: kill
+    ELT_L012_genesis_autocorr_amount_pe_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 2
+      reserve_count_to_date: 1
+      continue_count_to_date: 0
+      latest_verdict: pause
+    ELT_L013_genesis_range_amount_corr_v1:
+      batches_seen: 1
+      admitted_count_to_date: 0
+      reject_count_to_date: 2
+      reserve_count_to_date: 1
+      continue_count_to_date: 1
+      latest_verdict: continue
   by_family:
     FM_cross_covariance_liquidity:
       admitted_count_to_date: 0
@@ -1910,6 +1952,16 @@ search_ledger:
       family_attempt_count_to_date: 3
       reject_count_to_date: 2
       reserve_count_to_date: 0
+    PF_autocorr_value:
+      admitted_count_to_date: 0
+      family_attempt_count_to_date: 3
+      reject_count_to_date: 2
+      reserve_count_to_date: 1
+    PF_range_amount_flow:
+      admitted_count_to_date: 0
+      family_attempt_count_to_date: 3
+      reject_count_to_date: 2
+      reserve_count_to_date: 1
     PF_cross_covariance:
       admitted_count_to_date: 0
       family_attempt_count_to_date: 4
@@ -2061,6 +2113,16 @@ search_ledger:
       admitted_count_to_date: 0
       reject_count_to_date: 4
       reserve_count_to_date: 0
+    L012:
+      logic_attempt_count_to_date: 3
+      admitted_count_to_date: 0
+      reject_count_to_date: 2
+      reserve_count_to_date: 1
+    L013:
+      logic_attempt_count_to_date: 3
+      admitted_count_to_date: 0
+      reject_count_to_date: 2
+      reserve_count_to_date: 1
   discovery_candidates:
   - anomaly_type: timing_range_3d_false_mono
     batch_ids:
@@ -3217,3 +3279,19 @@ write_audit_log:
     action: finalize_batch
     target: batch_088
     detail: updated_logics=L011
+  - timestamp: '2026-04-10T01:30:00+00:00'
+    actor: factor-judge
+    action: judge_batch
+    target: batch_089
+    detail: '6 candidates: 0 admit, 1 reserve (C005), 5 reject (C001,C002,C003,C004,C006).
+      L012→warm, L013→active. HR_089_001 triggered.'
+    level: 1
+    reason_codes:
+    - mechanism_aligned
+    - feasibility_ok
+    - risk_model_acceptable
+  - timestamp: '2026-04-09T17:46:12+00:00'
+    actor: research.finalize
+    action: finalize_batch
+    target: batch_089
+    detail: updated_logics=L012,L013

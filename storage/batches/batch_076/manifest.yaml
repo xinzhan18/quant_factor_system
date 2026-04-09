@@ -1,0 +1,79 @@
+batch_id: batch_076
+logic_id: L009
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L009_genesis_corr_amount_decorr_tur_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does normalizing PE-conditioned Corr by turnover_rank reduce redundancy vs library factors?"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+  - experiment_lineage_tag: ELT_L009_genesis_corr_amount_tur_20d_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does 20d tur_rank conditioning test the upper bound of the window spectrum?"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_decorr_tur_v1
+    expression: Div(Mul(Corr($close, $amount, 10), CsRank($pe_ratio)), (1+CsRank($turnover_rate)))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_pe_div_tur
+    rationale: "PE rank Corr normalized by turnover_rank — decorrelate approach: tests if Div normalization reduces redundancy vs Mul single conditioning"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_decorr_tur_v1
+    expression: Div(Mul(Corr($close, $amount, 5), CsRank($pe_ratio)), (1+CsRank($turnover_rate)))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_5d_x_pe_div_tur
+    rationale: "PE rank Corr normalized by turnover_rank 5d — tests if shorter window with decorrelate works better"
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C003
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_tur_20d_v1
+    expression: Mul(Corr($close, $amount, 20), CsRank($turnover_rate))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_20d_x_tur_rank
+    rationale: "Amount-based Corr × tur_rank 20d — tests upper window bound for tur_rank conditioning"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C004
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_tur_20d_v1
+    expression: Mul(Corr($close, $amount, 20), CsRank($pe_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_20d_x_pe_rank
+    rationale: "Amount-based Corr × PE rank 20d — tests if 20d PE conditioning is better than 20d tur (different from C002 20d PE which failed)"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C005
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_tur_20d_v1
+    expression: Div(Mul(Corr($close, $amount, 10), CsRank($turnover_rate)), (1+CsRank($turnover_rate)))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_tur_div_tur
+    rationale: "Self-normalizing tur_rank Corr — tests if normalizing by own turnover_rank preserves signal with different structure"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl

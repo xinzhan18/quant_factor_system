@@ -1,0 +1,79 @@
+batch_id: batch_077
+logic_id: L009
+created_at: '2026-04-09'
+train_range: '2015-01-01 00:00:00 2023-12-31 00:00:00'
+validation_range: '2022-01-01 00:00:00 2023-12-31 00:00:00'
+routes:
+  - experiment_lineage_tag: ELT_L009_genesis_corr_amount_pb_rank_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does PB rank conditioning produce different signal than PE/PS rank? PB rank (price-to-book) is a different fundamental dimension."
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+  - experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v1
+    family_id: PF_price_volume_correlation
+    research_question: "Does softer decorrelation (partial subtraction) preserve more alpha than Div normalization?"
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+candidates:
+  - candidate_id: C001
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_pb_rank_v1
+    expression: Mul(Corr($close, $amount, 5), CsRank($pb_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_5d_x_pb_rank
+    rationale: "PB rank 5d — tests PB (price-to-book) conditioning as alternative to PE/PS. IR=-0.3985 on train."
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C002
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_pb_rank_v1
+    expression: Mul(Corr($close, $amount, 10), CsRank($pb_ratio))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_pb_rank
+    rationale: "PB rank 10d — strongest PB variant. IR=-0.4296 on train (comparable to PE/PS)."
+    route_id: R001
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C003
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v1
+    expression: Sub(Mul(Corr($close, $amount, 10), CsRank($pe_ratio)), Mul(CsRank($turnover_rate), 0.05))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_pe_minus_tur05
+    rationale: "PE rank Corr minus 5% tur_rank — softer decorrelate than Div. Tests if partial subtraction preserves more alpha."
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C004
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v1
+    expression: Div(Mul(Corr($close, $amount, 10), CsRank($pb_ratio)), (1+CsRank($turnover_rate)))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_pb_div_tur
+    rationale: "PB rank Corr normalized by turnover_rank — tests if PB conditioning reduces redundancy better than PE."
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
+  - candidate_id: C005
+    execution_gate_status: pending
+    experiment_lineage_tag: ELT_L009_genesis_corr_amount_soft_decorr_v1
+    expression: Sub(Mul(Corr($close, $amount, 10), CsRank($pe_ratio)), Mul(CsRank($turnover_rate), 0.1))
+    family_id: PF_price_volume_correlation
+    logic_id: L009
+    name: corr_amount_10d_x_pe_minus_tur10
+    rationale: "PE rank Corr minus 10% tur_rank — tests 2x stronger subtraction than C003."
+    route_id: R002
+    route_type: genesis
+    source_thread_id: T002
+    source_type: dsl
