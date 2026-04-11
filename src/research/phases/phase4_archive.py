@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from research.archive.commit import (
     CommitResult,
@@ -40,11 +40,25 @@ from research.archive.factor_writer import (
     allocate_and_write_factor,
 )
 from research.archive.python_archiver import archive_python_factor
+from research.archive.report_packer import (
+    ReportPacketInputs,
+    extract_judge_synthesis,
+    write_report_packet,
+)
 from research.memory.direction_updater import update_direction_frontmatter
 from research.memory.index_refresher import refresh_index
 from research.storage.paths import StoragePaths
 from research.storage.state import StateFile
 from research.storage.yaml_io import load_yaml, load_yaml_unsafe
+
+# Subagent dispatch callback signature:
+#
+#   report_callback(packet_text, packet_path, factor_md_path) -> None
+#
+# Production wires this to a Claude Code subagent dispatch; tests pass
+# a plain Python function. The "sandbox" aspect (one input, one output,
+# no DB/Qlib) is enforced by the caller layer, not this module.
+ReportCallback = Callable[[str, Path, Path], None]
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +79,14 @@ class Phase4Inputs:
     do_commit: bool = True
     """If False, archive without running git commit (useful for tests)."""
 
+    direction_excerpt: str = ""
+    """Optional direction md excerpt to include in the report packet."""
+
+    report_callback: ReportCallback | None = None
+    """Optional Phase 4 Step 3 subagent dispatch. If None, report packets
+    are still written but factor.md is not — useful for tests and for
+    running Phase 4 without the report layer (e.g. during bootstrap)."""
+
 
 @dataclass
 class Phase4Result:
@@ -76,6 +98,8 @@ class Phase4Result:
     index_path: Path | None = None
     direction_frontmatter: dict[str, Any] | None = None
     commit: CommitResult | None = None
+    report_packets: list[Path] = field(default_factory=list)
+    factor_md_paths: list[Path] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +224,45 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
                 )
                 py_archives.append(dst)
 
+    # --- Step 3: report packets + optional subagent dispatch ---
+    report_packets: list[Path] = []
+    factor_md_paths: list[Path] = []
+    # Read the full judge.md body once so we can slice per-candidate
+    # synthesis sections.
+    judge_body = judge_path.read_text(encoding="utf-8")
+    for a in archived:
+        packet_path = batch_dir / "_packets" / f"report_packet_{a.factor_id}.md"
+        # Find the original candidate_id for this factor by scanning admits
+        admit_entry = next(
+            (c for c in admits if c.get("candidate_id")),
+            None,
+        )
+        # Match admit entry by same index (admits list is ordered the
+        # same way we iterated in the allocation loop above, so this
+        # lines up positionally)
+        idx = archived.index(a)
+        admit_entry = admits[idx] if idx < len(admits) else {}
+        synthesis = extract_judge_synthesis(
+            judge_body, admit_entry.get("candidate_id", "")
+        )
+        packet_text = write_report_packet(
+            ReportPacketInputs(
+                factor_id=a.factor_id,
+                factor_record=a.record,
+                direction=inputs.direction,
+                direction_excerpt=inputs.direction_excerpt,
+                judge_synthesis=synthesis,
+                admitted_in_batch=inputs.batch_id,
+            ),
+            packet_path,
+        )
+        report_packets.append(packet_path)
+
+        factor_md_path = paths.factor_md_file(a.factor_id)
+        factor_md_paths.append(factor_md_path)
+        if inputs.report_callback is not None:
+            inputs.report_callback(packet_text, packet_path, factor_md_path)
+
     # --- Update direction frontmatter ---
     new_ids = [a.factor_id for a in archived]
     direction_path = paths.direction_file(inputs.direction)
@@ -254,4 +317,6 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
         index_path=index_path,
         direction_frontmatter=direction_fm,
         commit=commit_result,
+        report_packets=report_packets,
+        factor_md_paths=factor_md_paths,
     )

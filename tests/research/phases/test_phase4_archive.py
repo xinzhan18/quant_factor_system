@@ -200,6 +200,77 @@ class TestPhase4Idempotency:
             run_phase4_archive(inputs)
 
 
+class TestPhase4ReportCallback:
+    def test_report_packet_written_per_admit(self, tmp_path: Path) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+        _bootstrap_batch(paths, "batch_001", ["C001", "C002"], "vol")
+
+        # Capture the callback invocations
+        invocations: list[tuple[str, Path, Path]] = []
+
+        def fake_subagent(
+            packet_text: str, packet_path: Path, factor_md_path: Path
+        ) -> None:
+            invocations.append((packet_text, packet_path, factor_md_path))
+            # Write the factor.md to the specified location
+            factor_md_path.parent.mkdir(parents=True, exist_ok=True)
+            factor_md_path.write_text(
+                f"# {factor_md_path.stem}\n\n(LLM-written report body)\n"
+            )
+
+        inputs = Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+            report_callback=fake_subagent,
+        )
+        result = run_phase4_archive(inputs)
+
+        # Both admits got packets
+        assert len(result.report_packets) == 2
+        assert all(p.exists() for p in result.report_packets)
+
+        # Both callbacks were invoked
+        assert len(invocations) == 2
+        for text, pkt, md in invocations:
+            assert "# Report Packet" in text
+            assert pkt.name.startswith("report_packet_F")
+            assert md.name.startswith("F") and md.suffix == ".md"
+
+        # Both factor.md files were written by the fake subagent
+        for md_path in result.factor_md_paths:
+            assert md_path.exists()
+
+    def test_no_callback_skips_subagent(self, tmp_path: Path) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+        _bootstrap_batch(paths, "batch_001", ["C001"], "vol")
+
+        inputs = Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+            report_callback=None,
+        )
+        result = run_phase4_archive(inputs)
+        # Packet still written (for manual inspection)
+        assert len(result.report_packets) == 1
+        assert result.report_packets[0].exists()
+        # factor.md not produced because no callback
+        assert not result.factor_md_paths[0].exists()
+
+
 class TestPhase4WithCommit:
     def test_commit_writes_git_object(self, tmp_path: Path) -> None:
         storage_root = tmp_path / "storage"
