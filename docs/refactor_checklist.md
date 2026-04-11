@@ -6,7 +6,7 @@
 > Chinese navigation: `~/.claude/plans/jolly-purring-cascade.md`
 
 **Last updated**: 2026-04-12
-**Current Part**: P2 — Phase 3 JUDGE (P0 + P1 done)
+**Current Part**: P3 — Phase 1 START+DESIGN (P0 + P1 + P2 done)
 
 ## Subtask origin tags
 
@@ -106,36 +106,40 @@ Goal: nail down the vectorized compute layer. This is the most numerically sensi
 - `factor_engine.py`, `data_provider.py`, `universe.py`, `operators.py` remain on disk until P7. `research.compute.__init__.py` was updated to re-export only new P1 API (no FactorEngine / Preprocessor class).
 - The Barra 3D batch approach (X_masked = np.where(valid, X, 0) then einsum) gives mathematical equivalence because zero rows contribute zero to XtX and Xty, just like dropping them explicitly.
 
-**Completed at**: _pending commit_
+**Completed at**: commit `460eae8` (8 new compute modules, 89 new tests, Barra 6× speedup)
 
 ---
 
-## P2 — Phase 3 JUDGE (checkpoint 层) [status: pending]
+## P2 — Phase 3 JUDGE (checkpoint 层) [status: done]
 
 Goal: build the 6-checkpoint judge pipeline with pre-packing + Python audit.
 
-- [ ] **[B]** Write `src/research/checkpoints/hard_gates.py` — extract gate rules (sign_flip / coverage / forbidden / sample_policy / compute_error) from old `src/research/execute/execution_gate.py`, restructure as pure functions on result.yaml entries
-- [ ] **[B]** Write `src/research/checkpoints/generator.py` — reference old `src/research/execute/judge_packet_builder.py` (per Q26 it has bugs), rewrite completely: pre-pack `_packets/judge_packet.md` from result.yaml + direction.md + lessons.md + nearest factor.md as single-input per R3
-- [ ] **[B from src/research/stats/multiple_testing.py]** Write `src/research/stats/mt_budget.py` (per refactor_plan §7.MT):
-  - [ ] `scan_batches_for_mt(batches_dir, current_batch_id, current_direction, sample_policy_version)` — pure function scanning `storage/batches/batch_*/manifest.yaml`, counting only "judged" batches (judge.md exists), returning `{cumulative_candidates, direction_candidates, validation_exposure, n_batches_scanned}`
-  - [ ] `compute_mt_budget(counts)` — wraps existing `compute_multiple_testing_risk()` + `compute_search_adjusted_strength()`, returns dict ready to inject into numeric_hint
-  - [ ] Constant calibration: backfit formula constants (`log_family_base`, `log_direction_base`, `exposure_divisor`) on existing `storage/batches/batch_001..102` and write into `storage/config.yaml.thresholds.mt_budget`
-- [ ] **[N]** `checkpoints/generator.py` Phase 3 flow **must call** `scan_batches_for_mt + compute_mt_budget` before pre-packing (new Step 2 per refactor_plan §7 流程)
-- [ ] **[N]** CP03 numeric_hint schema **must include** `mt_score / mt_bucket / search_adjusted_strength / mt_breakdown` (freeze in judge_packet template)
-- [ ] **[N]** Write `src/research/checkpoints/audit.py` (judge.md schema + section existence + reference authenticity grep + packet-reference check + hard-gate-not-overridable + **CP03 body must cite `mt_bucket` string**) — no old equivalent, new audit contract
-- [ ] **[N]** pytest: `scan_batches_for_mt` counts correctly on fixture batches (n=10, direction X=4, exposure=10)
-- [ ] **[N]** pytest: `compute_mt_budget` returns correct bucket for three score tiers (low / medium / high)
-- [ ] **[N]** pytest: audit check 6 raises when CP03 section omits `mt_bucket`
-- [ ] **[N]** Freeze `judge.md` schema (frontmatter + body, per refactor_plan §7)
-- [ ] **[B]** Write `src/research/phases/phase3_judge.py` — reference old `src/research/judge/candidate_judge.py` (dead code but has useful orchestration shape), rewrite: Python gates → pre-pack → LLM write → audit → cleanup
-- [ ] **[N]** pytest: hard gate rejects as expected on fixture inputs
-- [ ] **[N]** pytest: judge.md roundtrip (write then audit passes)
-- [ ] **[N]** pytest: audit catches missing CP section, fabricated references, hard-gate override attempts
-- [ ] R9 grep: no deprecated imports
-- [ ] Update checklist: P2 `[x]` + commit hash
-- [ ] Commit: `[refactor] P2: phase3 judge with checkpoints and audit`
+- [x] **[B]** `src/research/checkpoints/hard_gates.py` — 5 pure-function gates (compute_error / coverage / sign_flip / forbidden_field_or_op / sample_policy_violation). `HardGateResult` dataclass with `passed` + `reasons` list. Multiple failures all reported (no short-circuit).
+- [x] **[B]** `src/research/checkpoints/generator.py` — `build_judge_packet()` composes single-input markdown from result.yaml + direction_excerpt + lessons_excerpt + nearest_factor_excerpt + §7.MT counts. Per-candidate numeric_hint blocks for CP01/CP03/CP04/CP05/CP06 with mt_bucket / search_adjusted inline.
+- [x] **[B from src/research/stats/multiple_testing.py]** `src/research/checkpoints/mt_budget.py` (per refactor_plan §7.MT):
+  - [x] `scan_batches_for_mt(batches_dir, current_batch_id, current_direction, sample_policy_version)` — pure function scanning `storage/batches/batch_*/manifest.yaml`, judged-only (judge.md exists), returns `MtCounts` dataclass
+  - [x] `compute_mt_budget(counts, cfg, ic_mean, ic_ir, mono, expanding_pass)` — formula `0.50*clip(log1p(cum)/log(600)) + 0.30*clip(log1p(dir)/log(80)) + 0.20*clip(val/40)`, plus search-adjusted strength `raw*(1-0.5*mt_score)`
+  - [x] `MtBudgetConfig.from_config_dict()` reads `config.yaml.thresholds.mt_budget` so constants are tunable
+  - [ ] **Deferred to P6 fix commit**: backfit constants on `storage/batches/batch_001..102` (placeholder values in P0 config.yaml are used for now — will be recalibrated when the first real batch runs)
+  - [x] **Location note**: lives at `research.checkpoints.mt_budget`, not `research.stats.mt_budget`, because `research.stats.__init__` eagerly imports deprecated sibling modules (would violate R9 at import time)
+- [x] **[N]** `checkpoints/generator.py` Phase 3 flow **calls** `scan_batches_for_mt + compute_mt_budget` inside `build_judge_packet` before composing candidate sections
+- [x] **[N]** CP03 numeric_hint includes `mt_score / mt_bucket / search_adjusted / mt_breakdown.{cumulative,direction,exposure,terms}`
+- [x] **[N]** `src/research/checkpoints/audit.py` — 6 structural checks (`parse_judge_md` + frontmatter schema + verdict enum + hard_gate_not_overridable + body H2/H3 section coverage + **CP03 body must grep to `mt_bucket`** + referenced_context ⊆ packet_refs). `JudgeAuditError` raised on any violation.
+- [x] **[N]** pytest: 7 `scan_batches_for_mt` tests (missing dir, empty dir, judged-only, skip current+later, direction filter, sample_policy filter, version bump resets exposure)
+- [x] **[N]** pytest: 3 `compute_mt_budget` scoring tests + 7 bucket boundary tests + 2 hint-shape tests (total 24 mt_budget tests)
+- [x] **[N]** pytest: 2 `test_cp03_cites_mt_bucket` tests (raise when missing, skip for reject)
+- [x] **[N]** `judge.md` schema frozen via audit constants: `VALID_VERDICTS = {admit, reserve, reject, replace}`, `REQUIRED_CANDIDATE_FRONTMATTER_FIELDS = (candidate_id, verdict, hard_gate_result)`, `ALL_CHECKPOINTS = (CP01..CP06)`, reject candidates only need CP01
+- [x] **[B]** `src/research/phases/phase3_judge.py` — 5-step orchestrator with `LlmJudgeCallback` injection point so tests can run end-to-end without an actual LLM. Steps: hard gates → pre-pack → LLM callback → audit → optional cleanup.
+- [x] **[N]** pytest: 16 hard_gates tests (all pass + compute_error + coverage + sign_flip + forbidden + sample_policy + multiple failures)
+- [x] **[N]** pytest: 9 generator tests (frontmatter / context sections / candidate sections / mt_budget integration / multi-candidate / file write)
+- [x] **[N]** pytest: 20 audit tests (parse + schema + enum + hard_gate_not_overridable + body sections + cp03_mt_bucket + referenced_context)
+- [x] **[N]** pytest: 5 phase3 e2e tests (happy path / missing result.yaml / bad LLM rewrite / hard-gate-fail flow / cleanup)
+- [x] R9 grep: no deprecated imports in 5 new checkpoints/ files + phase3_judge.py
+- [x] Commit: `[refactor] P2: phase3 judge with checkpoints and audit`
 
-**Completed at**: _pending_
+**P2 totals**: 5 new modules + 6 new test files + **76 new tests all green** (16 hard_gates + 24 mt_budget + 9 generator + 20 audit + 5 phase3 + 2 already-existing phase2).
+
+**Completed at**: _pending commit_
 
 ---
 
