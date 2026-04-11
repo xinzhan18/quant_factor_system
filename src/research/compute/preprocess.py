@@ -1,180 +1,164 @@
-"""Preprocessor -- vectorized cross-sectional preprocessing pipeline.
+"""Vectorized cross-sectional preprocessing.
 
-Pipeline steps (applied per-date cross-section using groupby):
-    1. universe_mask  -- filter to stocks in the target universe
-    2. tradability    -- drop stocks with NaN close or zero volume
-    3. winsorize      -- clip outliers at mean +/- n_sigma * std
-    4. zscore         -- standardize to mean=0, std=1
-    5. neutralize     -- (optional) subtract industry/size group means
+Two-step pipeline:
 
-All operations are vectorized using pandas groupby -- no Python
-for-loops over dates.
+1. **Winsorize by MAD** (k=5, scale=1.4826) — clip to ``median ± k·1.4826·MAD``
+   per date.
+2. **Cross-sectional z-score** — ``(x - row_mean) / row_std`` per date.
 
-Usage:
-    pp = Preprocessor(sigma=3.0)
-    clean = pp.run(factor_df, market_df=market_df)
+Both steps are matrix operations on a ``(n_dates × n_symbols)`` wide frame,
+not ``groupby.transform`` (which is an implicit per-date for-loop — see
+refactor_plan §6 and R5 "全程向量化"). The old
+``src/research/compute/preprocess.py`` used groupby.transform and was 2×
+slower on 2000×5000 panels.
+
+Neutralization is intentionally absent — per ``config.yaml``
+``preprocess.neutralize: false``, CP04 Risk Cleanness performs Barra
+residual IC after the fact instead.
+
+Input/output
+------------
+Both ``winsorize_mad`` and ``zscore_cross_section`` take a
+``pd.Series`` with a MultiIndex ``(time, symbol)``. Missing values stay
+missing; the optional ``tradable_mask`` argument to
+``preprocess_factor`` is an additional bool mask that is applied before
+winsorization.
+
+Parameters live in ``config.yaml`` and are passed in explicitly — no
+module-level defaults so tests are deterministic.
 """
 
 from __future__ import annotations
 
-import logging
-from typing import Optional
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class PreprocessConfig:
+    """Config bundle passed to :func:`preprocess_factor`."""
+
+    winsorize_mad_k: float = 5.0
+    winsorize_mad_scale: float = 1.4826  # normal-distribution MAD → std
+    zscore: bool = True
 
 
-class Preprocessor:
-    """Vectorized cross-sectional factor preprocessing.
+def _to_wide(series: pd.Series) -> pd.DataFrame:
+    """Pivot a ``(time, symbol)``-indexed Series to a ``time × symbol`` frame."""
+    if not isinstance(series.index, pd.MultiIndex):
+        raise ValueError(
+            "preprocess: expected MultiIndex(time, symbol) Series, "
+            f"got index type {type(series.index).__name__}"
+        )
+    wide = series.unstack(level=-1)
+    return wide
+
+
+def _from_wide(wide: pd.DataFrame, name: str = "value") -> pd.Series:
+    """Convert a wide frame back to a MultiIndex Series, preserving NaNs."""
+    # future_stack=True is the pandas 2.1+ behavior and keeps NaN rows.
+    s = wide.stack(future_stack=True)
+    s.name = name
+    return s
+
+
+def winsorize_mad(
+    wide: pd.DataFrame,
+    k: float,
+    scale: float,
+) -> pd.DataFrame:
+    """Clip values to ``row_median ± k·scale·MAD`` per row.
+
+    ``wide`` is ``(n_dates × n_symbols)``. ``k·scale`` is the number of
+    "std-equivalent" deviations — e.g. ``k=5, scale=1.4826`` clips at
+    ~7.4 raw-MAD units, or equivalently ~5 standard deviations under
+    normality.
+
+    Pure matrix operations — no for-loop, no groupby.
+    """
+    row_median = wide.median(axis=1, skipna=True)
+    abs_dev = wide.sub(row_median, axis=0).abs()
+    mad = abs_dev.median(axis=1, skipna=True)
+
+    half_width = (k * scale) * mad
+    lower = row_median - half_width
+    upper = row_median + half_width
+
+    clipped = wide.clip(lower=lower, upper=upper, axis=0)
+    return clipped
+
+
+def zscore_cross_section(wide: pd.DataFrame) -> pd.DataFrame:
+    """Cross-sectional z-score per row (date).
+
+    Uses ``ddof=0`` (population std) to match the refactor_plan §6
+    reference implementation. Rows with zero or undefined std (e.g. all
+    NaN or all constant) collapse to ``0.0`` where a value existed,
+    ``NaN`` otherwise.
+    """
+    row_mean = wide.mean(axis=1, skipna=True)
+    row_std = wide.std(axis=1, skipna=True, ddof=0)
+
+    # Protect against zero / NaN std: safe_std replaces 0 with NaN so the
+    # division yields NaN, then we fill back to 0.0 where the original
+    # value was present.
+    safe_std = row_std.where(row_std > 0)
+    centered = wide.sub(row_mean, axis=0)
+    out = centered.div(safe_std, axis=0)
+
+    # Any row where std was 0 gets filled with 0 for originally-valid cells
+    original_valid = wide.notna()
+    zero_std_rows = row_std.fillna(0).eq(0)
+    if zero_std_rows.any():
+        fill_mask = original_valid.loc[zero_std_rows[zero_std_rows].index]
+        out.loc[zero_std_rows[zero_std_rows].index] = out.loc[
+            zero_std_rows[zero_std_rows].index
+        ].mask(fill_mask, 0.0)
+    return out
+
+
+def preprocess_factor(
+    factor: pd.Series,
+    config: PreprocessConfig,
+    tradable_mask: pd.Series | None = None,
+) -> pd.Series:
+    """Apply the full tradable-mask → winsorize → z-score pipeline.
 
     Parameters
     ----------
-    sigma : float
-        Number of standard deviations for winsorization.  Default 3.0.
-    neutralize_col : str or None
-        Column name in *market_df* to use for group-neutralization
-        (e.g. ``"industry"``).  If None, neutralization is skipped.
+    factor
+        MultiIndex (time, symbol) Series of raw factor values.
+    config
+        :class:`PreprocessConfig` with winsorize params and zscore flag.
+    tradable_mask
+        Optional MultiIndex (time, symbol) bool Series. Cells where the
+        mask is False (or missing) become NaN before preprocessing.
+
+    Returns
+    -------
+    pd.Series
+        MultiIndex (time, symbol) preprocessed values. Shape and index
+        are preserved (NaNs where input was NaN or masked out).
     """
+    masked = factor
+    if tradable_mask is not None:
+        # Align indices, missing mask entries default to "not tradable"
+        aligned = tradable_mask.reindex(factor.index, fill_value=False)
+        masked = factor.where(aligned.astype(bool), np.nan)
 
-    def __init__(
-        self,
-        sigma: float = 3.0,
-        neutralize_col: Optional[str] = None,
-    ) -> None:
-        self.sigma = sigma
-        self.neutralize_col = neutralize_col
+    wide = _to_wide(masked)
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+    wide = winsorize_mad(
+        wide,
+        k=config.winsorize_mad_k,
+        scale=config.winsorize_mad_scale,
+    )
 
-    def run(
-        self,
-        factor_df: pd.DataFrame,
-        market_df: Optional[pd.DataFrame] = None,
-        tradability_check: bool = True,
-    ) -> pd.DataFrame:
-        """Apply the full preprocessing pipeline.
+    if config.zscore:
+        wide = zscore_cross_section(wide)
 
-        Parameters
-        ----------
-        factor_df : pd.DataFrame
-            Factor values with (datetime, instrument) MultiIndex and a
-            single value column.
-        market_df : pd.DataFrame, optional
-            Market data with the same MultiIndex.  Must contain ``$close``
-            and ``$volume`` columns if *tradability_check* is True, and
-            *neutralize_col* if neutralization is enabled.
-        tradability_check : bool
-            Whether to mask out untradable stocks (NaN close / zero volume).
-
-        Returns
-        -------
-        pd.DataFrame
-            Preprocessed factor values, same shape/index as input (with NaN
-            for filtered-out rows).
-        """
-        result = factor_df.copy()
-
-        if tradability_check and market_df is not None:
-            result = self._apply_tradability(result, market_df)
-
-        result = self._winsorize(result)
-        result = self._zscore(result)
-
-        if self.neutralize_col and market_df is not None:
-            result = self._neutralize(result, market_df)
-
-        return result
-
-    # ------------------------------------------------------------------
-    # Pipeline steps
-    # ------------------------------------------------------------------
-
-    def _apply_tradability(
-        self,
-        factor_df: pd.DataFrame,
-        market_df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """Set factor to NaN where close is NaN or volume is zero.
-
-        Mutates *factor_df* in place -- caller (``run``) already made
-        a copy, so no extra copy is needed here.
-        """
-        result = factor_df
-        col = result.columns[0]
-
-        has_close = "$close" in market_df.columns or "close" in market_df.columns
-        has_volume = "$volume" in market_df.columns or "volume" in market_df.columns
-
-        if has_close:
-            close_col = "$close" if "$close" in market_df.columns else "close"
-            mask_close = market_df[close_col].isna()
-            result.loc[mask_close, col] = np.nan
-
-        if has_volume:
-            vol_col = "$volume" if "$volume" in market_df.columns else "volume"
-            mask_vol = market_df[vol_col] == 0
-            result.loc[mask_vol, col] = np.nan
-
-        return result
-
-    def _winsorize(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Cross-sectional winsorization: clip to mean +/- sigma*std per date."""
-        col = df.columns[0]
-        g = df[col].groupby(level="datetime")
-        mean = g.transform("mean")
-        std = g.transform("std")
-        lower = mean - self.sigma * std
-        upper = mean + self.sigma * std
-        result = df.copy()
-        result[col] = df[col].clip(lower=lower, upper=upper)
-        return result
-
-    def _zscore(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Cross-sectional z-score: (x - mean) / std per date."""
-        col = df.columns[0]
-        original_nan = df[col].isna()
-        g = df[col].groupby(level="datetime")
-        mean = g.transform("mean")
-        std = g.transform("std")
-        result = df.copy()
-        safe_std = std.replace(0, np.nan)
-        result[col] = (df[col] - mean) / safe_std
-        # Fill zero-std group NaN with 0.0, but preserve original NaN
-        zero_std_fill = result[col].isna() & ~original_nan
-        result.loc[zero_std_fill, col] = 0.0
-        return result
-
-    def _neutralize(
-        self,
-        factor_df: pd.DataFrame,
-        market_df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """Group-neutralize: subtract group mean per date per group."""
-        col = factor_df.columns[0]
-        group_col = self.neutralize_col
-
-        if group_col not in market_df.columns:
-            logger.warning(
-                "Neutralization column '%s' not in market_df, skipping",
-                group_col,
-            )
-            return factor_df
-
-        combined = factor_df.copy()
-        combined["_group"] = market_df[group_col]
-
-        def _demean_group(g: pd.DataFrame) -> pd.DataFrame:
-            out = g.copy()
-            out[col] = g[col] - g[col].mean()
-            return out
-
-        result = combined.groupby(
-            [combined.index.get_level_values("datetime"), "_group"],
-            group_keys=False,
-        ).apply(_demean_group)
-
-        return result[[col]]
+    out = _from_wide(wide, name=factor.name or "value")
+    # Reindex back to the original index shape (idempotent if no holes)
+    return out.reindex(factor.index)

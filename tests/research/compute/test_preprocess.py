@@ -1,4 +1,4 @@
-"""Tests for Preprocessor -- vectorized cross-sectional preprocessing."""
+"""Tests for vectorized preprocess (winsorize MAD + cross-sectional z-score)."""
 
 from __future__ import annotations
 
@@ -6,179 +6,160 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from research.compute.preprocess import Preprocessor
+from research.compute.preprocess import (
+    PreprocessConfig,
+    _from_wide,
+    _to_wide,
+    preprocess_factor,
+    winsorize_mad,
+    zscore_cross_section,
+)
 
 
-# -----------------------------------------------------------------------
-# Fixtures
-# -----------------------------------------------------------------------
-
-
-def _make_factor_df(n_dates=10, n_stocks=5, seed=42):
-    """Build a factor DataFrame with (datetime, instrument) MultiIndex."""
+def _make_factor_series(
+    n_dates: int = 10, n_stocks: int = 8, seed: int = 42
+) -> pd.Series:
     rng = np.random.default_rng(seed)
     dates = pd.bdate_range("2024-01-01", periods=n_dates)
-    stocks = [f"SH60000{i}" for i in range(n_stocks)]
-    idx = pd.MultiIndex.from_product(
-        [dates, stocks], names=["datetime", "instrument"]
-    )
+    stocks = [f"SYM{i:02d}" for i in range(n_stocks)]
+    idx = pd.MultiIndex.from_product([dates, stocks], names=["time", "symbol"])
     values = rng.standard_normal(len(idx))
-    return pd.DataFrame({"factor": values}, index=idx)
+    return pd.Series(values, index=idx, name="factor")
 
 
-def _make_market_df(n_dates=10, n_stocks=5, seed=42):
-    """Build a market DataFrame with $close and $volume columns."""
-    rng = np.random.default_rng(seed)
-    dates = pd.bdate_range("2024-01-01", periods=n_dates)
-    stocks = [f"SH60000{i}" for i in range(n_stocks)]
-    idx = pd.MultiIndex.from_product(
-        [dates, stocks], names=["datetime", "instrument"]
-    )
-    n = len(idx)
-    return pd.DataFrame(
-        {
-            "$close": 100 + rng.standard_normal(n).cumsum(),
-            "$volume": rng.integers(1_000_000, 10_000_000, size=n).astype(float),
-        },
-        index=idx,
-    )
-
-
-@pytest.fixture
-def factor_df():
-    return _make_factor_df()
-
-
-@pytest.fixture
-def market_df():
-    return _make_market_df()
-
-
-# -----------------------------------------------------------------------
-# Tests
-# -----------------------------------------------------------------------
-
-
-class TestPreprocessor:
-    def test_run_returns_same_shape(self, factor_df):
-        pp = Preprocessor()
-        result = pp.run(factor_df, tradability_check=False)
-        assert result.shape == factor_df.shape
-        assert result.index.equals(factor_df.index)
-
-    def test_winsorize_clips_outliers(self):
-        """Extreme outliers should be clipped after winsorization."""
-        dates = pd.bdate_range("2024-01-01", periods=1)
-        stocks = [f"S{i}" for i in range(100)]
-        idx = pd.MultiIndex.from_product(
-            [dates, stocks], names=["datetime", "instrument"]
+class TestLongWideRoundtrip:
+    def test_roundtrip_preserves_values(self) -> None:
+        s = _make_factor_series(n_dates=5, n_stocks=3)
+        wide = _to_wide(s)
+        back = _from_wide(wide, name=s.name)
+        pd.testing.assert_series_equal(
+            back.sort_index(), s.sort_index(), check_names=True
         )
-        # Normal values plus one extreme outlier
-        rng = np.random.default_rng(42)
-        values = rng.standard_normal(100)
-        values[0] = 100.0  # extreme outlier
-        df = pd.DataFrame({"factor": values}, index=idx)
 
-        pp = Preprocessor(sigma=3.0)
-        # Test winsorize step only (before zscore which rescales)
-        winsorized = pp._winsorize(df)
+    def test_to_wide_rejects_flat_index(self) -> None:
+        s = pd.Series([1.0, 2.0, 3.0])
+        with pytest.raises(ValueError, match="MultiIndex"):
+            _to_wide(s)
 
-        # The outlier should have been clipped well below 100
-        assert winsorized["factor"].max() < 50.0
-        # And the clipped value should be near the 3-sigma bound
-        # pandas .std() uses ddof=1 by default
-        s = pd.Series(values)
-        expected_upper = s.mean() + 3.0 * s.std()
-        assert winsorized["factor"].max() <= expected_upper + 0.01
 
-    def test_zscore_per_date(self, factor_df):
-        """After zscore, each date cross-section should have ~0 mean and ~1 std."""
-        pp = Preprocessor()
-        result = pp.run(factor_df, tradability_check=False)
-
-        for date, group in result.groupby(level="datetime"):
-            vals = group["factor"].dropna()
-            if len(vals) > 1:
-                assert abs(vals.mean()) < 1e-10, f"Mean not ~0 on {date}"
-                assert abs(vals.std() - 1.0) < 0.2, f"Std not ~1 on {date}"
-
-    def test_tradability_masks_zero_volume(self, factor_df, market_df):
-        """Stocks with zero volume should have NaN factor values."""
-        # Set volume to zero for one stock on all dates
-        market_mod = market_df.copy()
-        mask = market_mod.index.get_level_values("instrument") == "SH600000"
-        market_mod.loc[mask, "$volume"] = 0.0
-
-        pp = Preprocessor()
-        result = pp.run(factor_df, market_df=market_mod, tradability_check=True)
-
-        zero_vol = result.loc[mask, "factor"]
-        assert zero_vol.isna().all(), "Zero-volume stocks should be NaN"
-
-    def test_tradability_masks_nan_close(self, factor_df, market_df):
-        """Stocks with NaN close should have NaN factor values."""
-        market_mod = market_df.copy()
-        mask = market_mod.index.get_level_values("instrument") == "SH600001"
-        market_mod.loc[mask, "$close"] = np.nan
-
-        pp = Preprocessor()
-        result = pp.run(factor_df, market_df=market_mod, tradability_check=True)
-
-        nan_close = result.loc[mask, "factor"]
-        assert nan_close.isna().all(), "NaN-close stocks should be NaN"
-
-    def test_neutralize_by_group(self):
-        """After neutralization, group means per date should be ~0."""
-        dates = pd.bdate_range("2024-01-01", periods=5)
-        stocks = [f"S{i}" for i in range(6)]
-        idx = pd.MultiIndex.from_product(
-            [dates, stocks], names=["datetime", "instrument"]
+class TestWinsorizeMad:
+    def test_zero_mad_collapses_row(self) -> None:
+        # Row 0: [1,1,1,1,100] — median=1, abs_dev=[0,0,0,0,99],
+        # MAD=0, half_width=0, lower=upper=1 → everything clipped to 1.
+        wide = pd.DataFrame(
+            [[1.0, 1.0, 1.0, 1.0, 100.0]],
+            index=pd.DatetimeIndex(["2024-01-02"], name="time"),
+            columns=pd.Index([f"SYM{i}" for i in range(5)], name="symbol"),
         )
-        rng = np.random.default_rng(42)
-        factor_df = pd.DataFrame(
-            {"factor": rng.standard_normal(len(idx))}, index=idx
+        out = winsorize_mad(wide, k=5.0, scale=1.4826)
+        assert (out.iloc[0] == 1.0).all()
+
+    def test_pass_through_at_default_k(self) -> None:
+        # k=5, scale=1.4826 → half_width=7.413*MAD, well outside [1,5]
+        wide = pd.DataFrame(
+            [[1.0, 2.0, 3.0, 4.0, 5.0]],
+            index=pd.DatetimeIndex(["2024-01-03"], name="time"),
+            columns=pd.Index([f"SYM{i}" for i in range(5)], name="symbol"),
         )
-        # Group assignment: first 3 stocks in group A, last 3 in group B
-        groups = ["A", "A", "A", "B", "B", "B"] * 5
-        market_df = pd.DataFrame({"industry": groups}, index=idx)
-
-        pp = Preprocessor(neutralize_col="industry")
-        result = pp.run(factor_df, market_df=market_df, tradability_check=False)
-
-        # Check group means are approximately zero per date
-        combined = result.copy()
-        combined["industry"] = groups
-        for (date, ind), grp in combined.groupby(
-            [combined.index.get_level_values("datetime"), "industry"]
-        ):
-            vals = grp["factor"].dropna()
-            if len(vals) > 0:
-                assert abs(vals.mean()) < 1e-10, f"Group mean not ~0 for {date}/{ind}"
-
-    def test_no_tradability_without_market_df(self, factor_df):
-        """Tradability check without market_df should be a no-op."""
-        pp = Preprocessor()
-        result = pp.run(factor_df, market_df=None, tradability_check=True)
-        # Should not crash -- tradability skipped
-        assert result.shape == factor_df.shape
-
-    def test_custom_sigma(self):
-        """Different sigma values should change winsorization bounds."""
-        dates = pd.bdate_range("2024-01-01", periods=1)
-        stocks = [f"S{i}" for i in range(50)]
-        idx = pd.MultiIndex.from_product(
-            [dates, stocks], names=["datetime", "instrument"]
+        out = winsorize_mad(wide, k=5.0, scale=1.4826)
+        np.testing.assert_array_almost_equal(
+            out.iloc[0].values, [1.0, 2.0, 3.0, 4.0, 5.0]
         )
-        rng = np.random.default_rng(42)
-        values = rng.standard_normal(50)
-        values[0] = 50.0  # outlier
-        df = pd.DataFrame({"factor": values}, index=idx)
 
-        pp_tight = Preprocessor(sigma=1.0)
-        pp_loose = Preprocessor(sigma=5.0)
+    def test_symmetric_clipping(self) -> None:
+        # [1,2,3,4,5,100,-100] — median=3, abs_dev=[2,1,0,1,2,97,103],
+        # sorted=[0,1,1,2,2,97,103], MAD=median=2
+        # half_width = k * 1.4826 * 2 = 2*k*1.4826
+        # At k=1: half_width=2.9652, lower=0.0348, upper=5.9652
+        wide = pd.DataFrame(
+            [[1.0, 2.0, 3.0, 4.0, 5.0, 100.0, -100.0]],
+            index=pd.DatetimeIndex(["2024-01-02"], name="time"),
+            columns=pd.Index([f"SYM{i}" for i in range(7)], name="symbol"),
+        )
+        out = winsorize_mad(wide, k=1.0, scale=1.4826)
+        row = out.iloc[0].values
+        assert row.min() == pytest.approx(0.0348, abs=1e-3)
+        assert row.max() == pytest.approx(5.9652, abs=1e-3)
 
-        result_tight = pp_tight._winsorize(df)
-        result_loose = pp_loose._winsorize(df)
+    def test_nan_preserved(self) -> None:
+        wide = pd.DataFrame(
+            [[1.0, 2.0, np.nan, 4.0, 5.0]],
+            index=pd.DatetimeIndex(["2024-01-02"], name="time"),
+            columns=pd.Index([f"SYM{i}" for i in range(5)], name="symbol"),
+        )
+        out = winsorize_mad(wide, k=5.0, scale=1.4826)
+        assert pd.isna(out.iloc[0, 2])
 
-        # Tight sigma should clip more aggressively
-        assert result_tight["factor"].max() < result_loose["factor"].max()
+
+class TestZscoreCrossSection:
+    def test_mean_zero_std_one_per_row(self) -> None:
+        s = _make_factor_series(n_dates=20, n_stocks=50)
+        wide = _to_wide(s)
+        out = zscore_cross_section(wide)
+        means = out.mean(axis=1, skipna=True)
+        stds = out.std(axis=1, ddof=0, skipna=True)
+        np.testing.assert_array_almost_equal(means.values, 0.0, decimal=10)
+        np.testing.assert_array_almost_equal(stds.values, 1.0, decimal=10)
+
+    def test_constant_row_collapses_to_zero(self) -> None:
+        wide = pd.DataFrame(
+            [[2.0, 2.0, 2.0, 2.0, 2.0]],
+            index=pd.DatetimeIndex(["2024-01-02"], name="time"),
+            columns=pd.Index([f"SYM{i}" for i in range(5)], name="symbol"),
+        )
+        out = zscore_cross_section(wide)
+        assert (out.iloc[0] == 0.0).all()
+
+    def test_nan_preserved(self) -> None:
+        wide = pd.DataFrame(
+            [[1.0, 2.0, np.nan, 4.0, 5.0]],
+            index=pd.DatetimeIndex(["2024-01-02"], name="time"),
+            columns=pd.Index([f"SYM{i}" for i in range(5)], name="symbol"),
+        )
+        out = zscore_cross_section(wide)
+        assert pd.isna(out.iloc[0, 2])
+        non_nan = out.iloc[0].dropna()
+        assert non_nan.mean() == pytest.approx(0.0, abs=1e-10)
+
+
+class TestPreprocessFactorPipeline:
+    def test_end_to_end_preserves_shape(self) -> None:
+        s = _make_factor_series(n_dates=30, n_stocks=20)
+        cfg = PreprocessConfig(winsorize_mad_k=5.0, winsorize_mad_scale=1.4826)
+        out = preprocess_factor(s, cfg)
+        assert out.shape == s.shape
+        assert out.index.equals(s.index)
+
+    def test_zscore_true_recenters(self) -> None:
+        s = _make_factor_series(n_dates=10, n_stocks=20)
+        cfg = PreprocessConfig(zscore=True)
+        out = preprocess_factor(s, cfg)
+        wide = _to_wide(out)
+        means = wide.mean(axis=1, skipna=True)
+        np.testing.assert_array_almost_equal(means.values, 0.0, decimal=10)
+
+    def test_zscore_disabled(self) -> None:
+        s = _make_factor_series(n_dates=10, n_stocks=20)
+        cfg = PreprocessConfig(zscore=False)
+        out = preprocess_factor(s, cfg)
+        wide = _to_wide(out)
+        row_means = wide.mean(axis=1, skipna=True).abs()
+        # Without z-score the row means are not forced to zero
+        assert (row_means > 1e-6).any()
+
+    def test_tradable_mask_filters(self) -> None:
+        s = _make_factor_series(n_dates=5, n_stocks=4)
+        mask = pd.Series(True, index=s.index, name="tradable")
+        first_date = s.index.get_level_values("time")[0]
+        mask.loc[(first_date, "SYM00")] = False
+
+        cfg = PreprocessConfig()
+        out = preprocess_factor(s, cfg, tradable_mask=mask)
+        assert pd.isna(out.loc[(first_date, "SYM00")])
+
+    def test_idempotent_on_already_clean(self) -> None:
+        s = _make_factor_series(n_dates=20, n_stocks=30)
+        cfg = PreprocessConfig()
+        out1 = preprocess_factor(s, cfg)
+        out2 = preprocess_factor(out1, cfg)
+        pd.testing.assert_series_equal(out1, out2, atol=1e-10)
