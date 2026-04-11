@@ -1,0 +1,63 @@
+# Research system configuration — single source of truth
+# Schema per refactor_plan.md §10. All skills / CLI / pipeline read from here.
+# Edited by hand (rare). Phase 5 consolidation may touch thresholds.
+
+universe: csi1000
+qlib_data_dir: ~/.qlib/qlib_data/cn_data_1d
+
+sample_policy:
+  sample_policy_version: v3
+  train_range: [2015-01-01, 2021-12-31]
+  validation_range: [2022-01-01, 2023-12-31]
+  holdout_range: [2024-01-01, 2024-12-31]   # Phase 2/3 never see this
+
+universes:
+  primary: csi1000                  # CP01-CP06 only look at this
+  reference:                        # Context only — no verdict impact
+    - csi300
+    - csi500
+    - all                           # full market
+
+evaluation:
+  primary_horizon: 5                # t+1 to t+5 cumulative return
+  decay_horizons: [1, 3, 5, 10, 20] # IC decay curve
+  quintile_bins: 5
+
+preprocess:
+  winsorize_mad_k: 5                # k-MAD clipping
+  winsorize_mad_scale: 1.4826       # normal-distribution MAD → std
+  zscore: true
+  neutralize: false                 # keep off — CP04 Barra residual does post-hoc check
+
+thresholds:
+  # CP03 Statistical Strength
+  icir_strong: 0.30
+  icir_weak: 0.15
+  # CP04 Risk Cleanness
+  style_r2_acceptable: 0.08
+  style_r2_poor: 0.12
+  alpha_surv_min: 0.60
+  # CP05 Redundancy
+  max_lib_corr_low: 0.30
+  max_lib_corr_high: 0.70
+  # §7.MT Multiple Testing Budget (placeholder constants; re-calibrated in P2 after backfit on batch_001..102)
+  mt_budget:
+    family_log_base: 600            # clip(log1p(cumulative_candidates) / log(600), 0, 1)
+    direction_log_base: 80          # clip(log1p(direction_candidates)  / log(80),  0, 1)
+    exposure_divisor: 40            # clip(validation_exposure / 40, 0, 1)
+    weights:                        # 0.50 / 0.30 / 0.20 sum = 1
+      family: 0.50
+      direction: 0.30
+      exposure: 0.20
+    bucket_low: 0.40                # score < 0.40 → low
+    bucket_high: 0.70               # score > 0.70 → high (else medium)
+    adjusted_strength_discount: 0.50  # adjusted = raw * (1 - 0.5 * mt_score)
+
+consolidation:
+  auto_triggers:
+    rounds_since_last: 10
+    lessons_max_lines: 400
+    direction_max_lines: 500
+    total_active_directions: 20
+  parallelism:
+    max_concurrent_subagents: 6

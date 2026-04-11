@@ -1,4 +1,4 @@
-"""Tests for StoragePaths."""
+"""Tests for StoragePaths (new vault-first layout per refactor_plan §4)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,7 @@ from pathlib import Path
 from research.storage.paths import StoragePaths
 
 
-class TestStoragePaths:
-    """Verify path construction and directory creation."""
-
+class TestStoragePathsBasics:
     def test_default_root(self) -> None:
         sp = StoragePaths()
         assert sp.root == Path("storage")
@@ -18,53 +16,105 @@ class TestStoragePaths:
         sp = StoragePaths(tmp_path / "custom")
         assert sp.root == tmp_path / "custom"
 
-    def test_top_level_dirs(self, tmp_path: Path) -> None:
-        sp = StoragePaths(tmp_path / "s")
-        expected_names = {
-            "state", "logic", "registry", "governance",
-            "batches", "evidence", "runtime",
-        }
-        # Each property should return a child of root
-        for name in expected_names:
-            prop = getattr(sp, f"{name}_dir")
-            assert prop.parent == sp.root, f"{name}_dir parent mismatch"
+    def test_state_and_config_at_root(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        assert sp.state_file == tmp_path / "state.yaml"
+        assert sp.config_file == tmp_path / "config.yaml"
 
-    def test_ensure_dirs_creates_all(self, tmp_path: Path) -> None:
-        sp = StoragePaths(tmp_path / "s")
-        assert not sp.root.exists()
+
+class TestVaultPaths:
+    def test_vault_structure(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        assert sp.evidence_dir == tmp_path / "evidence"
+        assert sp.vault_dir == tmp_path / "evidence" / "vault"
+        assert sp.vault_index_file == sp.vault_dir / "INDEX.md"
+        assert sp.vault_lessons_file == sp.vault_dir / "lessons.md"
+        assert sp.directions_dir == sp.vault_dir / "directions"
+        assert sp.factors_dir == sp.vault_dir / "factors"
+        assert sp.vault_meta_dir == sp.vault_dir / "_meta"
+
+    def test_direction_file(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        p = sp.direction_file("fundamental_price_divergence")
+        assert p == sp.directions_dir / "fundamental_price_divergence.md"
+
+    def test_factor_files(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        assert sp.factor_yaml_file("F020") == sp.factors_dir / "F020.yaml"
+        assert sp.factor_md_file("F020") == sp.factors_dir / "F020.md"
+        assert sp.factor_assets_dir("F020") == sp.factors_dir / "F020"
+
+    def test_consolidation_log(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        assert sp.consolidation_log_file == sp.vault_meta_dir / "consolidation_log.md"
+
+
+class TestBatchPaths:
+    def test_batch_structure(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        bd = sp.batch_dir("batch_042")
+        assert bd == tmp_path / "batches" / "batch_042"
+        assert sp.batch_manifest_file("batch_042") == bd / "manifest.yaml"
+        assert sp.batch_result_file("batch_042") == bd / "result.yaml"
+        assert sp.batch_judge_file("batch_042") == bd / "judge.md"
+        assert sp.batch_python_candidates_dir("batch_042") == bd / "python_candidates"
+        assert sp.batch_signals_dir("batch_042") == bd / "signals"
+        assert sp.batch_packets_dir("batch_042") == bd / "_packets"
+
+    def test_batch_signal_file(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        p = sp.batch_signal_file("batch_042", "C003")
+        assert p == sp.batches_dir / "batch_042" / "signals" / "C003.parquet"
+
+
+class TestCachePaths:
+    def test_cache_structure(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        assert sp.cache_dir == tmp_path / "cache"
+        assert sp.market_daily_cache == sp.cache_dir / "market_daily.parquet"
+        assert sp.barra_factors_cache == sp.cache_dir / "barra_factors.parquet"
+        assert sp.factor_values_cache_dir == sp.cache_dir / "factor_values"
+
+    def test_factor_value_cache_key(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        p = sp.factor_value_cache_file("deadbeef12")
+        assert p == sp.factor_values_cache_dir / "deadbeef12.parquet"
+
+
+class TestHoldoutAndPythonFactors:
+    def test_holdout_private_location(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        assert sp.holdout_private_dir == tmp_path / "_holdout_private"
+
+    def test_holdout_review_file(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        p = sp.holdout_review_file("2026-04-12")
+        assert p == sp.holdout_private_dir / "review_2026-04-12.md"
+
+    def test_python_factor_file(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        p = sp.python_factor_file("F020", "triple_product_80d_pb")
+        assert p == sp.python_factors_dir / "F020_triple_product_80d_pb.py"
+
+
+class TestEnsureDirs:
+    def test_all_dirs_created(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path / "fresh")
         sp.ensure_dirs()
         for d in sp.all_dirs():
-            assert d.is_dir(), f"expected directory: {d}"
+            assert d.exists(), f"expected {d} to exist"
+            assert d.is_dir()
 
-    def test_ensure_dirs_idempotent(self, tmp_path: Path) -> None:
-        sp = StoragePaths(tmp_path / "s")
+    def test_ensure_dirs_is_idempotent(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path / "idem")
         sp.ensure_dirs()
-        sp.ensure_dirs()  # should not raise
-        assert sp.state_dir.is_dir()
+        sp.ensure_dirs()  # must not raise
+        for d in sp.all_dirs():
+            assert d.exists()
 
-    def test_concrete_file_paths(self, tmp_path: Path) -> None:
-        sp = StoragePaths(tmp_path / "s")
-        assert sp.research_state_file == sp.state_dir / "research_state.yaml"
-        assert sp.logic_reflection_file("L001") == sp.logic_reflections_dir / "L001.md"
-        assert sp.factor_index_file == sp.factors_dir / "index.yaml"
-        assert sp.research_config_file == sp.governance_dir / "research_config.yaml"
-        assert sp.ledger_file == sp.governance_dir / "ledger.yaml"
-        assert sp.global_escalation_file == sp.ledger_file
-
-    def test_dynamic_paths(self, tmp_path: Path) -> None:
-        sp = StoragePaths(tmp_path / "s")
-        assert sp.logic_card_file("L001") == sp.logic_cards_dir / "L001.yaml"
-        assert sp.factor_detail_file("F013") == sp.factors_dir / "factor_F013.yaml"
-        bd = sp.batch_dir("batch_042")
-        assert bd == sp.batches_dir / "batch_042"
-        assert sp.judge_packet_file("batch_042") == bd / "judge_packet.yaml"
-        assert sp.result_file("batch_042") == bd / "research_result.yaml"
-        assert sp.batch_manifest_file("batch_042") == bd / "manifest.yaml"
-        assert sp.idea_report_file("batch_042") == bd / "idea_report.yaml"
-
-    def test_all_dirs_returns_list(self, tmp_path: Path) -> None:
-        sp = StoragePaths(tmp_path / "s")
-        dirs = sp.all_dirs()
-        assert isinstance(dirs, list)
-        assert len(dirs) >= 10
-        assert all(isinstance(d, Path) for d in dirs)
+    def test_all_dirs_excludes_per_batch(self, tmp_path: Path) -> None:
+        """Per-batch dirs are created on demand in Phase 1, not by ensure_dirs."""
+        sp = StoragePaths(tmp_path)
+        listed = sp.all_dirs()
+        # No batch-specific subdirs in the base list
+        assert all("batch_" not in str(d) for d in listed)

@@ -19,6 +19,7 @@
 5. [Phase 1 — START + DESIGN](#5-phase-1--start--design)
 6. [Phase 2 — EXECUTE](#6-phase-2--execute)
 7. [Phase 3 — JUDGE](#7-phase-3--judge)
+   - [§7.MT 多重检验预算](#7mt-pre-pack-阶段的派生统计多重检验预算)
 8. [Phase 4 — ARCHIVE](#8-phase-4--archive)
 9. [Phase 5 — CONSOLIDATION](#9-phase-5--consolidation)
 10. [核心文件 Schema](#10-核心文件-schema)
@@ -122,6 +123,24 @@
 - LLM 自主推进主循环,**不在 mine 循环里问用户**
 - 但每个决策点留下 provenance(来源 + 原因),人工随时可回溯
 - **commit 失败硬 fail**(不静默跳过,Q47.3 的教训)
+
+### R8 — DSL 优先,Python escape hatch(LLM 自主选择)
+
+因子有两条构建路径:**DSL(Qlib 表达式字符串)** 和 **Python(源码文件)**。
+
+**核心原则**:
+- **DSL 是 default**。绝大多数因子都应该用 DSL
+- **Python 是 escape hatch**,只在 DSL 无法表达时使用
+- **LLM 在 Phase 1 DESIGN 时自主选择**,不是用户或 Python 强制决定
+- **场景判断依据**在 `lessons.md` 的 "Path Selection: DSL vs Python" 段,LLM 每次 Phase 1 前必读
+
+**安全边界**:
+- Python 因子有严格的**静态 validation**(AST 扫描 import 白名单 + 禁用危险函数 + 签名契约)
+- Python 因子有严格的**运行时 contract**(shape + 计时警告)
+- 依赖 "LLM 生成代码 + Phase 1 静态 validate + Phase 4 commit 前人工 git review" 作为安全网
+- **不做完整 process sandbox**(ROI 不够)
+
+**默认流程**:autonomous mine 允许 Python 因子。如果用户想强制纯 DSL,用 `research mine --dsl-only`。
 
 ---
 
@@ -249,12 +268,22 @@ storage/
   state.yaml                          ← 唯一系统状态(A)
   config.yaml                         ← 系统配置(A)
   
+  python_factors/                     ← admitted Python 因子源码
+    __init__.py
+    F022_shadow_kalman_v2.py          ← 一个 admitted Python factor 一个文件
+    F025_triple_filter_rerank.py
+    ...
+  
   batches/batch_{NNN}/                ← 每轮迭代的档案
     manifest.yaml                     ← 冻结的候选 + 设计理由(A)
     result.yaml                       ← Python 评估指标(A)
     judge.md                          ← LLM 判决 (Rule A frontmatter + Rule B body)
-    signals/                          ← factor 值缓存(per candidate)
-      C001.parquet
+    python_candidates/                ← 本 batch 的 Python 候选源码(未 admit)
+      C003.py                         ← 以 candidate_id 命名
+      C007.py
+    signals/                          ← factor 值缓存(per candidate,两路统一)
+      C001.parquet                    ← DSL 候选
+      C003.parquet                    ← Python 候选
     _packets/                         ← Pre-pack 临时文件(commit 后可清)
       judge_packet.md
       report_packet_F020.md
@@ -263,7 +292,7 @@ storage/
     market_daily.parquet              ← 已清洗过的价格数据
     barra_factors.parquet             ← 预计算 Barra 因子
     factor_values/
-      {hash}.parquet                  ← 按 expression hash 索引
+      {hash}.parquet                  ← 按 hash 索引(DSL: expression hash,Python: file content hash)
   
   _holdout_private/                   ← 严格隔离区,vault 外
     review_{date}.md                  ← holdout review 结果(LLM 看不到)
@@ -362,6 +391,113 @@ def validate_dsl(expression: str) -> None:
         raise ValueError(f"depth {parsed.max_depth} > {MAX_EXPRESSION_DEPTH}")
 ```
 
+### Python 候选的 validation(修 R8 escape hatch)
+
+如果某个 candidate 的 `source_type: python`,Phase 1 Step 5 除了 DSL validation 外,还要对 Python 文件做静态检查。
+
+```python
+ALLOWED_IMPORTS = {
+    "pandas", "numpy", "math", "functools",
+    "itertools", "collections", "typing",
+}
+
+FORBIDDEN_CALLS = {
+    "open", "eval", "exec", "compile", "__import__",
+    "globals", "locals", "getattr", "setattr", "delattr",
+    "input", "breakpoint",
+}
+
+def validate_python_candidate(py_path: Path) -> None:
+    """静态 AST 检查 + import 扫描 + 签名契约,不执行 compute()"""
+    source = py_path.read_text()
+    tree = ast.parse(source)
+    
+    # 1. Import 白名单
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root not in ALLOWED_IMPORTS:
+                    raise ValueError(f"{py_path}: forbidden import: {alias.name}")
+        elif isinstance(node, ast.ImportFrom):
+            root = (node.module or "").split(".")[0]
+            if root not in ALLOWED_IMPORTS:
+                raise ValueError(f"{py_path}: forbidden import from: {node.module}")
+    
+    # 2. 禁用危险 builtins
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            if node.func.id in FORBIDDEN_CALLS:
+                raise ValueError(f"{py_path}: forbidden call: {node.func.id}")
+    
+    # 3. 签名契约(通过 import module 执行 top-level 代码获取常量)
+    spec = importlib.util.spec_from_file_location("_candidate", py_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    
+    # REQUIRED_FIELDS
+    assert hasattr(module, "REQUIRED_FIELDS"), f"{py_path}: missing REQUIRED_FIELDS"
+    assert isinstance(module.REQUIRED_FIELDS, list)
+    for f in module.REQUIRED_FIELDS:
+        assert f.startswith("$"), f"{py_path}: field must start with $"
+        assert f in DSL_FIELD_WHITELIST, f"{py_path}: forbidden field: {f}"
+    
+    # VECTORIZED 自声明
+    assert hasattr(module, "VECTORIZED"), f"{py_path}: missing VECTORIZED"
+    assert module.VECTORIZED is True, f"{py_path}: non-vectorized factor not allowed"
+    
+    # compute 签名
+    assert hasattr(module, "compute"), f"{py_path}: missing compute()"
+    sig = inspect.signature(module.compute)
+    assert list(sig.parameters.keys()) == ["market_df", "params"], \
+        f"{py_path}: compute() must have signature (market_df, params)"
+```
+
+### Python 因子的模板(LLM 必须遵守的签名)
+
+```python
+"""
+Factor: <name>
+Created: <batch_id>
+Rationale: <为什么这里必须用 Python 而不是 DSL,指向 lessons.md 的哪个场景>
+"""
+import pandas as pd
+import numpy as np
+
+# 必填:声明依赖的 market data 字段
+REQUIRED_FIELDS = ["$close", "$pe_ratio", "$pb_ratio", "$volume"]
+
+# 必填:自声明是否向量化(False 会被 reject)
+VECTORIZED = True
+
+# 可选:可配置参数,默认值
+PARAMS = {
+    "lookback_days": 80,
+    "top_pct": 0.2,
+}
+
+def compute(market_df: pd.DataFrame, params: dict) -> pd.Series:
+    """
+    Args:
+        market_df: MultiIndex (time, symbol) DataFrame,
+                   已经过 universe filter 和 tradability mask。
+                   columns 包含 REQUIRED_FIELDS。
+        params: PARAMS 的拷贝(可能被 config 覆盖)。
+    
+    Returns:
+        pd.Series indexed by (time, symbol),factor value。
+    
+    Constraints:
+        - 完全向量化:禁 `for` over rows/dates/symbols
+        - 只用 pandas/numpy/stdlib math
+        - 不访问 filesystem / network / subprocess
+        - 不使用全局 state
+        - 正确处理 NaN
+    """
+    # implementation ...
+    return result
+```
+
 ### Duplicate expression check(修 Q4)
 
 **防止同一表达式换 rationale 重投**。Phase 1 Step 5 的 DSL 验证后,还要检查:
@@ -432,39 +568,103 @@ def load_data():
 - 不调 DB 读 factor_values(用 factors/F*.yaml 的 signal_ref 指向的 parquet)
 - cache 不做 24h 自动失效,只在 `research cache refresh` CLI 触发时重建
 
-### Qlib 批量调用(修 Q12)
+### 批量计算 — DSL + Python 两路汇合(修 Q12 + R8)
 
 ```python
-def compute_all_factor_values(manifest):
+def compute_all_factor_values(manifest, market_df):
     factor_wide = {}
-    to_compute = []
+    dsl_to_compute = []      # DSL 候选
+    python_to_compute = []   # Python 候选
     
-    # 分离 cache hit / miss
+    # Step 1: 分离 cache hit / miss,按 source_type 分组
     for cand in manifest.candidates:
-        cache_key = hash(cand.expression + sample_policy_version)
+        if cand.source_type == "python":
+            py_path = resolve_python_ref(cand.python_ref)
+            cache_key = sha256(py_path.read_bytes() + sample_policy_version.encode())
+        else:
+            cache_key = sha256(
+                (cand.expression + sample_policy_version).encode()
+            )
+        
         path = f"cache/factor_values/{cache_key}.parquet"
         if exists(path):
             factor_wide[cand.candidate_id] = pd.read_parquet(path)
+            # 同时在 batch signals/ 建引用
+            symlink(path, f"batches/{batch_id}/signals/{cand.candidate_id}.parquet")
         else:
-            to_compute.append((cand.candidate_id, cand.expression))
+            if cand.source_type == "python":
+                python_to_compute.append((cand.candidate_id, py_path, cache_key))
+            else:
+                dsl_to_compute.append((cand.candidate_id, cand.expression, cache_key))
     
-    # 所有 cache miss 的 expression 一次 Qlib 调用
-    if to_compute:
-        expressions = [e for _, e in to_compute]
+    # Step 2: DSL 批量 — 一次 D.features() 调用所有 miss 的 expression
+    if dsl_to_compute:
+        expressions = [e for _, e, _ in dsl_to_compute]
         raw = D.features(
             instruments="all",
             fields=expressions,
             start_time=train_start,
             end_time=validation_end,   # 不加载 holdout 范围
         )
-        # 拆分 + 写 cache
-        for cid, expr in to_compute:
-            factor_wide[cid] = raw[expr]
-            cache_key = hash(expr + sample_policy_version)
-            raw[expr].to_parquet(f"cache/factor_values/{cache_key}.parquet")
+        for cid, expr, ckey in dsl_to_compute:
+            series = raw[expr]
+            factor_wide[cid] = series
+            series.to_parquet(f"cache/factor_values/{ckey}.parquet")
+            series.to_parquet(f"batches/{batch_id}/signals/{cid}.parquet")
+    
+    # Step 3: Python 逐个 — 每个 Python 因子独立 compute()
+    for cid, py_path, ckey in python_to_compute:
+        series = run_python_factor(py_path, market_df)
+        factor_wide[cid] = series
+        series.to_parquet(f"cache/factor_values/{ckey}.parquet")
+        series.to_parquet(f"batches/{batch_id}/signals/{cid}.parquet")
     
     return factor_wide
+
+
+def run_python_factor(py_path: Path, market_df: pd.DataFrame) -> pd.Series:
+    """加载并执行 Python 因子,带运行时契约检查"""
+    spec = importlib.util.spec_from_file_location("_factor", py_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    
+    # 切片:只给声明的字段
+    sliced = market_df[module.REQUIRED_FIELDS]
+    
+    # 参数
+    params = dict(module.PARAMS) if hasattr(module, "PARAMS") else {}
+    
+    # 计时(向量化的间接证据)
+    t0 = time.perf_counter()
+    result = module.compute(sliced, params)
+    elapsed = time.perf_counter() - t0
+    
+    # 运行时契约
+    assert isinstance(result, pd.Series), \
+        f"{py_path}: compute() must return pd.Series, got {type(result)}"
+    assert list(result.index.names) == ["time", "symbol"], \
+        f"{py_path}: wrong index: {result.index.names}"
+    assert len(result) > 0, f"{py_path}: empty result"
+    assert not result.index.duplicated().any(), \
+        f"{py_path}: duplicated index"
+    
+    # 向量化间接检测(软警告)
+    n_rows = len(sliced)
+    expected_max_seconds = max(1.0, n_rows * 1e-5)
+    if elapsed > expected_max_seconds:
+        logger.warning(
+            f"{py_path}: took {elapsed:.2f}s for {n_rows} rows, "
+            f"may not be properly vectorized(expected < {expected_max_seconds:.1f}s)"
+        )
+    
+    return result
 ```
+
+**说明**:
+- DSL 候选走批量 Qlib 调用,Python 候选逐个 import + 运行
+- 两路产出的 Series 汇合到同一个 `factor_wide` dict
+- 后续所有指标计算(IC / monotonicity / Barra / redundancy / feasibility)**完全不区分来源**
+- Cache 也统一:key 不同(expression hash vs file content hash),目录相同
 
 ### 预处理(应用 Q14-Q17 修正)
 
@@ -472,47 +672,222 @@ def compute_all_factor_values(manifest):
 
 #### 层 1 — Cache 构建层(一次性,写 parquet 时)
 
+这是 `research cache refresh market_daily` CLI 调用时执行的完整清洗。
+
+**注意**:老 `scripts/resync_qlib.py` 只复制数据不清洗,所有 tradability 逻辑**都没实现**。
+新 `cache refresh` CLI 必须补齐。
+
 ```python
 def rebuild_market_daily_cache():
-    """研究员手动触发 `research cache refresh market_daily` 时跑"""
-    raw = read_from_db("SELECT * FROM market_daily")
+    """从 DB 读原始数据,应用所有清洗,落盘到 cache/market_daily.parquet"""
     
-    # Universe filter(一次性)
-    raw = raw[~raw["symbol"].str.startswith("688")]   # 科创板
-    raw = raw[~raw["symbol"].str.startswith("8")]     # 北交所
-    raw = raw[~raw["symbol"].str.startswith("43")]    # 老三板
+    # Step 1: 从 DB 读(含 limit_up/limit_down)
+    raw = read_from_db("""
+        SELECT time, symbol, open, high, low, close, volume, amount,
+               limit_up, limit_down, adj_factor
+        FROM market_daily ORDER BY symbol, time
+    """)
     
-    # Tradability mask 作为列
-    raw["tradable"] = compute_tradable_mask(raw)
-    # tradable = False:
-    #   - volume == 0 持续 N 天(停牌)
-    #   - |pct_change| >= 0.099(涨跌停)
-    #   - ST / *ST 标记
-    #   - 上市未满 N 天
+    # Step 2: Symbol 前缀过滤(一次性,删除不在研究范围的)
+    raw = raw[~raw["symbol"].str.startswith("688")]    # 科创板
+    raw = raw[~raw["symbol"].str.startswith("8")]      # 北交所
+    raw = raw[~raw["symbol"].str.startswith("43")]     # 老三板
+    raw = raw[~raw["symbol"].str.startswith("9")]      # B 股
     
-    raw.to_parquet("cache/market_daily.parquet")
+    # Step 3: 构造 tradable mask 列(核心!)
+    raw["tradable"] = True
+    
+    # (a) 停牌:volume == 0(近似,DB 无 suspended 字段)
+    raw.loc[raw["volume"] == 0, "tradable"] = False
+    
+    # (b) 涨停:收盘 >= limit_up * 0.999
+    #     含义:t 日顶到涨停 → 次日 buy 不了 → factor 在 t 日该股不参与统计
+    raw.loc[raw["close"] >= raw["limit_up"] * 0.999, "tradable"] = False
+    
+    # (c) 跌停:收盘 <= limit_down * 1.001
+    raw.loc[raw["close"] <= raw["limit_down"] * 1.001, "tradable"] = False
+    
+    # (d) ST 过滤(需要 ref_stock_status 表,见下方"数据工程 TODO")
+    if table_exists("ref_stock_status"):
+        st = read_from_db("""
+            SELECT time, symbol FROM ref_stock_status 
+            WHERE is_st = TRUE
+        """)
+        raw = raw.merge(st.assign(_is_st=True), 
+                        on=["time", "symbol"], how="left")
+        raw.loc[raw["_is_st"] == True, "tradable"] = False
+        raw = raw.drop(columns="_is_st")
+    
+    # (e) 新股缓冲:上市 60 日内不参与(流动性不稳)
+    first_trade = raw.groupby("symbol")["time"].min()
+    raw = raw.merge(first_trade.rename("_first"), on="symbol")
+    raw["days_since_listing"] = (raw["time"] - raw["_first"]).dt.days
+    raw.loc[raw["days_since_listing"] < 60, "tradable"] = False
+    raw = raw.drop(columns=["_first", "days_since_listing"])
+    
+    # Step 4: 落盘
+    raw.to_parquet("storage/cache/market_daily.parquet")
 ```
+
+#### 数据工程 TODO(refactor_plan 之外)
+
+新系统 cache 清洗需要 DB 有以下字段,**目前缺失**,需要独立的数据工程任务补齐:
+
+| DB 表 | 字段 | 现状 | 需要 |
+|---|---|---|---|
+| `market_daily` | `limit_up`, `limit_down` | ✅ 已有 | — |
+| **`ref_stock_status`** | `time, symbol, is_st, is_suspended` | ❌ 不存在 | 新建表,从 RiceQuant/Tushare sync |
+| `market_daily` | `first_listing_date` | ❌ 不存在 | 新加列 OR 从 RiceQuant 拉 |
+| `ref_delisted` | `symbol, delist_date` | ❌ 不存在 | 新建表 |
+
+**一次性数据工程任务**(不属于 refactor 主线):
+1. 从 RiceQuant 拉取历史 ST 数据 → `ref_stock_status`
+2. 从 RiceQuant 拉取上市日期 → 新加 `market_daily.first_listing_date` 或单独表
+3. 退市股名单 → `ref_delisted`
+4. 建立日更新任务
+
+在这些数据到位**之前**,`cache refresh` 只做 (a)/(b)/(c)(volume + limit_up/down)+ 前缀过滤 + 新股缓冲(用 df.groupby 近似)。ST 和退市暂时不做。
+
+### Barra factor cache 的构建
+
+Plan 多次提到 "Barra 预计算存 `cache/barra_factors.parquet`",这里给具体实现。
+
+**7 个 Barra 因子定义**:
+
+| Barra factor | 定义 | 数据源 |
+|---|---|---|
+| `log_circ_cap` | `log(circ_market_cap)` | `ref_valuation.circ_market_cap` |
+| `book_to_price` | `1 / pb_ratio` | `ref_valuation.pb_ratio` |
+| `ep_ratio` | `1 / pe_ratio` | `ref_valuation.pe_ratio` |
+| `mom_12_1` | `close(t-21) / close(t-252) - 1`(skip 1 月,留 11 月动量) | `market_daily.close` |
+| `str_1m` | `close(t) / close(t-21) - 1`(1 月反转) | `market_daily.close` |
+| `vol_20d` | `std(daily_return, 20)` | `market_daily.close` |
+| `turnover_20d` | `mean(turnover_rate, 20)` | `ref_shares.turnover_rate` |
+
+**向量化构建脚本**(`research cache refresh barra_factors`):
+
+```python
+def build_barra_factors_cache():
+    # Step 1: 读市场数据(cache 层已清洗)
+    market_df = pd.read_parquet("storage/cache/market_daily.parquet")
+    
+    # Step 2: 读估值和换手数据(DB)
+    ref_val = read_from_db("""
+        SELECT time, symbol, market_cap, circ_market_cap, pe_ratio, pb_ratio
+        FROM ref_valuation
+    """)
+    ref_turn = read_from_db("SELECT time, symbol, turnover_rate FROM ref_shares")
+    
+    # Step 3: Join + pivot 成 wide matrices (time × symbol)
+    df = (market_df
+          .merge(ref_val, on=["time", "symbol"], how="left")
+          .merge(ref_turn, on=["time", "symbol"], how="left"))
+    
+    def to_wide(col):
+        return df.pivot(index="time", columns="symbol", values=col)
+    
+    close = to_wide("close")
+    circ_cap = to_wide("circ_market_cap")
+    pb = to_wide("pb_ratio")
+    pe = to_wide("pe_ratio")
+    turnover = to_wide("turnover_rate")
+    
+    # Step 4: 纯矩阵运算,7 个因子一次算完
+    barra = {}
+    barra["log_circ_cap"] = np.log(circ_cap)
+    barra["book_to_price"] = 1.0 / pb
+    barra["ep_ratio"] = 1.0 / pe
+    barra["mom_12_1"] = close.shift(21) / close.shift(252) - 1.0
+    barra["str_1m"] = close / close.shift(21) - 1.0
+    daily_ret = close.pct_change()
+    barra["vol_20d"] = daily_ret.rolling(20).std()
+    barra["turnover_20d"] = turnover.rolling(20).mean()
+    
+    # Step 5: 堆叠成 long format + factor 列,落盘
+    long_frames = []
+    for name, wide in barra.items():
+        long = wide.stack().rename("value").reset_index()
+        long["barra_factor"] = name
+        long_frames.append(long)
+    barra_long = pd.concat(long_frames, ignore_index=True)
+    barra_long.to_parquet("storage/cache/barra_factors.parquet")
+```
+
+**成本**:单次构建 ~30s。手动刷新,服务所有后续 batch,均摊成本 ≈ 0。
+
+**Phase 2 加载**:
+```python
+def load_barra_factors_wide() -> dict[str, pd.DataFrame]:
+    barra_long = pd.read_parquet("storage/cache/barra_factors.parquet")
+    return {
+        name: barra_long[barra_long["barra_factor"] == name]
+                       .pivot(index="time", columns="symbol", values="value")
+        for name in ["log_circ_cap", "book_to_price", "ep_ratio",
+                     "mom_12_1", "str_1m", "vol_20d", "turnover_20d"]
+    }
+```
+
+返回 wide matrices dict,供后续 Barra 残差 IC 的 einsum 批量回归使用。
 
 #### 层 2 — Phase 2 计算层(每次 execute 都跑)
 
+**不要用 `groupby.transform`**。那只是隐式 for-loop over dates,不是真向量化。
+正确做法:long → wide pivot,对整个 matrix 做 row-wise numpy 批量运算,再 wide → long。
+
 ```python
-def preprocess_factor(factor_df, market_df):
-    # 1. Tradability mask:不可交易日 factor value 设 NaN
-    mask = market_df["tradable"]
-    factor_df = factor_df.where(mask, np.nan)
+def preprocess_factor(factor_long: pd.Series, tradable_mask: pd.Series) -> pd.Series:
+    """
+    完全矩阵向量化的预处理:winsorize + zscore。
+    对整个 (n_dates × n_symbols) matrix 一次性操作,不按日期 groupby。
     
-    # 2. Winsorize MAD 5(cross-sectional,每日)
-    factor_df = factor_df.groupby(level="time").transform(winsorize_mad_5)
+    Args:
+        factor_long: MultiIndex (time, symbol) 的 Series
+        tradable_mask: 同 index,True = 可交易
     
-    # 3. Z-score(cross-sectional,每日)
-    factor_df = factor_df.groupby(level="time").transform(zscore)
+    Returns:
+        preprocessed Series(同 index)
+    """
+    # Step 1: 应用 tradable mask(不可交易日 → NaN)
+    factor_long = factor_long.where(tradable_mask, np.nan)
     
-    # 4. 中性化:默认关闭
-    #    理由:CP04 Risk Cleanness 已做 Barra 残差事后检验,
-    #    预先中性化会吃掉原始信号,让事后检验失效
+    # Step 2: Long → Wide (time × symbol)
+    factor_wide = factor_long.unstack(level="symbol")
+    # factor_wide.shape = (n_dates, n_symbols)
     
-    return factor_df
+    # Step 3: Winsorize MAD 5 — 纯矩阵运算
+    #   对每行算 median 和 MAD,然后 clip
+    row_median = factor_wide.median(axis=1, skipna=True)           # (n_dates,)
+    abs_dev = factor_wide.sub(row_median, axis=0).abs()
+    mad = abs_dev.median(axis=1, skipna=True)                      # (n_dates,)
+    
+    # MAD → approximate std(1.4826 是正态分布下的换算系数)
+    scale = config["preprocess"]["winsorize_mad_scale"]            # 1.4826
+    k = config["preprocess"]["winsorize_mad_k"]                    # 5
+    upper = row_median + k * mad * scale                           # (n_dates,)
+    lower = row_median - k * mad * scale
+    
+    factor_wide = factor_wide.clip(lower=lower, upper=upper, axis=0)
+    
+    # Step 4: Z-score — 纯矩阵运算
+    row_mean = factor_wide.mean(axis=1, skipna=True)               # (n_dates,)
+    row_std  = factor_wide.std(axis=1, skipna=True, ddof=0)        # (n_dates,)
+    factor_wide = factor_wide.sub(row_mean, axis=0).div(row_std, axis=0)
+    
+    # Step 5: 中性化:默认关闭(R8 + 第 6 节说明)
+    # 理由:CP04 Risk Cleanness 事后 Barra 检验更严格,预先中性化会吃掉原始信号
+    
+    # Step 6: Wide → Long(下游需要 MultiIndex 格式)
+    return factor_wide.stack(dropna=False)
 ```
+
+**为什么这是真向量化**:
+- `factor_wide.median(axis=1)` 是 pandas 内部 C 实现,一次算所有 row 的 median
+- `factor_wide.sub(row_median, axis=0)` 是 broadcasting,没有 for loop
+- `factor_wide.clip(lower=lower, upper=upper, axis=0)` 也是 broadcasting
+- 整个预处理对 (2000 dates × 5000 symbols) 矩阵耗时 < 1s
+- 对比 `groupby.transform`:2000 次 per-group apply,每次 ~1ms,累计 ~2s
+
+**唯一的代价**:内存需要完整的 wide matrix。(2000 × 5000 × 8 bytes = 80 MB),可接受。
 
 ### 指标计算(全部向量化)
 
@@ -547,23 +922,168 @@ LLM 对每个 candidate 做 6 个 checkpoint 的结构化判决,写 `judge.md`�
 
 ```
 Step 1  Python: 跑 hard gates(CP01),标记 fatal reject
-Step 2  Python: Pre-pack candidate_packet.md
+Step 2  Python: 扫 batches/ 算多重检验预算(见 §7.MT)
+Step 3  Python: Pre-pack candidate_packet.md
          - 从 result.yaml 摘指标
          - 从 direction.md 摘 Hypothesis + relevant thread
          - 从 lessons.md 摘 structural constraints
          - 从 factors/F{nearest}.md 摘最相近因子 summary
          - 附上 Python 的 numeric_hint per checkpoint
-Step 3  LLM: 读 _packets/judge_packet.md,写 judge.md
+           (CP03 的 hint 强制包含 mt_bucket + adjusted_strength)
+Step 4  LLM: 读 _packets/judge_packet.md,写 judge.md
          - frontmatter: structured verdicts, positions, references
          - body: 6 CP × N candidates 的深度 reasoning
-Step 4  Python: audit judge.md
+Step 5  Python: audit judge.md
          - schema check
          - 章节存在 check
          - reference 真实性 check (grep)
          - hard gate 不可 override check
+         - CP03 body 必须显式引用 mt_bucket(防视而不见)
          - 若 fail:raise,LLM 重写
-Step 5  Python: 清理 _packets(可选保留 debug)
+Step 6  Python: 清理 _packets(可选保留 debug)
 ```
+
+### 7.MT Pre-pack 阶段的派生统计(多重检验预算)
+
+**问题**。102 个 batch × ~6 candidate ≈ 600 次在同一 validation 窗口上的独立
+检验。α=0.05 时纯随机也能见到 ~30 个"显著"因子。没有分母,CP03 的
+"Bonferroni 校正"就是一句空话,ICIR=0.25 的 borderline 信号会被长期当强信号
+admit,录取门槛随系统运行时间漂移。
+
+**为什么要写在 plan 里单独一节**。老系统 `ledger.yaml::batch_usage` 想做这件
+事,但写入通道和消费通道从来没连起来——`src/research/stats/multiple_testing.py`
+里的 `compute_multiple_testing_risk()` 定义了却没人调,
+`src/research/execute/compute_implementations.py:357` 直接硬编码 `"low"`。
+refactor 删除 ledger 是对的,但如果不明确替代方案,这个 bug 会被新架构原样继承
+(见 docs/walkthrough_qa.md Q2)。
+
+**替代方案的核心洞察**。多重检验的三个 counter 都是 `storage/batches/` 目录
+的纯函数,不需要任何新的持久化状态——git 里已经有全部数据。把它做成 Phase 3
+pre-pack 的强制步骤即可,完全符合"git 即 audit log"的主哲学。
+
+#### 接口
+
+```python
+# src/research/stats/mt_budget.py
+
+def scan_batches_for_mt(
+    batches_dir: Path,
+    current_batch_id: str,
+    current_direction: str,
+    sample_policy_version: str,
+) -> dict:
+    """扫 batches/ 算多重检验 counter。纯函数,无副作用。
+
+    Returns:
+        {
+            "cumulative_candidates": int,   # 所有已 judged batch 累计 candidate 数
+            "direction_candidates": int,    # 同 direction 历史 candidate 数
+            "validation_exposure": int,     # 当前 sample_policy_version 下
+                                            # 被使用过的 batch 数(换 policy 重置)
+            "n_batches_scanned": int,       # debug 用
+        }
+    """
+    entries = []
+    for manifest_path in sorted(batches_dir.glob("batch_*/manifest.yaml")):
+        m = yaml.safe_load(manifest_path.read_text())
+        # 只数"已 judged"的 batch(避免把本轮自己算进去)
+        if m["batch_id"] >= current_batch_id:
+            continue
+        # judge.md 存在才算完整一轮检验
+        if not (manifest_path.parent / "judge.md").exists():
+            continue
+        entries.append(m)
+
+    cum = sum(len(m["candidates"]) for m in entries)
+    per_dir = sum(
+        len(m["candidates"])
+        for m in entries
+        if m.get("direction") == current_direction
+    )
+    val_exp = sum(
+        1 for m in entries
+        if m.get("sample_policy_version") == sample_policy_version
+    )
+    return {
+        "cumulative_candidates": cum,
+        "direction_candidates": per_dir,
+        "validation_exposure": val_exp,
+        "n_batches_scanned": len(entries),
+    }
+
+
+def compute_mt_budget(counts: dict) -> dict:
+    """包 compute_multiple_testing_risk + search_adjusted_strength,
+    返回可直接塞进 numeric_hint 的 dict。
+
+    Formula(沿用 src/research/stats/multiple_testing.py,常数按新粒度标定):
+        mt_score = 0.50 * clip(log1p(cumulative) / log(600), 0, 1)
+                 + 0.30 * clip(log1p(direction)  / log(80),  0, 1)
+                 + 0.20 * clip(validation_exposure / 40,     0, 1)
+
+        bucket:  score < 0.40 → low
+                 score ≤ 0.70 → medium
+                 else         → high
+    """
+    # 注:老公式 log(25)/log(60)/12 是 logic-attempt / family-attempt 粒度。
+    # 新粒度(candidate / direction)数量级高一个档,所以常数写进
+    # config.yaml.thresholds.mt_budget(§10),首次 PR 里用 batch_001-102 回拟。
+    ...
+```
+
+**所有常量都在 `config.yaml.thresholds.mt_budget`**(见 §10),包括 600/80/40 的
+scale,3 个 weight,和 low/medium bucket 分界线。禁止在 Python 代码里硬编码。
+
+#### CP03 的 numeric_hint 必包字段
+
+```yaml
+# 每个 candidate 的 numeric_hint.CP03
+CP03:
+  ic_mean_validation: 0.016
+  ic_ir_validation: 0.338
+  ls_tstat: 3.89
+  # ↓ 新增 4 个字段
+  mt_score: 0.52                 # 0-1 连续
+  mt_bucket: medium              # low / medium / high
+  search_adjusted_strength: 0.41 # raw * (1 - 0.5 * mt_score)
+  mt_breakdown:
+    cumulative_candidates: 612
+    direction_candidates: 47
+    validation_exposure: 102
+```
+
+LLM 在 CP03 body 必须显式引用 `mt_bucket` 值;audit_judge_md 对 CP03 段
+加一条 grep 检查 `assert "mt_bucket" in cp03_section`,漏写就 raise
+让 LLM 重写。
+
+#### 三条硬约束
+
+1. **mt 预算由 Python 算,LLM 不能 override**。LLM 只能在 CP03 body 里
+   解释"我看到 mt=medium,因此即便 ICIR=0.25 看似不弱,我给 borderline 而
+   不是 strong"这类推理,但不能修改 mt_bucket 本身。
+2. **sample_policy_version 变更 → validation_exposure 清零**。这是唯一
+   合法的"重置预算"路径,必须在 config.yaml 里升版号(例如 `v3` → `v4`),
+   git 历史可查。LLM 不能擅自重置。
+3. **扫描范围只到"已 judged 的 batch"**,不含 current batch 自身的其他
+   candidate(避免 self-correction 的数值循环,也避免 designed 但没跑完的
+   batch 被重复计入)。
+
+#### 为什么不放 state.yaml
+
+- state.yaml 的职责是"当前系统处于哪个状态"(轮次、phase、last_batch 等),
+  不是"历史累计计数"。把派生量塞进 state.yaml 会污染状态语义,并引入
+  finalize-batch 的原子写负担。
+- git 里已经有 batches/ 全部历史,扫描成本 O(100) 个小 yaml 文件,毫秒级。
+  加一层缓存都不值。
+- 派生量每次 pre-pack 现算,和 R3(单一数据源)+ R4(不重复计算)并不冲突
+  ——R4 说的是"不要在单次流程里重复计算",跨流程按需派生是允许的。
+
+#### 手工复盘入口
+
+新增 CLI `research audit mt-budget`(见 §14),打印当前 cumulative /
+direction / validation_exposure 以及预测下一个 batch 的 mt_bucket,供
+人工 sanity check 和发现"某个 direction 快到硬门槛了该换方向"之类的
+宏观信号。
 
 ### 6 个 Checkpoint
 
@@ -571,7 +1091,7 @@ Step 5  Python: 清理 _packets(可选保留 debug)
 |---|---|---|---|
 | **CP01** | Hard Gates | Python(LLM 无权 override)| sign_flip / coverage / forbidden field/op / sample_policy violation / compute_error |
 | **CP02** | Mechanism Alignment | LLM | expression 是否对应 direction.hypothesis |
-| **CP03** | Statistical Strength | LLM(Python hint)| IC / ICIR / Bonferroni 校正 |
+| **CP03** | Statistical Strength | LLM(Python hint)| IC / ICIR / Bonferroni 校正(分母见 §7.MT) |
 | **CP04** | Risk Cleanness | LLM(Python hint)| Barra residual / style_r2 / alpha_survival |
 | **CP05** | Redundancy | LLM(Python hint)| max_lib_corr / nearest factor |
 | **CP06** | Validation Stability | LLM(Python hint)| split_stability + expanding_window(**不是 holdout!**)|
@@ -639,7 +1159,10 @@ All pass.
 的"基本面改善 × 便宜估值"双元素。
 
 ### CP03 Statistical Strength → **strong**
-ICIR_val = ==0.338==, ls_tstat = 3.89...
+ICIR_val = ==0.338==, ls_tstat = 3.89。
+`mt_bucket = medium`(cumulative_candidates=612 / direction_candidates=47 /
+validation_exposure=102);search-adjusted strength = 0.41 仍落在 strong 档的
+下界之上,因此即便扣掉多重检验折扣,本候选的统计强度仍可判 strong。
 
 ### CP04 Risk Cleanness → **acceptable** (override from borderline)
 
@@ -703,6 +1226,16 @@ def audit_judge_md(path):
     for cand in fm["candidates"]:
         for ref in cand.get("referenced_context", []):
             assert ref in packet_refs
+
+    # 6. CP03 body 必须显式引用 mt_bucket(见 §7.MT)
+    #    防止 LLM 看到 numeric_hint 但在 reasoning 里视而不见
+    for cand in fm["candidates"]:
+        if cand["verdict"] == "reject":
+            continue  # reject 只要求 CP01
+        section = extract_h2(body, cand["candidate_id"])
+        cp03 = extract_h3(section, "CP03")
+        assert "mt_bucket" in cp03, \
+            f"{cand['candidate_id']}: CP03 must cite mt_bucket"
 ```
 
 不做**语义检查** — LLM 的 reasoning 写得对不对由 LLM 的直觉负责,Python 只防漏答和造假。
@@ -745,12 +1278,29 @@ Step 5  Python(阻塞): 主 commit
           - 不含 factor.md(后台生成,独立 commit)
 ```
 
+### Python 因子归档(R8 补充)
+
+Step 1 归档时,如果 candidate 是 `source_type: python`,额外做:
+
+```python
+def archive_python_factor(candidate, new_factor_id):
+    src = Path(f"batches/{batch_id}/python_candidates/{candidate.candidate_id}.py")
+    dst = Path(f"python_factors/{new_factor_id}_{factor_name}.py")
+    shutil.copy(src, dst)
+    # factor.yaml 里记录 python_ref 指向 dst(相对于 storage/)
+```
+
+DSL 因子没有这一步(expression 字符串直接在 factor.yaml 里)。
+
 ### `factor.yaml` schema
 
 ```yaml
 factor_id: F020
 name: triple_product_80d_pb
+source_type: dsl                          # dsl | python
 expression: "Mul(Mul(CsRank(...)),CsRank(Mul($pb_ratio,-1)))"
+# 如果 source_type=python,没有 expression,改为:
+# python_ref: python_factors/F022_shadow_kalman_v2.py
 
 direction: fundamental_price_divergence
 family_tag: fundamental_value_catalyst    # 字符串,无 registry
@@ -1067,28 +1617,70 @@ sample_policy:
   validation_range: [2022-01-01, 2023-12-31]
   holdout_range: [2024-01-01, 2024-12-31]   # 只 research holdout-review 用
 
+universes:
+  primary: csi1000                          # 判决基准 — CP01-CP06 只看这个
+  reference:                                # 参考 universe — 对比 context,不影响 admit
+    - csi300
+    - csi500
+    - all                                   # 全市场(所有 tradable symbols)
+
 evaluation:
-  primary_horizon: 5                  # 主评估期,所有 IC/ICIR/LS 用 t+1 到 t+5 累计收益
-  decay_horizons: [1, 3, 5, 10, 20]   # IC decay 曲线的 horizon 列表
+  # 每个 horizon 都做完整 metrics(effect / mono / risk / ls_tstat),给 LLM 看多状态
+  horizons: [1, 5, 10]                # 完整 metrics 的 horizon 列表
+  primary_horizon: 5                  # 判决基准 — CP01-CP06 只看 h5 的 metrics
+  
+  # IC decay 曲线(更细的 horizon 序列,只产出 ic 数字,不是完整 metrics)
+  decay_horizons: [1, 3, 5, 10, 20, 30]
+  
   quintile_bins: 5
 
 preprocess:
   winsorize_mad_k: 5
+  winsorize_mad_scale: 1.4826        # MAD → std 近似系数(正态分布)
   zscore: true
-  neutralize: false   # 默认关,Barra 事后检验足够
+  neutralize: false                  # 默认关,Barra 事后检验足够
+  
+  tradability:
+    volume_zero_means_suspended: true
+    limit_up_tolerance: 0.999        # close >= limit_up * 0.999 → 涨停
+    limit_down_tolerance: 1.001      # close <= limit_down * 1.001 → 跌停
+    new_stock_buffer_days: 60        # 上市未满此日不参与评估
 
 thresholds:
   # CP03 Statistical Strength
-  icir_strong: 0.30
+  icir_strong: 0.30                  # primary horizon ICIR 阈值(raw,未 search-adjusted)
   icir_weak: 0.15
+  # Bonferroni / multiple testing 不在这里配置!
+  # 完整方案见 §7.MT,由 compute_mt_budget() 从 git batches/ 扫出
+  # log1p 加权公式的常量:
+  mt_budget:
+    cumulative_scale: 600            # log(600),累计 candidate 数的归一化
+    direction_scale: 80              # log(80),单 direction 内累计
+    validation_exposure_scale: 40    # 线性,当前 sample_policy 下被复用的 batch 数
+    weight_cumulative: 0.50
+    weight_direction: 0.30
+    weight_validation_exposure: 0.20
+    bucket_low_max: 0.40             # mt_score < 0.40 → low
+    bucket_medium_max: 0.70          # 0.40 ≤ mt_score ≤ 0.70 → medium
+    search_adjusted_factor: 0.5      # search_adjusted_strength = raw * (1 - 0.5 * mt_score)
+  
   # CP04 Risk Cleanness
   style_r2_acceptable: 0.08
   style_r2_poor: 0.12
   alpha_surv_min: 0.60
+  barra_residual_icir_min: 0.10      # 残差 ICIR 正值门槛
+  
   # CP05 Redundancy
-  max_lib_corr_low: 0.30
-  max_lib_corr_high: 0.70
-  # ...
+  max_lib_corr_low: 0.30             # < low → 完全独立
+  max_lib_corr_high: 0.70            # > high → 近重复,reject
+  
+  # CP06 Validation Stability
+  expanding_window_ic_stability_good: 0.75
+  expanding_window_ic_stability_poor: 0.40
+  
+  # Feasibility(不按 horizon 分)
+  coverage_min: 0.80                 # factor value 覆盖率
+  half_life_max: 25.0                # 自相关推导的半衰期上限(日)
 
 consolidation:
   auto_triggers:
@@ -1118,7 +1710,9 @@ active_threads_referenced: [T002]
 sample_policy: {...from config snapshot...}
 
 candidates:
+  # DSL 候选(default 路径)
   - candidate_id: C001
+    source_type: dsl
     expression: "Mul(Mul(CsRank(Sub(...80d...)),CsRank(...80d...)),CsRank(Mul($pb_ratio,-1)))"
     rationale: |
       80d lookback 版本的 triple product。60d 版本(batch_102 C004)
@@ -1126,6 +1720,17 @@ candidates:
     parent_batch: batch_102
     parent_candidate_id: C004
     transformation: "extend_lookback_60d_to_80d"
+  
+  # Python 候选(escape hatch)
+  - candidate_id: C003
+    source_type: python
+    python_ref: python_candidates/C003.py    # 相对于 batches/batch_103/
+    dependencies: ["$close", "$pe_ratio", "$pb_ratio"]   # 冗余声明(与 .py 里的 REQUIRED_FIELDS 必须一致)
+    rationale: |
+      多步 conditional rerank: 先按 EPS change 过滤 top 20%,再在子集内按 PB rerank。
+      DSL 无法表达 "先 filter 再 rerank" 的两阶段 pipeline(If 只能对每行独立条件)。
+      引用 lessons.md#Path Selection 场景 3(多步条件 pipeline)。
+
   - candidate_id: C002
     ...
 
@@ -1145,59 +1750,118 @@ sample_policy:
 
 candidate_results:
   - candidate_id: C001
+    source_type: dsl                   # dsl | python
     expression: "..."
     signal_ref: batches/batch_103/signals/C001.parquet
-    compute_error: null     # 或 "qlib parse failed: ..." / ...
+    compute_error: null
 
-    effect:
-      ic_mean_train: 0.041
-      ic_mean_validation: 0.046
-      ic_ir_train: 0.453
-      ic_ir_validation: 0.338
-      ic_win_rate_validation: 0.607
-      ls_tstat: 3.89
+    primary_horizon: 5                 # 判决基准
+    primary_universe: csi1000
 
-    monotonicity:
-      validation: 1.0
-
-    risk:
-      alpha_survival_ratio: 0.691
-      barra_residual_ic: 0.032
-      barra_residual_icir: 0.251
-      style_r_squared: 0.100
-      dominant_style: ep_ratio
-      style_exposures:
-        ep_ratio: 0.232
-        book_to_price: 0.045
-        ...
-
+    # === 不依赖 forward return 的字段(只算一次,不按 horizon 分)===
     redundancy:
       max_lib_corr: 0.076
       nearest_factor_id: F005
-
-    feasibility:
-      coverage: 0.976
-      half_life: 5.0
-      turnover: 0.029
-
-    stability:
+      second_nearest: {factor_id: F009, corr: 0.043}
+    
+    feasibility_static:
+      coverage: 0.976                  # factor value 覆盖率(和 horizon 无关)
+      half_life_autocorr: 5.0          # 从 factor value 自相关推导
+    
+    stability_meta:                    # 单 horizon 的稳定性(取 primary)
       split_stability: good
       expanding_window_pass: true
       expanding_window_ic_stability: 0.87
 
-    # 按年/月聚合的衍生分析(Q46 选项 B)
+    # === Per-horizon × primary universe:完整 metrics(CP01-CP06 判决基础)===
+    per_horizon:
+      h1:
+        effect:
+          ic_mean_train: 0.029
+          ic_mean_validation: 0.024
+          ic_ir_train: 0.312
+          ic_ir_validation: 0.198
+          ic_win_rate_validation: 0.542
+          ls_tstat: 2.15
+        monotonicity:
+          validation: 0.7
+        risk:
+          alpha_survival_ratio: 0.412
+          barra_residual_ic: 0.011
+          barra_residual_icir: 0.089
+          style_r_squared: 0.087
+          dominant_style: str_1m
+        feasibility_turnover: 0.18     # 短期因子换手高
+      
+      h5:                              # ← primary_horizon
+        effect:
+          ic_mean_train: 0.041
+          ic_mean_validation: 0.046
+          ic_ir_train: 0.453
+          ic_ir_validation: 0.338
+          ic_win_rate_validation: 0.607
+          ls_tstat: 3.89
+        monotonicity:
+          validation: 1.0
+        risk:
+          alpha_survival_ratio: 0.691
+          barra_residual_ic: 0.032
+          barra_residual_icir: 0.251
+          style_r_squared: 0.100
+          dominant_style: ep_ratio
+          style_exposures:
+            ep_ratio: 0.232
+            book_to_price: 0.045
+            ...
+        feasibility_turnover: 0.029
+      
+      h10:
+        effect:
+          ic_mean_validation: 0.051
+          ic_ir_validation: 0.312
+          ls_tstat: 3.48
+        monotonicity:
+          validation: 0.9
+        risk:
+          alpha_survival_ratio: 0.704
+          barra_residual_icir: 0.212
+          style_r_squared: 0.095
+        feasibility_turnover: 0.011
+
+    # === Derived analytics(只对 primary horizon 做,按年月聚合)===
     derived_analytics:
       ic_yearly:
         - {year: 2015, ic_mean: 0.082, ic_std: 0.14, ic_ir: 0.58}
         - {year: 2016, ic_mean: 0.031, ...}
       quintile_by_year:
         - {year: 2015, Q1: 0.174, Q2: 0.096, Q3: 0.078, Q4: 0.046, Q5: 0.004}
-      ic_decay_by_horizon:
-        - {h: 1, ic: 0.041}
-        - {h: 5, ic: 0.036}
-        - {h: 20, ic: 0.015}
+      ic_decay_by_horizon:                # 细粒度 decay 曲线
+        - {h: 1, ic: 0.024}
+        - {h: 3, ic: 0.041}
+        - {h: 5, ic: 0.046}
+        - {h: 10, ic: 0.051}
+        - {h: 20, ic: 0.036}
+        - {h: 30, ic: 0.022}
     
-    # 绝对没有 holdout 字段
+    # === Reference universes × primary horizon:lite metrics(对比用)===
+    universe_comparison:
+      csi300:
+        h5:
+          ic_ir_validation: 0.412
+          ls_tstat: 4.21
+          mono_validation: 1.0
+      csi500:
+        h5:
+          ic_ir_validation: 0.287
+          ls_tstat: 2.98
+          mono_validation: 0.8
+      all:
+        h5:
+          ic_ir_validation: 0.198
+          ls_tstat: 2.34
+          mono_validation: 0.6
+    
+    # 绝对没有 holdout 字段(Q18 + holdout 隔离)
 ```
 
 ### `direction.md`(Rule A frontmatter + Rule B body)
@@ -1302,6 +1966,98 @@ Rejected: C002 (weak), C005 (style contamination).
   (half_life < 3d)要警惕:t 日涨停导致的价格 overshoot 可能污染 t+1 的 IC。
   建议:短期因子应该在 rationale 里说明是否已考虑此问题。
 
+## Path Selection: DSL vs Python
+
+> ⚠️ **LLM 在 Phase 1 DESIGN 时必读本节**。用于自主判断每个候选是用 DSL 还是 Python。
+
+### 默认规则
+**DSL 是 default。Python 是 escape hatch**。写候选时先假设用 DSL,只在确认 DSL 无法表达时才用 Python。
+
+### 决策流程(LLM 必须按顺序过这 4 步)
+
+```
+Step 1  我想做什么(机制层面)?
+        ↓
+Step 2  DSL 的算子能直接表达吗?
+        (Mean/Std/Corr/Cov/Sub/Div/Mul/Add/Ref/CsRank/CsZscore/
+         TsRank/TsMax/TsMin/Rank/Delta/Log/If/Less/Greater/
+         IdxMax/IdxMin/TsAutoCorr/Abs/Power/Sign)
+        → 能 → 用 DSL ✅
+        → 不能 → Step 3
+        ↓
+Step 3  通过 DSL 算子的组合(即使表达式很长)能表达吗?
+        → 能 → 用 DSL ✅(写长一点无妨,比 Python 安全)
+        → 不能 → Step 4
+        ↓
+Step 4  属于下面 5 类"真必须 Python"的场景吗?
+        → 是 → 用 Python ✅
+        → 否 → 回到 Step 1 重想,可能漏了 DSL 方案
+```
+
+### 必须用 Python 的 5 类场景
+
+**场景 1 — 多步条件 pipeline**
+先按 X 过滤 top/bottom N%,再在过滤后的子集里按 Y rank,再用 Z 加权。
+- DSL 的 `If(cond, a, b)` 只能对每行独立条件,不能做"先选 top-K 再 rank"的两阶段
+- 例子:"先按 EPS change 选 top 20%,再在这 20% 里按 PB rerank"
+
+**场景 2 — 迭代状态**
+需要跨时间传递状态的算法。
+- EMA 自适应 decay(decay rate 动态调整)
+- Kalman filter(状态递推)
+- Online regression(滚动更新系数)
+- DSL 没有 state-passing 机制,Mean/Std 都是 window-based 的无状态计算
+
+**场景 3 — 跨 asset 聚合**
+需要在 symbol 之间做非 rank-based 的复杂聚合。
+- "Top 50 市值股的平均 EPS 作为基准,再让每个 symbol 减掉它"
+- Sector-level 聚合再 broadcast 回 symbol
+- DSL 的 CsRank 是 rank-based 的,没有 top-N selection 的语义
+
+**场景 4 — 复杂数学变换**
+需要矩阵/线性代数运算。
+- FFT,PCA,eigenvalue decomposition
+- 回归残差(非 Barra 的自定义回归)
+- DSL 没有矩阵运算
+
+**场景 5 — Legacy 复杂因子**
+某些 Alpha101 公式包含复杂 conditional,无法纯 DSL 表达。
+- alpha005 / alpha033 / alpha043 等
+- 如果是直接移植老代码,允许用 Python
+
+### Red Flags — 不允许用 Python 的理由
+
+这些**不是**用 Python 的正当理由,看到就要回到 DSL:
+
+- ❌ "Python 写起来更方便"
+- ❌ "我对 DSL 不熟"
+- ❌ "这样更灵活"
+- ❌ "DSL 表达式太长"(长没关系,长过 MAX_EXPRESSION_DEPTH=10 才是问题)
+- ❌ "我想用某个 pandas 的特殊方法"(大多数有 DSL 等价)
+
+### 看起来需要 Python 但 DSL 其实能做的反例
+
+| 看起来需要 Python | 实际用 DSL |
+|---|---|
+| Rolling correlation | `Corr(x, y, window)` |
+| Rolling rank | `TsRank(x, window)` |
+| Cross-sectional z-score | `CsZscore(x)` |
+| Conditional factor("if A then B else 0") | `Mul(f, If(cond, 1, 0))` |
+| EMA(近似) | `Mean(x, window)` |
+| Lagged value | `Ref(x, lag)` |
+| Absolute change | `Sub(x, Ref(x, lag))` |
+| Percentage change | `Div(Sub(x, Ref(x, lag)), Ref(x, lag))` |
+| 自相关 | `TsAutoCorr(x, lag)` |
+
+### Python 因子的硬约束
+
+如果最终用 Python:
+- **完全向量化**:禁 `for` over rows/dates/symbols
+- **Imports 白名单**:只允许 `pandas`, `numpy`, `math`, `functools`, `itertools`, `collections`, `typing`
+- **禁危险 builtins**:`open`, `eval`, `exec`, `compile`, `__import__`, `getattr`, `setattr`
+- **签名契约**:必须有 `REQUIRED_FIELDS: list[str]`, `VECTORIZED = True`, `compute(market_df, params) -> pd.Series`
+- **不访问外部状态**:无 filesystem / network / subprocess / 全局变量
+
 ## Structural Constraints (A-share)
 - **No short-side alpha**: Factor alpha 必须来自 Q1(long),不能依赖 Q5 空头
 - **No market-cap proxy**: 拒绝 abs(corr) > 0.3 to `$market_cap` / `$circ_market_cap`
@@ -1404,6 +2160,132 @@ for h in horizons: compute_decay(h)
 | Redundancy(vs library)| `factor_wide.corrwith(library_wide, method="spearman")` batch |
 | Barra OLS(252 日)| `np.linalg.pinv` + `np.einsum` 批量 3D tensor |
 | Feasibility(coverage/turnover/half_life)| `groupby + agg` 批量 |
+
+#### 多 universe 评估("算一次,切多次")
+
+**核心原则**:factor value 在**全市场**算一次,指标统计按不同 universe 分别做。**不增加计算成本的 bottleneck**(factor value 和 market load 只一次)。
+
+```python
+def compute_metrics_multi_universe(factor_tensor, returns, barra_df, config):
+    universes = config["universes"]
+    primary = universes["primary"]                # csi1000
+    references = universes.get("reference", [])   # [csi300, csi500, all]
+    
+    # 一次性加载所有 universe 的成分股 mask(从 DB index_constituents 读)
+    masks = {}
+    for uname in [primary] + references:
+        masks[uname] = load_universe_mask(uname)   # (time × symbol) bool,None 表示全市场
+    
+    result = {}
+    
+    # Primary universe:full metrics(含 Barra)
+    result["primary"] = compute_full_metrics(
+        factor_tensor, returns, barra_df,
+        universe_mask=masks[primary],
+    )
+    
+    # Reference universe:lite metrics(只 IC/mono/ls_tstat,不算 Barra 省时间)
+    result["reference"] = {}
+    for ref_uname in references:
+        result["reference"][ref_uname] = compute_lite_metrics(
+            factor_tensor, returns,
+            universe_mask=masks[ref_uname],
+        )
+    
+    return result
+
+
+def apply_universe_mask(factor_tensor, mask):
+    """把非 universe 内的 symbol 设 NaN,vectorized groupby 会自动忽略 NaN"""
+    if mask is None:
+        return factor_tensor
+    return factor_tensor.where(mask, np.nan)
+
+
+def compute_lite_metrics(factor_tensor, returns, universe_mask):
+    """简化版,只算核心统计,不做 Barra 回归"""
+    masked = apply_universe_mask(factor_tensor, universe_mask)
+    return {
+        "ic_ir_validation": vectorized_rank_ic(masked, returns)["ir"],
+        "ls_tstat": vectorized_ls_tstat(masked, returns),
+        "mono": vectorized_monotonicity(masked, returns),
+    }
+```
+
+**成本 breakdown**(假设 primary + 3 个 reference):
+
+| 步骤 | 成本 |
+|---|---|
+| Load market_daily | 1× fixed(几秒) |
+| Compute factor value(全市场) | 1× fixed(最贵,~30s batch)|
+| Primary full metrics(含 Barra) | 1× ~10s |
+| Reference lite metrics × 3 | 3× ~2s = 6s |
+| **总耗时增量** | **~6s(≈ 10% overhead)** |
+
+**结论**:多 universe 对比的成本是**次线性增长**,可以接受。
+
+#### Universe mask 的构建(用 Qlib 内建机制)
+
+**重要**:universe 定义的 canonical source 是 **Qlib 的 instruments 文件**
+(`~/.qlib/qlib_data/cn_data_1d/instruments/{name}.txt`),不是 DB。
+
+`scripts/sync_index_constituents.py` 已经把 DB `index_constituents` 同步到
+Qlib instruments 文件(格式:`symbol\tstart_date\tend_date`,每个 symbol 一行或多行断续 interval)。
+Phase 2 直接用 Qlib 的 `D.instruments()` 读取,不再查 DB。
+
+```python
+from qlib.data import D
+
+def load_universe_mask(uname: str, time_index: pd.DatetimeIndex) -> pd.DataFrame | None:
+    """
+    从 Qlib instruments 文件加载 universe 定义,转成 (time × symbol) bool mask。
+    
+    Args:
+        uname: universe 名称(csi300/csi500/csi1000/all)
+        time_index: 目标时间索引(用于构造 mask shape)
+    
+    Returns:
+        (time × symbol) bool DataFrame, True = 该日该股在 universe 内
+        None 表示全市场(下游跳过 mask 应用,等价于全 True)
+    """
+    if uname == "all":
+        return None
+    
+    # Qlib 的 instruments dict
+    insts = D.instruments(uname)
+    
+    # 展开 dict 到 {symbol: [(start, end), ...]}
+    active_intervals = D.list_instruments(
+        insts,
+        start_time=time_index[0],
+        end_time=time_index[-1],
+        as_list=False,
+    )
+    
+    # 向量化构造 bool matrix
+    symbols = sorted(active_intervals.keys())
+    mask = pd.DataFrame(False, index=time_index, columns=symbols)
+    for sym, intervals in active_intervals.items():
+        for start, end in intervals:
+            start_ts = pd.Timestamp(start)
+            end_ts = pd.Timestamp(end)
+            mask.loc[start_ts:end_ts, sym] = True
+    
+    return mask
+```
+
+**为什么用 Qlib 而不是查 DB**:
+- **Qlib instruments 是 canonical source**(sync 脚本已经从 DB 同步过来)
+- 避免第二次 DB 连接,纯内存 + 文件读取
+- 和 Qlib 的其他 API 一致(`D.features` 也用同样的 instruments dict)
+- 未来如果 universe 定义从 Qlib 变了,不需要改 research 代码
+
+**Universe refresh 的 CLI**:
+```bash
+research cache refresh universes        # 重跑 sync_index_constituents 更新 Qlib instruments
+```
+
+实际上就是调用 `scripts/sync_index_constituents.py --all` 的新封装。
 
 #### Barra 残差 IC 批量解法(修 Q23)
 
@@ -1554,6 +2436,7 @@ def holdout_review():
 research mine                        # Autonomous 主循环,按 5 phase 推进
 research mine --once                 # 只跑一轮
 research mine --direction {tag}      # 强制本轮探索某个方向
+research mine --dsl-only             # 严格模式,拒绝 Python 候选(R8)
 ```
 
 ### 单阶段 CLI(手动触发)
@@ -1596,6 +2479,10 @@ research audit state                 # 检查 state.yaml 和 batches/ 一致
 research audit failures              # 扫 batches/*/judge.md 聚合 reject 统计
                                       # 供人工复盘,不自动写入 vault
 research audit duplicates            # 扫 factors/F*.yaml 检查 expression 重复
+research audit mt-budget             # 见 §7.MT,打印当前多重检验预算
+                                      #   cumulative / per-direction / val_exposure
+                                      #   以及预测下一个 batch 的 mt_bucket
+research audit mt-budget --direction {name}   # 按 direction 细分
 research factor retire {fid}         # 撤销一个 factor(允许同表达式在新 batch 重判)
 ```
 
@@ -1993,5 +2880,17 @@ storage/
 | research audit failures / duplicates / factor retire CLI | Q44.9 / Q44.10 |
 | Phase 4 ARCHIVE 幂等性保证 | Q32 |
 | Phase 4 / Phase 5 不并发不变量(git commit 边界) | Q33 / Q36 |
+| DSL / Python 双路径 + LLM 自主选择(R8) | 本次讨论(之前遗漏) |
+| Python 因子静态 validation + 运行时 contract | 本次讨论 |
+| lessons.md 的 Path Selection 决策流程 | 本次讨论 |
+| Cache refresh 的 tradability mask 实现(含涨跌停/停牌/新股) | 本次讨论(Q14/Q16 的数据层延续) |
+| 多 universe 评估(primary + reference)"算一次切多次" | 本次讨论(之前遗漏) |
+| ST / 退市数据工程 TODO(独立任务,refactor 之外) | 本次讨论 |
+| Universe 用 Qlib instruments(不查 DB) | 本次重审(之前我设计成查 DB,错) |
+| Multi-horizon 完整 metrics(h1/h5/h10)per-horizon 分组 | Q18 补齐(之前只有 decay 曲线) |
+| Winsorize/Zscore 真矩阵向量化(不用 groupby.transform) | Q14 补齐(之前用了 groupby) |
+| config.yaml 补齐散落硬编码(tradability/MAD scale) | Q20 补齐 |
+| MT budget 常量移到 config.yaml.thresholds.mt_budget | Q20 补齐(§7.MT 原方案 + 常量外置) |
+| Barra 预计算脚本具体实现(7 个因子向量化) | 本次重审(之前只说"预计算",没给代码) |
 
 完整细节见 `docs/walkthrough_qa.md` 的 Q1-Q47。
