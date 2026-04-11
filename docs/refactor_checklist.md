@@ -139,7 +139,7 @@ Goal: build the 6-checkpoint judge pipeline with pre-packing + Python audit.
 
 **P2 totals**: 5 new modules + 6 new test files + **76 new tests all green** (16 hard_gates + 24 mt_budget + 9 generator + 20 audit + 5 phase3 + 2 already-existing phase2).
 
-**Completed at**: _pending commit_
+**Completed at**: commit `bf62ce6` (5 checkpoint modules + phase3 orchestrator, 74 new tests)
 
 ---
 
