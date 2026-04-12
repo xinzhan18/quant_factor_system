@@ -23,6 +23,20 @@ user_invocable: true
 
 每个 Phase 完成后检查 state.yaml 的 phase 状态是否正确推进，再进入下一个 Phase。
 
+## 恢复逻辑（重要）
+
+启动时先读 `state.yaml`。如果 `current_batch_phase` 不为 null，从断点继续：
+
+| `current_batch_phase` | 含义 | 恢复动作 |
+|---|---|---|
+| `null` | 空闲 | Phase 1 从头开始 |
+| `designed` | Phase 1 已完成 | 跳到 Step 3 (Phase 2 EXECUTE) |
+| `executing` | Phase 2 中断 | 重跑 Step 3 |
+| `judged` | Phase 3 已完成 | 跳到 Step 5 (Phase 4 ARCHIVE) |
+| `archived` | Phase 4 已完成 | 跳到 Step 6 (Phase 5 check) |
+
+**不要重复已完成的 Phase**。state.py 的 phase DAG 会 raise `InvalidPhaseTransition`。
+
 ## 执行步骤
 
 ### Step 1 — 选方向
@@ -40,16 +54,29 @@ user_invocable: true
 
 ### Step 3 — 调用 `/factor-execute`（Phase 2 EXECUTE）
 按 `/factor-execute` skill 的流程：
-1. `PYTHONPATH=src python3 -m research execute batch_{N}`（或直接调用 Phase 2 Python orchestrator）
+1. `PYTHONPATH=src python3 -m research execute batch_{N}`
 2. 纯 Python，零 LLM 参与
-3. 产出 `batches/batch_{N}/result.yaml`
-4. 验证：`state.yaml.current_batch_phase == "executing"` → 推进到 `"judged"`
+3. **Multi-horizon**：对 config.evaluation.horizons（默认 [1, 5, 10]）每个 h 算完整 metrics (IC/mono/Barra/feasibility)
+4. **Multi-universe**：primary (csi1000) 跑 full metrics，reference (csi300/csi500/all) 跑 lite metrics (IC/mono/ls_tstat)
+5. **Holdout 不算**：result.yaml 没有 holdout 字段
+6. 产出 `batches/batch_{N}/result.yaml`
+7. 验证：`state.yaml.current_batch_phase` 推进到 `"judged"`
 
 ### Step 4 — 调用 `/factor-judge`（Phase 3 JUDGE）
 按 `/factor-judge` skill 的流程：
-1. Python 跑 CP01 hard gates + §7.MT 多重检验预算 + pre-pack `judge_packet.md`
-2. LLM 读 `_packets/judge_packet.md` → 写 `batches/batch_{N}/judge.md`
-3. Python audit `judge.md`（6 结构检查）
+1. Python 前置（具体 CLI 命令）：
+   ```bash
+   PYTHONPATH=src python3 -m research judge batch_{N} pre-pack
+   ```
+   这一步自动完成：CP01 hard gates → §7.MT 扫描 → 生成 `_packets/judge_packet.md`
+2. LLM 读 `_packets/judge_packet.md`（**R3 单一输入**）→ 写 `batches/batch_{N}/judge.md`
+   - **judge_packet 里包含 multi-horizon 对比表**（h1/h5/h10），LLM 可以讨论 horizon 差异
+   - **judge_packet 里包含 multi-universe 对比表**（csi300/csi500/all），但 CP01-CP06 只看 primary (csi1000)
+   - **CP03 body 必须引用 `mt_bucket`**
+3. Python 审计：
+   ```bash
+   PYTHONPATH=src python3 -m research judge batch_{N} audit
+   ```
 4. 如果 audit 失败 → LLM 重写 judge.md → 重新 audit（最多 3 次）
 5. 验证：`judge.md` 通过 audit
 
