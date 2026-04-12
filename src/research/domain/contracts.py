@@ -1,4 +1,9 @@
-"""Logic-layer contracts centered on the long-lived LogicCard object."""
+"""Logic-layer contracts centered on the long-lived LogicCard object.
+
+DEPRECATED: LogicCard fields have been mapped to vault/directions/{tag}.md.
+See docs/superpowers/plans/2026-04-12-direction-generation-spec.md for the
+mapping. This class will be removed in a future cleanup.
+"""
 
 from __future__ import annotations
 
@@ -33,10 +38,13 @@ class LogicPriority(enum.Enum):
 
 @dataclass
 class LogicCard:
-    """The primary persistent object for a market hypothesis.
+    """DEPRECATED: Fields mapped to vault/directions/{tag}.md.
 
-    Stored at ``storage/logic/cards/LXXX.yaml``.
-    Defined in logic_plan.md Section 3.3 and memory.md Section B.
+    Previously stored at ``storage/logic/cards/LXXX.yaml``.
+    The hypothesis/contract/families/diagnostics fields now live in
+    the direction.md markdown file (frontmatter + body sections).
+    This class remains for backward compatibility but should not be
+    used for new code.
     """
 
     # ---- Identity ----

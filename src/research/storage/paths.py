@@ -103,12 +103,12 @@ class StoragePaths:
         return self.vault_meta_dir / "consolidation_log.md"
 
     # ------------------------------------------------------------------
-    # Batches
+    # Batches (inside vault — Obsidian-visible for wikilink connectivity)
     # ------------------------------------------------------------------
 
     @property
     def batches_dir(self) -> Path:
-        return self.root / "batches"
+        return self.vault_dir / "batches"
 
     def batch_dir(self, batch_id: str) -> Path:
         return self.batches_dir / batch_id

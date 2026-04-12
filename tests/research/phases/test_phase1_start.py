@@ -292,3 +292,33 @@ class TestFreezeManifest:
         loaded = load_yaml(manifest_path)
         assert loaded["candidates"][0]["source_type"] == "python"
         assert loaded["candidates"][0]["path"] == str(py_path)
+
+    def test_manifest_pass_through_fields(self, tmp_path: Path) -> None:
+        """Plan says rationale + parent_batch/parent_candidate_id/transformation
+        are pass-through fields on candidates."""
+        manifest_path = tmp_path / "batch_pt" / "manifest.yaml"
+        report = freeze_manifest(
+            batch_id="batch_pt",
+            direction="volatility",
+            batch_goal=self._goal(),
+            candidates=[
+                {
+                    "candidate_id": "C001",
+                    "source_type": "dsl",
+                    "expression": "Std($close, 20)",
+                    "rationale": "Test vol clustering under high turnover",
+                    "parent_batch": "batch_101",
+                    "parent_candidate_id": "C004",
+                    "transformation": "extend_lookback_60d_to_80d",
+                },
+            ],
+            existing_canonicals=[],
+            manifest_path=manifest_path,
+        )
+        assert report.all_passed
+        loaded = load_yaml(manifest_path)
+        c = loaded["candidates"][0]
+        assert c["rationale"].startswith("Test")
+        assert c["parent_batch"] == "batch_101"
+        assert c["parent_candidate_id"] == "C004"
+        assert c["transformation"] == "extend_lookback_60d_to_80d"

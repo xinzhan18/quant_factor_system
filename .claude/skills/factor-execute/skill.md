@@ -29,6 +29,12 @@ manifest.yaml
   → 写 result.yaml
 ```
 
+## Multi-horizon + Multi-universe
+
+- **Multi-horizon**：对 `config.yaml.evaluation.horizons`（默认 `[1, 5, 10]`）每个 horizon 算完整 metrics（IC / mono / Barra / feasibility_turnover）。`primary_horizon`（默认 5）是 Phase 3 判决基准。
+- **Multi-universe**：primary (csi1000) 跑 full metrics，reference (csi300 / csi500 / all) 跑 lite metrics（IC / mono / ls_tstat，不跑 Barra）。成本增量 ~10%。
+- **Universe mask**：通过 `D.instruments()` 从 Qlib instruments 文件加载，不查 DB。
+
 ## Preprocess 参数（`config.yaml.preprocess`）
 
 | 参数 | 值 | 算法 |

@@ -30,12 +30,16 @@ from typing import Any
 from .yaml_io import load_yaml, save_yaml
 
 # Allowed phase transitions as a DAG. None is the "idle" state.
+#
+# Naming note: "judged" means "Phase 2 EXECUTE completed, result.yaml exists,
+# ready for Phase 3 JUDGE to run" — NOT "has already been judged". The name
+# was chosen to mirror the next step's identity (who acts next), not the past.
 _PHASE_TRANSITIONS: dict[str | None, set[str | None]] = {
-    None: {"designed"},
-    "designed": {"executing"},
-    "executing": {"judged"},
-    "judged": {"archived"},
-    "archived": {None},  # collapses back to idle + round++ inside finish_batch
+    None: {"designed"},          # Phase 1 START+DESIGN completed
+    "designed": {"executing"},   # Phase 2 EXECUTE started
+    "executing": {"judged"},     # Phase 2 done → ready for Phase 3 JUDGE
+    "judged": {"archived"},      # Phase 3 done → ready for Phase 4 ARCHIVE
+    "archived": {None},          # Phase 4 done → idle (round++ in finish_batch)
 }
 
 _VALID_PHASES: set[str | None] = {None, "designed", "executing", "judged", "archived"}

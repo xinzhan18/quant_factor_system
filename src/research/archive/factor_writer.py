@@ -42,8 +42,8 @@ from typing import Any
 
 from research.storage.yaml_io import save_yaml
 
-# First id in the new system
-FIRST_FACTOR_ID = 20
+# First id in a fresh vault
+FIRST_FACTOR_ID = 1
 _FACTOR_FILE_RE = re.compile(r"^F(\d+)\.yaml$")
 
 

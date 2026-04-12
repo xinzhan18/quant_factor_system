@@ -59,9 +59,9 @@ class TestScanExistingFactorIds:
     def test_parses_ids(self, tmp_path: Path) -> None:
         d = tmp_path / "factors"
         d.mkdir()
-        for name in ["F020.yaml", "F021.yaml", "F025.yaml", ".DS_Store", "notes.md"]:
+        for name in ["F001.yaml", "F002.yaml", "F025.yaml", ".DS_Store", "notes.md"]:
             (d / name).write_text("")
-        assert scan_existing_factor_ids(d) == {20, 21, 25}
+        assert scan_existing_factor_ids(d) == {1, 2, 25}
 
 
 class TestAllocateNextFactorId:
@@ -71,14 +71,14 @@ class TestAllocateNextFactorId:
     def test_monotonic_from_existing(self, tmp_path: Path) -> None:
         d = tmp_path / "factors"
         d.mkdir()
-        (d / "F020.yaml").write_text("")
+        (d / "F001.yaml").write_text("")
         (d / "F025.yaml").write_text("")
         assert allocate_next_factor_id(d) == "F026"
 
     def test_id_never_reused(self, tmp_path: Path) -> None:
         d = tmp_path / "factors"
         d.mkdir()
-        (d / "F020.yaml").write_text("")
+        (d / "F001.yaml").write_text("")
         # Skipped ids don't get filled — we always go past the max
         (d / "F030.yaml").write_text("")
         assert allocate_next_factor_id(d) == "F031"
@@ -87,14 +87,14 @@ class TestAllocateNextFactorId:
 class TestBuildFactorRecord:
     def test_dsl_record_shape(self) -> None:
         rec = build_factor_record(
-            factor_id="F020",
+            factor_id="F001",
             admit_entry=_candidate(),
             manifest_entry=_manifest_entry(),
             batch_id="batch_001",
             direction="volatility",
             sample_policy_version="v3",
         )
-        assert rec["factor_id"] == "F020"
+        assert rec["factor_id"] == "F001"
         assert rec["family_tag"] == "volatility"
         assert rec["source_type"] == "dsl"
         assert rec["expression"] == "Std($close, 20)"
@@ -106,7 +106,7 @@ class TestBuildFactorRecord:
 
     def test_python_record_shape(self) -> None:
         rec = build_factor_record(
-            factor_id="F020",
+            factor_id="F001",
             admit_entry=_candidate(source_type="python"),
             manifest_entry=_manifest_entry(
                 source_type="python", path="storage/batches/batch_001/python_candidates/C001.py"
@@ -122,20 +122,20 @@ class TestBuildFactorRecord:
 class TestWriteFactorYaml:
     def test_writes_and_reads_back(self, tmp_path: Path) -> None:
         rec = build_factor_record(
-            "F020", _candidate(), _manifest_entry(), "batch_001", "vol", "v3"
+            "F001", _candidate(), _manifest_entry(), "batch_001", "vol", "v3"
         )
         path = write_factor_yaml(tmp_path / "factors", rec)
         assert path.exists()
         loaded = load_yaml(path)
-        assert loaded["factor_id"] == "F020"
+        assert loaded["factor_id"] == "F001"
 
     def test_rejects_overwrite(self, tmp_path: Path) -> None:
         d = tmp_path / "factors"
         d.mkdir()
-        (d / "F020.yaml").write_text("existing")
+        (d / "F001.yaml").write_text("existing")
 
         rec = build_factor_record(
-            "F020", _candidate(), _manifest_entry(), "batch_001", "vol", "v3"
+            "F001", _candidate(), _manifest_entry(), "batch_001", "vol", "v3"
         )
         with pytest.raises(FactorAllocationError, match="already exists"):
             write_factor_yaml(d, rec)
@@ -151,9 +151,9 @@ class TestAllocateAndWrite:
             direction="vol",
             sample_policy_version="v3",
         )
-        assert allocated.factor_id == "F020"
+        assert allocated.factor_id == "F001"
         assert allocated.yaml_path.exists()
-        assert allocated.record["factor_id"] == "F020"
+        assert allocated.record["factor_id"] == "F001"
 
     def test_sequential_allocation(self, tmp_path: Path) -> None:
         a1 = allocate_and_write_factor(
@@ -172,5 +172,5 @@ class TestAllocateAndWrite:
             direction="vol",
             sample_policy_version="v3",
         )
-        assert a1.factor_id == "F020"
-        assert a2.factor_id == "F021"
+        assert a1.factor_id == "F001"
+        assert a2.factor_id == "F002"

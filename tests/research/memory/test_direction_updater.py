@@ -27,12 +27,15 @@ class TestFirstUpdate:
         )
         assert path.exists()
         assert fm["direction_id"] == "fp_divergence"
+        assert fm["status"] == "exploring"
         assert fm["rounds"] == 1
         assert fm["admits"] == 2
         assert fm["members"] == ["F020", "F021"]
         assert fm["last_batch"] == "batch_001"
         assert fm["last_admits"] == ["F020", "F021"]
         assert "last_activity" in fm
+        assert "created_at" in fm
+        assert fm["created_batch"] == "batch_001"
         assert fm["last_goal"].startswith("Probe")
 
 

@@ -155,12 +155,38 @@ def run_mine_once(inputs: MineInputs) -> MineRunResult:
 
     # --- Phase 3: JUDGE ---
     state_file.transition_phase("judged")
+
+    # Build context for the judge packet — read direction.md for threads
+    direction_file = paths.direction_file(inputs.direction)
+    direction_excerpt = inputs.direction_excerpt
+    threads_excerpt = ""
+    if direction_file.exists():
+        _body = direction_file.read_text(encoding="utf-8")
+        # Extract threads: all lines matching "- T\d+ [...]"
+        import re
+        _thread_lines = re.findall(
+            r"^- T\d+ \[[^\]]+\].*$", _body, re.MULTILINE
+        )
+        if _thread_lines:
+            threads_excerpt = "\n".join(_thread_lines)
+        # If no direction_excerpt was provided, extract Hypothesis section
+        if not direction_excerpt:
+            _hyp_match = re.search(
+                r"^## Hypothesis\n(.*?)(?=^## |\Z)",
+                _body, re.MULTILINE | re.DOTALL,
+            )
+            if _hyp_match:
+                direction_excerpt = _hyp_match.group(1).strip()
+
     phase3_inputs = Phase3Inputs(
         batch_id=batch_id,
         direction=inputs.direction,
         batch_dir=paths.batch_dir(batch_id),
         batches_root=paths.batches_dir,
-        context=PacketContext(),
+        context=PacketContext(
+            direction_excerpt=direction_excerpt,
+            threads_excerpt=threads_excerpt,
+        ),
         current_sample_policy_version=inputs.sample_policy_version,
         packet_refs=set(),
         mt_budget_config=inputs.mt_budget_config,

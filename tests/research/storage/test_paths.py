@@ -52,7 +52,7 @@ class TestBatchPaths:
     def test_batch_structure(self, tmp_path: Path) -> None:
         sp = StoragePaths(tmp_path)
         bd = sp.batch_dir("batch_042")
-        assert bd == tmp_path / "batches" / "batch_042"
+        assert bd == tmp_path / "vault" / "batches" / "batch_042"
         assert sp.batch_manifest_file("batch_042") == bd / "manifest.yaml"
         assert sp.batch_result_file("batch_042") == bd / "result.yaml"
         assert sp.batch_judge_file("batch_042") == bd / "judge.md"

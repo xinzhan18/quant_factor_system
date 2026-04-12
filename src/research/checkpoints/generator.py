@@ -88,6 +88,9 @@ class PacketContext:
     nearest_factor_excerpt: str = ""
     """Top-of-report summary from the nearest ``factors/F{id}.md``, if any."""
 
+    threads_excerpt: str = ""
+    """Thread list from ``directions/{name}.md``, for judge thread_impact reasoning."""
+
 
 @dataclass
 class PacketInputs:
@@ -207,6 +210,79 @@ def _candidate_section(
     }
     lines.append(_format_numeric_hint_line("CP06 (stability)", cp06_fields))
 
+    # Report card — full 6-dimension evaluation (if available)
+    rc = candidate.get("report_card")
+    if rc and isinstance(rc, dict) and not rc.get("error"):
+        lines.append("")
+        lines.append("**6 维评估 (report_card)**:")
+
+        # D1 预测力
+        d1_fields = {
+            "ic_mean_IS": rc.get("ic_mean"),
+            "ic_ir_IS": rc.get("ic_ir"),
+            "ic_win_rate": rc.get("ic_win_rate"),
+        }
+        lines.append(_format_numeric_hint_line("D1 预测力", d1_fields))
+
+        # D1 annual
+        ic_by_year = rc.get("ic_by_year") or {}
+        if ic_by_year:
+            year_strs = [f"{y}={_fmt(v)}" for y, v in sorted(ic_by_year.items())]
+            lines.append(f"- **D1 年度IC**: {' '.join(year_strs)}")
+
+        # D2 稳健性
+        d2_fields = {
+            "oos_decay_ratio": rc.get("oos_decay_ratio"),
+            "ic_autocorr": rc.get("ic_autocorr"),
+            "ic_max_drawdown": rc.get("ic_max_drawdown"),
+            "worst_quarter": rc.get("worst_quarter_ic"),
+            "best_quarter": rc.get("best_quarter_ic"),
+        }
+        lines.append(_format_numeric_hint_line("D2 稳健性", d2_fields))
+
+        # D3 经济一致
+        d3_fields = {
+            "mono_IS": rc.get("monotonicity_is"),
+            "mono_OOS": rc.get("monotonicity_oos"),
+            "ls_return": rc.get("ls_return"),
+            "ls_tstat": rc.get("ls_tstat"),
+            "sign_consistent": rc.get("ic_sign_consistent"),
+        }
+        lines.append(_format_numeric_hint_line("D3 经济一致", d3_fields))
+
+        # D3 quintile IS
+        q_is = rc.get("quantile_returns_is") or {}
+        if q_is:
+            q_strs = [f"{k}={_fmt(v)}" for k, v in q_is.items()]
+            lines.append(f"- **D3 分组IS**: {' '.join(q_strs)}")
+
+        # D4 衰减
+        d4_fields = {
+            "half_life": rc.get("half_life_days"),
+            "factor_turnover": rc.get("factor_turnover"),
+            "factor_autocorr": rc.get("factor_autocorr"),
+        }
+        lines.append(_format_numeric_hint_line("D4 衰减与换手", d4_fields))
+
+        # D5 分布
+        d5_fields = {
+            "coverage": rc.get("coverage"),
+            "zero_ratio": rc.get("zero_ratio"),
+            "skew": rc.get("factor_skew"),
+            "kurtosis": rc.get("factor_kurt"),
+            "extreme_ratio": rc.get("extreme_ratio"),
+        }
+        lines.append(_format_numeric_hint_line("D5 分布", d5_fields))
+
+        # D6 独特性
+        d6_fields = {
+            "max_lib_corr": rc.get("max_lib_corr"),
+            "nearest": rc.get("max_corr_factor_id"),
+            "incremental_ic": rc.get("incremental_ic"),
+            "expr_depth": rc.get("expression_depth"),
+        }
+        lines.append(_format_numeric_hint_line("D6 独特性", d6_fields))
+
     lines.append("")
     return "\n".join(lines)
 
@@ -294,6 +370,12 @@ def build_judge_packet(inputs: PacketInputs) -> str:
         parts.append("## Nearest Library Factor")
         parts.append("")
         parts.append(inputs.context.nearest_factor_excerpt.strip())
+        parts.append("")
+
+    if inputs.context.threads_excerpt.strip():
+        parts.append("## Direction Threads")
+        parts.append("")
+        parts.append(inputs.context.threads_excerpt.strip())
         parts.append("")
 
     parts.append("## Candidates")

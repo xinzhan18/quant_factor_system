@@ -91,6 +91,7 @@ MIN_BATCH_GOAL_LENGTH = 30
 COMMUTATIVE_OPERATORS: frozenset[str] = frozenset({"Add", "Mul"})
 
 
+
 # ---------------------------------------------------------------------------
 # Errors + result types
 # ---------------------------------------------------------------------------
@@ -442,6 +443,10 @@ def freeze_manifest(
             entry["canonical"] = r.canonical
         else:
             entry["path"] = c.get("path")
+        # Pass-through fields from LLM
+        for key in ("rationale", "parent_batch", "parent_candidate_id", "transformation"):
+            if c.get(key):
+                entry[key] = c[key]
         manifest_candidates.append(entry)
 
     manifest = {

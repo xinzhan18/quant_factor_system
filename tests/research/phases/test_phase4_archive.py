@@ -149,16 +149,16 @@ class TestPhase4HappyPath:
         )
         result = run_phase4_archive(inputs)
 
-        # Two new factors allocated F020 / F021
-        assert [a.factor_id for a in result.admitted] == ["F020", "F021"]
+        # Two new factors allocated F001 / F002
+        assert [a.factor_id for a in result.admitted] == ["F001", "F002"]
         assert all(a.yaml_path.exists() for a in result.admitted)
 
         # Direction frontmatter updated
         direction_md = paths.direction_file("vol")
         assert direction_md.exists()
         text = direction_md.read_text(encoding="utf-8")
-        assert "F020" in text
-        assert "F021" in text
+        assert "F001" in text
+        assert "F002" in text
 
         # INDEX.md refreshed
         assert result.index_path == paths.vault_index_file

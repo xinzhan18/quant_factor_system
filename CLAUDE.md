@@ -100,16 +100,16 @@ RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Phas
 storage/
   state.yaml                            ← system state (current_batch, phase, round)
   config.yaml                           ← system config (sample_policy, thresholds, mt_budget, consolidation)
-  vault/                                ← Obsidian vault（直接在 storage/ 下，无 evidence/ 中间层）
+  vault/                                ← Obsidian vault root — 所有研究产物在此连通
     INDEX.md                            ← MOC: upper=LLM narrative, lower=Python auto-stats
     lessons.md                          ← system-level hard-won facts
     directions/{tag}.md                 ← per-direction hypothesis + threads + narrative log
     factors/F{id}.{yaml,md}             ← admitted factor metadata + deep report
+    batches/batch_{NNN}/                ← per-batch immutable archive（vault 内，Obsidian 可见）
+      manifest.yaml / result.yaml / judge.md
+      _packets/ / signals/ / python_candidates/
     _meta/consolidation_log.md          ← append-only consolidation history
-  batches/batch_{NNN}/                  ← per-batch immutable archive
-    manifest.yaml / result.yaml / judge.md
-    _packets/ / signals/ / python_candidates/
-  cache/                                ← parquet caches
+  cache/                                ← parquet caches（vault 外，Obsidian 不需要看）
     market_daily.parquet / barra_factors.parquet
     factor_values/{sha256_key}.parquet
   python_factors/F{id}_{name}.py        ← admitted Python factors

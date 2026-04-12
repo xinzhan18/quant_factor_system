@@ -54,6 +54,7 @@ from research.compute.vectorized_stability import (
     compute_split_stability,
     compute_train_validation_decay,
 )
+from research.compute.report_card import compute_report_card
 from research.storage.yaml_io import save_yaml
 
 logger = logging.getLogger(__name__)
@@ -240,12 +241,63 @@ def _evaluate_candidate(
             raw_view_ic=es["validation"]["ic_mean"],
         )
 
+        # --- 8. Full 6-dimension FactorReportCard (旧 evaluator 多维分析) ---
+        try:
+            # factor_flat is [time, symbol, value]; split into IS/OOS DataFrames
+            train_start_ts = pd.Timestamp(inputs.train_range[0])
+            train_end_ts = pd.Timestamp(inputs.train_range[1])
+            val_start_ts = pd.Timestamp(inputs.validation_range[0])
+            val_end_ts = pd.Timestamp(inputs.validation_range[1])
+
+            fv_is = factor_flat[
+                (factor_flat["time"] >= train_start_ts)
+                & (factor_flat["time"] <= train_end_ts)
+            ]
+            fv_oos = factor_flat[
+                (factor_flat["time"] >= val_start_ts)
+                & (factor_flat["time"] <= val_end_ts)
+            ]
+            ret_is = inputs.forward_returns_flat[
+                (inputs.forward_returns_flat["time"] >= train_start_ts)
+                & (inputs.forward_returns_flat["time"] <= train_end_ts)
+            ]
+            ret_oos = inputs.forward_returns_flat[
+                (inputs.forward_returns_flat["time"] >= val_start_ts)
+                & (inputs.forward_returns_flat["time"] <= val_end_ts)
+            ]
+
+            # daily_ics_by_horizon: {1: ic_series_train} — we only have h=1
+            daily_ics_by_horizon = {1: ic_series_train}
+
+            # lib_corr_profile from redundancy
+            lib_corr_profile = redundancy.get("all_correlations") or {}
+
+            rc = compute_report_card(
+                daily_ics_is=ic_series_train,
+                daily_ics_oos=ic_series_val,
+                factor_vals_is=fv_is.set_index(["time", "symbol"])["value"].to_frame(),
+                factor_vals_oos=fv_oos.set_index(["time", "symbol"])["value"].to_frame(),
+                returns_is=ret_is.set_index(["time", "symbol"])["value"].to_frame(),
+                returns_oos=ret_oos.set_index(["time", "symbol"])["value"].to_frame(),
+                daily_ics_by_horizon=daily_ics_by_horizon,
+                lib_values={},  # loaded separately if needed
+                lib_corr_profile=lib_corr_profile,
+                stage2_info={"max_corr": redundancy.get("max_lib_corr", 0.0),
+                             "max_corr_factor": redundancy.get("nearest_factor_id")},
+                expression_depth=cand.expression.count("("),
+            )
+            report_card = rc.to_dict()
+        except Exception as rc_exc:
+            logger.warning("report_card failed for %s: %s", cand.candidate_id, rc_exc)
+            report_card = None
+
         return {
             "candidate_id": cand.candidate_id,
             "expression": cand.expression,
             "source_type": cand.source_type,
             "coverage": round(coverage, 4),
             "sign": int(primary_sign),
+            "report_card": report_card,
             "effect_strength": es,
             "quintile": {
                 "quintile_returns_validation": qret["quintile_returns"],

@@ -60,7 +60,8 @@ def collect_direction_stats(directions_dir: str | Path) -> list[dict[str, Any]]:
         rows.append(
             {
                 "direction_id": fm.get("direction_id", md.stem),
-                "status": fm.get("status", "active"),
+                "status": fm.get("status", "exploring"),
+                "priority": fm.get("priority", "medium"),
                 "rounds": int(fm.get("rounds", 0)),
                 "admits": int(fm.get("admits", 0)),
                 "last_batch": fm.get("last_batch") or "—",
@@ -86,10 +87,10 @@ def render_auto_section(
     lines = [BEGIN_SENTINEL, ""]
 
     # Direction table
-    lines.append("| Direction | Status | Rounds | Admits | Last batch |")
-    lines.append("|---|---|---|---|---|")
+    lines.append("| Direction | Status | Priority | Rounds | Admits | Last batch |")
+    lines.append("|---|---|---|---|---|---|")
     if not direction_rows:
-        lines.append("| _no directions yet_ | — | 0 | 0 | — |")
+        lines.append("| _no directions yet_ | — | — | 0 | 0 | — |")
     else:
         for r in direction_rows:
             lines.append(
@@ -98,6 +99,7 @@ def render_auto_section(
                     [
                         str(r["direction_id"]),
                         str(r["status"]),
+                        str(r.get("priority", "medium")),
                         str(r["rounds"]),
                         str(r["admits"]),
                         str(r["last_batch"]),

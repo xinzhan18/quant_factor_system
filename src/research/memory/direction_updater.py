@@ -99,11 +99,12 @@ def update_direction_frontmatter(
     if not fm:
         fm = {
             "direction_id": path.stem,
+            "status": "exploring",
             "rounds": 0,
             "admits": 0,
             "members": [],
-            "status": "active",
             "created_at": _now_iso(),
+            "created_batch": batch_id,
         }
     if not body:
         body = f"\n# {path.stem}\n\n_(Body will be filled by Phase 5 consolidation.)_\n"

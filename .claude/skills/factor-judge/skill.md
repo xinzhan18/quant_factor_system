@@ -10,6 +10,13 @@ user_invocable: true
 
 对 Phase 2 产出的每个候选执行 6 个 checkpoint 的结构化判决，写 `judge.md`。
 
+### 分工
+
+| 角色 | 职责 |
+|---|---|
+| **Python** | 运行 hard gates (CP01)、扫描 batches 计算 §7.MT 预算、预打包 `judge_packet.md`、审计 `judge.md`（6 个结构检查） |
+| **LLM** | 只读 `judge_packet.md`（R3 单一输入）、写 CP02-CP06 推理、做出裁决、写 `judge.md` |
+
 ## 6 个 Checkpoint
 
 | CP | 名称 | 决策者 | Python numeric_hint 字段 |
@@ -67,16 +74,63 @@ Python 扫 `storage/batches/batch_*/manifest.yaml`（只要 `judge.md` 存在的
 - `direction_candidates`：同 direction 的历史候选数
 - `validation_exposure`：当前 `sample_policy_version` 下被使用的 batch 数
 
+## CLI 命令（单独调用时）
+
+```bash
+# 完整 Phase 3（hard-gates → pre-pack → [LLM 写 judge.md] → audit）
+PYTHONPATH=src python3 -m research judge batch_{N}
+
+# 只跑前置 Python 步骤（生成 _packets/judge_packet.md）
+PYTHONPATH=src python3 -m research judge batch_{N} pre-pack
+
+# 只跑审计（检查已写好的 judge.md 是否通过 6 个结构检查）
+PYTHONPATH=src python3 -m research judge batch_{N} audit
+```
+
+**前置条件**：`state.yaml.current_batch_phase == "judged"`（注意：`judged` 的语义是 "Phase 2 EXECUTE 已完成，等待 judge"——名字表示下一步的动作者，不是过去完成时。result.yaml 必须存在）。
+
+## 6 维评估 (report_card) — LLM 判决的核心数据
+
+judge_packet 的每个候选都包含完整的 **36 字段 FactorReportCard**，分为 6 个维度。LLM 在做 CP02-CP06 判决时**必须参考**这些数据：
+
+| 维度 | 包含什么 | 对应哪个 CP | LLM 如何使用 |
+|---|---|---|---|
+| **D1 预测力** | ic_mean/ir IS, ic_by_year (逐年 IC), ic_by_month (月度分布) | CP03 | 年度 IC 一致性 → 判断信号是否依赖特定市场制度 |
+| **D2 稳健性** | oos_decay_ratio, ic_autocorr, ic_max_drawdown, worst/best_quarter | CP06 | decay_ratio > 1 = OOS 更强（好）; ic_max_drawdown 大 = 有 IC 崩溃期（差） |
+| **D3 经济一致** | quintile IS+OOS, mono IS+OOS, ls_return, ==ls_tstat== | CP02+CP03 | ls_tstat > 2 = 统计显著; mono IS≈OOS = 稳定; quintile IS→OOS 形状一致 = 好 |
+| **D4 衰减** | ic_decay (多期), half_life, factor_turnover, factor_autocorr | CP03 补充 | turnover 高 = 换仓成本高; half_life 短 = 短期信号 |
+| **D5 分布** | coverage, zero_ratio, skew, kurtosis, extreme_ratio | CP01 补充 | skew 高 = 分布偏态（可能少数极端值驱动 IC）; extreme_ratio 高 = 不稳定 |
+| **D6 独特性** | max_lib_corr, incremental_ic, lib_corr_profile | CP05 | incremental_ic = 在已有因子基础上的增量预测力 |
+
+### 判决规范
+
+LLM 在 judge.md 的 CP 段中**必须引用** report_card 的关键字段来支持判断：
+
+- **CP02 (机制对齐)**：引用 D3 `ls_tstat`、`mono_IS`/`mono_OOS` 一致性、D1 `ic_by_year` 的趋势
+- **CP03 (统计强度)**：引用 D1 `ic_ir_IS`、D2 `oos_decay_ratio`、D4 `factor_turnover`
+- **CP04 (风险)**：引用 Barra 字段 + D5 `skew`/`extreme_ratio`（分布畸形 = 风险）
+- **CP05 (冗余)**：引用 D6 `incremental_ic`（即使 max_corr 低，如果 incremental_ic ≈ 0 则无增量价值）
+- **CP06 (稳定性)**：引用 D2 `ic_max_drawdown`、`worst_quarter`、D1 `ic_by_year` 波动
+
+## Multi-horizon + Multi-universe（judge 层可见性）
+
+judge_packet.md 里会包含：
+- **Per-horizon 对比表**（h1/h5/h10 的完整 metrics）—— LLM 可以讨论"h1 强 h10 弱 → short-term reversal"
+- **Per-universe 对比表**（primary csi1000 + reference csi300/csi500/all）—— LLM 可以讨论"csi300 更强 → 大盘股效应"
+
+**但 CP01-CP06 的判决只看 `primary_horizon`（h5）× `primary_universe`（csi1000）**。multi-horizon/universe 只作为 context hint。
+
 ## LLM 写 judge.md
 
 ### 输入
 
 只读一份 `_packets/judge_packet.md`（R3 单一输入原则）。Packet 包含：
-- Frontmatter：batch_id / direction / n_candidates / mt_budget 计数
-- Direction Context：hypothesis + 最近 thread
-- Lessons Excerpt：structural constraints
-- Nearest Library Factor：最相近因子摘要
-- 每个候选的 numeric hint（CP01-CP06 数值）
+- **Frontmatter**：batch_id / direction / n_candidates / mt_budget 计数
+- **Direction Context**：hypothesis + 相关 thread（作为上下文摘录，非结构化数据）
+- **Lessons Excerpt**：structural constraints
+- **6 维评估 (report_card)**：每个候选的完整 FactorReportCard（36 字段）
+- **Nearest Library Factor**：最相近因子摘要
+- **每个候选的 numeric hint**（CP01-CP06 数值）
 
 ### judge.md frontmatter schema
 
@@ -96,15 +150,15 @@ candidates:
       CP04: acceptable           # good / acceptable / borderline / poor
       CP05: low                  # low / medium / high (corr)
       CP06: stable               # stable / mixed / unstable
-    overrides:                   # 如果 LLM override 了 Python 建议
+    overrides:                   # 可选，如果 LLM override 了 Python 建议
       - checkpoint: CP04
         from: borderline
         to: acceptable
-    factor_id: F020              # admit 才有
+    factor_id: F020              # 仅 admit 时有
     referenced_context:
       - directions/fp_divergence.md#Hypothesis
       - lessons.md#Structural Constraints
-    concerns:                    # 条件性警告
+    concerns:                    # 可选，条件性警告
       - checkpoint: CP04
         if: "alpha_surv < 0.6 in future batch"
         then: "重审 override 合理性"

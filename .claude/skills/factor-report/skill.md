@@ -14,15 +14,24 @@ user_invocable: true
 
 - `vault/factors/F{id}.yaml` 已存在（Phase 4 Step 1 已分配 F{id}）
 - `_packets/report_packet_F{id}.md` 已存在（Phase 4 Step 2 Python 已生成）
-- 如果 packet 不存在，先跑 `PYTHONPATH=src python3 -m research report-pack F{id}` 生成
-- `vault/factors/F{id}/` 目录已存在且含 PNG 图表
+- `vault/factors/F{id}/report_data.json` 已存在（ReportDataBuilder 生成，含 6-analyzer 完整数据）
+- `vault/factors/F{id}/*.png` 已存在（ReportDataBuilder 生成，14 张 Plotly 图表）
+- 如果缺失，先跑 `PYTHONPATH=src python3 -m report.builder --factor-id {id} --vault`
+
+## 两层数据源
+
+| 数据源 | 生成者 | 内容 | 用途 |
+|---|---|---|---|
+| `report_packet_F{id}.md` | Phase 4 Python | judge 判决摘要 + factor YAML + direction 上下文 | Section 3 判决追溯 + Section 4 研究上下文 |
+| `report_data.json` | ReportDataBuilder（6-analyzer pipeline） | 完整指标（IC 时序、分组收益、衰减、分布、独特性、综合评分） | Section 0-2 全部分析段 |
+| `*.png` | ReportDataBuilder（Plotly 图表） | 14 张图（IC 时序、月度热力图、分组、净值、衰减、雷达等） | 全部 `![[F{id}/chart.png]]` 嵌入 |
 
 ## 沙箱协议（5 条规则）
 
 | # | 规则 | 说明 |
 |---|---|---|
 | 1 | **唯一输入** | `_packets/report_packet_F{id}.md` — 不读其他文件 |
-| 2 | **唯一输出** | `vault/factors/F{id}.md` — 不写其他位置 |
+| 2 | **输出** | `vault/factors/F{id}.md` + `vault/factors/F{id}/*.png`（图表） — 不写其他位置 |
 | 3 | **禁止外部调用** | 不调 Qlib / DB / 网络 / subprocess |
 | 4 | **禁止 Follow link** | 不跟踪 packet 中的 `[[wiki link]]`（packet 已内嵌所有需要的上下文） |
 | 5 | **失败隔离** | on_failure → 写 `_subagent_failures.log`，主循环不受影响 |
@@ -78,44 +87,97 @@ Use only the information in this packet.
 
 使用 Obsidian 格式（`==highlight==`、`> [!warning]` callout、`[[F{id}]]` wikilink）。
 
-### Section 0 — Top Insight
-- 核心洞察一句话（一个 sentence 说清楚这个因子为什么赚钱）
-- 经济学逻辑（2-3 段，解释 expression 背后的行为学/微观结构机制）
-- 毒舌评论（基于因子公式本身，不是基于指标——指出明显的缺陷或过度拟合风险）
-- 核心指标卡片：
+目标长度：**300-400 行**。每个分析段用 "第一...第二...第三..." 的编号论证风格，不只复述数字——要**解读**。
 
+### Section 0 — Top Insight + 核心指标卡
+
+```markdown
+> [!abstract] 核心洞察
+> 一句话说清楚这个因子为什么赚钱。
+
+> [!tip] 毒舌点评
+> 基于因子公式本身的犀利评论——指出明显的缺陷、过度拟合风险、或经济机制的弱点。
+
+| Metric | Train | Validation | 评级 |
+|---|---|---|---|
+| Rank IC Mean | ... | ... | — |
+| ICIR | ... | ... | strong/medium/weak |
+| Win Rate | ... | ... | — |
+| L/S t-stat | — | ... | — |
+| Monotonicity | ... | ... | — |
+| Alpha Survival | — | ... | good/borderline/poor |
+| Max Lib Corr | — | ... | low/medium/high |
+| Style R² | — | ... | clean/borderline/poor |
 ```
-| 维度 | 值 | 评级 |
-|---|---|---|
-| IC mean (val) | 0.016 | — |
-| ICIR (val) | 0.338 | strong |
-| Monotonicity | 0.95 | excellent |
-| Alpha survival | 0.691 | good |
-| Max lib corr | 0.30 vs F012 | low |
-| Style R² | 0.08 | clean |
-```
 
-### Section 1 — 6 维度指标
-IC / Quintile / Stability / Redundancy / Feasibility / Risk 逐维深度分析。每个维度写 2-3 段，不要只复述数字——要**解读**（比较同类因子、解释异常值、指出边界风险）。
+### Section 1 — 预测能力（Predictive Power）
+- 数据源：`report_data.json → predictive_power` + `result.yaml → report_card.ic_by_year`
+- IC 均值在 IS/OOS 的一致性
+- 年度 IC 逐年分析：哪些年份强/弱？是否依赖特定市场制度？
+- 月度 IC 分布：是否有季节性？
+- 嵌入 `![[F{id}/ic_timeseries.png]]` + `![[F{id}/monthly_heatmap.png]]`
 
-### Section 2 — 逐图解读
-对 report_packet 中的每类指标写图文并茂的叙事。主要图类型：
-- IC 时序（什么时间段信号最强/最弱）
-- 分组收益柱状图（Q1-Q5 排列是否严格单调，收益差异幅度）
-- IC 衰减曲线（信号在不同 horizon 的衰减速度）
-- Barra 暴露雷达图（7 个 style 的暴露分布）
+### Section 2 — 盈利能力（Profitability）
+- 数据源：`report_data.json → profitability`
+- IS/OOS 分组收益对比（Q1-Q5）
+- L/S 策略特征：Sharpe、Sortino、Calmar、最大回撤
+- 年度分组收益分解
+- 嵌入 `![[F{id}/quintile_bar.png]]` + `![[F{id}/cumulative_returns.png]]` + `![[F{id}/annual_group_returns.png]]`
 
-### Section 3 — Judge Verdict Trail
-从 report_packet 的 Judge Synthesis 段摘取录取推理。说明哪些 CP 是 strong、哪些是 borderline、是否有 override。
+### Section 3 — 风险归因（Risk Attribution）
+- 数据源：`result.yaml → barra` + `report_card`
+- Barra 7 因子暴露分析（哪个 style 主导？）
+- 三层 alpha 剥离：raw IC → cap-industry neutral → Barra residual
+- alpha_survival_ratio 解读
+- 嵌入 `![[F{id}/radar.png]]`
 
-### Section 4 — Research Context
-- Direction hypothesis 引用（使用 `[[directions/{direction}#Hypothesis]]` wikilink）
-- Library positioning（与最近邻因子的差异分析）
-- Open questions（如果有的话，来自 judge.md 的 `concerns` 字段）
+### Section 4 — 信号稳定性（Stability）
+- 数据源：`result.yaml → stability` + `report_card → D2`
+- 分段 IC 稳定性
+- Train→Validation 衰减链
+- IC max drawdown + worst/best quarter
+- 嵌入 `![[F{id}/rolling_ic.png]]` + `![[F{id}/cumulative_ic.png]]`
+
+### Section 5 — 衰减与可交易性（Decay & Tradability）
+- 数据源：`report_data.json → decay_tradability`
+- IC 按持有期衰减 [1,2,5,10,20,60 天]
+- 半衰期 + 最优换仓频率
+- 因子自相关 + 换手率
+- 嵌入 `![[F{id}/ic_decay.png]]`
+
+### Section 6 — 独特性（Uniqueness）
+- 数据源：`report_data.json → uniqueness` + `report_card → D6`
+- 与库内因子逐一相关性对比
+- 增量 IC（在已有因子基础上的增量预测力）
+- 嵌入 `![[F{id}/correlation_bar.png]]`
+
+### Section 7 — 分布与覆盖（Distribution）
+- 数据源：`report_data.json → decay_tradability.distribution` + `report_card → D5`
+- IS/OOS 分布对比（均值、标准差、偏度、峰度）
+- 极端值占比
+- 嵌入 `![[F{id}/distribution.png]]` + `![[F{id}/coverage.png]]`
+
+### Section 8 — 判决追溯
+- 数据源：`report_packet → Judge Synthesis`
+- 6 个 CP 的判决结果和推理
+- Override 记录和监控条件
+
+### Section 9 — 批判性审查
+- **毒舌一句话**：尖锐总结该因子的核心缺陷
+- **核心弱点**：3-5 个带编号的深度分析段
+- **改进方向**：具体的下一步实验建议
+- **使用警告**：实盘部署需注意的风险
+
+### Section 10 — 研究上下文
+- Direction hypothesis wikilink
+- Thread 引用
+- 同批因子对比
+- Batch 详情 wikilink
 
 ## 关键约束
 
-- **R4 不重算**：所有指标直接消费 report_packet 中的 Phase 2 result.yaml 数值，**绝不重新跑 IC/Barra/quintile**
-- **不读 result.yaml 原文件**：只读 report_packet（report_packet 已把 result.yaml 的关键字段内嵌为 YAML code block）
-- **不读 judge.md 原文件**：只读 report_packet 里的 Judge Synthesis 段
-- **Obsidian 格式**：使用 `==highlight==`、`> [!note]` / `> [!warning]` callout、`[[F{id}]]` wikilink
+- **数据来源**：`report_data.json`（完整 6-analyzer 数据 + 14 张图表）+ `report_packet`（judge 摘要 + direction 上下文）
+- **不自行计算指标**：所有数字来自已有数据文件
+- **不读 result.yaml 原文件**：report_data.json 已包含所有需要的指标
+- **Obsidian 格式**：`==highlight==`、`> [!note]` / `> [!warning]` / `> [!danger]` callout、`[[F{id}]]` wikilink、`![[F{id}/chart.png]]` 图表嵌入
+- **中文为主**：分析叙述用中文，关键术语保留英文（IC、ICIR、Sharpe、Barra 等）

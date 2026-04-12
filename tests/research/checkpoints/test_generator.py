@@ -121,6 +121,19 @@ class TestBuildJudgePacket:
         assert "## Direction Context" not in packet
         assert "## Lessons Excerpt" not in packet
         assert "## Nearest Library Factor" not in packet
+        assert "## Direction Threads" not in packet
+
+    def test_threads_excerpt_rendered(self, tmp_path: Path) -> None:
+        inputs = _bare_inputs(tmp_path / "batches")
+        inputs.context.threads_excerpt = (
+            "- T001 [open] test shadow product\n"
+            "- T002 [open] test body ratio\n"
+        )
+        packet = build_judge_packet(inputs)
+        assert "## Direction Threads" in packet
+        assert "T001 [open]" in packet
+        assert "T002 [open]" in packet
+
 
     def test_candidate_hard_gate_pass(self, tmp_path: Path) -> None:
         packet = build_judge_packet(_bare_inputs(tmp_path / "batches"))

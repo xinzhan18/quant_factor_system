@@ -17,8 +17,8 @@ user_invocable: true
   ├── Phase 1: 调用 /factor-idea (候选设计 + manifest 冻结)
   ├── Phase 2: 调用 /factor-execute (纯 Python 向量化计算)
   ├── Phase 3: 调用 /factor-judge (6 checkpoint 判决)
-  ├── Phase 4: Python 归档 + 后台调用 /factor-report (深度报告 subagent)
-  └── Phase 5: (条件触发) 直接执行 consolidation，不需要单独 skill
+  ├── Phase 4: Python 归档 + LLM 更新 direction + 后台调用 /factor-report (深度报告 subagent)
+  └── Phase 5: (条件触发) 调用 /factor-consolidate (周期性 memory 重写)
 ```
 
 每个 Phase 完成后检查 state.yaml 的 phase 状态是否正确推进，再进入下一个 Phase。
@@ -81,27 +81,65 @@ user_invocable: true
 5. 验证：`judge.md` 通过 audit
 
 ### Step 5 — Phase 4 ARCHIVE
-Python 主导：
-1. 分配 F{id} + 写 `vault/factors/F{id}.yaml`
-2. 为每个 admit 生成 report_packet → **后台调用 `/factor-report`**（subagent 沙箱协议）
-3. LLM 更新 `vault/directions/{direction}.md` 的 Narrative Log（追加本轮发现）
-4. Python 更新 direction frontmatter（rounds++, admits++, members append）
-5. Python 刷新 `vault/INDEX.md` 下半段统计表
-6. Python 执行主 git commit：`[mine] batch_{N} | {direction} | admits=X ...`
-7. 验证：`state.yaml.current_batch == null`（finish_batch 已执行）
+
+**关键顺序**：LLM 写 direction body（Step 4）BEFORE Python 改 frontmatter（Step 6）。这防止 LLM 覆盖 Python 的计数器增量。
+
+7 步流程：
+
+**Step 1 — Python（阻塞）：归档 factor.yaml**
+- 分配 F{id}（单调递增）
+- 写 `vault/factors/F{id}.yaml`
+- 如果 `source_type: python`，复制 .py 到 `python_factors/`
+
+**Step 2 — Python（阻塞）：生成 report_packet**
+- 算 Layer 2 derived analytics（按年/月聚合）
+- 画图表到 `factors/F{id}/*.png`
+- Pack 到 `_packets/report_packet_F{id}.md`
+
+**Step 3 — Subagent（后台，不阻塞）：写 factor.md**
+- 每个 admit 一个后台 subagent，调用 `/factor-report`
+- 读 `report_packet_F{id}.md`（**R3 单一输入**），写 `vault/factors/F{id}.md`
+- 完成时独立 commit：`[report] F{id} {name} report generated`
+- 失败不阻塞主循环（factor.yaml 已 committed）
+
+**Step 4 — LLM（主，阻塞）：更新 direction.md body**
+- 追加 Narrative Log（本轮总结：admits/rejects/reserves + 关键发现）
+- 更新 thread evidence trail（本 batch 相关的 thread 状态变化）
+- （可能）改 frontmatter 中的 `status`（如 active → exhausted）
+- （可能）改 frontmatter 中的 `priority`
+- Reject 的处理：在 Narrative Log 里一行摘要，完整 reasoning 留在 `judge.md`
+
+**Step 5 — Python（阻塞）：主 commit**
+- `research commit {batch_id}`
+- Commit message 格式：`[mine] batch_{N} | {direction} | admits=X rejects=Y reserves=Z`
+- 不含 factor.md（后台生成，独立 commit）
+- pre-commit hook 失败 → raise 硬 fail，下一轮 mine 不启动
+
+**Step 6 — Python（阻塞）：更新 direction frontmatter**
+- `rounds` ++
+- `admits` ++
+- `members` append F{id}
+- `last_batch` = batch_{N}
+- `last_activity` = now
+
+**Step 7 — Python（阻塞）：刷新 INDEX 下半段**
+- 重新生成统计表（含 Category / Priority 列）
+- 验证：`state.yaml.current_batch == null`（finish_batch 已执行）
 
 ### Step 6 — Phase 5 CONSOLIDATION（条件检查）
-检查 `config.yaml.consolidation.auto_triggers`：
-- `rounds_since_last_consolidation ≥ 10` → 触发
-- `vault/lessons.md` 行数 ≥ 400 → 触发
-- 任何 `vault/directions/*.md` 行数 ≥ 500 → 触发
-- active directions 数量 ≥ 20 → 触发
+检查 `config.yaml.consolidation.auto_triggers`，任一满足即触发：
+- `rounds_since_last_consolidation >= 10`
+- `vault/lessons.md` 行数 >= 400
+- 任何 `vault/directions/*.md` 行数 >= 500
+- active directions 数量 >= 20
 
-如果触发：
-1. 并行 subagent 重写 lessons.md + 各 direction.md
-2. 同步重写 INDEX.md 上半段
-3. Python 刷新 INDEX.md 下半段 + 单一 commit
-4. `state.yaml.rounds_since_last_consolidation` 重置为 0
+如果触发，调用 `/factor-consolidate`：
+1. Python 前置检查（git status clean + state.current_batch is None）
+2. Python 并行 pre-pack（lessons packet + direction packets）
+3. 并行 subagent 重写 lessons.md + 各 direction.md
+4. 同步 subagent 重写 INDEX.md 上半段（读刚重写的 direction md）
+5. Python 刷新 INDEX.md 下半段 + 单一 commit
+6. `state.rounds_since_last_consolidation` 重置为 0
 
 ### Step 7 — 循环判断
 - 检查是否还有 active direction 可以继续挖掘

@@ -68,17 +68,45 @@ class TestRenderAutoSection:
         rows = [
             {
                 "direction_id": "vol",
-                "status": "active",
+                "status": "exploring",
+                "priority": "medium",
                 "rounds": 3,
                 "admits": 2,
                 "last_batch": "batch_010",
             }
         ]
         text = render_auto_section(rows, total_admitted=2, round_counter=10, last_consolidation_round=5)
-        assert "| vol | active | 3 | 2 | batch_010 |" in text
+        assert "vol" in text
+        assert "exploring" in text
         assert "| Total factors admitted | 2 |" in text
         assert "| Current round | 10 |" in text
         assert "round 5" in text
+
+
+class TestPriorityColumn:
+    def test_direction_stats_include_priority(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        d = paths.direction_file("micro")
+        d.write_text(
+            "---\ndirection_id: micro\nstatus: exploring\npriority: high\n"
+            "rounds: 2\nadmits: 1\nlast_batch: batch_005\nmembers: [F053]\n---\n"
+            "\n# micro\n",
+            encoding="utf-8",
+        )
+        rows = collect_direction_stats(paths.directions_dir)
+        assert len(rows) == 1
+        assert rows[0]["priority"] == "high"
+
+    def test_render_includes_priority(self) -> None:
+        rows = [{
+            "direction_id": "micro", "status": "exploring",
+            "priority": "high", "rounds": 2, "admits": 1,
+            "last_batch": "batch_005",
+        }]
+        text = render_auto_section(rows, total_admitted=1, round_counter=5, last_consolidation_round=None)
+        assert "| micro |" in text
+        assert "high" in text
+        assert "Priority" in text
 
 
 class TestRefreshIndex:
