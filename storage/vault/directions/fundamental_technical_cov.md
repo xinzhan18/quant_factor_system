@@ -2,18 +2,19 @@
 direction_tag: fundamental_technical_cov
 status: exploring
 priority: high
-rounds: 1
-admits: 1
-last_batch: batch_005
-last_activity: '2026-04-12T17:39:44Z'
+rounds: 2
+admits: 2
+last_batch: batch_006
+last_activity: '2026-04-12T18:15:00Z'
 created_batch: batch_005
 members:
 - F006
+- F007
 merged_into: null
 last_admits:
-- F006
-last_goal: 'First exploration of fundamental×technical covariance: Cov(turnover,PE/PB/PS),
-  CsRank cross-products, EPS/revenue change×liquidity conditioning'
+- F007
+last_goal: 'Second round: Cov短窗口/amount变体(T001), CsRank(EPS/Revenue change)×条件因子(T003),
+  fundamental momentum rank delta(new T004)'
 ---
 # Fundamental × Technical Covariance
 
