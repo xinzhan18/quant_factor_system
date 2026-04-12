@@ -29,7 +29,7 @@ _No batches run yet._
 
 | Direction | Status | Priority | Rounds | Admits | Last batch |
 |---|---|---|---|---|---|
-| candlestick_liquidity | exploring | high | 1 | 2 | batch_001 |
+| candlestick_liquidity | productive | high | 1 | 2 | batch_001 |
 
 | Metric | Value |
 |---|---|

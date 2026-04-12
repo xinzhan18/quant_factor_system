@@ -1,0 +1,22 @@
+factor_id: F001
+name: F001
+family_tag: candlestick_liquidity
+source_type: dsl
+admitted_at: '2026-04-12T12:51:41Z'
+admitted_in_batch: batch_001
+status: active
+sample_policy_version: v3
+signal_ref: batches/batch_001/signals/C002.parquet
+direction: candlestick_liquidity
+expression: Mul(Div(Sub(If(Lt($close, $open), $close, $open), $low), Sub($high, $low)),
+  $turnover_rate)
+canonical: Mul($turnover_rate,Div(Sub(If(Lt($close,$open),$close,$open),$low),Sub($high,$low)))
+validation_metrics:
+  ic_mean: -0.06437117416589917
+  ic_ir: -0.5757328921670652
+  ic_win_rate: 0.2830578512396694
+  monotonicity: -0.9999999999999999
+  long_short_mean: -0.00210057106963455
+risk_metrics:
+  style_r_squared: 0.35619116755550684
+  alpha_survival_ratio: 0.6127
