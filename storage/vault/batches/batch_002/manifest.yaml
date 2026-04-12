@@ -1,0 +1,57 @@
+batch_id: batch_002
+direction: candlestick_liquidity
+batch_goal: 'Second round: CsRank 正交化去 vol (T001), body ratio 协方差/delta (T002), range
+  compression 不同 lookback (T003). 核心假设：rank 化能显著降低 style_r2 同时保留 IC'
+sample_policy_version: v3
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: CsRank(Div(Sub(If(Lt($close, $open), $close, $open), $low), Sub($high,
+    $low)))
+  canonical: CsRank(Div(Sub(If(Lt($close,$open),$close,$open),$low),Sub($high,$low)))
+  rationale: CsRank(lower_shadow_ratio) — 截面排名去 vol scale，测试去 vol 后 shadow 信号是否独立
+- candidate_id: C002
+  source_type: dsl
+  expression: CsRank(Mul(Sub($high, If(Gt($close, $open), $close, $open)), Sub(If(Lt($close,
+    $open), $close, $open), $low)))
+  canonical: CsRank(Mul(Sub($high,If(Gt($close,$open),$close,$open)),Sub(If(Lt($close,$open),$close,$open),$low)))
+  rationale: CsRank(shadow_product) — F002 的 rank 化版本，去掉绝对价格 scale 对 vol 暴露的影响
+- candidate_id: C003
+  source_type: dsl
+  expression: Mul(Div(Sub(If(Lt($close, $open), $close, $open), $low), Sub($high,
+    $low)), CsRank($amount))
+  canonical: Mul(CsRank($amount),Div(Sub(If(Lt($close,$open),$close,$open),$low),Sub($high,$low)))
+  rationale: 下影线 ratio × CsRank(amount) — 用 amount rank 替代 raw turnover，去 scale 效应
+- candidate_id: C004
+  source_type: dsl
+  expression: Cov(Div(Abs(Sub($close, $open)), Sub($high, $low)), Div($close, Ref($close,
+    1)), 20)
+  canonical: Cov(Div(Abs(Sub($close,$open)),Sub($high,$low)),Div($close,Ref($close,1)),20)
+  rationale: Cov(body_ratio, daily_return, 20) — body ratio 与收益的协方差，测试 candlestick
+    形态变化是否跟踪收益
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(Mean(Div(Abs(Sub($close, $open)), Sub($high, $low)), 5), Mean(Div(Abs(Sub($close,
+    $open)), Sub($high, $low)), 20))
+  canonical: Sub(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),5),Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20))
+  rationale: Delta(body_ratio, 5d-20d) — body ratio 的短期/长期差值，测试 candlestick regime
+    变化
+- candidate_id: C006
+  source_type: dsl
+  expression: Div(Mean(Div(Sub($high, $low), $close), 10), Mean(Div(Sub($high, $low),
+    $close), 60))
+  canonical: Div(Mean(Div(Sub($high,$low),$close),10),Mean(Div(Sub($high,$low),$close),60))
+  rationale: Range compression 10/60（不含 turnover）— batch_001 C007 用的是 5/60，换更长 short
+    window
+- candidate_id: C007
+  source_type: dsl
+  expression: Div(Mean(Div(Sub($high, $low), $close), 20), Mean(Div(Sub($high, $low),
+    $close), 120))
+  canonical: Div(Mean(Div(Sub($high,$low),$close),20),Mean(Div(Sub($high,$low),$close),120))
+  rationale: Range compression 20/120 — 更长 lookback 对，测试是否捕捉更慢的 vol regime 变化
+- candidate_id: C008
+  source_type: dsl
+  expression: CsRank(Div(Sub($high, If(Gt($close, $open), $close, $open)), Sub($high,
+    $low)))
+  canonical: CsRank(Div(Sub($high,If(Gt($close,$open),$close,$open)),Sub($high,$low)))
+  rationale: CsRank(upper_shadow_ratio) — 上影线的截面排名，测试抛压信号的 rank 化版本

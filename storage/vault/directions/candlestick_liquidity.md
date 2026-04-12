@@ -1,6 +1,6 @@
 ---
 direction_tag: candlestick_liquidity
-status: productive
+status: saturated
 priority: high
 rounds: 4
 admits: 5

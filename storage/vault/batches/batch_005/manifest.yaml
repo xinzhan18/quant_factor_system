@@ -1,0 +1,48 @@
+batch_id: batch_005
+direction: fundamental_technical_cov
+batch_goal: 'First exploration of fundamental×technical covariance: Cov(turnover,PE/PB/PS),
+  CsRank cross-products, EPS/revenue change×liquidity conditioning'
+sample_policy_version: v3
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Cov($turnover_rate, $pe_ratio, 60)
+  canonical: Cov($turnover_rate,$pe_ratio,60)
+  rationale: Cov(换手率, PE, 60天) — 基本面-流动性协方差，60天窗口
+- candidate_id: C002
+  source_type: dsl
+  expression: Cov($turnover_rate, $pb_ratio, 60)
+  canonical: Cov($turnover_rate,$pb_ratio,60)
+  rationale: Cov(换手率, PB, 60天) — PB版本
+- candidate_id: C003
+  source_type: dsl
+  expression: Corr($turnover_rate, $pe_ratio, 20)
+  canonical: Corr($turnover_rate,$pe_ratio,20)
+  rationale: Corr(换手率, PE, 20天) — 相关性而非协方差，去scale
+- candidate_id: C004
+  source_type: dsl
+  expression: Cov($amount, $ps_ratio, 60)
+  canonical: Cov($amount,$ps_ratio,60)
+  rationale: Cov(成交额, PS, 60天) — 用amount替代turnover, PS替代PE
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(CsRank($pe_ratio), CsRank($turnover_rate))
+  canonical: Mul(CsRank($pe_ratio),CsRank($turnover_rate))
+  rationale: CsRank(PE) × CsRank(换手率) — 截面排名的乘积
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(CsRank(Mul($pb_ratio, -1)), CsRank($turnover_rate))
+  canonical: Mul(CsRank($turnover_rate),CsRank(Mul($pb_ratio,-1)))
+  rationale: CsRank(-PB) × CsRank(换手率) — 低PB排名 × 高换手排名
+- candidate_id: C007
+  source_type: dsl
+  expression: Mul(Sub(Div($close, $pe_ratio), Div(Ref($close, 60), Ref($pe_ratio,
+    60))), CsRank($turnover_rate))
+  canonical: Mul(CsRank($turnover_rate),Sub(Div($close,$pe_ratio),Div(Ref($close,60),Ref($pe_ratio,60))))
+  rationale: EPS变化(60天) × CsRank(换手率) — 盈利改善 × 流动性条件
+- candidate_id: C008
+  source_type: dsl
+  expression: Mul(CsRank(Div(Div($close, $ps_ratio), Div(Ref($close, 60), Ref($ps_ratio,
+    60)))), CsRank(Mul($pb_ratio, -1)))
+  canonical: Mul(CsRank(Div(Div($close,$ps_ratio),Div(Ref($close,60),Ref($ps_ratio,60)))),CsRank(Mul($pb_ratio,-1)))
+  rationale: 营收增长率(60天) × CsRank(-PB) — 收入增长 × 低估值

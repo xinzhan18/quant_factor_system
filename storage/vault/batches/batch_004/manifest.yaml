@@ -1,0 +1,54 @@
+batch_id: batch_004
+direction: candlestick_liquidity
+batch_goal: 'Fourth round: T004 shadow×momentum深化 — 不同momentum窗口(5/10/20), 上下影线对称测试,
+  CsRank双rank化, shadow×volume regime, shadow timing(IdxMax), shadow asymmetry'
+sample_policy_version: v3
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mul(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close), Mul(Div($close,
+    Ref($close, 10)), -1))
+  canonical: Mul(Div(Sub($high,If(Gt($close,$open),$close,$open)),$close),Mul(-1,Div($close,Ref($close,10))))
+  rationale: 上影线/close × 负10日收益 — F004的10天版本
+- candidate_id: C002
+  source_type: dsl
+  expression: Mul(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close), Mul(Div($close,
+    Ref($close, 20)), -1))
+  canonical: Mul(Div(Sub($high,If(Gt($close,$open),$close,$open)),$close),Mul(-1,Div($close,Ref($close,20))))
+  rationale: 上影线/close × 负20日收益 — 更长 momentum 窗口
+- candidate_id: C003
+  source_type: dsl
+  expression: Mul(Div(Sub(If(Lt($close, $open), $close, $open), $low), $close), Mul(Div($close,
+    Ref($close, 5)), -1))
+  canonical: Mul(Div(Sub(If(Lt($close,$open),$close,$open),$low),$close),Mul(-1,Div($close,Ref($close,5))))
+  rationale: 下影线/close × 负5日收益 — T004 对称版（下影线替代上影线）
+- candidate_id: C004
+  source_type: dsl
+  expression: Mul(Div(Sub($high, $close), $close), Mul(Div($close, Ref($close, 5)),
+    -1))
+  canonical: Mul(Div(Sub($high,$close),$close),Mul(-1,Div($close,Ref($close,5))))
+  rationale: (high-close)/close × 负5日收益 — 简化版上影线（不区分阴阳线）× 反转
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(CsRank(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close)),
+    CsRank(Mul(Div($close, Ref($close, 5)), -1)))
+  canonical: Mul(CsRank(Div(Sub($high,If(Gt($close,$open),$close,$open)),$close)),CsRank(Mul(-1,Div($close,Ref($close,5)))))
+  rationale: CsRank(上影线/close) × CsRank(负5日ret) — 双 rank 化的 F004
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close), Div($volume,
+    Mean($volume, 20)))
+  canonical: Mul(Div($volume,Mean($volume,20)),Div(Sub($high,If(Gt($close,$open),$close,$open)),$close))
+  rationale: 上影线/close × 相对成交量 — 抛压 × 放量
+- candidate_id: C007
+  source_type: dsl
+  expression: Mul(IdxMax(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close),
+    20), Mul(Div($close, Ref($close, 5)), -1))
+  canonical: Mul(IdxMax(Div(Sub($high,If(Gt($close,$open),$close,$open)),$close),20),Mul(-1,Div($close,Ref($close,5))))
+  rationale: IdxMax(上影线/close, 20) × 负5日ret — 最大抛压发生在几天前 × 近期跌幅
+- candidate_id: C008
+  source_type: dsl
+  expression: Sub(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close), Div(Sub(If(Lt($close,
+    $open), $close, $open), $low), $close))
+  canonical: Sub(Div(Sub($high,If(Gt($close,$open),$close,$open)),$close),Div(Sub(If(Lt($close,$open),$close,$open),$low),$close))
+  rationale: (上影线 - 下影线)/close — 影线不对称性，正值=上方压力大，负值=下方支撑强

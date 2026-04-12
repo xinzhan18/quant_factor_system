@@ -1,0 +1,55 @@
+batch_id: batch_003
+direction: candlestick_liquidity
+batch_goal: 'Third round: shadow×fundamental interactions (T001 new probe), TsRank
+  时序排名 (T001), relative turnover ratio (T001), body_ratio×PB (T002), shadow×momentum
+  reversal (new T004)'
+sample_policy_version: v3
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mul(Div(Sub(If(Lt($close, $open), $close, $open), $low), Sub($high,
+    $low)), CsRank(Mul($pb_ratio, -1)))
+  canonical: Mul(CsRank(Mul($pb_ratio,-1)),Div(Sub(If(Lt($close,$open),$close,$open),$low),Sub($high,$low)))
+  rationale: 下影线ratio × CsRank(-pb_ratio) — 探底信号 × 低 PB 估值条件
+- candidate_id: C002
+  source_type: dsl
+  expression: Mul(Mul(Sub($high, If(Gt($close, $open), $close, $open)), Sub(If(Lt($close,
+    $open), $close, $open), $low)), CsRank(Mul($pe_ratio, -1)))
+  canonical: Mul(CsRank(Mul($pe_ratio,-1)),Mul(Sub($high,If(Gt($close,$open),$close,$open)),Sub(If(Lt($close,$open),$close,$open),$low)))
+  rationale: 影线乘积 × CsRank(-pe_ratio) — 犹豫信号 × 低 PE 条件
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Mul(Sub($high, If(Gt($close, $open), $close, $open)), Sub(If(Lt($close,
+    $open), $close, $open), $low)), 20)
+  canonical: TsRank(Mul(Sub($high,If(Gt($close,$open),$close,$open)),Sub(If(Lt($close,$open),$close,$open),$low)),20)
+  rationale: TsRank(shadow_product, 20) — 20天内影线乘积的时序排名，去掉绝对scale保留时序结构
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank(Div(Sub(If(Lt($close, $open), $close, $open), $low), Sub($high,
+    $low)), 20)
+  canonical: TsRank(Div(Sub(If(Lt($close,$open),$close,$open),$low),Sub($high,$low)),20)
+  rationale: TsRank(lower_shadow_ratio, 20) — 下影线比例的时序排名
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(Div(Sub(If(Lt($close, $open), $close, $open), $low), Sub($high,
+    $low)), Div($turnover_rate, Mean($turnover_rate, 20)))
+  canonical: Mul(Div($turnover_rate,Mean($turnover_rate,20)),Div(Sub(If(Lt($close,$open),$close,$open),$low),Sub($high,$low)))
+  rationale: 下影线ratio × 相对换手率(当日/20日均) — 用 ratio 替代 raw turnover 去 scale
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(Std(Div(Abs(Sub($close, $open)), Sub($high, $low)), 20), CsRank(Mul($pb_ratio,
+    -1)))
+  canonical: Mul(CsRank(Mul($pb_ratio,-1)),Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20))
+  rationale: body_ratio_std × CsRank(-pb) — 形态不稳定性 × 低估值
+- candidate_id: C007
+  source_type: dsl
+  expression: Mul(Mul(Sub($high, If(Gt($close, $open), $close, $open)), Sub(If(Lt($close,
+    $open), $close, $open), $low)), Mul(Div($close, Ref($close, 5)), -1))
+  canonical: Mul(Mul(-1,Div($close,Ref($close,5))),Mul(Sub($high,If(Gt($close,$open),$close,$open)),Sub(If(Lt($close,$open),$close,$open),$low)))
+  rationale: 影线乘积 × 负5日收益 — 犹豫信号 × 近期跌幅，捕捉跌后十字星反转
+- candidate_id: C008
+  source_type: dsl
+  expression: Mul(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close), Mul(Div($close,
+    Ref($close, 5)), -1))
+  canonical: Mul(Div(Sub($high,If(Gt($close,$open),$close,$open)),$close),Mul(-1,Div($close,Ref($close,5))))
+  rationale: 上影线/close × 负5日收益 — 抛压信号 × 近期跌幅
