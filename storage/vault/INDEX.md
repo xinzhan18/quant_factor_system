@@ -27,13 +27,13 @@ _No batches run yet._
 
 <!-- BEGIN AUTO-SECTION -->
 
-| Direction | Status | Rounds | Admits | Last batch |
-|---|---|---|---|---|
+| Direction | Status | Priority | Rounds | Admits | Last batch |
+|---|---|---|---|---|---|
+| candlestick_liquidity | exploring | high | 1 | 2 | batch_001 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 0 |
-| Total batches run | 0 |
+| Total factors admitted | 2 |
 | Current round | 0 |
 | Last consolidation | — |
 
