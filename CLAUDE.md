@@ -100,7 +100,7 @@ RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Phas
 storage/
   state.yaml                            ← system state (current_batch, phase, round)
   config.yaml                           ← system config (sample_policy, thresholds, mt_budget, consolidation)
-  evidence/vault/                       ← Obsidian vault
+  vault/                                ← Obsidian vault（直接在 storage/ 下，无 evidence/ 中间层）
     INDEX.md                            ← MOC: upper=LLM narrative, lower=Python auto-stats
     lessons.md                          ← system-level hard-won facts
     directions/{tag}.md                 ← per-direction hypothesis + threads + narrative log

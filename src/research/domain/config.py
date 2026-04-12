@@ -139,10 +139,6 @@ class ResearchConfig:
     corr_check_years: int = 2
 
     # ---- Storage paths (relative to project root) ----
-    state_dir: str = "storage/state"
-    logic_dir: str = "storage/logic"
-    registry_dir: str = "storage/registry"
-    governance_dir: str = "storage/governance"
     batches_dir: str = "storage/batches"
-    vault_dir: str = "storage/evidence/vault"
-    cache_dir: str = "storage/runtime/cache"
+    vault_dir: str = "storage/vault"
+    cache_dir: str = "storage/cache"

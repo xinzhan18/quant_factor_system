@@ -5,7 +5,7 @@ Layout (see refactor_plan.md §4):
     storage/
       state.yaml                            # current batch + phase + round
       config.yaml                           # system config
-      evidence/vault/                       # Obsidian vault (Rule B Markdown)
+      vault/                                # Obsidian vault (Rule B Markdown)
         INDEX.md
         lessons.md
         directions/{tag}.md
@@ -59,16 +59,12 @@ class StoragePaths:
         return self.root / "config.yaml"
 
     # ------------------------------------------------------------------
-    # Vault (Obsidian root)
+    # Vault (Obsidian root — directly under storage/, no evidence/ wrapper)
     # ------------------------------------------------------------------
 
     @property
-    def evidence_dir(self) -> Path:
-        return self.root / "evidence"
-
-    @property
     def vault_dir(self) -> Path:
-        return self.evidence_dir / "vault"
+        return self.root / "vault"
 
     @property
     def vault_index_file(self) -> Path:
@@ -195,7 +191,6 @@ class StoragePaths:
         Does NOT include per-batch dirs (those are created on demand in Phase 1).
         """
         return [
-            self.evidence_dir,
             self.vault_dir,
             self.directions_dir,
             self.factors_dir,

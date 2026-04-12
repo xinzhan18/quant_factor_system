@@ -25,8 +25,7 @@ class TestStoragePathsBasics:
 class TestVaultPaths:
     def test_vault_structure(self, tmp_path: Path) -> None:
         sp = StoragePaths(tmp_path)
-        assert sp.evidence_dir == tmp_path / "evidence"
-        assert sp.vault_dir == tmp_path / "evidence" / "vault"
+        assert sp.vault_dir == tmp_path / "vault"
         assert sp.vault_index_file == sp.vault_dir / "INDEX.md"
         assert sp.vault_lessons_file == sp.vault_dir / "lessons.md"
         assert sp.directions_dir == sp.vault_dir / "directions"
