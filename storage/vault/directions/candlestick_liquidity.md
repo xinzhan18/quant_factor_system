@@ -2,21 +2,20 @@
 direction_tag: candlestick_liquidity
 status: productive
 priority: high
-rounds: 1
-admits: 2
-last_batch: batch_001
-last_activity: '2026-04-12T12:51:41Z'
+rounds: 2
+admits: 3
+last_batch: batch_002
+last_activity: '2026-04-12T16:07:20Z'
 created_batch: batch_001
 members:
 - F001
 - F002
+- F003
 merged_into: null
-last_goal: First exploration of candlestick microstructure x liquidity interactions
-  on csi1000 — test shadow ratios, body ratios, and range compression signals with
-  and without turnover conditioner
+last_goal: 'Second round: CsRank 正交化去 vol (T001), body ratio 协方差/delta (T002), range
+  compression 不同 lookback (T003). 核心假设：rank 化能显著降低 style_r2 同时保留 IC'
 last_admits:
-- F001
-- F002
+- F003
 ---
 # Candlestick Microstructure x Liquidity
 
@@ -37,22 +36,22 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 ### T001: Shadow × turnover 交互是否有独立 alpha [◉ ACTIVE]
 **Question**: 上影线/下影线比例与换手率的乘积，在控制 Barra 风格后是否保留 alpha？
 **Evidence trail**:
-- batch_001: C001 upper_shadow×turnover IC=-0.051 ICIR=-0.444 但 style_r2=0.35 → reserve (vol contaminated)
-- batch_001: C002 lower_shadow×turnover IC=-0.064 **ICIR=-0.576** alpha_surv=0.61 → **F020 admitted** (override CP04: alpha_surv > 0.60)
+- [[../batches/batch_001/judge#C001|batch_001 C001]]: upper_shadow×turnover IC=-0.051 ICIR=-0.444 但 style_r2=0.35 → reserve (vol contaminated)
+- [[../batches/batch_001/judge#C002|batch_001 C002]]: lower_shadow×turnover IC=-0.064 **ICIR=-0.576** alpha_surv=0.61 → **[[../factors/F001|F001]] admitted** (override CP04: alpha_surv > 0.60)
 **Next probes**: 尝试 CsRank 归一化减少 vol 暴露; 换用 $amount 替代 $turnover_rate
 
 ### T002: Body ratio 的时间序列特征是否有预测力 [◉ ACTIVE]
 **Question**: body ratio (|close-open|/(high-low)) 的滚动统计量（mean/std/trend）是否预测未来收益？
 **Evidence trail**:
-- batch_001: C005 Mean(body_ratio,20) IC=0.001 → noise, reject
-- batch_001: C006 Std(body_ratio,20) IC=0.006 ICIR=0.155 → too weak, reserve
+- [[../batches/batch_001/judge#C005|batch_001 C005]]: Mean(body_ratio,20) IC=0.001 → noise, reject
+- [[../batches/batch_001/judge#C006|batch_001 C006]]: Std(body_ratio,20) IC=0.006 ICIR=0.155 → too weak, reserve
 **Next probes**: 尝试 Cov(body_ratio, returns) 或 body_ratio 的 delta/trend 变化
 
 ### T003: OHLC range compression 信号 [◉ ACTIVE]
 **Question**: 日内价格区间 (high-low)/close 的压缩/扩张是否预测波动率 regime change？
 **Evidence trail**:
-- batch_001: C007 range_compression(5/60) IC=-0.038 ICIR=-0.339 alpha_surv=0.67 → reserve (borderline CP04)
-- batch_001: C008 range×turnover IC=-0.072 但 style_r2=0.61 → reject (vol proxy)
+- [[../batches/batch_001/judge#C007|batch_001 C007]]: range_compression(5/60) IC=-0.038 ICIR=-0.339 alpha_surv=0.67 → reserve (borderline CP04)
+- [[../batches/batch_001/judge#C008|batch_001 C008]]: range×turnover IC=-0.072 但 style_r2=0.61 → reject (vol proxy)
 **Next probes**: 纯 range compression 不加 turnover; 尝试更长 lookback (10/120)
 
 ## Known Failures
@@ -66,11 +65,11 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 
 ## Narrative Log
 
-### 2026-04-12 batch_001
-First exploration. 8 candidates, 2 admits ([[../factors/F020|F020]] lower_shadow×turnover, [[../factors/F021|F021]] shadow_product), 3 reserves, 3 rejects.
+### 2026-04-12 [[../batches/batch_001/judge|batch_001]]
+首轮探索。8 候选，2 admit（[[../factors/F001|F001]] 下影线×换手率、[[../factors/F002|F002]] 影线乘积），3 reserve，3 reject。
 
-**Key finding**: Candlestick shadow signals are strong (ICIR -0.42 to -0.58) but heavily contaminated by Barra vol_20d exposure (style_r2 0.21-0.61). The turnover conditioner amplifies both signal and vol contamination. Shadow product (F021) without turnover has the cleanest risk profile (style_r2=0.21).
+**核心发现**：影线信号 IC 强劲（ICIR -0.42 到 -0.58），但 Barra vol_20d 暴露严重（style_r2 0.21-0.61）。换手率条件因子同时放大了信号和 vol 污染。影线乘积（F002）不含换手率，风险最干净（style_r2=0.21）。
 
-**Critical lesson**: All shadow/range signals correlate with realized volatility. Future candidates must either (1) use CsRank to orthogonalize against vol, or (2) focus on ratio-based expressions that cancel out the vol scaling.
+**关键教训**：所有 shadow/range 信号与实现波动率正相关。后续候选必须：(1) 用 CsRank 正交化去 vol，或 (2) 用 ratio 表达式抵消 vol 的 scale 效应。
 
-Status: exploring → **productive** (first admits). Direction remains high priority — strong raw IC but needs risk-cleaner variants.
+状态：exploring → **productive**（首批 admit）。方向保持高优先级——原始 IC 强但需要更干净的变体。

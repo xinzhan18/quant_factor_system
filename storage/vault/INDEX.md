@@ -1,25 +1,34 @@
 ---
-generated_at: 2026-04-12T00:00:00Z
-round: 0
-total_active_directions: 0
-total_factors_admitted: 0
-last_batch: null
+generated_at: 2026-04-12T12:55:00Z
+round: 1
+total_active_directions: 1
+total_factors_admitted: 2
+last_batch: batch_001
 last_consolidation_round: null
 ---
 
 # Factor Research Index
 
-> MOC (Map of Content) for all research directions and admitted factors.
-> Upper half is LLM-maintained narrative. Lower half is Python-regenerated statistics.
-> **Do NOT edit the lower half by hand** — it is overwritten every archive cycle.
+> MOC (Map of Content)：所有研究方向和 admitted 因子的总览。
+> 上半段由 LLM 维护；下半段由 Python 自动刷新。
 
-## Active Directions
+## 活跃方向
 
-_No directions seeded yet. First `research start` will create one._
+### [[directions/candlestick_liquidity|K 线微观结构 × 流动性]] `productive` `high`
+首轮探索产出 2 个因子。影线信号 IC 强劲（ICIR -0.42 到 -0.58），但 Barra vol 暴露是核心问题。下一步需要 CsRank 正交化或 ratio 表达式去 vol。3 个 thread 全部 active。
 
-## Recent Activity
+## 最近 Batch
 
-_No batches run yet._
+| Batch | Direction | Admits | 关键发现 |
+|---|---|---|---|
+| [[batches/batch_001/judge\|batch_001]] | [[directions/candlestick_liquidity\|candlestick_liquidity]] | [[factors/F001\|F001]], [[factors/F002\|F002]] | 影线信号强但 vol 污染；shadow_product 最干净 |
+
+## 因子库
+
+| Factor | 名称 | ICIR | Style R² | 方向 |
+|---|---|---|---|---|
+| [[factors/F001\|F001]] | 下影线×换手率 | ==-0.576== | 0.36 | [[directions/candlestick_liquidity\|candlestick]] |
+| [[factors/F002\|F002]] | 影线乘积 | -0.418 | ==0.21== | [[directions/candlestick_liquidity\|candlestick]] |
 
 ---
 
@@ -29,12 +38,12 @@ _No batches run yet._
 
 | Direction | Status | Priority | Rounds | Admits | Last batch |
 |---|---|---|---|---|---|
-| candlestick_liquidity | productive | high | 1 | 2 | batch_001 |
+| candlestick_liquidity | productive | high | 2 | 3 | batch_002 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 2 |
-| Current round | 0 |
+| Total factors admitted | 3 |
+| Current round | 1 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
