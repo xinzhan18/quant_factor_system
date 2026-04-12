@@ -1,0 +1,22 @@
+factor_id: F005
+name: F005
+family_tag: candlestick_liquidity
+source_type: dsl
+admitted_at: '2026-04-12T17:11:19Z'
+admitted_in_batch: batch_004
+status: active
+sample_policy_version: v3
+signal_ref: batches/batch_004/signals/C007.parquet
+direction: candlestick_liquidity
+expression: Mul(IdxMax(Div(Sub($high, If(Gt($close, $open), $close, $open)), $close),
+  20), Mul(Div($close, Ref($close, 5)), -1))
+canonical: Mul(IdxMax(Div(Sub($high,If(Gt($close,$open),$close,$open)),$close),20),Mul(-1,Div($close,Ref($close,5))))
+validation_metrics:
+  ic_mean: 0.021014870436410045
+  ic_ir: 0.3859639401208343
+  ic_win_rate: 0.6590909090909091
+  monotonicity: 0.7
+  long_short_mean: 0.0003453200622384767
+risk_metrics:
+  style_r_squared: 0.051877785977455626
+  alpha_survival_ratio: 0.7924

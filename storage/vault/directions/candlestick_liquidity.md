@@ -2,22 +2,22 @@
 direction_tag: candlestick_liquidity
 status: productive
 priority: high
-rounds: 3
-admits: 4
-last_batch: batch_003
-last_activity: '2026-04-12T16:42:29Z'
+rounds: 4
+admits: 5
+last_batch: batch_004
+last_activity: '2026-04-12T17:11:19Z'
 created_batch: batch_001
 members:
 - F001
 - F002
 - F003
 - F004
+- F005
 merged_into: null
-last_goal: 'Third round: shadow×fundamental interactions (T001 new probe), TsRank
-  时序排名 (T001), relative turnover ratio (T001), body_ratio×PB (T002), shadow×momentum
-  reversal (new T004)'
+last_goal: 'Fourth round: T004 shadow×momentum深化 — 不同momentum窗口(5/10/20), 上下影线对称测试,
+  CsRank双rank化, shadow×volume regime, shadow timing(IdxMax), shadow asymmetry'
 last_admits:
-- F004
+- F005
 ---
 # Candlestick Microstructure x Liquidity
 
@@ -92,3 +92,20 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 - T003：三种 range compression 都是 vol proxy。==T003 标记为 near-exhausted==。
 
 **下一步**：探索 shadow 信号与 fundamental 字段的交互（如 shadow × PE rank）；或尝试 TsRank 时序排名替代 CsRank 截面排名。
+
+### 2026-04-13 [[../batches/batch_003/judge|batch_003]]
+第三轮：shadow × fundamental + TsRank + momentum 交互。8 候选，1 admit（[[../factors/F004|F004]] 上影线/close × 负5日收益），0 reserve，7 reject。
+
+**核心发现**：
+1. ==冗余是本轮主要瓶颈==。TsRank(shadow_product) style_r2=0.024 极干净、ICIR=-0.499，但 max_corr=0.743 vs F002 超标。下影线×相对换手 也同理（corr=0.744）。随着因子库增长，候选空间被挤压。
+2. Fundamental conditioning（×CsRank(-PB) / ×CsRank(-PE)）对 shadow 信号==无效==（C001 IC=0.010, C006 style_r2=0.682）。Shadow 是短期微观结构信号，fundamental 是长期价值信号，两者的时间尺度不匹配。
+3. ==F004 是全新的信号方向==：上影线 × 负动量。正方向 IC（高因子值→高收益），机制是"跌后出现的抛压=反弹失败确认"。与 F001-F003 的负方向信号正交。corr=0.607。
+4. 影线乘积×CsRank(-PE) corr=0.946 vs F002 → CsRank conditioning 不够改变排序。
+
+**Thread 更新**：
+- T001：fundamental conditioning 失败（时间尺度不匹配）。TsRank 有效去 vol 但冗余超标。T001 ==接近 saturated==。
+- T002：body_ratio × PB = vol proxy。==T002 标记 exhausted==。
+- T003：已 near-exhausted（batch_002 结论）。
+- ==新增 T004==：shadow × momentum reversal（F004 开启新方向）。上影线/close × (-5日ret) ICIR=0.418, style_r2=0.127。正方向信号。
+
+**下一步**：深化 T004（momentum reversal × candlestick 变体）。candlestick_liquidity 方向在纯 shadow 信号上接近饱和，但 T004 开启了 shadow × momentum 的新维度。
