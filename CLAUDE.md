@@ -9,26 +9,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pytest
 
 # Run a single test file / test case
-pytest tests/report/test_builder.py -v
-pytest tests/research/execute/test_pipeline.py -v
+pytest tests/research/compute/test_vectorized_ic.py -v
+pytest tests/research/phases/test_phase2_execute.py -v
 
 # Research CLI (all commands require PYTHONPATH=src)
-PYTHONPATH=src python3 -m research probe "Std($close, 20)"
-PYTHONPATH=src python3 -m research probe "Std($close, 20)" --universe csi1000
-PYTHONPATH=src python3 -m research execute storage/batches/batch_001/manifest.yaml
-PYTHONPATH=src python3 -m research execute batch.yaml --skip-stage1
-PYTHONPATH=src python3 -m research logic list
-PYTHONPATH=src python3 -m research logic schedule
-PYTHONPATH=src python3 -m research batch list
-PYTHONPATH=src python3 -m research batch next-id
-PYTHONPATH=src python3 -m research library
-PYTHONPATH=src python3 -m research state set current_batch batch_042
-PYTHONPATH=src python3 -m research state clear-batch
-PYTHONPATH=src python3 -m research state sync-holdout
+PYTHONPATH=src python3 -m research mine --once --direction bootstrap
+PYTHONPATH=src python3 -m research audit mt-budget
+PYTHONPATH=src python3 -m research audit mt-budget --direction fundamental_price_divergence
+PYTHONPATH=src python3 -m research state set current_batch null
 PYTHONPATH=src python3 -m research capabilities
-
-# Report generation
-PYTHONPATH=src python3 -m report.builder --factor-id 001 --vault
 
 # Index constituent sync (RiceQuant API → DB → Qlib instruments file)
 PYTHONPATH=src python3 scripts/sync_index_constituents.py csi1000
@@ -48,100 +37,91 @@ Note: `pytest` does NOT need `PYTHONPATH=src` — `pytest.ini` sets `pythonpath 
 
 ## Architecture
 
+### System Constitution (R1-R8)
+
+| Rule | Summary |
+|---|---|
+| **R1** Rule A/B | YAML = Python-consumed structured data; Markdown = LLM-consumed narrative |
+| **R2** LLM 主驾 Python 护栏 | LLM decides direction/candidates/judgment/reports; Python does compute/validate/state/commit |
+| **R3** Single data source | Each data lives at one canonical location; LLM gets one pre-packed input file per step |
+| **R4** No recomputation | Phase 4 report consumes Phase 2 result.yaml directly, never re-runs IC/Barra |
+| **R5** Full vectorization | No for-loop over rows/dates/symbols; use groupby/broadcasting/einsum/pinv |
+| **R6** Code minimal | No backward compat, no adapter shims, no speculative abstractions |
+| **R7** Autonomous + auditable | LLM runs autonomously; every decision leaves provenance in git |
+| **R8** DSL first, Python escape hatch | Default = Qlib DSL; Python only when DSL can't express the idea |
+
 ### Source Layout (`src/`)
 
-All source code lives under `src/` with bare imports (e.g., `from research.compute.factor_engine import FactorEngine`). The `package_dir={"": "src"}` in `setup.py` and `pythonpath = src` in `pytest.ini` enable this.
+All source code lives under `src/` with bare imports. `package_dir={"": "src"}` in `setup.py` and `pythonpath = src` in `pytest.ini`.
 
 Four modules:
 
-- **`core/`** — Shared utilities: `factor_stats.py` (pure stat functions used by both research and report), `metrics.py`, `constants.py`
-- **`research/`** — Factor research pipeline (replaces old `mining/`). CLI entry via `__main__.py` → `cli/main.py`. 11 subpackages covering the full lifecycle: hypothesis → evaluation → judgment → governance. See [Research Module](#research-module) below.
-- **`report/`** — Factor report generation. Pipeline: 6 analyzers (`analytics/`) → `CompositeScorer` (7-dim S-curve) → `ReportDataBuilder` → Obsidian Markdown + PNG charts
-- **`data/`** — Data layer: `storage/timescale_storage.py` (DB ops), `qlib_sync.py` (DB → Qlib binary), `loaders.py` (factor/price data loading), `ricequant_source.py` (API)
+- **`core/`** — Shared pure-function math: `factor_stats.py` (vectorized IC, quintile, monotonicity), `metrics.py` (Sharpe/Calmar/MDD), `constants.py`
+- **`research/`** — Factor research pipeline. 5-phase loop: START → EXECUTE → JUDGE → ARCHIVE → CONSOLIDATION
+- **`report/`** — Report analytics v2 (pure extractors consuming result.yaml, no recomputation) + chart rendering
+- **`data/`** — Data layer: TimescaleDB storage, Qlib sync, RiceQuant API, loaders
 
-### Research Module
-
-The `research/` module is the core factor discovery and evaluation system, organized into 11 subpackages:
+### Research Module (5-Phase Architecture)
 
 | Subpackage | Purpose |
 |---|---|
-| `cli/` | CLI entry point (7 subcommands: probe, execute, logic, batch, library, state, capabilities) |
-| `compute/` | Factor computation engine: Qlib expression evaluation, custom operators, preprocessing, caching |
-| `domain/` | Pure data contracts: frozen dataclasses for evidence, verdicts, configs, reason codes, sample policy |
-| `execute/` | Evaluation pipeline: precheck → compute → gate → judge_packet. Orchestrator: `ResearchExecutePipeline` |
-| `feasibility/` | Proxy portfolio analysis: liquidity coverage, concentration, stress tests, half-life |
-| `governance/` | Access control + audit: `GuardedWriter` (level_1/level_2 writes), `WriteAuditLog`, cycle controller |
-| `judge/` | 6-dimension structured judgment: mechanism alignment, statistical strength, stability, redundancy, feasibility, risk review |
-| `logic/` | Hypothesis lifecycle: LogicCard (proposed→active→warm→productive→saturated→parked→dead), proposals, reviews, scheduler |
-| `redundancy/` | Factor overlap analysis: pairwise correlation, family-level overlap, subspace ridge regression |
-| `risk/` | Risk model review: Barra/style exposures, cap-neutral IC, residual IC, crowding detection |
-| `stats/` | Statistical evidence: effect strength, split/regime stability, reliability (bootstrap, walk-forward), support windows, multiple testing |
-| `storage/` | YAML persistence: `StoragePaths` (centralized path registry), stores for state, logic, registry, ledger, packets |
+| `cli/` | CLI entry point: `mine.py` (autonomous loop), `audit.py` (mt-budget), state management |
+| `compute/` | Factor computation: 6 vectorized metric modules (`vectorized_{ic,quintile,stability,feasibility,redundancy,barra}`), cache (sha256-keyed parquet), preprocess (MAD winsorize + z-score matrix ops), python_runner (R8 escape hatch with AST whitelist) |
+| `domain/` | Pure data contracts: frozen dataclasses for evidence, verdicts, sample policy |
+| `checkpoints/` | Phase 3 judge infrastructure: `hard_gates.py` (CP01), `mt_budget.py` (§7.MT multiple testing budget), `generator.py` (pre-pack judge_packet.md), `audit.py` (6 structural checks including CP03 mt_bucket citation) |
+| `phases/` | 5 phase orchestrators: `phase1_start.py` (DSL whitelist + dedup + manifest freeze), `phase2_execute.py` (vectorized compute → result.yaml), `phase3_judge.py` (hard gates → pre-pack → LLM → audit), `phase4_archive.py` (factor allocation + direction update + INDEX refresh + git commit), `phase5_consolidate.py` (periodic memory md rewrite) |
+| `memory/` | Vault operations: `direction_updater.py` (surgical frontmatter update), `index_refresher.py` (auto-section regeneration) |
+| `archive/` | Phase 4 helpers: `factor_writer.py` (monotonic F{id} allocation), `python_archiver.py` (copy admitted .py), `report_packer.py` (single-input packet for factor.md subagent), `commit.py` (git commit with hard-fail on hook error) |
+| `storage/` | YAML I/O + paths + state: `yaml_io.py` (safe/unsafe load + atomic write), `paths.py` (StoragePaths for vault-first layout), `state.py` (State dataclass + phase DAG enforcement) |
 
-### Skill-Driven Workflow
+### 5-Phase Loop
 
-The research pipeline is operated through 6 Claude Code skills:
-
-1. **`/factor-mine`** — Dual-speed orchestrator: fast loop (working_theme → draft → quick_execute) + formal loop (logic_schedule → /idea → /execute → /judge → /report)
-2. **`/factor-idea`** — Candidate generation: consume logic schedule, design routes, probe filter, freeze batch manifest
-3. **`/factor-execute`** — Formal evaluation: run `ResearchExecutePipeline` on frozen batch → research_result + judge_packet
-4. **`/factor-judge`** — Structured 6-dim judgment: read judge_packet → admit/reserve/reject/replace verdicts via guarded_writer
-5. **`/factor-logic`** — Hypothesis management: list, schedule (7-dim priority), propose, review, lifecycle transitions
-6. **`/factor-report`** — Obsidian markdown + PNG chart generation for admitted factors
+```
+Phase 1 START+DESIGN → Phase 2 EXECUTE → Phase 3 JUDGE → Phase 4 ARCHIVE → (Phase 5 CONSOLIDATION if triggered)
+     ↓                     ↓                  ↓                ↓                     ↓
+manifest.yaml          result.yaml        judge.md        factor.yaml           rewritten md
+(frozen candidates)    (all metrics)      (6 CP verdicts) (F{id} allocated)     (lessons/dirs/INDEX)
+```
 
 ### Data Flow
 
 ```
-RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Research Pipeline → Factor Registry (YAML)
-                     ↓                                                       ↓                    ↓
-               market_daily (11M rows)                              6-dim evidence          Report Builder
-               factor_values (147M rows)                            judge_packet            → Markdown + PNG
-               ref_valuation / ref_shares                           → guarded_writer
-               index_constituents (2.7M rows)                       → audit log
+RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Phase 2 compute → result.yaml
+                     ↓                                                      ↓
+               market_daily (11M rows)                           Phase 3 judge_packet.md
+               factor_values (147M rows)                           → LLM writes judge.md
+               index_constituents (2.7M rows)                      → Python audit
+                                                                Phase 4 factor.yaml + git commit
 ```
-
-### Multi-Universe Support
-
-Feature binary files (`features/{SYMBOL}/*.bin`) are shared across all universes (5431 stocks). Only `instruments/{universe}.txt` files differ. `--universe` flag on `probe`/`execute` commands flows through config → `D.instruments(universe)`.
-
-**Cross-sectional operators** (`CsRank`, `CsZscore` in `operators.py`) always compute over the full market (`D.instruments("all")`), regardless of the mining universe.
 
 ### Storage Layout (`storage/`)
 
 ```
 storage/
-  state/          — research_state.yaml, pending_holdout_queue.yaml
-  logic/          — Hypothesis lifecycle
-    registry.yaml — All logic IDs + metadata
-    cards/        — LogicCard YAML files (L001.yaml, ...)
-    proposals/    — Proposal drafts
-    reviews/      — Review outcomes
-    snapshots/    — latest_schedule_snapshot.yaml
-  registry/       — Factor registry (published factors)
-    factors/      — index.yaml + per-factor detail YAML
-    families/     — family_registry.yaml
-  governance/     — research_config.yaml, ledger.yaml, research_lessons.md
-  batches/        — Per-batch lifecycle: batch_XXX/{manifest, research_result, judge_packet, ...}
-  evidence/       — Derivation layer (deletable, rebuildable)
-    vault/        — Obsidian vault: reports + PNG charts
-  runtime/        — Ephemeral cache (gitignored)
-    cache/        — Factor value + risk exposure caches (.parquet)
+  state.yaml                            ← system state (current_batch, phase, round)
+  config.yaml                           ← system config (sample_policy, thresholds, mt_budget, consolidation)
+  evidence/vault/                       ← Obsidian vault
+    INDEX.md                            ← MOC: upper=LLM narrative, lower=Python auto-stats
+    lessons.md                          ← system-level hard-won facts
+    directions/{tag}.md                 ← per-direction hypothesis + threads + narrative log
+    factors/F{id}.{yaml,md}             ← admitted factor metadata + deep report
+    _meta/consolidation_log.md          ← append-only consolidation history
+  batches/batch_{NNN}/                  ← per-batch immutable archive
+    manifest.yaml / result.yaml / judge.md
+    _packets/ / signals/ / python_candidates/
+  cache/                                ← parquet caches
+    market_daily.parquet / barra_factors.parquet
+    factor_values/{sha256_key}.parquet
+  python_factors/F{id}_{name}.py        ← admitted Python factors
+  _holdout_private/                     ← LLM forbidden (holdout review only)
+  _legacy/                              ← archived old storage (logic_v1, governance_v1, etc.)
 ```
 
 All paths managed by `StoragePaths` class in `src/research/storage/paths.py`.
-Operator/field whitelists: single source of truth in `src/research/execute/precheck.py`. Query via `PYTHONPATH=src python3 -m research capabilities`.
 
-### Research Pipeline Stages
+### §7.MT Multiple Testing Budget
 
-1. **Precheck** — DSL syntax, operator/field whitelist, forbidden pattern validation
-2. **Probe** — Lightweight IC-only check on train period
-3. **Execute** — Full pipeline: compute → preprocess → 6-dimension evidence (effect strength, stability, reliability, support windows, multiple testing) → redundancy → risk review → feasibility → execution gate → judge_packet
-4. **Judge** — 6-dim structured verdict: mechanism alignment, statistical strength, stability, redundancy, feasibility, risk review → admit/reserve/reject/replace
-5. **Governance** — Writes via `GuardedWriter` (level_1 immediate / level_2 requires repeated evidence), audit logging
-
-### Report Analyzers
-
-`ICAnalyzer`, `ProfitAnalyzer`, `ConditionalAnalyzer`, `DecayAnalyzer`, `RiskAnalyzer`, `UniquenessAnalyzer` — each returns a section dict. `CompositeScorer` grades S/A/B/C/D across 7 dimensions.
+Phase 3 pre-pack scans `batches/batch_*/manifest.yaml` (judged-only) to count cumulative candidates + per-direction candidates + validation exposure. Formula constants live in `config.yaml.thresholds.mt_budget`. CP03 numeric_hint includes `mt_score / mt_bucket / search_adjusted_strength`. Audit enforces LLM cites `mt_bucket` in CP03 body. See `src/research/checkpoints/mt_budget.py`.
 
 ## Critical Technical Notes
 
@@ -151,25 +131,25 @@ Operator/field whitelists: single source of truth in `src/research/execute/prech
 - **`D.instruments('all')`** returns a dict, not a list — pass it to `D.features()` then extract instruments from the index
 - **`factor_values` DB table** — has 147M+ rows in TimescaleDB (`quant_data` database). DB is a Docker container: `timescale/timescaledb:latest-pg14` on `localhost:5432`. Do NOT run Homebrew PostgreSQL simultaneously — it will shadow port 5432 and intercept connections.
 - **Unavailable Qlib operators**: `Neg`, `SMA` — use alternatives like `Mul($x, -1)` for Neg. Note: `TsRank`, `TsMax`, `TsMin` are custom-registered and available.
-- **`$vwap`** field is zero in current data — forbidden in precheck
+- **`$vwap`** field is zero in current data — forbidden in precheck whitelist
 - **`$amount`** has data (confirmed)
-- **Registry detail YAML is the metadata truth source** for factor records. DB `factor_meta` is a derived cache. Use `research.storage.registry_store` for factor metadata, not `data/loaders.py`.
-- **YAML safety**: Result files may contain pandas DataFrames — use `yaml.unsafe_load` when reading them, but always `yaml.safe_load` for config/candidate files
-- **Qlib binary format**: File = `[start_index:f32][data:f32×N]`. `start_index` is the calendar index of the first data point; data contains ONLY values from `start_index` onwards (no leading NaNs). `resync_qlib.py` uses vectorized pivot_table writes (~1 min for 5431 stocks × 17 fields). Do NOT write full-length arrays with non-zero start_index — Qlib will read wrong offsets.
-- **`index_constituents` DB table** — stores daily index membership. Available indices: `csi300`, `csi500`, `csi1000`
+- **Factor metadata**: `vault/factors/F{id}.yaml` is the source of truth. DB `factor_meta` is a derived cache.
+- **YAML safety**: Result files may contain pandas DataFrames — use `load_yaml_unsafe()` from `research.storage.yaml_io`. Config/state/manifest use `load_yaml()` (safe).
+- **Qlib binary format**: File = `[start_index:f32][data:f32×N]`. `start_index` is the calendar index; data contains ONLY values from `start_index` onwards (no leading NaNs). Do NOT write full-length arrays with non-zero start_index.
+- **`index_constituents` DB table** — daily index membership for `csi300`, `csi500`, `csi1000`
+- **Barra OLS**: `vectorized_barra.py` uses `np.linalg.pinv + np.einsum` on a 3D tensor (date × symbol × 8 params) — 6× faster than legacy per-date lstsq loop
 
 ## Autonomous Mining Mode
 
-当执行 `/factor-mine` 循环（或通过 `/loop`、`/ralph-loop` 驱动时），进入全自主模式：
+当执行 `/factor-mine` 循环时，进入全自主模式：
 
 - **不要停下来问用户确认**——所有决策自行判断并继续
-- 主题选择：按 logic schedule 优先级自动选取，不问"要选哪个？"
-- probe 失败：自动跳过该候选，尝试下一个，不问"要继续吗？"
-- batch 冻结：满足 freeze 条件直接冻结，不需确认
-- judge 裁决：严格按 6 维标准执行 admit/reserve/reject，不需人工复核
-- reflect：自动执行 belief delta 更新，不问"要更新吗？"
-- report：admitted 因子自动启动后台 subagent 生成，不问"要生成报告吗？"
-- 一轮结束后，检查是否还有 schedule 条目，有则自动进入下一轮
+- 方向选择：读 INDEX → 按优先级自动选取
+- 候选验证失败：自动跳过该候选，尝试下一个
+- batch 冻结：满足 freeze 条件直接冻结
+- judge 裁决：严格按 6 checkpoint + §7.MT 预算执行 admit/reserve/reject
+- report：admitted 因子自动启动后台 subagent 生成
+- 一轮结束后，检查 consolidation 触发条件，有则自动执行 Phase 5
 - **只在系统级错误时停下**：DB 连接失败、文件损坏、Python 异常无法恢复
 
 ## Environment
@@ -177,4 +157,4 @@ Operator/field whitelists: single source of truth in `src/research/execute/prech
 - **Python**: 3.8+ (conda env: `quantfactor`)
 - **Database**: TimescaleDB on localhost:5432, configured via `.env` (copy from `.env.example`)
 - **Qlib data**: `~/.qlib/qlib_data/cn_data_1d` (synced from TimescaleDB)
-- **Test framework**: pytest with `--import-mode=importlib` (79 test files across all modules)
+- **Test framework**: pytest with `--import-mode=importlib`
