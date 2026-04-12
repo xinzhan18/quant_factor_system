@@ -1,5 +1,1 @@
-"""Research CLI package."""
-
-from research.cli.main import main
-
-__all__ = ["main"]
+"""Research CLI — mine loop + audit commands."""
