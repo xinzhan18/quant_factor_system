@@ -2,20 +2,22 @@
 direction_tag: candlestick_liquidity
 status: productive
 priority: high
-rounds: 2
-admits: 3
-last_batch: batch_002
-last_activity: '2026-04-12T16:07:20Z'
+rounds: 3
+admits: 4
+last_batch: batch_003
+last_activity: '2026-04-12T16:42:29Z'
 created_batch: batch_001
 members:
 - F001
 - F002
 - F003
+- F004
 merged_into: null
-last_goal: 'Second round: CsRank 正交化去 vol (T001), body ratio 协方差/delta (T002), range
-  compression 不同 lookback (T003). 核心假设：rank 化能显著降低 style_r2 同时保留 IC'
+last_goal: 'Third round: shadow×fundamental interactions (T001 new probe), TsRank
+  时序排名 (T001), relative turnover ratio (T001), body_ratio×PB (T002), shadow×momentum
+  reversal (new T004)'
 last_admits:
-- F003
+- F004
 ---
 # Candlestick Microstructure x Liquidity
 
@@ -73,3 +75,20 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 **关键教训**：所有 shadow/range 信号与实现波动率正相关。后续候选必须：(1) 用 CsRank 正交化去 vol，或 (2) 用 ratio 表达式抵消 vol 的 scale 效应。
 
 状态：exploring → **productive**（首批 admit）。方向保持高优先级——原始 IC 强但需要更干净的变体。
+
+### 2026-04-13 [[../batches/batch_002/judge|batch_002]]
+第二轮：CsRank 正交化实验。8 候选，1 admit（[[../factors/F003|F003]] 下影线ratio×CsRank(amount)），1 reserve，6 reject。
+
+**核心发现**：
+1. CsRank 正交化成功降 vol（style_r2 从 0.2-0.6 降到 0.02-0.03），但 IC 也大幅下降。==信号和 vol 暴露高度纠缠==。
+2. CsRank(shadow_product) 与 F002 corr=1.0 → 同一因子的 rank 变换不改变排序，T001 重要发现。
+3. ==F003 ICIR=-0.607 是目前全系统最强信号==。用 CsRank($amount) 替代 raw $turnover_rate，保留了 F001 的核心机制但换了 liquidity 度量。
+4. Range compression 所有变体（5/60, 10/60, 20/120）全部是 vol proxy (style_r2 > 0.3)，T003 接近 saturated。
+5. 上影线的 CsRank 化后 IC 消失 → 上影线预测力主要来自绝对 scale（vol 本身），不是截面排序。
+
+**Thread 更新**：
+- T001：CsRank 去 vol 实验完成，结论：rank 化降 vol 但也降信号。换 liquidity 度量（$amount vs $turnover_rate）更有效。
+- T002：Cov(body_ratio, return) 是 vol proxy (alpha_surv=0.07)；Delta(body_ratio) 干净但太弱。T002 接近 exhausted。
+- T003：三种 range compression 都是 vol proxy。==T003 标记为 near-exhausted==。
+
+**下一步**：探索 shadow 信号与 fundamental 字段的交互（如 shadow × PE rank）；或尝试 TsRank 时序排名替代 CsRank 截面排名。

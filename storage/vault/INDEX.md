@@ -38,12 +38,12 @@ last_consolidation_round: null
 
 | Direction | Status | Priority | Rounds | Admits | Last batch |
 |---|---|---|---|---|---|
-| candlestick_liquidity | productive | high | 2 | 3 | batch_002 |
+| candlestick_liquidity | productive | high | 3 | 4 | batch_003 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 3 |
-| Current round | 1 |
+| Total factors admitted | 4 |
+| Current round | 2 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
