@@ -10,6 +10,13 @@ user_invocable: true
 
 为每个 admitted 因子生成 `vault/factors/F{id}.md` 深度分析报告。在 Phase 4 ARCHIVE 的 Step 3 作为**后台 subagent** 被 `/factor-mine` dispatch。
 
+## 前置条件
+
+- `vault/factors/F{id}.yaml` 已存在（Phase 4 Step 1 已分配 F{id}）
+- `_packets/report_packet_F{id}.md` 已存在（Phase 4 Step 2 Python 已生成）
+- 如果 packet 不存在，先跑 `PYTHONPATH=src python3 -m research report-pack F{id}` 生成
+- `vault/factors/F{id}/` 目录已存在且含 PNG 图表
+
 ## 沙箱协议（5 条规则）
 
 | # | 规则 | 说明 |
