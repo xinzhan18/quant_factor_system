@@ -2,19 +2,18 @@
 direction_tag: fundamental_technical_cov
 status: exploring
 priority: high
-rounds: 2
+rounds: 3
 admits: 2
-last_batch: batch_006
-last_activity: '2026-04-12T18:15:00Z'
+last_batch: batch_007
+last_activity: '2026-04-15T14:04:40Z'
 created_batch: batch_005
 members:
 - F006
 - F007
 merged_into: null
-last_admits:
-- F007
-last_goal: 'Second round: Cov短窗口/amount变体(T001), CsRank(EPS/Revenue change)×条件因子(T003),
-  fundamental momentum rank delta(new T004)'
+last_admits: []
+last_goal: 'Third round: Cov变体(amt×PE/tur×PS/tur×PB短窗口), PE rank delta+conditioning,
+  Corr(tur,PB/amt,PS,60d), Cov(ret,PE,20d)'
 ---
 # Fundamental × Technical Covariance
 
