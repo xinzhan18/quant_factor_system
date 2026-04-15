@@ -1,7 +1,7 @@
 ---
 direction_tag: fundamental_technical_cov
 status: exploring
-priority: high
+priority: medium
 rounds: 3
 admits: 2
 last_batch: batch_007
@@ -52,4 +52,20 @@ _(empty — first batch)_
 - [[../lessons#Prior Signal Space Knowledge]] — "Higher-order cross-field covariance" listed as promising
 
 ## Narrative Log
-_(empty — first batch)_
+
+### 2026-04-12 [[../batches/batch_005/judge|batch_005]]
+首轮。8 候选，1 admit（[[../factors/F006|F006]] 营收增长×CsRank(-PB), ICIR=0.331, max_corr=0.167），2 reserve，5 reject。Cov 类信号 style 干净但偏弱。CsRank 交互被 vol 污染。Corr(tur,PE,20) NaN error。F006 开启纯 fundamental 信号维度。
+
+### 2026-04-12 [[../batches/batch_006/judge|batch_006]]
+第二轮。1 admit（[[../factors/F007|F007]] Cov(换手率,PE,20天), ICIR=-0.316, style_r2=0.099），3 reserve，4 reject。T001 的 20 天 Cov 是最佳 Cov 表达。T004(rank delta) 干净正交但太弱(ICIR 0.16)。PS/PB 的 Cov 被 value style 污染。exploring → **productive**。
+
+### 2026-04-15 [[../batches/batch_007/judge|batch_007]]
+第三轮。==0 admit==，3 reserve，5 reject。Cov(amt,PE,20) corr=0.855 vs F007 → 冗余。PS/PB Cov 全部 style_r2>0.3。Corr 信号在 fundamental 字段上==完全不可行==（估值变化太慢→标准差趋零→NaN）。T004 rank delta 仍然太弱。
+
+**方向状态评估**：
+- T001(Cov): F007 是最佳表达，PE 20天。PS/PB 版本 style 污染。==T001 saturated==。
+- T002(CsRank 交互): batch_005 全部 style_r2>0.3。==T002 saturated==。
+- T003(fundamental change): F006 是最佳表达。EPS/Revenue 变体与 F006 冗余>0.6。==T003 接近 saturated==。
+- T004(rank delta): 极干净极正交但 ICIR 0.15-0.20——信号强度不够 admit。Reserve 观察。
+
+**priority**: high → **medium**。方向产出率下降，但 T004 有少量残余空间。

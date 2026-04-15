@@ -1,0 +1,46 @@
+batch_id: batch_008
+direction: timing_signals
+batch_goal: 'First round timing signals: raw IdxMax/IdxMin (close/volume/turnover),
+  timing×momentum interactions, multi-window timing differential'
+sample_policy_version: v3
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: IdxMax($close, 20)
+  canonical: IdxMax($close,20)
+  rationale: IdxMax(close,20) — 最高价在 20 天中的位置。大→下行通道，小→近期新高
+- candidate_id: C002
+  source_type: dsl
+  expression: IdxMin($close, 20)
+  canonical: IdxMin($close,20)
+  rationale: IdxMin(close,20) — 最低价位置。大→上行通道，小→近期新低
+- candidate_id: C003
+  source_type: dsl
+  expression: IdxMax($volume, 20)
+  canonical: IdxMax($volume,20)
+  rationale: IdxMax(volume,20) — 最大成交量位置。捕捉放量是多久以前的事
+- candidate_id: C004
+  source_type: dsl
+  expression: IdxMax($turnover_rate, 20)
+  canonical: IdxMax($turnover_rate,20)
+  rationale: IdxMax(turnover_rate,20) — 最高换手率位置
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(IdxMax($close, 20), Div($close, Ref($close, 5)))
+  canonical: Mul(Div($close,Ref($close,5)),IdxMax($close,20))
+  rationale: IdxMax(close,20) × 5日收益 — 最高价位置 × 近期动量
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(IdxMin($close, 20), Mul(Div($close, Ref($close, 5)), -1))
+  canonical: Mul(IdxMin($close,20),Mul(-1,Div($close,Ref($close,5))))
+  rationale: IdxMin(close,20) × 负5日收益 — 最低价位置 × 反向动量
+- candidate_id: C007
+  source_type: dsl
+  expression: Sub(IdxMax($close, 60), IdxMax($close, 5))
+  canonical: Sub(IdxMax($close,60),IdxMax($close,5))
+  rationale: 60d最高价位置 - 5d最高价位置 — 长期高点vs短期高点的时间差
+- candidate_id: C008
+  source_type: dsl
+  expression: Mul(IdxMax($volume, 20), Mul(Div($close, Ref($close, 5)), -1))
+  canonical: Mul(IdxMax($volume,20),Mul(-1,Div($close,Ref($close,5))))
+  rationale: IdxMax(volume,20) × 负5日ret — 放量顶峰距今天数 × 近期跌幅
