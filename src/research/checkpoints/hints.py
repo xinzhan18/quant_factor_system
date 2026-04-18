@@ -104,14 +104,59 @@ from research.checkpoints.mt_budget import (
 from research.storage.yaml_io import load_yaml, save_yaml
 
 
+def _rebalance_stress_block(raw: Any) -> dict[str, Any]:
+    """Normalize ``feasibility.rebalance_stress`` into the dict the rubric
+    expects.
+
+    ``compute_rebalance_stress`` returns a bare float ``turnover × tail / lcr``.
+    The rubric references ``rebalance_stress.rebalance_stress_bucket`` — i.e.
+    a dict. This helper bridges the two: given the raw value (float, None, or
+    already-dict), return ``{value, rebalance_stress_bucket}``. ``{}`` when
+    the upstream block is absent so ``dict(...) or {}`` call-sites keep
+    working.
+    """
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        # Already structured — preserve but ensure bucket key exists.
+        v = raw.get("value") or raw.get("rebalance_stress")
+        return {
+            "value": v,
+            "rebalance_stress_bucket": raw.get("rebalance_stress_bucket")
+            or _bucket_from_value(v),
+            **{k: raw[k] for k in raw if k not in ("value", "rebalance_stress_bucket")},
+        }
+    # Bare float / int
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return {}
+    return {
+        "value": value,
+        "rebalance_stress_bucket": _bucket_from_value(value),
+    }
+
+
+def _bucket_from_value(v: float | None) -> str | None:
+    """Coarse band for ``rebalance_stress`` values. Thresholds pragmatic,
+    tuned on batch_001..batch_030 distribution: <0.01 low / <0.05 medium /
+    else high. Re-calibrate in Phase 5 if distribution shifts."""
+    if v is None:
+        return None
+    if v < 0.01:
+        return "low"
+    if v < 0.05:
+        return "medium"
+    return "high"
+
+
 def _extract_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
     """Flatten the CP03-CP06 + feasibility metrics out of one result.yaml candidate.
 
     Goal: subagent has **all** judge-relevant numbers here so it never opens
     ``result.yaml``. Fields not used by any CP (``expression_depth`` /
-    ``source_type`` / ``sign`` / ``diagnostics_relpath`` / ``ic.by_horizon``)
-    are intentionally omitted — those are plumbing metadata, not judgement
-    inputs.
+    ``source_type`` / ``sign`` / ``diagnostics_relpath``) are intentionally
+    omitted — those are plumbing metadata, not judgement inputs.
 
     Missing fields are stored as ``None`` (or ``{}`` for dict-typed fields)
     rather than omitted so the LLM always sees which data the candidate lacks.
@@ -171,6 +216,18 @@ def _extract_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
             "ls_sharpe_is": ls_tr.get("sharpe"),
             "ls_tstat_is": ls_tr.get("tstat"),
             "ls_max_dd_is": ls_tr.get("max_dd"),
+            # Multi-horizon IC (1/3/5/10/20d) — compact per-horizon IS/OOS
+            "ic_by_horizon": {
+                int(h): {
+                    "ic_is": (b.get("train") or {}).get("ic_mean"),
+                    "icir_is": (b.get("train") or {}).get("ic_ir"),
+                    "win_rate_is": (b.get("train") or {}).get("ic_win_rate"),
+                    "ic_oos": (b.get("validation") or {}).get("ic_mean"),
+                    "icir_oos": (b.get("validation") or {}).get("ic_ir"),
+                    "win_rate_oos": (b.get("validation") or {}).get("ic_win_rate"),
+                }
+                for h, b in (ic.get("by_horizon") or {}).items()
+            },
         },
         "cp04": {
             # core rubric
@@ -229,7 +286,9 @@ def _extract_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
             "small_cap_concentration": feasibility.get("small_cap_concentration"),
             "signal_half_life": feasibility.get("signal_half_life"),
             "signal_autocorr_lag1": feasibility.get("signal_autocorr_lag1"),
-            "rebalance_stress": dict(feasibility.get("rebalance_stress") or {}),
+            "rebalance_stress": _rebalance_stress_block(
+                feasibility.get("rebalance_stress"),
+            ),
             # IC-persistence half-life (days to halve; distinct from signal_half_life
             # which measures factor-value autocorrelation)
             "ic_half_life_days": ic.get("half_life_days"),
