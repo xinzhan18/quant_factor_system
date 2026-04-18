@@ -1,39 +1,26 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working with this repo.
 
 ## Commands
 
 ```bash
-# Run all tests
+# Tests (pytest.ini sets pythonpath=src)
 pytest
-
-# Run a single test file / test case
 pytest tests/research/compute/test_vectorized_ic.py -v
-pytest tests/research/phases/test_phase2_execute.py -v
 
-# Research CLI (all commands require PYTHONPATH=src)
+# Research CLI (all commands need PYTHONPATH=src)
 PYTHONPATH=src python3 -m research mine --once --direction bootstrap
 PYTHONPATH=src python3 -m research audit mt-budget
-PYTHONPATH=src python3 -m research audit mt-budget --direction fundamental_price_divergence
-PYTHONPATH=src python3 -m research state set current_batch null
-PYTHONPATH=src python3 -m research capabilities
 
-# Index constituent sync (RiceQuant API → DB → Qlib instruments file)
-PYTHONPATH=src python3 scripts/sync_index_constituents.py csi1000
+# Data sync
 PYTHONPATH=src python3 scripts/sync_index_constituents.py --all
+PYTHONPATH=src python3 scripts/resync_qlib.py   # TimescaleDB → Qlib binary
 
-# Qlib binary resync (TimescaleDB → Qlib binary, ~1 min vectorized)
-PYTHONPATH=src python3 scripts/resync_qlib.py
-
-# Database management
+# DB / install
 ./scripts/db.sh start|stop|shell
-
-# Install (editable)
 pip install -e .
 ```
-
-Note: `pytest` does NOT need `PYTHONPATH=src` — `pytest.ini` sets `pythonpath = src` automatically.
 
 ## Architecture
 
@@ -41,120 +28,94 @@ Note: `pytest` does NOT need `PYTHONPATH=src` — `pytest.ini` sets `pythonpath 
 
 | Rule | Summary |
 |---|---|
-| **R1** Rule A/B | YAML = Python-consumed structured data; Markdown = LLM-consumed narrative |
-| **R2** LLM 主驾 Python 护栏 | LLM decides direction/candidates/judgment/reports; Python does compute/validate/state/commit |
-| **R3** Single data source | Each data lives at one canonical location; LLM gets one pre-packed input file per step |
-| **R4** No recomputation | Phase 4 report consumes Phase 2 result.yaml directly, never re-runs IC/Barra |
-| **R5** Full vectorization | No for-loop over rows/dates/symbols; use groupby/broadcasting/einsum/pinv |
+| **R1** Rule A/B | YAML = Python-consumed; Markdown = LLM-consumed |
+| **R2** LLM 主驾 | LLM decides direction/candidates/judgment/reports; Python does compute/validate/state/commit |
+| **R3** Single data source | Each data lives at one canonical location; one pre-packed input per LLM step |
+| **R4** No recomputation | Phase 4 consumes Phase 2 result.yaml; never re-runs IC/Barra |
+| **R5** Full vectorization | No row/date/symbol for-loops; use groupby/broadcasting/einsum/pinv |
 | **R6** Code minimal | No backward compat, no adapter shims, no speculative abstractions |
-| **R7** Autonomous + auditable | LLM runs autonomously; every decision leaves provenance in git |
-| **R8** DSL first, Python escape hatch | Default = Qlib DSL; Python only when DSL can't express the idea |
+| **R7** Autonomous + auditable | LLM runs autonomously; every decision leaves git provenance |
+| **R8** DSL first | Default = Qlib DSL; Python escape hatch (AST-whitelisted) only when DSL can't express |
 
 ### Source Layout (`src/`)
 
-All source code lives under `src/` with bare imports. `package_dir={"": "src"}` in `setup.py` and `pythonpath = src` in `pytest.ini`.
+`package_dir={"": "src"}` with bare imports. Four modules:
 
-Four modules:
+- **`core/`** — pure-function math (`factor_stats`, `metrics`, `constants`)
+- **`research/`** — 5-phase factor mining pipeline (see below)
+- **`report/`** — report analytics v2 + chart rendering (consumes result.yaml, no recomputation)
+- **`data/`** — TimescaleDB storage, Qlib sync, RiceQuant API, loaders
 
-- **`core/`** — Shared pure-function math: `factor_stats.py` (vectorized IC, quintile, monotonicity), `metrics.py` (Sharpe/Calmar/MDD), `constants.py`
-- **`research/`** — Factor research pipeline. 5-phase loop: START → EXECUTE → JUDGE → ARCHIVE → CONSOLIDATION
-- **`report/`** — Report analytics v2 (pure extractors consuming result.yaml, no recomputation) + chart rendering
-- **`data/`** — Data layer: TimescaleDB storage, Qlib sync, RiceQuant API, loaders
+### Research Module
 
-### Research Module (5-Phase Architecture)
+5-phase loop: `START → EXECUTE → JUDGE → ARCHIVE → (CONSOLIDATION)`
 
-| Subpackage | Purpose |
+| Subpackage | Role |
 |---|---|
-| `cli/` | CLI entry point: `mine.py` (autonomous loop), `audit.py` (mt-budget), state management |
-| `compute/` | Factor computation: 6 vectorized metric modules (`vectorized_{ic,quintile,stability,feasibility,redundancy,barra}`), cache (sha256-keyed parquet), preprocess (MAD winsorize + z-score matrix ops), python_runner (R8 escape hatch with AST whitelist) |
-| `domain/` | Pure data contracts: frozen dataclasses for evidence, verdicts, sample policy |
-| `checkpoints/` | Phase 3 judge infrastructure: `hard_gates.py` (CP01), `mt_budget.py` (§7.MT multiple testing budget), `generator.py` (pre-pack judge_packet.md), `audit.py` (6 structural checks including CP03 mt_bucket citation) |
-| `phases/` | 5 phase orchestrators: `phase1_start.py` (DSL whitelist + dedup + manifest freeze), `phase2_execute.py` (vectorized compute → result.yaml), `phase3_judge.py` (hard gates → pre-pack → LLM → audit), `phase4_archive.py` (factor allocation + direction update + INDEX refresh + git commit), `phase5_consolidate.py` (periodic memory md rewrite) |
-| `memory/` | Vault operations: `direction_updater.py` (surgical frontmatter update), `index_refresher.py` (auto-section regeneration) |
-| `archive/` | Phase 4 helpers: `factor_writer.py` (monotonic F{id} allocation), `python_archiver.py` (copy admitted .py), `report_packer.py` (single-input packet for factor.md subagent), `commit.py` (git commit with hard-fail on hook error) |
-| `storage/` | YAML I/O + paths + state: `yaml_io.py` (safe/unsafe load + atomic write), `paths.py` (StoragePaths for vault-first layout), `state.py` (State dataclass + phase DAG enforcement) |
-
-### 5-Phase Loop
-
-```
-Phase 1 START+DESIGN → Phase 2 EXECUTE → Phase 3 JUDGE → Phase 4 ARCHIVE → (Phase 5 CONSOLIDATION if triggered)
-     ↓                     ↓                  ↓                ↓                     ↓
-manifest.yaml          result.yaml        judge.md        factor.yaml           rewritten md
-(frozen candidates)    (all metrics)      (6 CP verdicts) (F{id} allocated)     (lessons/dirs/INDEX)
-```
+| `cli/` | `mine` loop, `audit mt-budget`, state management |
+| `compute/` | 6 vectorized metric modules, sha256 parquet cache, MAD+zscore preprocess, python_runner (R8) |
+| `domain/` | frozen dataclasses for evidence/verdicts/sample policy |
+| `checkpoints/` | `hard_gates` (CP01), `mt_budget` (§7.MT), `generator` (pre-pack), `audit` (6 structural checks) |
+| `phases/` | phase1_start..phase5_consolidate |
+| `memory/` | vault ops: `direction_updater`, `index_refresher` |
+| `archive/` | `factor_writer` (F{id} alloc), `python_archiver`, `report_packer`, `commit` |
+| `storage/` | `yaml_io` (safe/unsafe), `paths` (StoragePaths), `state` (phase DAG) |
 
 ### Data Flow
 
 ```
-RiceQuant API → TimescaleDB (5432, Docker) → Qlib binary (~/.qlib/) → Phase 2 compute → result.yaml
-                     ↓                                                      ↓
-               market_daily (11M rows)                           Phase 3 judge_packet.md
-               factor_values (147M rows)                           → LLM writes judge.md
-               index_constituents (2.7M rows)                      → Python audit
-                                                                Phase 4 factor.yaml + git commit
+RiceQuant → TimescaleDB (Docker, :5432) → Qlib binary (~/.qlib/) → Phase 2 compute
+                                                                   ↓
+    manifest.yaml → result.yaml → judge_packet.md → judge.md (LLM) → audit → factor.yaml + git commit
+    (Phase 1)       (Phase 2)      (Phase 3 prep)   (Phase 3)                 (Phase 4)
 ```
 
-### Storage Layout (`storage/`)
+DB tables: `market_daily` (11M), `factor_values` (147M, derived cache), `index_constituents` (2.7M).
+
+### Storage Layout
 
 ```
 storage/
-  state.yaml                            ← system state (current_batch, phase, round)
-  config.yaml                           ← system config (sample_policy, thresholds, mt_budget, consolidation)
-  vault/                                ← Obsidian vault root — 所有研究产物在此连通
+  state.yaml / config.yaml              ← system state + thresholds/mt_budget/consolidation
+  vault/                                ← Obsidian root (everything LLM-visible)
     INDEX.md                            ← MOC: upper=LLM narrative, lower=Python auto-stats
     lessons.md                          ← system-level hard-won facts
-    directions/{tag}.md                 ← per-direction hypothesis + threads + narrative log
+    directions/{tag}.md                 ← per-direction hypothesis + threads
     factors/F{id}.{yaml,md}             ← admitted factor metadata + deep report
-    batches/batch_{NNN}/                ← per-batch immutable archive（vault 内，Obsidian 可见）
-      manifest.yaml / result.yaml / judge.md
-      _packets/ / signals/ / python_candidates/
-    _meta/consolidation_log.md          ← append-only consolidation history
-  cache/                                ← parquet caches（vault 外，Obsidian 不需要看）
-    market_daily.parquet / barra_factors.parquet
-    factor_values/{sha256_key}.parquet
+    batches/batch_{NNN}/                ← immutable archive (manifest/result/judge + _packets/signals)
+    _meta/consolidation_log.md
+  cache/                                ← parquet caches (out of vault)
   python_factors/F{id}_{name}.py        ← admitted Python factors
-  _holdout_private/                     ← LLM forbidden (holdout review only)
-  _legacy/                              ← archived old storage (logic_v1, governance_v1, etc.)
+  _holdout_private/ _legacy/            ← LLM forbidden / archived
 ```
 
-All paths managed by `StoragePaths` class in `src/research/storage/paths.py`.
+Paths managed by `StoragePaths` in `src/research/storage/paths.py`.
 
 ### §7.MT Multiple Testing Budget
 
-Phase 3 pre-pack scans `batches/batch_*/manifest.yaml` (judged-only) to count cumulative candidates + per-direction candidates + validation exposure. Formula constants live in `config.yaml.thresholds.mt_budget`. CP03 numeric_hint includes `mt_score / mt_bucket / search_adjusted_strength`. Audit enforces LLM cites `mt_bucket` in CP03 body. See `src/research/checkpoints/mt_budget.py`.
+Phase 3 pre-pack scans `batches/batch_*/manifest.yaml` (judged-only) for cumulative + per-direction counts. Constants in `config.yaml.thresholds.mt_budget`. CP03 must cite `mt_bucket`; audit enforces. See `src/research/checkpoints/mt_budget.py`.
 
 ## Critical Technical Notes
 
-- **Qlib package**: Install with `pip install pyqlib` (NOT `pip install qlib`)
-- **Custom operator registration**: Use `Operators._ops[name] = cls` (NOT `Operators.register()`)
-- **Multiprocessing**: Set `C.kernels = 1` — worker processes don't inherit custom `_ops` registry
-- **`D.instruments('all')`** returns a dict, not a list — pass it to `D.features()` then extract instruments from the index
-- **`factor_values` DB table** — has 147M+ rows in TimescaleDB (`quant_data` database). DB is a Docker container: `timescale/timescaledb:latest-pg14` on `localhost:5432`. Do NOT run Homebrew PostgreSQL simultaneously — it will shadow port 5432 and intercept connections.
-- **Unavailable Qlib operators**: `Neg`, `SMA` — use alternatives like `Mul($x, -1)` for Neg. Note: `TsRank`, `TsMax`, `TsMin` are custom-registered and available.
-- **`$vwap`** field is zero in current data — forbidden in precheck whitelist
-- **`$amount`** has data (confirmed)
-- **Factor metadata**: `vault/factors/F{id}.yaml` is the source of truth. DB `factor_meta` is a derived cache.
-- **YAML safety**: Result files may contain pandas DataFrames — use `load_yaml_unsafe()` from `research.storage.yaml_io`. Config/state/manifest use `load_yaml()` (safe).
-- **Qlib binary format**: File = `[start_index:f32][data:f32×N]`. `start_index` is the calendar index; data contains ONLY values from `start_index` onwards (no leading NaNs). Do NOT write full-length arrays with non-zero start_index.
-- **`index_constituents` DB table** — daily index membership for `csi300`, `csi500`, `csi1000`
-- **Barra OLS**: `vectorized_barra.py` uses `np.linalg.pinv + np.einsum` on a 3D tensor (date × symbol × 8 params) — 6× faster than legacy per-date lstsq loop
+- **Qlib package**: `pip install pyqlib` (NOT `qlib`)
+- **Custom operator registration**: `Operators._ops[name] = cls` (NOT `register()`)
+- **Multiprocessing**: `C.kernels = 1` — workers don't inherit `_ops`
+- **`D.instruments('all')`** returns dict, not list
+- **DB**: TimescaleDB in Docker on `:5432`. Do NOT run Homebrew PostgreSQL simultaneously — it shadows the port.
+- **Unavailable Qlib ops**: `Neg`, `SMA` (use `Mul($x, -1)`). `TsRank/TsMax/TsMin` are custom-registered.
+- **`$vwap`** is zero in current data — forbidden in precheck whitelist. **`$amount`** has data.
+- **Factor metadata**: `vault/factors/F{id}.yaml` is truth; DB `factor_meta` is derived cache.
+- **YAML safety**: result files may contain DataFrames → use `load_yaml_unsafe()`. Config/state/manifest → `load_yaml()`.
+- **Qlib binary format**: `[start_index:f32][data:f32×N]` — data starts at `start_index`, no leading NaNs.
+- **Barra OLS**: `vectorized_barra.py` uses `pinv + einsum` on 3D tensor — 6× faster than per-date lstsq.
 
 ## Autonomous Mining Mode
 
-当执行 `/factor-mine` 循环时，进入全自主模式：
-
-- **不要停下来问用户确认**——所有决策自行判断并继续
-- 方向选择：读 INDEX → 按优先级自动选取
-- 候选验证失败：自动跳过该候选，尝试下一个
-- batch 冻结：满足 freeze 条件直接冻结
-- judge 裁决：严格按 6 checkpoint + §7.MT 预算执行 admit/reserve/reject
-- report：admitted 因子自动启动后台 subagent 生成
-- 一轮结束后，检查 consolidation 触发条件，有则自动执行 Phase 5
-- **只在系统级错误时停下**：DB 连接失败、文件损坏、Python 异常无法恢复
+`/factor-mine` 循环进入全自主模式：不停下问确认，候选失败自动跳下一个，冻结/admit/reserve/reject 按 6 CP + §7.MT 自行裁决，admitted 自动启动 report subagent，一轮结束检查 consolidation 触发。**只在系统级错误时停下**（DB 断、文件损坏、Python 崩溃）。
 
 ## Environment
 
-- **Python**: 3.8+ (conda env: `quantfactor`)
-- **Database**: TimescaleDB on localhost:5432, configured via `.env` (copy from `.env.example`)
-- **Qlib data**: `~/.qlib/qlib_data/cn_data_1d` (synced from TimescaleDB)
-- **Test framework**: pytest with `--import-mode=importlib`
+- Python 3.8+ (conda env `quantfactor`)
+- TimescaleDB `:5432`, `.env` from `.env.example`
+- Qlib data: `~/.qlib/qlib_data/cn_data_1d`
+- pytest with `--import-mode=importlib`
