@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+from typing import Any
 
 
 def main() -> None:
@@ -80,10 +82,46 @@ def main() -> None:
 
     # ── state ─────────────────────────────────────────────────────────
     state_p = sub.add_parser("state", help="View or modify system state")
-    state_p.add_argument("state_action", nargs="?", default=None,
-                         choices=["set", "rollback", None])
+    state_p.add_argument(
+        "state_action",
+        nargs="?",
+        default=None,
+        choices=["set", "rollback", "reset", "next-batch-id", None],
+    )
     state_p.add_argument("key", nargs="?")
     state_p.add_argument("value", nargs="?")
+    state_p.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Required for destructive actions (e.g. reset).",
+    )
+
+    # ── doctor (health check + reconciliation) ────────────────────────
+    sub.add_parser(
+        "doctor",
+        help="Cross-check state.yaml ↔ vault consistency, print fix recipe",
+    )
+
+    # ── memory (LLM-visible markdown maintenance) ─────────────────────
+    mem_p = sub.add_parser("memory", help="Vault memory maintenance")
+    mem_sub = mem_p.add_subparsers(dest="memory_cmd", required=True)
+    mem_sub.add_parser(
+        "refresh-index", help="Regenerate INDEX.md lower auto-section"
+    )
+
+    # ── phase1 (freeze manifest) ──────────────────────────────────────
+    p1_p = sub.add_parser("phase1", help="Phase 1 START+DESIGN helpers")
+    p1_sub = p1_p.add_subparsers(dest="phase1_cmd", required=True)
+    fz_p = p1_sub.add_parser(
+        "freeze",
+        help="Freeze manifest from a YAML spec (allocate batch_id, "
+        "begin_batch, refresh INDEX)",
+    )
+    fz_p.add_argument(
+        "spec",
+        help="Path to a YAML file: {direction, batch_goal, "
+        "active_threads_referenced, candidates}",
+    )
 
     # ── holdout ───────────────────────────────────────────────────────
     ho_p = sub.add_parser("holdout-review", help="Run holdout review (isolated)")
@@ -99,6 +137,25 @@ def main() -> None:
     # ── report-pack (standalone, for /factor-report) ──────────────────
     rp_p = sub.add_parser("report-pack", help="Generate report packet for a factor")
     rp_p.add_argument("factor_id")
+
+    # ── report cleanup-packets ────────────────────────────────────────
+    rc_p = sub.add_parser(
+        "report",
+        help="Report packet / factor.md utilities",
+    )
+    rc_sub = rc_p.add_subparsers(dest="report_cmd", required=True)
+    rc_cp = rc_sub.add_parser(
+        "cleanup-packets",
+        help="Delete _packets/report_packet_F{id}.md once factor.md exists",
+    )
+    rc_cp.add_argument(
+        "--dry-run", action="store_true",
+        help="Show what would be deleted without touching anything",
+    )
+    rc_cp.add_argument(
+        "--skip-batch", default=None,
+        help="Leave this batch's packets intact (e.g. batch currently dispatching subagents)",
+    )
 
     # ── parse + dispatch ──────────────────────────────────────────────
     args = parser.parse_args()
@@ -138,12 +195,20 @@ def _dispatch(args: argparse.Namespace) -> None:
         dispatch_audit(args)
     elif cmd == "state":
         _cmd_state(args)
+    elif cmd == "doctor":
+        _cmd_doctor(args)
+    elif cmd == "memory":
+        _cmd_memory(args)
+    elif cmd == "phase1":
+        _cmd_phase1(args)
     elif cmd == "holdout-review":
         _cmd_holdout(args)
     elif cmd == "factor":
         _cmd_factor(args)
     elif cmd == "report-pack":
         _cmd_report_pack(args)
+    elif cmd == "report":
+        _cmd_report(args)
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         sys.exit(1)
@@ -309,6 +374,17 @@ def _cmd_archive(args: argparse.Namespace) -> None:
     result = run_phase4_archive(inputs)
     n = len(result.admitted)
     print(f"Phase 4 done: {n} factors archived — {[a.factor_id for a in result.admitted]}")
+    if result.admitted:
+        print(
+            f"\n⚠️  {n} factor.md file(s) still empty until /factor-report runs. "
+            f"LLM orchestrator must dispatch:"
+        )
+        for a in result.admitted:
+            print(f"   → /factor-report {a.factor_id}")
+        print(
+            "   Then verify: each vault/factors/F{id}.md is non-empty with '# F{id}' H1.\n"
+            "   (factor-mine skill Phase 4 Step 5 has the enforcement contract.)"
+        )
 
 
 def _cmd_consolidate(args: argparse.Namespace) -> None:
@@ -349,13 +425,96 @@ def _cmd_consolidate(args: argparse.Namespace) -> None:
 
 
 def _cmd_commit(args: argparse.Namespace) -> None:
-    from research.archive.commit import create_commit
+    import re
+    import yaml as _yaml
+    from research.archive.commit import (
+        build_commit_message, create_commit, stage_files,
+    )
     from research.storage.paths import StoragePaths
+    from research.storage.yaml_io import load_yaml
+
     paths = StoragePaths()
+    batch_id = args.batch_id
+    repo_root = paths.root.resolve().parent
+
+    judge_path = paths.batch_judge_file(batch_id)
+    manifest_path = paths.batch_manifest_file(batch_id)
+    if not judge_path.exists():
+        print(f"Commit failed: judge.md not found at {judge_path}", file=sys.stderr)
+        sys.exit(1)
+    if not manifest_path.exists():
+        print(f"Commit failed: manifest.yaml not found at {manifest_path}", file=sys.stderr)
+        sys.exit(1)
+
+    m = re.match(r"^---\n(.*?)\n---", judge_path.read_text(), re.DOTALL)
+    if not m:
+        print(f"Commit failed: judge.md missing YAML frontmatter", file=sys.stderr)
+        sys.exit(1)
+    judge_fm = _yaml.safe_load(m.group(1)) or {}
+
+    summary = judge_fm.get("batch_summary", {}) or {}
+    n_admit = int(summary.get("admit", 0))
+    n_reserve = int(summary.get("reserve", 0))
+    n_reject = int(summary.get("reject", 0))
+    direction = judge_fm.get("direction") or ""
+
+    manifest = load_yaml(manifest_path) or {}
+    batch_goal = manifest.get("batch_goal", "")
+
+    admit_names = {
+        c.get("factor_name")
+        for c in (judge_fm.get("candidates") or [])
+        if c.get("verdict") == "admit" and c.get("factor_name")
+    }
+    factor_ids: list[str] = []
+    if paths.factors_dir.exists():
+        for yml in sorted(paths.factors_dir.glob("F*.yaml")):
+            data = load_yaml(yml) or {}
+            if data.get("batch_id") == batch_id and data.get("name") in admit_names:
+                factor_ids.append(data.get("id") or yml.stem)
+
+    message = build_commit_message(
+        batch_id=batch_id,
+        direction=direction,
+        n_admit=n_admit,
+        n_reserve=n_reserve,
+        n_reject=n_reject,
+        factor_ids=factor_ids,
+        batch_goal=batch_goal,
+    )
+
+    files: list[Path] = [
+        paths.state_file,
+        paths.vault_index_file,
+        paths.direction_file(direction) if direction else None,
+        paths.batch_manifest_file(batch_id),
+        paths.batch_result_file(batch_id),
+        paths.batch_hints_file(batch_id),
+        paths.batch_judge_file(batch_id),
+    ]
+    files = [f for f in files if f is not None]
+
+    cand_dir = paths.batch_candidates_dir(batch_id)
+    if cand_dir.exists():
+        files.extend(sorted(cand_dir.glob("*.md")))
+    packets_dir = paths.batch_packets_dir(batch_id)
+    if packets_dir.exists():
+        files.extend(sorted(packets_dir.glob("*.md")))
+    for fid in factor_ids:
+        files.append(paths.factor_yaml_file(fid))
+        adir = paths.factor_assets_dir(fid)
+        if adir.exists():
+            files.extend(sorted(adir.glob("*.png")))
+            rj = adir / "report.json"
+            if rj.exists():
+                files.append(rj)
+
     try:
+        staged = stage_files(repo_root, files)
         result = create_commit(
-            batch_id=args.batch_id,
-            paths=paths,
+            repo_root=repo_root,
+            message=message,
+            staged_files=staged,
         )
         print(f"Committed: {result.commit_hash[:8]} {result.message.splitlines()[0]}")
     except Exception as exc:
@@ -424,19 +583,240 @@ def _cmd_state(args: argparse.Namespace) -> None:
     from research.storage.paths import StoragePaths
 
     paths = StoragePaths()
+    sf = StateFile(paths.state_file)
+
     if args.state_action is None:
-        sf = StateFile(paths.state_file)
         state = sf.read()
         print("=== Research State ===")
         for k, v in state.to_dict().items():
             print(f"  {k}: {v}")
+    elif args.state_action == "next-batch-id":
+        print(sf.next_batch_id())
+    elif args.state_action == "reset":
+        if not getattr(args, "confirm", False):
+            print(
+                "Refusing: 'state reset' is destructive. Pass --confirm "
+                "to clear current_batch / phase / round counters.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        new = sf.reset()
+        print("State reset to idle:")
+        for k, v in new.to_dict().items():
+            print(f"  {k}: {v}")
     elif args.state_action == "set":
-        if not args.key or not args.value:
+        if not args.key or args.value is None:
             print("Usage: research state set KEY VALUE", file=sys.stderr)
             sys.exit(1)
-        print(f"state set {args.key} = {args.value}: (stub)")
+        # Parse a handful of typed values; YAML literal is the escape hatch.
+        import yaml
+        try:
+            typed = yaml.safe_load(args.value)
+        except yaml.YAMLError:
+            typed = args.value
+        sf.update(**{args.key: typed})
+        print(f"state set {args.key} = {typed!r}")
     elif args.state_action == "rollback":
         print("state rollback: (stub — will git reset --hard HEAD^)")
+
+
+def _cmd_doctor(args: argparse.Namespace) -> None:
+    """Cross-check state ↔ vault and print a punch list of fixes."""
+    from research.storage.state import (
+        InvalidStateSchema,
+        StateFile,
+    )
+    from research.storage.paths import StoragePaths
+
+    paths = StoragePaths()
+    findings: list[str] = []
+    suggestions: list[str] = []
+
+    # 1. state.yaml parses.
+    sf = StateFile(paths.state_file)
+    try:
+        state = sf.read()
+    except InvalidStateSchema as exc:
+        print(f"FAIL: state.yaml malformed — {exc}")
+        print("  Fix: research state reset --confirm")
+        sys.exit(2)
+
+    # 2. current_batch (if set) has a manifest on disk.
+    if state.current_batch:
+        mf = paths.batch_manifest_file(state.current_batch)
+        if not mf.exists():
+            findings.append(
+                f"state.current_batch={state.current_batch} but {mf} is missing"
+            )
+            suggestions.append(
+                "research state reset --confirm  # vault has been wiped"
+            )
+
+    # 3. last_batch (if set) has a manifest on disk.
+    if state.last_batch:
+        mf = paths.batch_manifest_file(state.last_batch)
+        if not mf.exists():
+            findings.append(
+                f"state.last_batch={state.last_batch} but {mf} is missing"
+            )
+
+    # 4. batches/ dir round-count ↔ state.round sanity.
+    batch_dirs = (
+        sorted(paths.batches_dir.glob("batch_*"))
+        if paths.batches_dir.exists()
+        else []
+    )
+    if state.round == 0 and batch_dirs:
+        findings.append(
+            f"state.round=0 but {len(batch_dirs)} batch dirs exist"
+        )
+    if state.round > 0 and not batch_dirs:
+        findings.append(
+            f"state.round={state.round} but no batch dirs on disk"
+        )
+
+    # 4b. Orphan batch dirs past state.last_batch (phase1 freeze aborts
+    #     can leave empty dirs; archives can be interrupted mid-write).
+    from research.storage.state import _batch_id_to_int  # type: ignore
+    if state.last_batch and batch_dirs:
+        last_n = _batch_id_to_int(state.last_batch)
+        orphans: list[str] = []
+        for d in batch_dirs:
+            try:
+                n = _batch_id_to_int(d.name)
+            except ValueError:
+                continue
+            # Allow current_batch to exceed last_batch; anything above both
+            # without a manifest is orphan.
+            current_n = (
+                _batch_id_to_int(state.current_batch)
+                if state.current_batch else last_n
+            )
+            if n > max(last_n, current_n):
+                if not paths.batch_manifest_file(d.name).exists():
+                    orphans.append(d.name)
+        if orphans:
+            findings.append(
+                f"{len(orphans)} orphan batch dir(s) past last_batch: "
+                + ", ".join(orphans)
+            )
+            suggestions.append(
+                "rm -rf " + " ".join(
+                    str(paths.batch_dir(o)) for o in orphans[:3]
+                ) + ("  # orphans" if len(orphans) <= 3 else
+                     "  # plus others")
+            )
+
+    # 5. directions/*.md exist for direction_tags referenced in state.
+    dirs_on_disk = (
+        [p.stem for p in paths.directions_dir.glob("*.md")]
+        if paths.directions_dir.exists()
+        else []
+    )
+    # 6. Orphan factor.yaml without diagnostics dir.
+    #    Prefers new `diagnostics_ref` (dir of parquets); falls back to
+    #    legacy `signal_ref` (single parquet) for records pre-rename.
+    orphan_factors: list[str] = []
+    if paths.factors_dir.exists():
+        for yml in paths.factors_dir.glob("F*.yaml"):
+            from research.storage.yaml_io import load_yaml as _ly
+            data = _ly(yml) or {}
+            ref = data.get("diagnostics_ref") or data.get("signal_ref")
+            if not ref:
+                continue
+            target = paths.root / ref
+            if not target.exists():
+                orphan_factors.append(f"{yml.stem} → {ref}")
+    if orphan_factors:
+        findings.append(
+            f"{len(orphan_factors)} factor(s) with missing diagnostics: "
+            + ", ".join(orphan_factors[:5])
+            + ("..." if len(orphan_factors) > 5 else "")
+        )
+
+    # Report
+    print("=== research doctor ===")
+    print(f"state:")
+    for k, v in state.to_dict().items():
+        print(f"  {k}: {v}")
+    print(f"directions on disk: {len(dirs_on_disk)}")
+    print(f"batch dirs on disk: {len(batch_dirs)}")
+    factors_on_disk = (
+        len(list(paths.factors_dir.glob("F*.yaml")))
+        if paths.factors_dir.exists()
+        else 0
+    )
+    print(f"factor yamls on disk: {factors_on_disk}")
+    print()
+    if not findings:
+        print("OK — no inconsistencies detected.")
+        return
+    print(f"Found {len(findings)} inconsistency(ies):")
+    for f in findings:
+        print(f"  - {f}")
+    if suggestions:
+        print()
+        print("Suggested fixes:")
+        for s in suggestions:
+            print(f"  $ {s}")
+    sys.exit(1)
+
+
+def _cmd_memory(args: argparse.Namespace) -> None:
+    if args.memory_cmd == "refresh-index":
+        from research.memory.index_refresher import refresh_index
+        from research.storage.state import StateFile
+        from research.storage.paths import StoragePaths
+
+        paths = StoragePaths()
+        state = StateFile(paths.state_file).read()
+        path = refresh_index(paths, round_counter=state.round)
+        print(f"INDEX refreshed: {path}")
+
+
+def _cmd_phase1(args: argparse.Namespace) -> None:
+    if args.phase1_cmd == "freeze":
+        from research.phases.phase1_start import (
+            Phase1FreezeError,
+            start_phase1,
+        )
+        from research.storage.yaml_io import load_yaml
+
+        spec_path = Path(args.spec) if isinstance(args.spec, str) else args.spec
+        spec = load_yaml(Path(spec_path))
+        if not spec:
+            print(f"spec file empty or missing: {spec_path}", file=sys.stderr)
+            sys.exit(1)
+        required = {"direction", "batch_goal", "candidates"}
+        missing = required - set(spec)
+        if missing:
+            print(
+                f"spec missing required keys: {sorted(missing)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        try:
+            report = start_phase1(
+                direction=spec["direction"],
+                batch_goal=spec["batch_goal"],
+                candidates=spec["candidates"],
+                active_threads_referenced=spec.get(
+                    "active_threads_referenced"
+                ),
+            )
+        except Phase1FreezeError as exc:
+            print(f"phase1 freeze FAILED: {exc.args[0]}", file=sys.stderr)
+            sys.exit(1)
+        print(
+            f"phase1 freeze OK: {report.batch_id} / "
+            f"{len([c for c in report.candidates if c.passed])}/"
+            f"{len(report.candidates)} candidates passed"
+        )
+        print(f"  manifest: {report.manifest_path}")
+
+
+def _import_path_module() -> Any:  # (unused — kept for legacy imports)
+    return None
 
 
 def _cmd_holdout(args: argparse.Namespace) -> None:
@@ -453,3 +833,29 @@ def _cmd_factor(args: argparse.Namespace) -> None:
 def _cmd_report_pack(args: argparse.Namespace) -> None:
     print(f"report-pack: {args.factor_id}")
     print("(Stub — will generate _packets/report_packet_F{id}.md)")
+
+
+def _cmd_report(args: argparse.Namespace) -> None:
+    from research.archive.report_packer import cleanup_finished_packets
+    from research.storage.paths import StoragePaths
+
+    paths = StoragePaths(root=Path("storage"))
+    if args.report_cmd == "cleanup-packets":
+        deleted = cleanup_finished_packets(
+            paths,
+            skip_batch=args.skip_batch,
+            dry_run=args.dry_run,
+        )
+        verb = "would delete" if args.dry_run else "deleted"
+        if not deleted:
+            print("no finished packets to clean.")
+            return
+        print(f"{verb} {len(deleted)} packet(s):")
+        for p in deleted:
+            try:
+                rel = p.relative_to(paths.root)
+            except ValueError:
+                rel = p
+            print(f"  - {rel}")
+    else:
+        raise SystemExit(f"unknown report subcommand: {args.report_cmd!r}")

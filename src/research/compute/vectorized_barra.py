@@ -68,7 +68,113 @@ def _empty_result() -> dict[str, Any]:
         "alpha_survival_ratio": None,
         "dominant_style_exposure": None,
         "style_crowding_risk": "low",
+        "style_contributions": [],
     }
+
+
+def _leave_one_out_residual_ic(
+    X_styles: np.ndarray,
+    y: np.ndarray,
+    valid: np.ndarray,
+    common_dates: pd.DatetimeIndex,
+    symbols: pd.Index,
+    date_ok: np.ndarray,
+    forward_returns_flat: pd.DataFrame,
+    skip_idx: int,
+) -> float | None:
+    """OLS on styles minus column ``skip_idx``, return residual IC mean.
+
+    The regression builds X' = [intercept, styles except skip_idx] and runs
+    the same batched pinv pipeline as the full Barra regression. Returns
+    None if the residual is empty / IC undefined.
+    """
+    n_dates, n_symbols = y.shape
+    other_styles = np.delete(X_styles, skip_idx, axis=-1)
+    X_k = np.concatenate(
+        [np.ones((n_dates, n_symbols, 1), dtype=other_styles.dtype), other_styles],
+        axis=-1,
+    )
+    y_masked = np.where(valid, y, 0.0)
+    X_k_masked = np.where(valid[..., None], X_k, 0.0)
+    XtX_k = np.einsum("dsp,dsq->dpq", X_k_masked, X_k_masked)
+    Xty_k = np.einsum("dsp,ds->dp", X_k_masked, y_masked)
+    beta_k = np.einsum("dpq,dq->dp", np.linalg.pinv(XtX_k), Xty_k)
+    yhat_k = np.einsum("dsp,dp->ds", X_k_masked, beta_k)
+    resid_k = np.where(valid, y - yhat_k, 0.0)
+
+    valid_ok = valid[date_ok]
+    residual_wide = pd.DataFrame(
+        resid_k[date_ok],
+        index=common_dates[date_ok],
+        columns=symbols,
+    ).where(valid_ok)
+
+    residual_flat = residual_wide.stack(future_stack=True).reset_index()
+    residual_flat.columns = ["time", "symbol", "value"]
+    residual_flat = residual_flat.dropna(subset=["value"])
+    if residual_flat.empty:
+        return None
+    ic_series = daily_cross_sectional_ic(residual_flat, forward_returns_flat)
+    if ic_series.empty:
+        return None
+    return ic_summary(ic_series).get("ic_mean")
+
+
+def _build_style_contributions(
+    X_styles: np.ndarray,
+    y: np.ndarray,
+    valid: np.ndarray,
+    common_dates: pd.DatetimeIndex,
+    symbols: pd.Index,
+    date_ok: np.ndarray,
+    forward_returns_flat: pd.DataFrame,
+    style_cols: list[str],
+    raw_view_ic: float | None,
+    barra_residual_ic: float | None,
+) -> list[dict]:
+    """Per-style alpha attribution via leave-one-out Barra regression.
+
+    For each style k, runs OLS with all styles EXCEPT k, measures residual
+    IC, and reports how much IC **would have been retained** if k weren't
+    in the control set. The difference ``|ic_without_k| - |barra_residual_ic|``
+    estimates style k's contribution to stripping alpha in the full regression.
+
+    Sorted by ``|delta_ic|`` descending so the top row is the dominant killer.
+    Returns list of dicts, empty if full residual IC undefined.
+    """
+    if (
+        barra_residual_ic is None
+        or not np.isfinite(barra_residual_ic)
+        or raw_view_ic is None
+    ):
+        return []
+
+    total_gap = abs(raw_view_ic) - abs(barra_residual_ic)
+    contributions: list[dict] = []
+    for k, name in enumerate(style_cols):
+        ic_without = _leave_one_out_residual_ic(
+            X_styles, y, valid, common_dates, symbols, date_ok,
+            forward_returns_flat, skip_idx=k,
+        )
+        if ic_without is None or not np.isfinite(ic_without):
+            contributions.append({
+                "style": name, "delta_ic": None, "ic_without": None, "pct": None,
+            })
+            continue
+        delta_ic = abs(ic_without) - abs(barra_residual_ic)
+        pct = round(100 * delta_ic / total_gap, 1) if total_gap > 1e-9 else None
+        contributions.append({
+            "style": name,
+            "delta_ic": _safe_round(delta_ic),
+            "ic_without": _safe_round(ic_without),
+            "pct": pct,
+        })
+
+    contributions.sort(
+        key=lambda c: abs(c["delta_ic"]) if c["delta_ic"] is not None else 0.0,
+        reverse=True,
+    )
+    return contributions
 
 
 def _classify_crowding(r2: float, exposures: dict[str, float]) -> str:
@@ -278,6 +384,20 @@ def compute_barra_exposures(
     else:
         alpha_survival = None
 
+    # ----- 9. Per-style leave-one-out attribution -----
+    style_contributions = _build_style_contributions(
+        X_styles=X_styles,
+        y=y,
+        valid=valid,
+        common_dates=common_dates,
+        symbols=symbols,
+        date_ok=date_ok,
+        forward_returns_flat=forward_returns_flat,
+        style_cols=style_cols,
+        raw_view_ic=raw_view_ic,
+        barra_residual_ic=barra_residual_ic,
+    )
+
     return {
         "style_exposures": style_exposures,
         "style_r_squared": style_r_squared,
@@ -286,4 +406,5 @@ def compute_barra_exposures(
         "alpha_survival_ratio": _safe_round(alpha_survival, 4),
         "dominant_style_exposure": dominant_style,
         "style_crowding_risk": style_crowding_risk,
+        "style_contributions": style_contributions,
     }

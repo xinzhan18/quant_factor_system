@@ -1,7 +1,10 @@
-"""Regenerate the lower-half statistics table of ``vault/INDEX.md``.
+"""Regenerate the machine-maintained parts of ``vault/INDEX.md``.
 
-INDEX.md has two halves:
+INDEX.md has two halves plus a YAML frontmatter block:
 
+* **Frontmatter** — summary counters (``round``, ``last_batch``,
+  ``total_active_directions``, ``total_factors_admitted``,
+  ``generated_at``). Python-maintained.
 * **Upper half** — LLM-maintained narrative listing active directions
   and recent highlights. Phase 5 CONSOLIDATION rewrites it.
 * **Lower half** — machine-generated statistics table bounded by the
@@ -9,19 +12,20 @@ INDEX.md has two halves:
   ``<!-- END AUTO-SECTION -->``. Python regenerates it after every
   archive based on scanning ``directions/`` and ``factors/``.
 
-This module only touches the lower half. It:
+This module only touches the frontmatter and the lower half. It:
 
 1. Reads every ``directions/{name}.md`` frontmatter and collects
    ``direction_id``, ``status``, ``rounds``, ``admits``, ``last_batch``.
 2. Reads every ``factors/F*.yaml`` to count totals.
-3. Reads ``state.yaml`` for ``round`` + ``last_consolidation`` (optional).
-4. Writes a fresh markdown table between the sentinels, preserving the
-   upper half byte-for-byte.
+3. Reads ``state.yaml`` for ``round`` + ``last_batch``.
+4. Rewrites the frontmatter in place, preserving the LLM-authored
+   narrative and the sentinel-bounded lower half.
 """
 
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +36,13 @@ from research.storage.yaml_io import load_yaml
 
 BEGIN_SENTINEL = "<!-- BEGIN AUTO-SECTION -->"
 END_SENTINEL = "<!-- END AUTO-SECTION -->"
+FACTOR_LIB_BEGIN_SENTINEL = "<!-- BEGIN FACTOR-LIBRARY -->"
+FACTOR_LIB_END_SENTINEL = "<!-- END FACTOR-LIBRARY -->"
+
+_INDEX_FRONTMATTER_RE = re.compile(
+    r"\A---\s*\n(?P<fm>.*?)\n---\s*\n?(?P<body>.*)", re.DOTALL
+)
+_NON_ACTIVE_DIRECTION_STATUSES = {"dead", "merged", "archived"}
 
 _FRONTMATTER_RE = re.compile(
     r"\A---\s*\n(?P<fm>.*?)\n---\s*\n?(?P<body>.*)", re.DOTALL
@@ -81,6 +92,106 @@ def count_admitted_factors(factors_dir: str | Path) -> int:
     if not p.exists():
         return 0
     return sum(1 for f in p.glob("F*.yaml"))
+
+
+def _factor_id_key(path: Path) -> tuple[int, str]:
+    """Sort key for F{id}.yaml — numeric id ascending, with fallback."""
+    stem = path.stem
+    digits = "".join(c for c in stem if c.isdigit())
+    return (int(digits) if digits else 1 << 30, stem)
+
+
+def _fmt_float(value: Any, digits: int = 3) -> str | None:
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return f"{f:.{digits}f}"
+
+
+def collect_admitted_factors(factors_dir: str | Path) -> list[dict[str, Any]]:
+    """Return one row per ``F*.yaml``, sorted by numeric factor id.
+
+    Each row pulls key fields from the YAML (canonical admission record);
+    if a sibling ``F*.md`` exists its frontmatter supplies ``composite_grade``
+    (LLM-authored by the factor-report subagent, may not yet exist when
+    Phase 4 first refreshes).
+    """
+    rows: list[dict[str, Any]] = []
+    p = Path(factors_dir)
+    if not p.exists():
+        return rows
+    for yaml_path in sorted(p.glob("F*.yaml"), key=_factor_id_key):
+        try:
+            data = load_yaml(yaml_path)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        md_path = yaml_path.with_suffix(".md")
+        grade: str | None = None
+        if md_path.exists():
+            fm, _ = _read_direction_frontmatter_and_body(md_path)
+            g = fm.get("composite_grade") if isinstance(fm, dict) else None
+            if isinstance(g, str) and g.strip():
+                grade = g.strip()
+        metrics = data.get("validation_metrics") or {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        rows.append(
+            {
+                "factor_id": str(data.get("factor_id") or yaml_path.stem),
+                "name": str(data.get("name") or yaml_path.stem),
+                "direction": str(data.get("direction") or "—"),
+                "expression": str(data.get("expression") or ""),
+                "grade": grade,
+                "ic_ir": metrics.get("ic_ir"),
+                "monotonicity": metrics.get("monotonicity"),
+            }
+        )
+    return rows
+
+
+def render_factor_library(rows: list[dict[str, Any]]) -> str:
+    """Render the sentinel-bounded ``因子库`` bullet list."""
+    lines = [FACTOR_LIB_BEGIN_SENTINEL]
+    if not rows:
+        lines.append("")
+        lines.append("_（暂无 admitted 因子）_")
+    else:
+        for r in rows:
+            grade_tok = f" `{r['grade']}`" if r.get("grade") else ""
+            metric_bits: list[str] = []
+            icir = _fmt_float(r.get("ic_ir"))
+            if icir is not None:
+                metric_bits.append(f"ICIR_oos={icir}")
+            mono = _fmt_float(r.get("monotonicity"), digits=2)
+            if mono is not None:
+                metric_bits.append(f"Mono={mono}")
+            metric_txt = ", ".join(metric_bits) if metric_bits else "metrics pending"
+            expr = r.get("expression") or ""
+            expr_tok = f" · `{expr}`" if expr else ""
+            lines.append(
+                f"- [[factors/{r['factor_id']}|{r['name']}]]{grade_tok}"
+                f" · {r['direction']} · {metric_txt}{expr_tok}"
+            )
+    lines.append(FACTOR_LIB_END_SENTINEL)
+    return "\n".join(lines)
+
+
+def _apply_factor_library(text: str, factor_library_block: str) -> str:
+    """Replace the ``FACTOR-LIBRARY`` sentinel block. No-op if sentinels absent.
+
+    We keep the sentinels optional so INDEX files written before this feature
+    (or stripped-down test fixtures) don't get an unexpected block appended.
+    """
+    if FACTOR_LIB_BEGIN_SENTINEL not in text or FACTOR_LIB_END_SENTINEL not in text:
+        return text
+    pattern = re.compile(
+        re.escape(FACTOR_LIB_BEGIN_SENTINEL) + r".*?" + re.escape(FACTOR_LIB_END_SENTINEL),
+        re.DOTALL,
+    )
+    return pattern.sub(factor_library_block, text)
 
 
 def render_auto_section(
@@ -136,28 +247,93 @@ def render_auto_section(
     return "\n".join(lines)
 
 
+def _count_active_directions(rows: list[dict[str, Any]]) -> int:
+    return sum(
+        1 for r in rows if r.get("status") not in _NON_ACTIVE_DIRECTION_STATUSES
+    )
+
+
+def _read_state_summary(paths: StoragePaths) -> tuple[int | None, str | None]:
+    """Return ``(round, last_batch)`` from state.yaml, or ``(None, None)`` if absent."""
+    try:
+        data = load_yaml(paths.state_file)
+    except FileNotFoundError:
+        return None, None
+    if not isinstance(data, dict):
+        return None, None
+    r = data.get("round")
+    lb = data.get("last_batch")
+    return (int(r) if r is not None else None, lb if isinstance(lb, str) else None)
+
+
+def _render_frontmatter(
+    *,
+    round_counter: int,
+    last_batch: str | None,
+    total_active_directions: int,
+    total_admitted: int,
+    last_consolidation_round: int | None,
+    generated_at: str,
+) -> str:
+    """Render the YAML frontmatter block (with trailing newline)."""
+    lines = [
+        "---",
+        f"generated_at: {generated_at}",
+        f"round: {round_counter}",
+        f"total_active_directions: {total_active_directions}",
+        f"total_factors_admitted: {total_admitted}",
+        f"last_batch: {last_batch if last_batch else 'null'}",
+        "last_consolidation_round: "
+        + (str(last_consolidation_round) if last_consolidation_round is not None else "null"),
+        "---",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _apply_frontmatter(existing: str, frontmatter_block: str) -> str:
+    """Replace or prepend the YAML frontmatter block.
+
+    Always leaves exactly one blank line between the frontmatter and the body.
+    """
+    m = _INDEX_FRONTMATTER_RE.match(existing)
+    body = m.group("body") if m else existing
+    return frontmatter_block + "\n" + body.lstrip("\n")
+
+
 def refresh_index(
     paths: StoragePaths,
     round_counter: int,
     last_consolidation_round: int | None = None,
 ) -> Path:
-    """Regenerate the auto-section of INDEX.md in place.
+    """Regenerate INDEX.md frontmatter + auto-section in place.
 
-    Preserves everything outside the ``BEGIN_SENTINEL`` / ``END_SENTINEL``
-    block. If the file is missing, creates a minimal INDEX with only
-    the auto-section.
+    Preserves the LLM-authored narrative between the frontmatter and the
+    ``BEGIN_SENTINEL`` block. If the file is missing, creates a minimal
+    INDEX with frontmatter + auto-section only.
     """
     rows = collect_direction_stats(paths.directions_dir)
     total_admitted = count_admitted_factors(paths.factors_dir)
     auto_text = render_auto_section(
         rows, total_admitted, round_counter, last_consolidation_round
     )
+    factor_library_block = render_factor_library(
+        collect_admitted_factors(paths.factors_dir)
+    )
+    _, last_batch = _read_state_summary(paths)
+    frontmatter_block = _render_frontmatter(
+        round_counter=round_counter,
+        last_batch=last_batch,
+        total_active_directions=_count_active_directions(rows),
+        total_admitted=total_admitted,
+        last_consolidation_round=last_consolidation_round,
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
 
     index_path = paths.vault_index_file
     if not index_path.exists():
-        # Create a minimal skeleton with the auto-section only
         skeleton = (
-            "# Factor Research Index\n\n"
+            frontmatter_block
+            + "\n# Factor Research Index\n\n"
             "_Upper half is LLM-maintained; Phase 5 consolidation rewrites it._\n\n"
             "---\n\n"
             "## Statistics (machine-generated)\n\n"
@@ -168,15 +344,15 @@ def refresh_index(
         return index_path
 
     text = index_path.read_text(encoding="utf-8")
+    text = _apply_frontmatter(text, frontmatter_block)
+    text = _apply_factor_library(text, factor_library_block)
     if BEGIN_SENTINEL in text and END_SENTINEL in text:
-        # Replace the auto-section in place
         pattern = re.compile(
             re.escape(BEGIN_SENTINEL) + r".*?" + re.escape(END_SENTINEL),
             re.DOTALL,
         )
         new_text = pattern.sub(auto_text, text)
     else:
-        # Sentinels missing — append at the end
         new_text = text.rstrip() + "\n\n" + auto_text + "\n"
 
     index_path.write_text(new_text, encoding="utf-8")

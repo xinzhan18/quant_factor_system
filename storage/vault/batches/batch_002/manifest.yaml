@@ -1,0 +1,51 @@
+batch_id: batch_002
+round: 1
+direction: amount_volatility_signal
+direction_md_ref: vault/directions/amount_volatility_signal.md
+batch_goal: 'Deepen amount_volatility_signal: (T001) window scan cv_5/cv_20 + MAD-robust
+  variant to validate F001''s 10d optimum and抗离群; (T002) longer-window max/mean_60
+  to escape 20d vol_20d crowding discovered in batch_001; (T004) NaN-safe amplitude
+  corr to re-test T003 hypothesis without Log divergence.'
+active_threads_referenced:
+- T001
+- T002
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-18T17:46:34Z'
+frozen_at: '2026-04-18T17:46:34Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Std($amount, 5), Mean($amount, 5))
+  canonical: Div(Std($amount,5),Mean($amount,5))
+  rationale: 'T001 shorter window: cv_5 tests whether 10d was a local optimum or monotone-shorter-better.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Std($amount, 20), Mean($amount, 20))
+  canonical: Div(Std($amount,20),Mean($amount,20))
+  rationale: 'T001 longer window: cv_20 between F001 (10d, admitted) and C002_prev
+    (60d, reserve); confirms window turning point.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Mad($amount, 10), Med($amount, 10))
+  canonical: Div(Mad($amount,10),Med($amount,10))
+  rationale: 'T001 robust variant: MAD/Median at 10d window — tests whether F001 alpha
+    survives outlier-robust estimator (orthogonality to mean-based CV).'
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Max($amount, 60), Mean($amount, 60))
+  canonical: Div(Max($amount,60),Mean($amount,60))
+  rationale: 'T002 longer window: max/mean_60 — previous max/mean_20 (C005_prev) was
+    ICIR_OOS=-0.539 but vol_20d暴露=32.0; 60d window extends lookback to decouple from
+    20d vol style.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Corr($amount, Abs(Delta($close, 1)), 20)
+  canonical: Corr($amount,Abs(Delta($close,1)),20)
+  rationale: 'T004 NaN-safe amplitude corr: replaces rejected C006_prev (Corr with
+    signed Delta) — amplitude avoids signed regime-dependence; tests放量=信息 hypothesis
+    without Log divergence.'

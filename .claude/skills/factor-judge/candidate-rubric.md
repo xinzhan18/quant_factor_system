@@ -30,6 +30,7 @@ description: Phase 3 JUDGE — single-candidate judging manual (subagent only)
 
 ```
 【{CID}】verdict = {admit|reserve}  |  expr = {expression}
+{admit 时额外加一行} factor_name: {snake_case_name}
 
 档位: CP02={aligned|mixed|misaligned} · CP03={strong|borderline|weak} · CP04={good|acceptable|borderline|poor} · CP05={low|medium|high} · CP06={stable|mixed|unstable}
 
@@ -93,6 +94,16 @@ metrics:
     barra_residual_ic: 0.013
     dominant_style_exposure: vol_20d
     extreme_ratio: 0.008
+    style_contributions:          # leave-one-out 归因，按 |delta_ic| 降序
+      - style: vol_20d
+        delta_ic: 0.025            # 若不控此 style，residual |IC| 会多 0.025
+        pct: 65.8                  # 占 raw→residual 总衰减比例
+        ic_without: -0.035
+      - style: turnover_20d
+        delta_ic: 0.008
+        pct: 21.1
+        ic_without: -0.018
+      # ... 7 项 styles 全量
   cp05:
     max_lib_corr: 0.30
     is_near_duplicate: false
@@ -196,7 +207,12 @@ metrics:
 | **borderline** | 两项 borderline，或一项 poor 其余 clean |
 | **poor** | 任何两项 poor；或 `alpha_survival_ratio < 0.60` 单独触发 dealbreaker |
 
-**CP04 body 强制**：cite `style_r_squared`、`alpha_survival_ratio`、`barra_residual_ic`，flag `dominant_style_exposure`。
+**CP04 body 强制**：cite `style_r_squared`、`alpha_survival_ratio`、`barra_residual_ic`，flag `dominant_style_exposure`；**Alpha killer 段**列 `style_contributions` 前 2-3 项（`{style}: delta_ic={…} ({pct}%)`），一句话总结"本因子主要被 `{top_style}` 吞噬，下轮需 orthogonalize / normalize by {top_style}"。
+
+**"dealbreaker" 的语义**（之前歧义，明文化）：
+- `alpha_survival_ratio < 0.60` 的 "dealbreaker" 只决定 **CP04 档位 = poor**，不强制 reject。Verdict 仍由综合 CP 判断（CP02–CP06 + MT）。
+- **但**：当同批 ≥ 2 个候选 CP04 都是 poor 且原因同一簇（同 `dominant_style_exposure`），最多 admit 1 个作为"方向 anchor"（单调性最干净 / Barra 残差 IC 最强的那个），其余只能 `reserve` 或 `reject`。这是防止风格重复入库的硬规则。
+- 首批（empty library）例外：CP05 `max_lib_corr=0` 机械 low 不能单独支持 admit，admit 判断此时倾向更严格（同批 anchor rule 仍适用）。
 
 ### CP05 Redundancy —— 2 指标 + 硬闸（low / medium / high）
 
@@ -275,37 +291,66 @@ expression: "Std($close, 20)"       # 必填（照抄 _hints.yaml.per_candidate.
 verdict: admit                      # 必填：admit | reserve | reject（replace 枚举保留但 DEPRECATED，不用）
 thread_id: T001                     # 必填；必须对应 direction.md 里 `### T001` H3（audit c16 交叉校验）
 factor_id: null                     # admit 时留 null，Phase 4 分配
+factor_name: pv_corr_20d_vol20d     # verdict=admit 必填；snake_case，3-40 字符，反映机制而非表达式细节
 key_metrics_short: "ICIR=0.338 ls_t=3.89"     # verdict != reject 必填
 reject_reason_short: null                      # verdict=reject 必填
 ---
 ```
 
+**`factor_name` 命名准则**（verdict=admit 必填）：
+- snake_case，3–40 字符，仅 `[a-z0-9_]`
+- 反映**机制/经济含义**，不是表达式逐字翻译
+  - 好：`pv_corr_20d`、`vol_of_vol_60`、`turnover_reversal_5`
+  - 差：`mul_corr_close_volume_20_std_volume_20`（逐字复述）
+- 同库内唯一；若已存在同名，加后缀区分参数（`pv_corr_20d` vs `pv_corr_60d`）
+- 主 agent 会把 `factor_name` 同步写进 `judge.md` frontmatter 的 admit 条目；Phase 4 据此写 `factor.yaml.name` + `python_factors/F{id}_{name}.py`
+```
+
 ---
+
+## `C{id}.md` body — 视觉扫读约定
+
+读者打开文件第一眼需要看到：verdict + 6 档位 + 3-5 核心指标 + 阻断项（若有）。下面的格式全部用 Obsidian callout + `==highlight==` 实现。**narrative 内容保持完整**，视觉脚手架只加不减。
+
+关键规则：
+
+- **TL;DR callout** 紧跟 H1，verdict 色差：`[!success]+` admit / `[!warning]+` reserve / `[!failure]+` reject
+- **Breadcrumb** 用 `[!info]` callout（不要裸 `>`）
+- **每个 CP H2 标题末尾带档位徽章** `· \`tier\``，阻断档加粗 `· **\`poor\`**` / `· **\`weak\`**` / `· **\`high\`**`
+- **CP 正文末尾保留 `→ **tier**`** 行（audit c10 兼容；H2 + 末行双保险）
+- **CP03 核心指标用紧凑表**（不要散文 bullets）
+- **关键数字 `==highlight==`**：OOS IC / ICIR / ls_t / style_r² / alpha_survival / max_lib_corr / incremental_ic
+- **Verdict 段用 callout 包**（与顶部 TL;DR 色号一致）
 
 ## `C{id}.md` body — 非-reject 模板
 
 ```markdown
 # C001 — Std($close, 20)
 
-> Parent: [[batches/batch_009/judge|batch_009 judge]] · Direction: [[directions/timing_signals]] · Nearest: [[factors/F005]]
+> [!success]+ Verdict: **ADMIT** · thread [[directions/timing_signals#T001|T001]]
+> **档位**: CP01 ✓ · CP02 `aligned` · CP03 `strong` · CP04 `acceptable` · CP05 `low` · CP06 `stable`
+> **OOS**: IC=**==0.016==** · ICIR=**==0.338==** · ls_t=**==3.89==** · style_r²=0.08 · alpha_surv=**==0.69==** · max_corr=0.30 · mt_bucket=`medium`
+> **机制一句话**: {1 句，≤40 字，对应表达式解读第一段提炼}
+
+> [!info] Parent: [[batches/batch_009/judge|batch_009 judge]] · Direction: [[directions/timing_signals]] · Nearest: [[factors/F005]]
 
 ## 表达式解读
 
 {1–3 段自然语言：表达式的经济含义。例如"Std($close, 20) = 20 日收盘价标准差，衡量近期波动率。"}
 
-## CP01 Hard Gates
+## CP01 Hard Gates ✓
 
 8 项 gate 全过：
-- compute_error: passed
-- coverage: 0.989 ≥ 0.80
-- sign_flip: train -0.020 / val -0.023（同号）
-- forbidden: passed
-- ic_oos_min: |-0.023| ≥ 0.008
-- oos_decay: 1.12 ≥ 0.20
-- mono_flip: train -0.10 / val -0.10（同号）
-- near_duplicate: max_corr 0.25 < 0.9（nearest F005）
+- ✓ compute_error
+- ✓ coverage: 0.989 ≥ 0.80
+- ✓ sign_flip: train -0.020 / val -0.023（同号）
+- ✓ forbidden
+- ✓ ic_oos_min: |-0.023| ≥ 0.008
+- ✓ oos_decay: 1.12 ≥ 0.20
+- ✓ mono_flip: train -0.10 / val -0.10（同号）
+- ✓ near_duplicate: max_corr 0.25 < 0.9（nearest F005）
 
-## CP02 Mechanism Alignment
+## CP02 Mechanism Alignment · `aligned`
 
 **机制**：{回答第 1 问}
 
@@ -317,86 +362,99 @@ reject_reason_short: null                      # verdict=reject 必填
 
 **与近邻差异**：[[factors/F005]] 捕捉 {nearest_factor_expression 的机制}；本候选 {回答第 5 问}。
 
-→ **aligned**（或 mixed / misaligned）
+→ **aligned**
 
-## CP03 Statistical Strength
+## CP03 Statistical Strength · `strong`
 
-**核心指标**：
-- IC_OOS = 0.016 → strong（rubric > 0.015）
-- ICIR_OOS = 0.338 → strong（> 0.30）
-- ls_tstat_OOS = 3.89 → strong（> 3）
+| 指标 | IS | OOS | 档位 | 阈值 |
+|---|---|---|---|---|
+| IC | 0.018 | **==0.016==** | strong | \|x\|>0.015 |
+| ICIR | 0.22 | **==0.338==** | strong | \|x\|>0.30 |
+| ls_t | 3.5 | **==3.89==** | strong | \|x\|>3 |
+| decay | — | 0.89 | healthy | >0.8 |
 
-**Rank-order 验证**：
-- monotonicity_oos = 0.92（|x| > 0.8 → 强单调）
-- Q1..Q5 梯度 (OOS): q1=-0.00038, q2=0.00023, q3=0.00074, q4=-0.00050, q5=-0.00029 → 单调不完美（q3 最高），但 ls_mean 由 q5-q1 驱动，与 ls_tstat 一致
+**Rank-order 验证**：monotonicity_oos = 0.92（|x| > 0.8 → 强单调）。Q1..Q5 梯度 (OOS): q1=-0.00038, q2=0.00023, q3=0.00074, q4=-0.00050, q5=-0.00029 → 单调不完美（q3 最高），但 ls_mean 由 q5-q1 驱动，与 ls_tstat 一致（非"一桨驱动"）。
 
-**IS/OOS 对比**：
-- ic_is=0.018 → ic_oos=0.016，decay ≈ 0.89 > 0.8（健康）
-- ls_sharpe_is=1.4 → ls_sharpe_oos=1.6（略有提升，非衰减）
-- n_days_oos=476（样本充足）
+**样本量**：n_days_oos=476（>> 200，统计显著性充足）。
 
-mt_bucket = medium；search_adjusted = 0.41（adjusted 档 medium）。medium 档允许 strong 保留，经 search adjustment 系数仍在 strong 档下界以上，符合 MT budget 容忍阈值。
+**MT 调整**：`mt_bucket = medium`；`search_adjusted = 0.41`（adjusted 档 medium）。medium 档允许 strong 保留，经 search adjustment 后系数仍在 strong 档下界以上，符合 MT budget 容忍阈值。
 
 → **strong**
 
-## CP04 Risk Cleanness
+## CP04 Risk Cleanness · `acceptable`
 
-style_r_squared = 0.08（clean 上界）→ clean
-alpha_survival_ratio = 0.69 → borderline
-barra_residual_ic = 0.013
-extreme_ratio = 0.008 → clean
-dominant_style_exposure = vol_20d
+| 指标 | 值 | 档位 | 阈值 |
+|---|---|---|---|
+| style_r_squared | **==0.08==** | clean | <0.08 边界 |
+| alpha_survival | **==0.69==** | borderline | clean>0.70 |
+| extreme_ratio | 0.008 | clean | <0.01 |
+| barra_residual_ic | 0.013 | — | — |
+| dominant_style | `vol_20d` | — | — |
+
+**Alpha killer**（按 `metrics.cp04.style_contributions` 排序前 2-3 项，每项写 `{style}: delta_ic={…} ({pct}%)`）：
+- `vol_20d`: delta_ic=**==0.025==** (65.8%)
+- `turnover_20d`: delta_ic=0.008 (21.1%)
+- 总 killer 占比: ~87%，剩余 ~13% 分散在其它 styles 或 joint effect
 
 两项 clean 一项 borderline → **acceptable**
 
-## CP05 Redundancy
+## CP05 Redundancy · `low`
 
-max_lib_corr = 0.30 → low 档
-is_near_duplicate = false（硬闸未触发）
-nearest = [[factors/F005]]
-incremental_ic = 0.013（> 0.005，库增值清晰）
+- `max_lib_corr` = **==0.30==** → low 档
+- `is_near_duplicate` = false（硬闸未触发）
+- nearest = [[factors/F005]]
+- `incremental_ic` = **==0.013==**（> 0.005，库增值清晰）
 
 → **low**。admit 增值：{1–2 句为何能贡献增量 alpha}
 
-## CP06 Validation Stability
+## CP06 Validation Stability · `stable`
 
-**核心**：
-- sign_consistency = 1.0 → stable
-- train_validation_decay = 0.89 → stable（> 0.8）
+| 指标 | 值 | 档位 |
+|---|---|---|
+| sign_consistency | **==1.0==** | stable |
+| train_validation_decay | **==0.89==** | stable (>0.8) |
 
 **时序稳健**：
-- ic_autocorr_lag1 = -0.025 （|x| < 0.15，日独立）→ ICIR 置信高
-- cum_ic_max_drawdown = -34.69（在 -30 附近，轻度关注）
-- worst_quarter_ic = -0.071 / best_quarter_ic = 0.015（异号但 worst 量级约 3× |ic_oos|，提示季度依赖性存在但不严重）
-- ic_by_year：{2020: 0.015, 2021: 0.012, 2022: 0.011}（缓慢衰减但仍同号）
+- `ic_autocorr_lag1` = -0.025（|x|<0.15 → IC 日独立，ICIR 置信高）
+- `cum_ic_max_drawdown` = -34.69（在 -30 附近，轻度关注）
+- `worst_quarter_ic` = -0.071 / `best_quarter_ic` = 0.015（异号但 worst ≈ 3× |ic_oos|）
+- `ic_by_year`：{2020: 0.015, 2021: 0.012, 2022: 0.011}（缓慢衰减仍同号）
 
 → **stable**（核心两项都 stable；时序稳健项均在健康范围；cum_ic_mdd 轻度关注但不降档）
 
-## Verdict: admit
-
-{核心理由 1–3 段：综合 5 个软 CP 档位 + hypothesis 匹配度，为什么值得 admit。F{id} 由 Phase 4 分配，本文件 frontmatter `factor_id: null`。}
+> [!success]+ Verdict: ADMIT
+> **核心理由**: {1 段 — 综合 5 个软 CP 档位 + hypothesis 匹配度，为什么值得 admit}
+>
+> **风险旗标**: {若有 borderline/weak/poor/unstable/mixed/high 项，逐条列出；否则写"无"}
+>
+> F{id} 由 Phase 4 分配，本文件 frontmatter `factor_id: null`。
 ```
+
+**reserve 只需把顶部 callout 和底部 callout 换成 `[!warning]+`，verdict 字段写 RESERVE**；结构完全一致。
 
 ## `C{id}.md` body — reject 最小模板
 
 ```markdown
 # C001 — Std($close, 20)
 
-> Parent: [[batches/batch_009/judge|batch_009 judge]] · Direction: [[directions/timing_signals]]
+> [!failure]+ Verdict: **REJECT**
+> **阻断**: CP01 hard_gate fail — {hints.hard_gate.reasons[0]}
+> 其它 gate 结果: {简述 gate_results 里的其它值，证明这是数据/质量问题而非机制问题}
+
+> [!info] Parent: [[batches/batch_001/judge|batch_001 judge]] · Direction: [[directions/volume_price_signal]]
 
 ## CP01 Hard Gates
 
 未通过：
-- coverage: 0.65 < 0.80 ❌
+- ✗ coverage: 0.65 < 0.80
 
-其它 gate 结果:
-- compute_error: passed
-- forbidden: passed
+其它 gate 结果：
+- ✓ compute_error
+- ✓ forbidden
 - （若 coverage 失败则 sign_flip / ic_oos_min 等可能未评估，但仍照实写出 gate_results 中的值）
 
-## Verdict: reject
-
-{1–2 句具体说明，对应 frontmatter.reject_reason_short。}
+> [!failure]+ Verdict: REJECT
+> {1–2 句具体说明，对应 frontmatter.reject_reason_short。}
 ```
 
 ---

@@ -1,0 +1,54 @@
+batch_id: batch_003
+round: 2
+direction: amount_volatility_signal
+direction_md_ref: vault/directions/amount_volatility_signal.md
+batch_goal: 'Open new families per batch_002 closure: (T004) sign-preserved NaN-safe
+  alternatives to T003''s Log-Slope / signed-Delta failures — normalized Slope + signed-amount
+  ratio + sign-only Corr; (T002) robust tail via rolling quantile ratios (top-15%
+  / top-5% vs mean) replacing failed single-Max; avoid further same-family CV window
+  scans.'
+active_threads_referenced:
+- T002
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-18T18:10:58Z'
+frozen_at: '2026-04-18T18:10:58Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Mean(Mul(Sign(Delta($close, 1)), $amount), 20), Mean($amount, 20))
+  canonical: Div(Mean(Mul($amount,Sign(Delta($close,1))),20),Mean($amount,20))
+  rationale: 'T004 signed-amount ratio: average up/down-day amount over 20d, scale-normalized
+    by mean amount. Keeps direction info (complement to C005_b2 amplitude-only failure).
+    Scale-invariant by construction.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Slope(Div($amount, Mean($amount, 20)), 20)
+  canonical: Slope(Div($amount,Mean($amount,20)),20)
+  rationale: 'T004 normalized Slope: replaces T003 Log-Slope (C007_b1 NaN from Log(0)).
+    Division by running mean regularizes Slope without divergence; keeps sign of flow
+    trend.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Quantile($amount, 20, 0.85), Mean($amount, 20))
+  canonical: Div(Quantile($amount,20,0.85),Mean($amount,20))
+  rationale: 'T002 robust tail: top-15% quantile over 20d / mean, replaces single-Max
+    (C005_b1 reserve / C004_b2 reject). Less sensitive to isolated spike days — should
+    reduce regime dependence that killed Max/Mean_60.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Quantile($amount, 20, 0.95), Mean($amount, 20))
+  canonical: Div(Quantile($amount,20,0.95),Mean($amount,20))
+  rationale: 'T002 extreme tail: top-5% quantile vs mean — for contrast with C003
+    top-15%. Tests whether tail info concentrates in extreme or broad-tail days.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Corr($amount, Sign(Delta($close, 1)), 20)
+  canonical: Corr($amount,Sign(Delta($close,1)),20)
+  rationale: 'T004 sign-only Corr: binary sign instead of continuous Delta (C006_b1
+    reject mono_flip) or magnitude (C005_b2 reject ic_too_low). Disentangles direction
+    info from magnitude; tests whether sign stability alone carries alpha.'

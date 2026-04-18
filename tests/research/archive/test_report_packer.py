@@ -11,9 +11,11 @@ import yaml
 from research.archive.report_packer import (
     ReportPacketInputs,
     build_report_packet,
+    cleanup_finished_packets,
     extract_candidate_synthesis,
     write_report_packet,
 )
+from research.storage.paths import StoragePaths
 
 
 def _record(source_type: str = "dsl") -> dict[str, Any]:
@@ -131,3 +133,90 @@ class TestExtractCandidateSynthesis:
 
     def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
         assert extract_candidate_synthesis(tmp_path / "nope.md") == ""
+
+
+class TestCleanupFinishedPackets:
+    def _seed(
+        self,
+        root: Path,
+        batch_id: str,
+        factor_id: str,
+        *,
+        factor_md_exists: bool,
+        factor_md_empty: bool = False,
+    ) -> tuple[Path, Path]:
+        batches = root / "vault" / "batches" / batch_id / "_packets"
+        batches.mkdir(parents=True, exist_ok=True)
+        packet = batches / f"report_packet_{factor_id}.md"
+        packet.write_text("packet body", encoding="utf-8")
+
+        factors = root / "vault" / "factors"
+        factors.mkdir(parents=True, exist_ok=True)
+        factor_md = factors / f"{factor_id}.md"
+        if factor_md_exists:
+            factor_md.write_text("" if factor_md_empty else "# report", encoding="utf-8")
+        return packet, factor_md
+
+    def test_deletes_packet_when_factor_md_exists(self, tmp_path: Path) -> None:
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+        packet, _ = self._seed(tmp_path, "batch_001", "F001", factor_md_exists=True)
+
+        deleted = cleanup_finished_packets(paths)
+        assert deleted == [packet]
+        assert not packet.exists()
+        # Empty _packets dir should be removed for tidiness.
+        assert not packet.parent.exists()
+
+    def test_keeps_packet_when_factor_md_missing(self, tmp_path: Path) -> None:
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+        packet, _ = self._seed(tmp_path, "batch_001", "F001", factor_md_exists=False)
+
+        deleted = cleanup_finished_packets(paths)
+        assert deleted == []
+        assert packet.exists()
+
+    def test_keeps_packet_when_factor_md_empty(self, tmp_path: Path) -> None:
+        # Subagent wrote a stub then crashed — empty file counts as "not done".
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+        packet, _ = self._seed(
+            tmp_path, "batch_001", "F001",
+            factor_md_exists=True, factor_md_empty=True,
+        )
+        deleted = cleanup_finished_packets(paths)
+        assert deleted == []
+        assert packet.exists()
+
+    def test_skip_batch_preserves_that_batchs_packets(self, tmp_path: Path) -> None:
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+        p1, _ = self._seed(tmp_path, "batch_001", "F001", factor_md_exists=True)
+        p2, _ = self._seed(tmp_path, "batch_002", "F002", factor_md_exists=True)
+
+        deleted = cleanup_finished_packets(paths, skip_batch="batch_002")
+        assert deleted == [p1]
+        assert not p1.exists()
+        assert p2.exists()
+
+    def test_dry_run_lists_without_deleting(self, tmp_path: Path) -> None:
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+        packet, _ = self._seed(tmp_path, "batch_001", "F001", factor_md_exists=True)
+
+        deleted = cleanup_finished_packets(paths, dry_run=True)
+        assert deleted == [packet]
+        assert packet.exists()
+
+    def test_ignores_non_packet_files(self, tmp_path: Path) -> None:
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+        _, _ = self._seed(tmp_path, "batch_001", "F001", factor_md_exists=True)
+        # Someone dropped a random file in _packets/
+        stray = paths.batch_dir("batch_001") / "_packets" / "notes.md"
+        stray.write_text("notes", encoding="utf-8")
+
+        deleted = cleanup_finished_packets(paths)
+        assert stray.exists()  # untouched
+        assert len(deleted) == 1

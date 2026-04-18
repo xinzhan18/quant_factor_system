@@ -87,13 +87,19 @@ def _good_judge_md(
 ) -> str:
     ids = candidate_ids or ["C001"]
     verdicts = verdicts or {cid: "admit" for cid in ids}
+
+    def _entry(cid: str) -> dict[str, Any]:
+        v = verdicts.get(cid, "admit")
+        e: dict[str, Any] = {"candidate_id": cid, "verdict": v}
+        if v == "admit":
+            # Audit c1 now requires factor_name for admit entries.
+            e["factor_name"] = f"test_factor_{cid.lower()}"
+        return e
+
     fm: dict[str, Any] = {
         "batch_id": batch_id,
         "direction": direction,
-        "candidates": [
-            {"candidate_id": cid, "verdict": verdicts.get(cid, "admit")}
-            for cid in ids
-        ],
+        "candidates": [_entry(cid) for cid in ids],
         "batch_summary": {
             "total": len(ids),
             "admit": sum(1 for v in verdicts.values() if v == "admit"),

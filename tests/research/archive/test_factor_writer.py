@@ -105,6 +105,48 @@ class TestBuildFactorRecord:
         assert rec["validation_metrics"]["ic_mean"] == 0.016
         assert rec["risk_metrics"]["style_r_squared"] == 0.08
 
+    def test_diagnostics_ref_from_admit_entry(self) -> None:
+        rec = build_factor_record(
+            factor_id="F001",
+            admit_entry=_candidate(diagnostics_relpath="cache/batch_diagnostics/batch_001/C001"),
+            manifest_entry=_manifest_entry(),
+            batch_id="batch_001",
+            direction="vol",
+        )
+        assert rec["diagnostics_ref"] == "cache/batch_diagnostics/batch_001/C001"
+        assert "signal_ref" not in rec
+
+    def test_diagnostics_ref_falls_back_to_canonical_path(self) -> None:
+        rec = build_factor_record(
+            factor_id="F001",
+            admit_entry=_candidate(),  # no diagnostics_relpath
+            manifest_entry=_manifest_entry(),
+            batch_id="batch_001",
+            direction="vol",
+        )
+        assert rec["diagnostics_ref"] == "cache/batch_diagnostics/batch_001/C001"
+
+    def test_factor_name_override_from_llm(self) -> None:
+        rec = build_factor_record(
+            factor_id="F001",
+            admit_entry=_candidate(),
+            manifest_entry=_manifest_entry(),
+            batch_id="batch_001",
+            direction="vol",
+            factor_name="pv_corr_20d_vol20d",
+        )
+        assert rec["name"] == "pv_corr_20d_vol20d"
+
+    def test_name_falls_back_to_factor_id(self) -> None:
+        rec = build_factor_record(
+            factor_id="F001",
+            admit_entry=_candidate(),
+            manifest_entry=_manifest_entry(),
+            batch_id="batch_001",
+            direction="vol",
+        )
+        assert rec["name"] == "F001"
+
     def test_python_record_shape(self) -> None:
         rec = build_factor_record(
             factor_id="F001",

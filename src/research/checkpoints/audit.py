@@ -70,6 +70,10 @@ REQUIRED_JUDGE_CANDIDATE_FIELDS: tuple[str, ...] = (
     "verdict",
 )
 
+# factor_name shape: snake_case, 3-40 chars, [a-z0-9_] only. Audited only
+# for admit entries — reserve/reject don't allocate F{id} so no name needed.
+_FACTOR_NAME_PATTERN: re.Pattern[str] = re.compile(r"^[a-z][a-z0-9_]{2,39}$")
+
 REQUIRED_CANDIDATE_MD_FIELDS: tuple[str, ...] = (
     "candidate_id",
     "batch_id",
@@ -166,6 +170,20 @@ def _c1_judge_frontmatter_schema(judge: ParsedDoc) -> list[str]:
             if k not in c:
                 errs.append(
                     f"judge.md candidate {c.get('candidate_id', '?')!r} missing field {k!r}"
+                )
+        # Admit entries must carry factor_name — Phase 4 writes it into
+        # factor.yaml.name + python_factors/F{id}_{name}.py filename.
+        if c.get("verdict") == "admit":
+            fn = c.get("factor_name")
+            cid = c.get("candidate_id", "?")
+            if not fn:
+                errs.append(
+                    f"judge.md candidate {cid!r} has verdict=admit but missing factor_name"
+                )
+            elif not isinstance(fn, str) or not _FACTOR_NAME_PATTERN.match(fn):
+                errs.append(
+                    f"judge.md candidate {cid!r} factor_name {fn!r} must be snake_case "
+                    f"(3-40 chars, [a-z0-9_], leading letter)"
                 )
     return errs
 

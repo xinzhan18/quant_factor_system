@@ -174,6 +174,59 @@ class TestPhase4HappyPath:
         assert state.rounds_since_last_consolidation == 1
 
 
+class TestPhase4FactorName:
+    """judge.md frontmatter.candidates[].factor_name flows into factor.yaml."""
+
+    def test_factor_name_from_judge_frontmatter_used_in_record(
+        self, tmp_path: Path
+    ) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+        _bootstrap_batch(paths, "batch_001", ["C001"], "vol")
+
+        # Patch judge.md to add factor_name on the admit entry.
+        judge_path = paths.batch_judge_file("batch_001")
+        text = judge_path.read_text(encoding="utf-8")
+        text = text.replace(
+            "verdict: admit",
+            "verdict: admit\n  factor_name: pv_corr_20d_vol20d",
+            1,
+        )
+        judge_path.write_text(text, encoding="utf-8")
+
+        result = run_phase4_archive(Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+        ))
+        assert result.admitted[0].record["name"] == "pv_corr_20d_vol20d"
+
+    def test_missing_factor_name_falls_back_to_factor_id(
+        self, tmp_path: Path
+    ) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+        _bootstrap_batch(paths, "batch_001", ["C001"], "vol")
+
+        result = run_phase4_archive(Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+        ))
+        # No factor_name in judge.md → falls back to F{id}.
+        assert result.admitted[0].record["name"] == "F001"
+
+
 class TestPhase4Idempotency:
     def test_double_archive_raises(self, tmp_path: Path) -> None:
         storage_root = tmp_path / "storage"

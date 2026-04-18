@@ -10,10 +10,14 @@ from research.memory.direction_updater import update_direction_frontmatter
 from research.memory.index_refresher import (
     BEGIN_SENTINEL,
     END_SENTINEL,
+    FACTOR_LIB_BEGIN_SENTINEL,
+    FACTOR_LIB_END_SENTINEL,
+    collect_admitted_factors,
     collect_direction_stats,
     count_admitted_factors,
     refresh_index,
     render_auto_section,
+    render_factor_library,
 )
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import save_yaml
@@ -171,3 +175,204 @@ class TestRefreshIndex:
         text = paths.vault_index_file.read_text(encoding="utf-8")
         assert "# No sentinels here" in text
         assert BEGIN_SENTINEL in text
+
+
+class TestRefreshIndexFrontmatter:
+    def _write_state(self, paths: StoragePaths, **overrides: object) -> None:
+        base = {
+            "current_batch": None,
+            "current_batch_phase": None,
+            "last_batch": "batch_001",
+            "round": 1,
+            "last_activity": "2026-04-18T15:00:00Z",
+            "rounds_since_last_consolidation": 1,
+        }
+        base.update(overrides)
+        save_yaml(paths.state_file, base)
+
+    def test_creates_frontmatter_when_absent(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        self._write_state(paths)
+        update_direction_frontmatter(
+            paths.direction_file("vol"), batch_id="batch_001", new_admits=["F001"]
+        )
+        save_yaml(paths.factors_dir / "F001.yaml", {"factor_id": "F001"})
+        paths.vault_index_file.write_text(
+            "# Factor Research Index\n\nSome narrative.\n\n"
+            f"{BEGIN_SENTINEL}\nold\n{END_SENTINEL}\n",
+            encoding="utf-8",
+        )
+        refresh_index(paths, round_counter=1)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        assert text.startswith("---\n")
+        assert "round: 1" in text
+        assert "total_active_directions: 1" in text
+        assert "total_factors_admitted: 1" in text
+        assert "last_batch: batch_001" in text
+        assert "Some narrative." in text  # upper half preserved
+
+    def test_replaces_stale_frontmatter(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        self._write_state(paths, round=3, last_batch="batch_003")
+        update_direction_frontmatter(
+            paths.direction_file("vol"), batch_id="batch_003", new_admits=["F001"]
+        )
+        update_direction_frontmatter(
+            paths.direction_file("mom"), batch_id="batch_002", new_admits=["F002"]
+        )
+        save_yaml(paths.factors_dir / "F001.yaml", {"factor_id": "F001"})
+        save_yaml(paths.factors_dir / "F002.yaml", {"factor_id": "F002"})
+        paths.vault_index_file.write_text(
+            "---\n"
+            "generated_at: 2020-01-01T00:00:00Z\n"
+            "round: 0\n"
+            "total_active_directions: 0\n"
+            "total_factors_admitted: 0\n"
+            "last_batch: null\n"
+            "last_consolidation_round: null\n"
+            "---\n\n"
+            "# Factor Research Index\n\nUpper-half narrative.\n\n"
+            f"{BEGIN_SENTINEL}\nold\n{END_SENTINEL}\n",
+            encoding="utf-8",
+        )
+        refresh_index(paths, round_counter=3)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        assert "round: 3" in text
+        assert "round: 0" not in text
+        assert "last_batch: batch_003" in text
+        assert "total_factors_admitted: 2" in text
+        assert "total_active_directions: 2" in text
+        assert "Upper-half narrative." in text
+        assert "generated_at: 2020-01-01T00:00:00Z" not in text
+
+    def test_factor_library_block_replaced(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        self._write_state(paths, round=1, last_batch="batch_001")
+        save_yaml(
+            paths.factors_dir / "F001.yaml",
+            {
+                "factor_id": "F001",
+                "name": "amount_cv_10",
+                "direction": "amount_volatility_signal",
+                "expression": "Div(Std($amount, 10), Mean($amount, 10))",
+                "validation_metrics": {
+                    "ic_ir": -0.7158,
+                    "monotonicity": -0.9999,
+                },
+            },
+        )
+        # Sibling F001.md contributes composite_grade via frontmatter
+        (paths.factors_dir / "F001.md").write_text(
+            "---\nid: F001\ncomposite_grade: B\n---\n# F001\n",
+            encoding="utf-8",
+        )
+        paths.vault_index_file.write_text(
+            "---\nround: 0\nlast_batch: null\n---\n\n"
+            "# Factor Research Index\n\n"
+            "## 因子库\n\n"
+            f"{FACTOR_LIB_BEGIN_SENTINEL}\n"
+            "stale placeholder\n"
+            f"{FACTOR_LIB_END_SENTINEL}\n\n"
+            f"{BEGIN_SENTINEL}\nold\n{END_SENTINEL}\n",
+            encoding="utf-8",
+        )
+        refresh_index(paths, round_counter=1)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        assert "stale placeholder" not in text
+        assert "[[factors/F001|amount_cv_10]]" in text
+        assert "`B`" in text
+        assert "amount_volatility_signal" in text
+        assert "ICIR_oos=-0.716" in text
+        assert "Mono=-1.00" in text
+        assert "Div(Std($amount, 10), Mean($amount, 10))" in text
+
+    def test_factor_library_no_grade_when_md_missing(
+        self, tmp_path: Path
+    ) -> None:
+        paths = _bootstrap(tmp_path)
+        self._write_state(paths)
+        save_yaml(
+            paths.factors_dir / "F001.yaml",
+            {
+                "factor_id": "F001",
+                "name": "amount_cv_10",
+                "direction": "amount_volatility_signal",
+                "expression": "Div(Std($amount, 10), Mean($amount, 10))",
+                "validation_metrics": {"ic_ir": -0.72, "monotonicity": -1.0},
+            },
+        )
+        paths.vault_index_file.write_text(
+            f"# I\n\n{FACTOR_LIB_BEGIN_SENTINEL}\n{FACTOR_LIB_END_SENTINEL}\n",
+            encoding="utf-8",
+        )
+        refresh_index(paths, round_counter=1)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        # No composite_grade → no `B` / `A` / etc token before the direction
+        assert "`B`" not in text
+        assert "[[factors/F001|amount_cv_10]]" in text
+        assert " · amount_volatility_signal" in text
+
+    def test_factor_library_sorted_numerically(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        self._write_state(paths)
+        for fid in ("F002", "F010", "F001"):
+            save_yaml(
+                paths.factors_dir / f"{fid}.yaml",
+                {
+                    "factor_id": fid,
+                    "name": fid.lower(),
+                    "direction": "d",
+                    "expression": "expr",
+                    "validation_metrics": {},
+                },
+            )
+        rows = collect_admitted_factors(paths.factors_dir)
+        assert [r["factor_id"] for r in rows] == ["F001", "F002", "F010"]
+
+    def test_factor_library_block_no_sentinel_is_noop(
+        self, tmp_path: Path
+    ) -> None:
+        """INDEX without factor-library sentinels should stay untouched."""
+        paths = _bootstrap(tmp_path)
+        self._write_state(paths)
+        save_yaml(paths.factors_dir / "F001.yaml", {"factor_id": "F001"})
+        paths.vault_index_file.write_text(
+            f"# Factor Research Index\n\n{BEGIN_SENTINEL}\nx\n{END_SENTINEL}\n",
+            encoding="utf-8",
+        )
+        refresh_index(paths, round_counter=1)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        assert FACTOR_LIB_BEGIN_SENTINEL not in text  # not injected unsolicited
+
+    def test_render_factor_library_empty(self) -> None:
+        text = render_factor_library([])
+        assert FACTOR_LIB_BEGIN_SENTINEL in text
+        assert FACTOR_LIB_END_SENTINEL in text
+        assert "暂无" in text
+
+    def test_excludes_dead_and_merged_from_active_count(
+        self, tmp_path: Path
+    ) -> None:
+        paths = _bootstrap(tmp_path)
+        self._write_state(paths)
+        live = paths.direction_file("live")
+        live.write_text(
+            "---\ndirection_id: live\nstatus: exploring\npriority: medium\n"
+            "rounds: 1\nadmits: 0\nlast_batch: batch_001\nmembers: []\n---\n# live\n",
+            encoding="utf-8",
+        )
+        dead = paths.direction_file("dead")
+        dead.write_text(
+            "---\ndirection_id: dead\nstatus: dead\npriority: low\n"
+            "rounds: 2\nadmits: 0\nlast_batch: batch_000\nmembers: []\n---\n# dead\n",
+            encoding="utf-8",
+        )
+        merged = paths.direction_file("merged")
+        merged.write_text(
+            "---\ndirection_id: merged\nstatus: merged\npriority: low\n"
+            "rounds: 2\nadmits: 0\nlast_batch: batch_000\nmembers: []\n---\n# merged\n",
+            encoding="utf-8",
+        )
+        refresh_index(paths, round_counter=1)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        assert "total_active_directions: 1" in text

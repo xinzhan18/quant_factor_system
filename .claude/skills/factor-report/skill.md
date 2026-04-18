@@ -68,7 +68,7 @@ user_invocable: true
 |---|---|---|
 | **年度 IC 表**（9 列：年份 × IC）| §3 IC 时序图之前 | `scalars.ic_by_year`（dict 排序后转行）|
 | **多持有期 IC 表**（1/3/5/10/20d × IS/OOS × IC/ICIR）| §3 IC 分布之前 | `scalars.ic_by_horizon`（5 × 2 × 2 = 20 格）|
-| **五档分组收益表**（IS/OOS × Q1..Q5 + Mono + ls_mean）| §4 分组年化收益图之前 | `scalars.quintile_train` + `quintile_validation` |
+| **五档分组收益表**（IS/OOS × Q1..Q5 + Mono + ls_mean，**年化 %，×252**）| §4 分组年化收益图之前 | `scalars.quintile_train` + `quintile_validation` |
 | **L/S 完整统计表**（mean/std/sharpe/sortino/calmar/max_dd/dd_duration/tstat 各一行，IS+OOS 两列） | §4 L/S 净值图之前 | `scalars.ls_stats_train` + `ls_stats_validation` |
 | **Barra 风格暴露表**（7 风格 × 暴露值，按 \|x\| 降序）| §5 style_exposure_bar 之前 | `scalars.barra.style_exposures` |
 | **Alpha 瀑布分解表**（raw IC / residual IC / residual ICIR / alpha_survival_ratio 四行）| §5 alpha_waterfall 之前 | `scalars.barra` |
@@ -78,6 +78,12 @@ user_invocable: true
 | **分布矩表**（zero_ratio / skew / kurt / extreme_ratio 各一行）| §7 factor_distribution 之前（与上一张合并或紧邻）| `scalars.distribution` |
 | **相关度 top-N 表**（nearest / corr / incremental_ic 各列）| §8 correlation_bar 之前 | `scalars.uniqueness.all_correlations`（排序取前 5–10）|
 | **综合评分表**（7 维度 + 总分 + grade）| §9 radar 图之后，作为 radar 的文字补全 | `composite` 全部字段 |
+
+**单位规范**（避免科学计数法遮蔽量级）：
+- **五档分组收益表** 和 **L/S 完整统计表的 mean** 一律 **年化 %**（daily mean × 252 × 100），保留 2 位小数，例：`-17.00%`
+- 禁用 `7.64e-4` / `6.73e-4` 这类 raw daily mean 的科学计数法（量级不直观）
+- 其它比率型指标（IC / ICIR / Mono / Sharpe / t-stat）保留 3–4 位小数，不做单位换算
+- 明确单位已在表头或列名标注（如 `q1 年化 %`、`ls_mean 年化 %`）
 
 **原则**（避免"表 + 图重复分析两次"）：
 - 表在图**之前**（先把数摆出来，再用图解读），不要放在图后面作附录

@@ -6,173 +6,139 @@ user_invocable: true
 
 # /factor-mine — 自主挖掘主循环
 
-## 概述
+**/factor-mine 是编排器**——本 skill 只负责排兵布阵，各 phase 的细节在对应子 skill。自主模式运行，不问确认，只在系统级错误时停（CLAUDE.md "Autonomous Mining Mode"）。
 
-线性 5 阶段循环，每轮产出一个 batch（manifest → result → judge → factor.yaml + commit）。全自主模式运行，不停下来问用户确认（见 CLAUDE.md "Autonomous Mining Mode"）。
-
-**Skill 调度链**：mine 是编排器，按顺序调用 3 个子 skill + 1 条裸命令：
+## 架构
 
 ```
 /factor-mine
-  ├── Phase 1: 调用 /factor-idea (候选设计 + manifest 冻结)
-  ├── Phase 2: 跑 `research execute batch_{N}` (纯 Python, 无 LLM, 不需要 skill)
-  ├── Phase 3: 调用 /factor-judge (6 checkpoint 判决)
-  ├── Phase 4: Python 归档 (F{id} 分配 + backfill + render_factor 画图) + 后台调用 /factor-report
-  └── Phase 5: (条件触发) 调用 /factor-consolidate (周期性 memory 重写)
+  ├─ Phase 1 → /factor-idea           LLM 设计候选 + Python 冻结 manifest
+  ├─ Phase 2 → research execute        纯 Python 向量化 → result.yaml
+  ├─ Phase 3 → /factor-judge           pre-hint + 并行 subagent 判决 + audit
+  ├─ Phase 4 → Python archive          F{id} 分配 + backfill + 画图 + 后台 /factor-report
+  └─ Phase 5 → /factor-consolidate     条件触发；LLM 重写 memory
 ```
 
-每个 Phase 完成后检查 state.yaml 的 phase 状态是否正确推进，再进入下一个 Phase。
+## State DAG
 
-## 恢复逻辑（重要）
+`state.yaml.current_batch_phase` 在 `src/research/storage/state.py` 强制推进：
 
-启动时先读 `state.yaml`。如果 `current_batch_phase` 不为 null，从断点继续：
+```
+null → designed → executing → judged → archived → null
+ ↑       (P1)       (P2 start)  (P2 end) (P3 end)  (P4 finish)
+```
 
-| `current_batch_phase` | 含义 | 恢复动作 |
+**命名注意**：`judged` 指"P2 已完成，ready for P3"（时态陷阱 — 读起来像"已 judge 过"，实际是"等 P3 来 judge"）；`archived` 指"P3 已完成，P4 在途"。违反 DAG → `InvalidPhaseTransition`。
+
+**Python CLI 提供的流程 helper**（R2：Python 管流程、LLM 管内容）：
+
+| CLI | 作用 |
+|---|---|
+| `research doctor` | 校验 state ↔ vault 一致性，orphan 检查，给修复建议 |
+| `research state` | 查看当前 state（无子命令） |
+| `research state next-batch-id` | 纯查询下一个 `batch_NNN`，不改 state |
+| `research state set KEY VALUE` | 低层改字段（YAML literal 解析） |
+| `research state reset --confirm` | **破坏性**：state 归零（vault 被 `git rm` 后用来对齐） |
+| `research memory refresh-index` | 重刷 `INDEX.md` 下半 auto-section |
+| `research phase1 freeze <spec.yaml>` | P1 一步到位：allocate batch_id + begin_batch + freeze_manifest + refresh INDEX；失败自动回滚 state |
+| `research execute <batch>` | Phase 2 纯 Python 向量化 |
+| `research judge <batch> {pre-hint\|audit}` | Phase 3 的 Python 两端 |
+| `research archive <batch>` | Phase 4 归档（F{id} 分配 + backfill + 画图 + 打 packet + commit） |
+| `research consolidate [--target ...]` | Phase 5 |
+
+## 断点恢复
+
+启动先读 `state.yaml`：
+
+| phase | 上一步 | 恢复动作 |
 |---|---|---|
-| `null` | 空闲 | Phase 1 从头开始 |
-| `designed` | Phase 1 已完成 | 跳到 Step 3 (Phase 2 EXECUTE) |
-| `executing` | Phase 2 中断 | 重跑 Step 3 |
-| `judged` | Phase 3 已完成 | 跳到 Step 5 (Phase 4 ARCHIVE) |
-| `archived` | Phase 4 已完成 | 跳到 Step 6 (Phase 5 check) |
+| `null` | P4 已完成或从未开始 | Phase 1 从头 |
+| `designed` | P1 done | 跳到 Phase 2 |
+| `executing` | P2 在途（中断）| 重跑 Phase 2（幂等）|
+| `judged` | P2 done | 跳到 Phase 3 |
+| `archived` | P3 done | 跳到 Phase 4 |
 
-**不要重复已完成的 Phase**。state.py 的 phase DAG 会 raise `InvalidPhaseTransition`。
+不要重复已完成的 phase——DAG 会 raise。
 
-## 执行步骤
+## 流程
 
-### Step 1 — 选方向
-1. 读 `vault/INDEX.md` 的统计表，找 `rounds` 最少 + `status=active` 的 direction
-2. 如果没有 active direction，先创建一个（读 `vault/lessons.md` 的 "Promising unexplored" 段）
-3. 确定本轮 `direction` 和 `batch_goal`
+### Phase 1 — /factor-idea
 
-### Step 2 — 调用 `/factor-idea`（Phase 1 START + DESIGN）
-按 `/factor-idea` skill 的流程：
-1. 读 `vault/directions/{direction}.md` 了解 hypothesis + 活跃 threads
-2. 读 `vault/lessons.md` 了解 structural constraints + forbidden patterns
-3. 设计 5-10 个候选（DSL 优先，Python R8 escape hatch 只在 DSL 无法表达时用）
-4. Python 验证 + 冻结 → 产出 `batches/batch_{N}/manifest.yaml`
-5. 验证：`state.yaml.current_batch_phase == "designed"`
+1. 读 `vault/INDEX.md`，找 `status=active` 且 `rounds` 最少的 direction；若无，读 `vault/lessons.md` 的 "Promising unexplored" 或由 LLM 新开
+2. 调 `/factor-idea`，按该 skill 的 6 步执行（选方向 / 定 batch_goal / 设计 5-10 候选 / Python 验证 / 冻结 manifest）
 
-### Step 3 — Phase 2 EXECUTE（裸命令，无 LLM）
+校验：`state.current_batch_phase == "designed"`。
+
+### Phase 2 — research execute
 
 ```bash
 PYTHONPATH=src python3 -m research execute batch_{N}
 ```
 
-- 纯 Python 向量化计算，产出 `batches/batch_{N}/result.yaml`（schema 见 `phase2_execute.py`）
-- Holdout 绝不计算（架构硬约束，见 `vault/lessons.md` "No holdout leakage"）
-- Multi-horizon / Multi-universe 行为由 `config.yaml.evaluation` 驱动
-- 验证：`state.yaml.current_batch_phase` 推进到 `"judged"`
-- 单候选异常不中断 batch，该候选仅保留 `compute_error` 字段
+纯 Python 向量化（R5），产出 `batches/batch_{N}/result.yaml`。单候选异常 → 写 `compute_error` 字段，不中断 batch。Holdout 绝不计算。
 
-### Step 4 — 调用 `/factor-judge`（Phase 3 JUDGE）
-按 `/factor-judge` skill 的流程（详见该 skill，此处只列骨架）：
-1. Python 前置：
-   ```bash
-   PYTHONPATH=src python3 -m research judge batch_{N} pre-hint
-   ```
-   产出 `batches/batch_{N}/_hints.yaml`（hard_gate + MT 计数 + 每候选 mt_budget）
-2. 主 agent 读 `_hints.yaml` + `result.yaml` + `directions/{dir}.md` + `lessons.md`
-3. 主 agent **并行派发 subagents**：每个 candidate_id 一个 `general-purpose` subagent，按 `/factor-judge` 的 "Subagent 调用模板" 注入 prompt，产出 `batches/batch_{N}/candidates/C{id}.md`
-4. 主 agent 汇总 subagent 返回的 verdict，写 `batches/batch_{N}/judge.md`（索引 + 跨候选观察）
-5. Python 批量审计：
-   ```bash
-   PYTHONPATH=src python3 -m research judge batch_{N} audit
-   ```
-6. audit 失败 → 按违规列表重派对应 subagent（C{id}.md 问题）或主 agent 重写 judge.md；最多 3 轮
-7. 主 agent 更新 `directions/{dir}.md`（Threads evidence trail + Known Failures + Narrative Log）
+校验：`state.current_batch_phase == "judged"`。
 
-### Step 5 — Phase 4 ARCHIVE（纯 Python + 1 个后台 subagent）
+### Phase 3 — /factor-judge
 
-**与 Phase 3 JUDGE 的分工**：direction.md **body**（Narrative Log / Threads / Known Failures）由 Phase 3 JUDGE 完成（audit c14/c15/c16 强制），**Phase 4 不再碰 body**。Phase 4 只做 factor 归档 + F{id} 回填 + 后台 report 派发 + direction.md frontmatter 计数器 + 主 commit。
+按 `/factor-judge` 全流程执行：pre-hint → **单条消息**并行派发 subagent → 主 agent 写 `judge.md` + 更新 `direction.md` + `INDEX.md` → Python audit（失败最多 3 轮重试，按违规分类处理，见该 skill §恢复逻辑）。
 
-6 步流程：
+校验：`state.current_batch_phase == "archived"`。
 
-**Step 1 — Python：factor.yaml 归档**
-- 按 judge.md 里 `verdict=admit` 的 candidate_id 升序，调 `factor_writer.allocate_and_write_factor` 单调分配 F{id}
-- 写 `vault/factors/F{id}.yaml`
-- `source_type: python` 时 copy `.py` → `python_factors/F{id}_{name}.py`
+### Phase 4 — Python archive + 后台 /factor-report
 
-**Step 2 — Python：F{id} 回填（backfill）**
-三处机械 edit，全部幂等（再跑一次无副作用）：
-- `batches/{batch}/candidates/C{id}.md` frontmatter：`factor_id: null` → `factor_id: F{id}`
-- `batches/{batch}/judge.md` 表格行："admit" → "admit → F{id}"，detail 单元格追加 `· [[factors/F{id}]]`
-- `directions/{dir}.md` Thread evidence trail：对应 admit 行末追加 `→ [[factors/F{id}]]`
+纯 Python 编排，**主 agent 仅负责 dispatch 后台 report subagent**。完整实现在 `src/research/phases/phase4_archive.py`：
 
-代码：`src/research/archive/backfill.py`。
+1. 升序分配 F{id}，写 `vault/factors/F{id}.yaml`
+2. 机械 backfill：C{id}.md frontmatter / judge.md 表格 / direction.md evidence trail 回填 F{id}
+3. `render_factor` 读 `cache/batch_diagnostics/` 画 15 张 PNG 图 + `report.json`（纯 plot，R4 无重算）
+   - IC 家族 (4)：`ic_timeseries`（双面板：日 IC + 累积）/ `rolling_ic` / `ic_distribution` / `monthly_heatmap`
+   - Profit 家族 (3)：`quintile_bar` / `cumulative_returns`（含 L/S 叠加）/ `annual_group_returns`
+   - Risk 家族 (2)：`style_exposure_bar` / `alpha_waterfall`
+   - Stability 家族 (1)：`stability_panel`（双面板：support windows + summary）
+   - Decay 家族 (3)：`ic_decay` / `factor_distribution` / `coverage`
+   - Uniqueness 家族 (1)：`correlation_bar`
+   - Composite (1)：`radar`
+4. `report_packer` 打包 `_packets/report_packet_F{id}.md`
+5. 后台 dispatch `/factor-report` subagent per admitted F{id}——**主 agent 必做，不能跳过**。每个 admit 一个 Agent 工具调用（可在单条消息里并行 dispatch 所有 admits）。subagent 返回后，**Python 侧验收**：
+   - 扫 `vault/factors/F{id}.md` 文件大小 > 0 且含 `# F{id}` H1
+   - 失败（空文件 / 缺 H1） → append `_subagent_failures.log` + 重 dispatch 一次
+   - 二次仍失败 → log 记载，不阻塞主循环；人工兜底
+   - **过往经验**：batch_001 这一步被跳过导致 F001.md 空留，无 `_subagent_failures.log`——即"静默失败"。这个验收步骤就是为了杜绝这种哑 bug。
+6. `direction_updater` 刷 direction frontmatter（rounds/admits/members/last_batch）+ `index_refresher` 刷 INDEX 下半段
+7. `cleanup_finished_packets(skip_batch=current)` — 删往批 `_packets/report_packet_F{id}.md` 中对应 `factor.md` 已写好的（当前批保留，subagent 可能还在读）
+8. `research commit {batch_id}` → 单一主 commit，含 factor.yaml × n / backfill / packets / charts / frontmatter。**不含 factor.md**（Step 5 后台独立 commit）
 
-**Step 3 — Python：render_factor 画图（R4 无重算）**
-- 调 `report.render.render_factor(F{id}, storage_root)`
-- 纯 load + plot：从 `cache/batch_diagnostics/{batch}/{cid}/` 读 6 个 parquet（ic_daily / quantile_daily_train / quantile_daily_validation / long_short_daily / coverage_daily / factor_hist）+ 从 `result.yaml` 读 scalars/dicts
-- 产出：
-  - `vault/factors/F{id}/*.png` — 18 张图
-  - `vault/factors/F{id}/report.json` — 图表白名单 + 7 维 composite 得分 + scalars
-- 零 Qlib / 零 DB / 零重算。失败不阻塞主 commit（per-chart isolation）
+手动清理可用 `research report cleanup-packets [--dry-run] [--skip-batch batch_X]`。
 
-**Step 4 — Python：report_packer 打包**
-- 读 `factor.yaml` + judge C{id}.md（Judge Synthesis）+ direction hypothesis + `report.json.charts`（图表白名单）
-- 写 `batches/{batch}/_packets/report_packet_F{id}.md`
-- 作为 `/factor-report` subagent 的 **R3 单一输入**
+Phase 3↔4 分工：**direction.md body**（Narrative Log / Threads / Known Failures）在 Phase 3 写完；Phase 4 只动 frontmatter 计数器。
 
-**Step 5 — Subagent（后台，不阻塞）：写 factor.md**
-- dispatch `/factor-report`，注入 packet 路径
-- subagent 读 packet + `report.json`，按 F005 模板写 `vault/factors/F{id}.md`
-- 完成后独立 commit：`[report] F{id} {name} report generated`
-- 失败隔离 → append `_subagent_failures.log`，主循环不受影响
+Commit message：`[mine] batch_{N} | {direction} | admits=X rejects=Y reserves=Z`
 
-**Step 6 — Python：direction frontmatter + INDEX + 主 commit**
-- `direction_updater.update_direction_frontmatter`：
-  - `rounds` ++
-  - `admits` += n_admits
-  - `members` append each F{id}
-  - `last_batch` = batch_{N}
-  - `last_activity` = now
-- `index_refresher` 刷新 `INDEX.md` 下半段统计表
-- `research commit {batch_id}` 单一主 commit，包含：
-  - `factor.yaml` × n_admits
-  - backfill 改动（C{id}.md / judge.md / direction.md）
-  - `_packets/report_packet_F{id}.md`
-  - `vault/factors/F{id}/*.png` + `report.json`
-  - direction frontmatter + INDEX
-  - **不含** `factor.md`（Step 5 后台独立提交）
+校验：`state.current_batch == null`。
 
-Commit message 格式：`[mine] batch_{N} | {direction} | admits=X rejects=Y reserves=Z`
+### Phase 5 — /factor-consolidate（条件触发）
 
-验证：`state.yaml.current_batch == null`（finish_batch 已执行）
+检查 `config.yaml.consolidation.auto_triggers`，任一满足即调 `/factor-consolidate`：
 
-### Step 6 — Phase 5 CONSOLIDATION（条件检查）
-检查 `config.yaml.consolidation.auto_triggers`，任一满足即触发：
-- `rounds_since_last_consolidation >= 10`
-- `vault/lessons.md` 行数 >= 400
-- 任何 `vault/directions/*.md` 行数 >= 500
-- active directions 数量 >= 20
+- `rounds_since_last_consolidation ≥ 10`
+- `vault/lessons.md` ≥ 400 行
+- 任一 `vault/directions/*.md` ≥ 500 行
+- active directions ≥ 20
 
-如果触发，调用 `/factor-consolidate`：
-1. Python 前置检查（git status clean + state.current_batch is None）
-2. Python 并行 pre-pack（lessons packet + direction packets）
-3. 并行 subagent 重写 lessons.md + 各 direction.md
-4. 同步 subagent 重写 INDEX.md 上半段（读刚重写的 direction md）
-5. Python 刷新 INDEX.md 下半段 + 单一 commit
-6. `state.rounds_since_last_consolidation` 重置为 0
+完整流程见该 skill。成功后 `rounds_since_last_consolidation = 0`。
 
-### Step 7 — 循环判断
-- 检查是否还有 active direction 可以继续挖掘
-- 有 → 回到 Step 1 自动进入下一轮
-- 没有 → 停止，报告"所有 direction 已 exhausted"
-- 系统错误 → 停止，报告异常
+### 循环判断
 
-## 关键约束
+- 还有 active direction → 回到 Phase 1
+- 所有 direction exhausted → 停，报"无可挖掘方向"
+- 系统级错误 → 停，报异常
 
-- **R5 向量化**：Phase 2 的所有指标用 `vectorized_*.py` 模块，Barra 用 3D tensor `pinv+einsum`
-- **§7.MT**：CP03 numeric_hint 必含 `mt_bucket`，audit 强制 grep 验证，LLM 不能 override
-- **Q32 幂等**：State DAG 强制 `designed → executing → judged → archived → idle`，双重 archive 自动 raise
-- **R3 单一输入**：LLM judge 只读 `judge_packet.md`，report subagent 只读 `report_packet_F{id}.md`
-- **R4 无重算**：Phase 4 `render_factor` 只读 `cache/batch_diagnostics/` parquet + `result.yaml`，不重跑 IC/quintile/Barra。Phase 3 judge 也只读 `result.yaml`（不读 parquet），判决和画图各自消费 Phase 2 的不同切片。
+## 自主模式
 
-## 自主模式行为
-
-- 方向自动选取，不问"要选哪个？"
-- 候选验证失败自动跳过，不问"要继续吗？"
-- judge 严格按 6 CP + mt_budget 执行，不需人工复核
-- admitted 因子自动 dispatch `/factor-report` 后台 subagent
-- 一轮结束自动检查 consolidation 触发条件
-- **只在系统级错误时停下**：DB 连接失败、文件损坏、Python 异常无法恢复
+- 方向自动选取，不问"选哪个"
+- 候选验证失败自动跳下一个
+- judge 严格按 6 CP + mt_budget，不人工复核
+- admit 自动 dispatch 后台 report subagent
+- 一轮结束自动 check consolidation 触发
+- **只在系统级错误时停**：DB 断、文件损坏、Python 异常无法恢复

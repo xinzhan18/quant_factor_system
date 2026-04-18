@@ -6,202 +6,178 @@ user_invocable: true
 
 # /factor-idea — Phase 1 START+DESIGN
 
-## R2 职责分工
+## 职责 & 产出
 
-| 角色 | 职责 |
+| 谁 | 做什么 |
 |---|---|
-| **Python** | refresh INDEX stats, DSL whitelist validation, Python file AST checking, freeze manifest.yaml, audit batch_goal length |
-| **LLM** | read INDEX, select direction, decide batch_goal and active threads, generate 5-10 candidate expressions with rationale |
+| **LLM** | 读 INDEX → 选 direction → 定 batch_goal → 设计 5-10 候选（DSL 优先） |
+| **Python** | 刷新 INDEX 下半段 → DSL 白名单验证 → Python AST 检查 → 冻结 manifest |
 
-核心产出：
+产出：
 1. `vault/directions/{direction}.md`（若新建方向）
-2. `batches/batch_{N}/manifest.yaml`（冻结的候选清单）
+2. `batches/batch_{N}/manifest.yaml`（冻结候选清单）
+
+**一个 batch 对应一个 direction**。跨方向融合 → 新开 direction，不混 batch。
 
 ---
 
-## Direction 选择
+## 流程
 
-**一个 batch 只对应一个 direction**（不支持混方向 batch）。
+### Step 1 — Python: refresh INDEX 下半段
 
-LLM 读 INDEX.md → 按优先级选取 direction → 跟随 wikilink 读 direction.md 全文。若现有方向均不适合，创建新 `vault/directions/{tag}.md`。
+```bash
+PYTHONPATH=src python3 -m research memory refresh-index
+```
+
+自动刷新方向列表 / factor count / admit rate 等统计。
+
+### Step 2 — LLM: select direction
+1. 读 `vault/INDEX.md` 全文（方向优先级 + 最近 batch）
+2. 选目标 direction：优先 `status=active/exploring` 且 `rounds` 最少；若无，读 `lessons.md` 的 "Promising unexplored"（若有）或 **LLM 自判新开**
+3. 跟随 wikilink 读 `vault/directions/{direction}.md` 全文（hypothesis + threads + narrative log）
+4. 若新建方向：创建 `vault/directions/{tag}.md`，结构见 §Direction.md schema
+
+### Step 3 — LLM: decide batch_goal + active threads
+- `batch_goal` — 本 batch 要验证什么（≥30 chars，Python 审计长度）
+- `active_threads_referenced: [T001, T002, ...]` — 本 batch 推进的 thread 编号
+
+### Step 4 — LLM: design 5-10 candidates
+
+**DSL 优先（R8）**。Python escape hatch 仅限：
+- DSL 无法表达的非平凡循环
+- 复现已发表论文的 Python 参考实现
+- 需跨截面但 DSL 没有对应算子
+
+每个候选字段见 §Manifest schema `candidates[]`。**不看 validation 数据设计候选** — 基于 hypothesis + 先验知识，不基于回测结果。
+
+### Step 5 — Python: validate
+- **DSL 候选**：§DSL whitelist 检查算子/字段、表达式嵌套深度 ≤ 10；canonical 去重（交换律算子参数字典序排序）对比 admitted factors + 同 batch 内其他候选（retired 可重投）
+- **Python 候选**：§Python contract 检查 AST import + 模块契约
+
+### Step 6 — Python: freeze manifest（**一步到位**）
+
+LLM 把 Step 2-4 的决策写成一个 spec 文件（任意临时路径），再调 CLI：
+
+```bash
+# spec.yaml 示例
+cat > /tmp/p1_spec.yaml <<'YAML'
+direction: volume_price_signal
+batch_goal: "Baseline T001/T002/T003 on CSI1000 at 20d lookback: ..."   # ≥ 30 chars
+active_threads_referenced: [T001, T002, T003]
+candidates:
+  - candidate_id: C001
+    source_type: dsl
+    expression: "Corr($close, $volume, 20)"
+    rationale: "T001 baseline"
+  - candidate_id: C002
+    source_type: python
+    path: "batches/batch_XXX/python_candidates/C002.py"   # 事先写好
+    rationale: "..."
+YAML
+
+PYTHONPATH=src python3 -m research phase1 freeze /tmp/p1_spec.yaml
+```
+
+`research phase1 freeze` 内部做完这一整串：
+1. `state.next_batch_id()` 自动分配 `batch_NNN`
+2. `state.begin_batch()` 把 phase 从 `null` 推到 `designed`（若非 idle 立即 `InvalidPhaseTransition`）
+3. 创建 `batches/batch_NNN/` + `candidates/` 子目录
+4. `freeze_manifest()` 走全部白名单 / AST / canonical 去重 / `batch_goal` 长度校验
+5. 写 `manifest.yaml`（见 §Manifest schema，全字段：`round / created_at / sample_policy / direction_md_ref / frozen_at / active_threads_referenced / candidates[]`）
+6. `refresh_index()` 刷 INDEX 下半段
+
+**任何一步失败**（候选不过白名单、batch_goal 太短、direction.md 不存在）→ state 自动回滚到 idle，LLM 可改 spec 重跑。**不需要 LLM 手写 Python**。
 
 ---
 
-## Direction.md 完整结构
+## Direction.md schema
 
 ### Frontmatter
 
 ```yaml
 ---
 direction_tag: fundamental_price_divergence
-status: productive           # exploring | productive | saturated | dead | merged
+status: exploring            # exploring | productive | saturated | dead | merged
 priority: high               # high | medium | low
-rounds: 5                    # Python auto-update
-admits: 3                    # Python auto-update
-last_batch: batch_103        # Python auto-update
-last_activity: 2026-04-11    # Python auto-update
-created_batch: batch_099     # 初次创建时固定
-members: [F018, F019, F020]  # Python auto-update
+rounds: 0                    # Python auto
+admits: 0                    # Python auto
+last_batch: null             # Python auto
+last_admits: []              # Python auto — F{id} list admitted in last_batch
+last_goal: null              # Python auto — batch_goal of last_batch (human ref)
+last_activity: null          # Python auto
+created_batch: batch_099
+members: []                  # Python auto
 merged_into: null            # 仅 status=merged 时有值
 ---
 ```
 
 | 字段 | 谁更新 | 何时 |
 |---|---|---|
-| `direction_tag` | LLM | 新建时（不变） |
-| `status` / `priority` | **LLM** | Phase 4 Narrative Log 或 Phase 5 重写 |
-| `rounds` / `admits` / `last_batch` / `last_activity` / `members` | **Python** | Phase 4 archive 后自动 |
+| `direction_tag` / `created_batch` | LLM | 新建时（不变） |
+| `priority` / `merged_into` | **LLM** | Phase 4 Narrative Log 或 Phase 5 重写 |
+| `status` | **Python auto** 首次 admit → `exploring → productive`；其余（`productive → saturated / dead / merged`）由 **LLM** 在 Narrative Log 翻 |
+| `rounds` / `admits` / `members` / `last_batch` / `last_admits` / `last_goal` / `last_activity` | **Python** | Phase 4 archive 后自动 |
 
 ### Body（LLM 完全维护）
 
 ```markdown
 ## Hypothesis
-基本面改善速度 × 便宜估值 conditioner → barra-clean 价值重估 alpha。
 <经济学逻辑 2-3 段>
 
 ## Current Focus
-当前最值得探索的方向和下一步计划。
+<当前最值得探索的角度 + 下一步计划>
 
 ## Threads
-
-### T001: PE/PB conditioner 最优选择 [◉ ACTIVE]
-**Question**: PE/PB/PS 哪种 conditioner 最 barra-clean？
+### T001: <子问题> [◉ ACTIVE]
+**Question**: ...
 **Evidence trail**:
-- batch_101: C003 PE → style_r2=0.12（太脏）
-- batch_102: C004 PB → style_r2=0.08（acceptable）
-**Next probes**: PS variant, dual conditioner
+- batch_101: C003 → style_r2=0.12（太脏）
+- batch_102: C004 → style_r2=0.08（acceptable）
+**Next probes**: ...
 
-### T002: 80d lookback 减少 crowding [✓ ANSWERED batch_103]
-**Question**: 80d lookback 是否减少 crowding？
-**Answer**: 是。F020 (80d) crowding=low vs C004 (60d) crowding=medium。
+### T002: <子问题> [✓ ANSWERED batch_103]
+**Question**: ...
+**Answer**: ...
 
 ## Known Failures
-- `Mul($pe_ratio, $close)` → pure size proxy, corr=0.45 to $market_cap
-- 40d lookback → IC collapse below 0.01
+- <已证伪的 pattern + 为什么>
 
 ## Related
 - [[../lessons#Structural Constraints]]
-- [[timing_range]] — similar conditioner issue
+- [[<related_direction>]]
 
 ## Narrative Log
 ### 2026-04-11 batch_103
-Admitted [[../factors/F020|F020]] triple 80d PB。
-Rejected: C002 (weak), C005 (style contamination).
-T002 answered: 80d is the sweet spot.
-→ Next: explore PS variant + dual conditioner (T001 still active)
+<admitted / rejected / thread 状态变化 / 下一步>
 ```
 
-### Thread 概念
+### Thread 约定
 
-Thread 是 direction.md body 中的 `###` 子节，代表跨多个 batch 逐步回答的**开放研究问题**。
+Thread = direction body 中的 `###` 子节，跨多 batch 逐步回答的开放问题。
 
-| 状态标记 | 含义 |
+| 状态 | 含义 |
 |---|---|
-| `[◉ ACTIVE]` | 正在探索的子问题 |
+| `[◉ ACTIVE]` | 正在探索 |
 | `[✓ ANSWERED batch_X]` | 已回答（admit 或 refute） |
 | `[✗ DISPROVEN batch_X]` | 子假设被证伪 |
 
-Thread 结构：Question → Evidence trail → Answer/Next probes。
+**Thread 完全由 LLM 维护**——Python 不管理 thread 状态、数量或标记。LLM 在 Phase 1 创建，在 Phase 4 更新 evidence 与状态标记。
 
-**Thread 生命周期完全由 LLM 维护**。Python 不管理 thread 状态、不校验 thread 数量、不自动更新 thread 标记。LLM 在 Phase 1 创建新 thread，在 Phase 4 更新 evidence 和状态标记。
-
----
-
-## Direction 生命周期
+### Direction 生命周期
 
 | 状态 | 定义 | 转换条件 |
 |---|---|---|
-| **exploring** | 新方向，未 admit | 首次 admit → `productive` |
-| **productive** | 有 admit，持续有 alpha | 连续 2+ batch reject > 80% → `saturated` |
-| **saturated** | ROI 低，不值得继续 | 发现新角度 → `productive`（可复活）|
+| **exploring** | 新方向，未 admit | 首次 admit → productive |
+| **productive** | 有 admit，持续产 alpha | 连续 2+ batch reject > 80% → saturated |
+| **saturated** | ROI 低 | 发现新角度 → productive（可复活）|
 | **dead** | 假设被证伪 | **不可逆** |
-| **merged** | 并入另一方向 | 设置 `merged_into: {target_tag}` |
+| **merged** | 并入他方向 | 设 `merged_into: {target_tag}` |
 
-状态由 **LLM** 修改 frontmatter（在 Narrative Log 中说明理由）。Python 只校验值合法。
+LLM 改 frontmatter（Narrative Log 写理由），Python 只校验值合法。
 
 ---
 
-## 步骤
-
-### Step 1 — Python refresh INDEX lower half
-
-Python 自动刷新 `vault/INDEX.md` 下半段的统计数据（方向列表、factor count、admit rate 等）。
-
-### Step 2 — LLM read INDEX → select direction → read direction.md
-
-1. 读 `vault/INDEX.md` → 全局 overview + 方向优先级排序
-2. 选择目标 direction（或决定新建）
-3. 跟随 wikilink 读 `vault/directions/{direction}.md` 全文（hypothesis + threads + narrative log）
-
-### Step 3 — LLM decide batch_goal + active threads
-
-1. 设定 `batch_goal`（>=30 chars，说明本 batch 要验证什么）
-2. 声明 `active_threads_referenced`：本 batch 要推进的 thread 编号列表
-
-### Step 4 — LLM write 5-10 candidate expressions + rationale
-
-生成 5-10 个候选表达式。每个候选包含：
-
-```yaml
-- candidate_id: C001
-  source_type: dsl          # 或 python
-  expression: "Mul(Corr($close, $volume, 20), Std($volume, 20))"
-  rationale: "测试 PV 相关性 × 波动率交互信号"
-  parent_batch: batch_102                    # 可选
-  parent_candidate_id: C004                  # 可选
-  transformation: "extend_lookback_60d_to_80d"  # 可选
-
-- candidate_id: C002
-  source_type: python
-  python_ref: "batches/batch_103/python_candidates/C002.py"
-  dependencies: [numpy, pandas]
-  rationale: "复现论文中的 cross-sectional dispersion 因子"
-```
-
-**DSL 优先**（R8）。只在以下情况用 Python escape hatch：
-- DSL 无法表达的非平凡循环逻辑
-- 显式复现已发表论文的 Python 参考实现
-- 需要跨截面操作但 DSL 没有对应算子
-
-### Step 5 — Python DSL whitelist validation
-
-Python 自动检查所有 DSL 候选。以下是**完整的 DSL 算子白名单**：
-
-**数学/逻辑**：`Add Sub Mul Div Abs Log Power Sign Not And Or Eq Ne Gt Ge Lt Le`
-**滚动统计**：`Mean Std Var Skew Kurt Med Mad Sum Prod Count Quantile Min Max`
-**时间序列**：`Ref Delta IdxMax IdxMin Correlation Corr Cov Rank Mask EMA WMA Slope Rsquare Resi`
-**条件**：`If IfElse Greater Less`
-**自定义注册**：`SignedPower Tanh Exp Sigmoid Softmax Scale Zscore Winsorize TsDecay TsMomentum TsAutoCorr RealizedVol TsEntropy TsMax TsMin TsRank TsSkew TsKurt CsRank CsZscore CsDemean AmihudIlliq HHI`
-
-**字段白名单**：`$open $high $low $close $volume $amount $pe_ratio $pb_ratio $ps_ratio $market_cap $circ_market_cap $turnover_rate`
-
-**禁止**：
-- `$vwap`（数据为零）
-- `Neg()`（未注册，用 `Mul($x, -1)`）
-- `SMA()`（未注册，用 `EMA` 或 `Mean`）
-- 表达式深度 > 10 层嵌套
-
-**Python 候选 AST 检查**（`source_type == "python"`）：
-
-**Import 白名单**：`numpy pandas scipy math typing dataclasses functools itertools __future__`
-**禁止调用**：`eval exec compile __import__ open input breakpoint getattr setattr delattr`
-**模块契约**：
-```python
-REQUIRED_FIELDS: list[str] = ["$close", "$volume"]  # 必须 $ 前缀
-VECTORIZED: bool = True                              # 必须 True（R5）
-def compute(df: pd.DataFrame) -> pd.Series:          # 唯一签名
-    ...  # df 的 index 是 MultiIndex(time, symbol)
-```
-
-**重复检测**（DSL 候选）：
-- canonical 化：去空格，交换律算子（`Add`, `Mul`）参数按字典序排列
-- 对比 `vault/factors/F*.yaml` 已 admit 因子 → 拒绝
-- 对比同 batch 内其他候选 → 拒绝
-- retired 因子允许重投
-
-### Step 6 — Python freeze manifest.yaml
-
-Python 原子写入 `batches/batch_{N}/manifest.yaml`，审计 `batch_goal` >= 30 chars。
+## Manifest schema
 
 ```yaml
 batch_id: batch_103
@@ -221,40 +197,69 @@ candidates:
     source_type: dsl
     expression: "Mul(Corr($close, $volume, 20), Std($volume, 20))"
     rationale: "测试 PV 相关性 × 波动率交互信号"
+    # 可选承袭字段：
+    # parent_batch: batch_102
+    # parent_candidate_id: C004
+    # transformation: "extend_lookback_60d_to_80d"
   - candidate_id: C002
     source_type: python
     python_ref: "batches/batch_103/python_candidates/C002.py"
     dependencies: [numpy, pandas]
     rationale: "复现论文中的 cross-sectional dispersion 因子"
-  - candidate_id: C003
-    source_type: dsl
-    expression: "Mul(Corr($pe_ratio, Mean($close, 80), 80), $turnover_rate)"
-    rationale: "80d lookback 版本 — 对比 60d 的 crowding"
-    parent_batch: batch_102
-    parent_candidate_id: C004
-    transformation: "extend_lookback_60d_to_80d"
 frozen_at: "2026-04-11T14:31:00+08:00"
 ```
 
-冻结后 `state.yaml` 推进 phase。
+---
+
+## DSL whitelist
+
+**字段**：`$open $high $low $close $volume $amount $pe_ratio $pb_ratio $ps_ratio $market_cap $circ_market_cap $turnover_rate`
+
+**算子**：
+- 数学/逻辑：`Add Sub Mul Div Abs Log Power Sign Not And Or Eq Ne Gt Ge Lt Le`
+- 滚动统计：`Mean Std Var Skew Kurt Med Mad Sum Prod Count Quantile Min Max`
+- 时间序列：`Ref Delta IdxMax IdxMin Correlation Corr Cov Rank Mask EMA WMA Slope Rsquare Resi`
+- 条件：`If IfElse Greater Less`
+- 自定义注册：`SignedPower Tanh Exp Sigmoid Softmax Scale Zscore Winsorize TsDecay TsMomentum TsAutoCorr RealizedVol TsEntropy TsMax TsMin TsRank TsSkew TsKurt CsRank CsZscore CsDemean AmihudIlliq HHI`
+
+**禁止**：
+- `$vwap`（数据为零）
+- `Neg()` → 用 `Mul($x, -1)`
+- `SMA()` → 用 `EMA` 或 `Mean`
+- 嵌套深度 > 10
 
 ---
 
-## Obsidian Wikilink 约定
+## Python contract
 
-**Direction → Factor**：`[[../factors/F020|F020]]`
-**Direction → Lessons**：`[[../lessons#Structural Constraints]]`
-**Direction → Direction**：`[[timing_range]]`（同目录简写）
-**Factor → Direction**：`[[../directions/fundamental_price_divergence#Hypothesis]]`
-**Judge → Direction Thread**：`directions/fundamental_price_divergence.md#T001`（referenced_context 格式）
-**INDEX → Direction**：`[[fundamental_price_divergence]]`
+```python
+REQUIRED_FIELDS: list[str] = ["$close", "$volume"]   # 必须 $ 前缀
+VECTORIZED: bool = True                              # 必须 True（R5）
+
+def compute(df: pd.DataFrame) -> pd.Series:          # 唯一签名
+    ...  # df.index = MultiIndex(time, symbol)
+```
+
+**Import 白名单**：`numpy pandas scipy math typing dataclasses functools itertools __future__`
+
+**禁止调用**：`eval exec compile __import__ open input breakpoint getattr setattr delattr`
 
 ---
 
-## 关键约束
+## Wikilink 约定
 
-- **不看 validation 数据**：候选设计基于 hypothesis + 先验知识，不基于回测结果
-- **CsRank / CsZscore 始终在全市场计算**（`D.instruments("all")`），不受 mining universe 影响
-- **A-share 约束**：不做空侧 alpha；因子与 `$market_cap` 相关性 `|corr| > 0.3` → 拒绝
-- **一个 batch 一个 direction**：跨方向融合 → 新建 direction，不混 batch
-- **R2 原则**：Python validates and freezes. LLM decides and creates. Python 不校验 direction 内容（hypothesis 长度、thread 数量等）——那是 LLM judgment
+| 场景 | 格式 |
+|---|---|
+| Direction → Factor | `[[../factors/F020\|F020]]` |
+| Direction → Lessons | `[[../lessons#Structural Constraints]]` |
+| Direction → Direction（同目录）| `[[timing_range]]` |
+| Factor → Direction | `[[../directions/{tag}#Hypothesis]]` |
+| Judge → Thread | `directions/{tag}.md#T001`（referenced_context 格式）|
+| INDEX → Direction | `[[{tag}]]` |
+
+---
+
+## 关键约束（R2）
+
+- **Python validates and freezes. LLM decides and creates.** Python 不校验 hypothesis 内容、thread 数量、narrative 质量——那是 LLM judgment。
+- **A-share / market-cap / vectorization 等全局约束在 `lessons.md`**，factor-mine 循环会在 Phase 1 前读取，此处不复述。

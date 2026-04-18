@@ -192,3 +192,37 @@ class TestBarraEdgeCases:
             min_obs=50,
         )
         assert result["alpha_survival_ratio"] is None
+
+
+class TestStyleContributions:
+    def test_contributions_present_and_sorted(
+        self,
+        factor_flat: pd.DataFrame,
+        style_matrix: pd.DataFrame,
+        returns_flat: pd.DataFrame,
+        golden: dict,
+    ) -> None:
+        raw_ic = golden["effect_strength"]["validation"]["ic_mean"]
+        result = compute_barra_exposures(
+            factor_flat, style_matrix, returns_flat,
+            raw_view_ic=raw_ic, min_obs=50,
+        )
+        contribs = result["style_contributions"]
+        assert isinstance(contribs, list)
+        assert len(contribs) == 7  # one per style name
+        # Sorted desc by |delta_ic| (None treated as 0)
+        deltas = [abs(c["delta_ic"]) if c["delta_ic"] is not None else 0.0 for c in contribs]
+        assert deltas == sorted(deltas, reverse=True)
+        # Each entry has the 4 expected keys
+        for c in contribs:
+            assert set(c.keys()) == {"style", "delta_ic", "ic_without", "pct"}
+            assert isinstance(c["style"], str)
+
+    def test_contributions_empty_when_residual_ic_none(
+        self, style_matrix: pd.DataFrame, returns_flat: pd.DataFrame,
+    ) -> None:
+        empty = pd.DataFrame(columns=["time", "symbol", "value"])
+        result = compute_barra_exposures(
+            empty, style_matrix, returns_flat, raw_view_ic=0.1,
+        )
+        assert result["style_contributions"] == []

@@ -20,7 +20,7 @@ The factor.yaml frontmatter schema:
     admitted_at: 2026-04-12T10:30:00Z
     admitted_in_batch: batch_103
     status: active
-    signal_ref: batches/batch_103/signals/C001.parquet
+    diagnostics_ref: cache/batch_diagnostics/batch_103/C001   # dir with 6 parquet files
     direction: fundamental_price_divergence
     mechanism: "..."
     validation_metrics:
@@ -98,6 +98,7 @@ def build_factor_record(
     manifest_entry: dict[str, Any],
     batch_id: str,
     direction: str,
+    factor_name: str | None = None,
 ) -> dict[str, Any]:
     """Compose the ``factor.yaml`` frontmatter dict from inputs.
 
@@ -113,17 +114,28 @@ def build_factor_record(
         the expression / python path that the result dict may not).
     batch_id, direction
         Context keys.
+    factor_name
+        Optional semantic name set by the LLM in ``judge.md`` frontmatter
+        (``candidates[].factor_name``). Falls back to ``admit_entry.name``,
+        then ``manifest_entry.name``, then ``factor_id``.
     """
     source_type = admit_entry.get("source_type") or manifest_entry.get("source_type", "dsl")
+    diagnostics_ref = (
+        admit_entry.get("diagnostics_relpath")
+        or f"cache/batch_diagnostics/{batch_id}/{admit_entry.get('candidate_id', '?')}"
+    )
     record: dict[str, Any] = {
         "factor_id": factor_id,
-        "name": admit_entry.get("name") or manifest_entry.get("name") or factor_id,
+        "name": factor_name
+        or admit_entry.get("name")
+        or manifest_entry.get("name")
+        or factor_id,
         "family_tag": direction,
         "source_type": source_type,
         "admitted_at": _now_iso(),
         "admitted_in_batch": batch_id,
         "status": "active",
-        "signal_ref": f"batches/{batch_id}/signals/{admit_entry.get('candidate_id', '?')}.parquet",
+        "diagnostics_ref": diagnostics_ref,
         "direction": direction,
     }
 
@@ -184,10 +196,13 @@ def allocate_and_write_factor(
     manifest_entry: dict[str, Any],
     batch_id: str,
     direction: str,
+    factor_name: str | None = None,
 ) -> AllocatedFactor:
     """Allocate a fresh id and write the factor.yaml in one call.
 
     This is the entry point used by ``phases/phase4_archive.py``.
+    ``factor_name`` threads the LLM-chosen semantic name (``judge.md``
+    frontmatter ``candidates[].factor_name``) into the record.
     """
     factor_id = allocate_next_factor_id(factors_dir)
     record = build_factor_record(
@@ -196,6 +211,7 @@ def allocate_and_write_factor(
         manifest_entry=manifest_entry,
         batch_id=batch_id,
         direction=direction,
+        factor_name=factor_name,
     )
     yaml_path = write_factor_yaml(factors_dir, record)
     return AllocatedFactor(

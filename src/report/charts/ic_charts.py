@@ -1,4 +1,4 @@
-"""IC chart family — 5 charts driven entirely by ic_daily.parquet.
+"""IC chart family — 4 charts driven entirely by ic_daily.parquet.
 
 Input schema (as written by phase2_execute._persist_diagnostics):
     MultiIndex(split, datetime) × column 'ic'
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
 def _split_series(ic_daily: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
@@ -25,29 +26,30 @@ def _split_series(ic_daily: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
 
 
 def chart_ic_timeseries(ic_daily: pd.DataFrame) -> go.Figure:
+    """Two-panel: daily IC (top) + cumulative IC (bottom). Both from ic_daily."""
     tr, val = _split_series(ic_daily)
-    fig = go.Figure()
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
+                        subplot_titles=("Daily IC", "Cumulative IC"))
     if not tr.empty:
         fig.add_trace(go.Scatter(x=tr.index, y=tr.values, mode="lines",
-                                  name="Train", line=dict(color="#3b82f6", width=1)))
+                                  name="Train", line=dict(color="#3b82f6", width=1)),
+                      row=1, col=1)
     if not val.empty:
         fig.add_trace(go.Scatter(x=val.index, y=val.values, mode="lines",
-                                  name="Validation", line=dict(color="#ef4444", width=1)))
-    fig.update_layout(title="IC Time Series",
-                       xaxis_title="Date", yaxis_title="Rank IC",
-                       hovermode="x unified")
-    return fig
-
-
-def chart_cumulative_ic(ic_daily: pd.DataFrame) -> go.Figure:
-    tr, val = _split_series(ic_daily)
+                                  name="Validation", line=dict(color="#ef4444", width=1)),
+                      row=1, col=1)
     combined = pd.concat([tr, val]).sort_index()
-    fig = go.Figure()
     if not combined.empty:
         fig.add_trace(go.Scatter(x=combined.index, y=combined.cumsum().values,
-                                  mode="lines", name="Cumulative IC"))
-    fig.update_layout(title="Cumulative IC",
-                       xaxis_title="Date", yaxis_title="Σ Rank IC")
+                                  mode="lines", name="Cumulative",
+                                  line=dict(color="#111827", width=1.5),
+                                  showlegend=False),
+                      row=2, col=1)
+    fig.update_yaxes(title_text="Rank IC", row=1, col=1)
+    fig.update_yaxes(title_text="Σ Rank IC", row=2, col=1)
+    fig.update_xaxes(title_text="Date", row=2, col=1)
+    fig.update_layout(title="IC Time Series (daily + cumulative)",
+                      hovermode="x unified")
     return fig
 
 

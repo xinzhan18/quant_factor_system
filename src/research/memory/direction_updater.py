@@ -126,6 +126,13 @@ def update_direction_frontmatter(
     if goal is not None:
         fm["last_goal"] = goal
 
+    # Auto-transition: first admit in an `exploring` direction → `productive`.
+    # LLMs forget to flip this in the narrative log; the mechanical rule is
+    # unambiguous enough that Python owns it. Any transition out of `exploring`
+    # past that point (exploring → dead / merged) remains LLM-driven.
+    if new_admits and fm.get("status") == "exploring":
+        fm["status"] = "productive"
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_serialize(fm, body), encoding="utf-8")
 

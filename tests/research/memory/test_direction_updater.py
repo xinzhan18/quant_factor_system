@@ -17,7 +17,9 @@ def _read_fm(path: Path) -> dict:
 
 
 class TestFirstUpdate:
-    def test_creates_file_with_skeleton(self, tmp_path: Path) -> None:
+    def test_creates_file_with_skeleton_and_auto_promotes_on_admit(
+        self, tmp_path: Path
+    ) -> None:
         path = tmp_path / "dirs" / "fp_divergence.md"
         fm = update_direction_frontmatter(
             path,
@@ -27,7 +29,8 @@ class TestFirstUpdate:
         )
         assert path.exists()
         assert fm["direction_id"] == "fp_divergence"
-        assert fm["status"] == "exploring"
+        # Auto-promotion: first admit flips exploring → productive in-place.
+        assert fm["status"] == "productive"
         assert fm["rounds"] == 1
         assert fm["admits"] == 2
         assert fm["members"] == ["F020", "F021"]
@@ -37,6 +40,18 @@ class TestFirstUpdate:
         assert "created_at" in fm
         assert fm["created_batch"] == "batch_001"
         assert fm["last_goal"].startswith("Probe")
+
+    def test_creates_file_without_admits_stays_exploring(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "dirs" / "fp_divergence.md"
+        fm = update_direction_frontmatter(
+            path,
+            batch_id="batch_001",
+            new_admits=[],
+            goal="Initial probe",
+        )
+        assert fm["status"] == "exploring"
 
 
 class TestIncrementalUpdate:

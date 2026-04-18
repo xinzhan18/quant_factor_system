@@ -7,7 +7,7 @@ Reads:
   (path resolved via ``candidate.diagnostics_relpath`` relative to storage_root)
 
 Writes:
-* ``storage/vault/factors/F{id}/<chart>.png`` (18 charts)
+* ``storage/vault/factors/F{id}/<chart>.png`` (15 charts)
 * ``storage/vault/factors/F{id}/report.json`` (chart manifest + composite scorecard)
 
 NEVER recomputes IC / quintile / Barra — those are Phase 2 outputs.
@@ -26,15 +26,14 @@ import yaml
 from report.composite import compute_composite
 from report.charts.theme import PNG_WIDTH, PNG_HEIGHT, PNG_SCALE
 from report.charts.ic_charts import (
-    chart_ic_timeseries, chart_cumulative_ic, chart_rolling_ic,
+    chart_ic_timeseries, chart_rolling_ic,
     chart_ic_distribution, chart_monthly_heatmap,
 )
 from report.charts.profit_charts import (
-    chart_quintile_bar, chart_quintile_returns_oos, chart_cumulative_returns,
-    chart_long_short, chart_annual_group_returns,
+    chart_quintile_bar, chart_cumulative_returns, chart_annual_group_returns,
 )
 from report.charts.risk_charts import chart_style_exposure_bar, chart_alpha_waterfall
-from report.charts.stability_charts import chart_support_window_ic, chart_stability_summary
+from report.charts.stability_charts import chart_stability_panel
 from report.charts.decay_charts import (
     chart_ic_decay, chart_factor_distribution, chart_coverage,
 )
@@ -80,6 +79,10 @@ def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[
 
     assets_dir = vault / "factors" / factor_id
     assets_dir.mkdir(parents=True, exist_ok=True)
+    # Remove stale PNGs from previous renders so chart-set changes don't
+    # leave orphan files behind.
+    for stale in assets_dir.glob("*.png"):
+        stale.unlink()
 
     ic_daily = pd.read_parquet(diag_dir / "ic_daily.parquet")
     q_train = pd.read_parquet(diag_dir / "quantile_daily_train.parquet")
@@ -92,24 +95,18 @@ def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[
 
     figs = {
         "ic_timeseries": chart_ic_timeseries(ic_daily),
-        "cumulative_ic": chart_cumulative_ic(ic_daily),
         "rolling_ic": chart_rolling_ic(ic_daily),
         "ic_distribution": chart_ic_distribution(ic_daily),
         "monthly_heatmap": chart_monthly_heatmap(ic_daily),
         "quintile_bar": chart_quintile_bar(q_train, q_val),
-        "quintile_returns_oos": chart_quintile_returns_oos(q_val),
-        "cumulative_returns": chart_cumulative_returns(q_train, q_val),
-        "long_short": chart_long_short(ls_daily),
+        "cumulative_returns": chart_cumulative_returns(q_train, q_val, ls_daily),
         "annual_group_returns": chart_annual_group_returns(q_train, q_val),
         "style_exposure_bar": chart_style_exposure_bar(candidate.get("barra") or {}),
         "alpha_waterfall": chart_alpha_waterfall(
             ((candidate.get("ic") or {}).get("validation") or {}).get("ic_mean") or 0.0,
             candidate.get("barra") or {},
         ),
-        "support_window_ic": chart_support_window_ic(
-            (candidate.get("stability", {}) or {}).get("split_stability", {}) or {}
-        ),
-        "stability_summary": chart_stability_summary(candidate),
+        "stability_panel": chart_stability_panel(candidate),
         "ic_decay": chart_ic_decay((candidate.get("ic") or {}).get("by_horizon") or {}),
         "factor_distribution": chart_factor_distribution(hist_df),
         "coverage": chart_coverage(cov_daily),
@@ -134,7 +131,21 @@ def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[
         "scalars": {
             "ic_validation": (candidate.get("ic") or {}).get("validation"),
             "ic_train": (candidate.get("ic") or {}).get("train"),
+            # Time-series stability fields (emitted by Phase 2 onto ``ic.*``).
+            # Kept flat so the factor-report subagent can embed them in tables
+            # without having to hunt through nested blocks.
+            "ic_by_year": (candidate.get("ic") or {}).get("by_year"),
+            "ic_autocorr_lag1": (candidate.get("ic") or {}).get("autocorr_lag1"),
+            "cum_ic_max_drawdown": (candidate.get("ic") or {}).get("cum_ic_max_drawdown"),
+            "worst_quarter_ic": (candidate.get("ic") or {}).get("worst_quarter"),
+            "best_quarter_ic": (candidate.get("ic") or {}).get("best_quarter"),
+            "train_validation_decay": (candidate.get("ic") or {}).get("train_validation_decay"),
+            "sign_consistent": (candidate.get("ic") or {}).get("sign_consistent"),
+            # Multi-horizon IC (IS + OOS for 1/3/5/10/20-day holds).
+            "ic_by_horizon": (candidate.get("ic") or {}).get("by_horizon"),
+            "quintile_train": (candidate.get("quintile") or {}).get("train"),
             "quintile_validation": (candidate.get("quintile") or {}).get("validation"),
+            "ls_stats_train": ((candidate.get("quintile") or {}).get("ls_stats") or {}).get("train"),
             "ls_stats_validation": ((candidate.get("quintile") or {}).get("ls_stats") or {}).get("validation"),
             "uniqueness": candidate.get("uniqueness"),
             "barra": candidate.get("barra"),

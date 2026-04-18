@@ -132,7 +132,15 @@ class StoragePaths:
         return self.batch_signals_dir(batch_id) / f"{candidate_id}.parquet"
 
     def batch_packets_dir(self, batch_id: str) -> Path:
-        """Scratch dir for report packets (Phase 4). Cleaned after each batch."""
+        """Scratch dir for report packets (Phase 4).
+
+        Packets are deleted lazily: whenever a later Phase 4 runs, it calls
+        ``cleanup_finished_packets`` which removes
+        ``report_packet_F{id}.md`` files whose ``factors/F{id}.md`` now
+        exists (subagent wrote it). The current batch's packets are
+        preserved (subagents may still be reading them). Also exposed via
+        ``research report cleanup-packets`` for manual runs.
+        """
         return self.batch_dir(batch_id) / "_packets"
 
     def batch_hints_file(self, batch_id: str) -> Path:

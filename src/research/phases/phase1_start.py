@@ -31,6 +31,7 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -38,7 +39,9 @@ from research.compute.python_runner import (
     PythonFactorContractError,
     load_python_candidate,
 )
-from research.storage.yaml_io import save_yaml
+from research.storage.paths import StoragePaths
+from research.storage.state import StateFile
+from research.storage.yaml_io import load_yaml, save_yaml
 
 # ---------------------------------------------------------------------------
 # Whitelists — single source of truth, copied from legacy precheck.py
@@ -313,6 +316,10 @@ def freeze_manifest(
     existing_canonicals: Iterable[str],
     manifest_path: str | Path,
     *,
+    round_counter: int = 0,
+    sample_policy: dict[str, Any] | None = None,
+    direction_md_ref: str | None = None,
+    active_threads_referenced: list[str] | None = None,
     strict: bool = True,
 ) -> FreezeReport:
     """Validate every candidate and atomically write ``manifest.yaml``.
@@ -446,10 +453,18 @@ def freeze_manifest(
                 entry[key] = c[key]
         manifest_candidates.append(entry)
 
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     manifest = {
         "batch_id": batch_id,
+        "round": int(round_counter),
         "direction": direction,
+        "direction_md_ref": direction_md_ref
+            or f"vault/directions/{direction}.md",
         "batch_goal": batch_goal.strip() if batch_goal else "",
+        "active_threads_referenced": list(active_threads_referenced or []),
+        "sample_policy": dict(sample_policy) if sample_policy else {},
+        "created_at": now_iso,
+        "frozen_at": now_iso,
         "candidates": manifest_candidates,
     }
 
@@ -462,3 +477,134 @@ def freeze_manifest(
         candidates=reports,
         manifest_path=path,
     )
+
+
+# ---------------------------------------------------------------------------
+# High-level Phase 1 orchestrator — the "one helper to rule them all"
+# ---------------------------------------------------------------------------
+
+
+def collect_existing_canonicals(paths: StoragePaths) -> list[str]:
+    """Scan ``vault/factors/F*.yaml`` for ``canonical`` fields (dedup source)."""
+    canonicals: list[str] = []
+    fdir = paths.factors_dir
+    if not fdir.exists():
+        return canonicals
+    for yml in sorted(fdir.glob("F*.yaml")):
+        data = load_yaml(yml) or {}
+        canon = data.get("canonical")
+        if canon:
+            canonicals.append(str(canon))
+    return canonicals
+
+
+def _config_sample_policy(paths: StoragePaths) -> dict[str, Any]:
+    """Pull the ``sample_policy`` block out of config.yaml (safe defaults)."""
+    cfg = load_yaml(paths.config_file) or {}
+    sp = cfg.get("sample_policy") or {}
+    # Normalize to the manifest-friendly key names.
+    tr = sp.get("train_range") or [None, None]
+    vl = sp.get("validation_range") or [None, None]
+    return {
+        "train_start": str(tr[0]) if tr[0] else None,
+        "train_end": str(tr[1]) if tr[1] else None,
+        "test_start": str(vl[0]) if vl[0] else None,
+        "test_end": str(vl[1]) if vl[1] else None,
+    }
+
+
+def start_phase1(
+    direction: str,
+    batch_goal: str,
+    candidates: list[dict[str, Any]],
+    *,
+    paths: StoragePaths | None = None,
+    active_threads_referenced: list[str] | None = None,
+    strict: bool = True,
+) -> FreezeReport:
+    """Phase 1 one-shot orchestrator: **begin batch → freeze manifest → refresh INDEX**.
+
+    Callers (including the LLM in ``/factor-idea``) only supply content
+    (direction / goal / candidates / thread refs). Everything else —
+    allocating the next batch_id, writing the full schema, transitioning
+    state, regenerating INDEX.md's lower half — is handled here.
+
+    Parameters
+    ----------
+    direction
+        Direction slug. Must match ``vault/directions/{slug}.md``.
+    batch_goal
+        ≥ 30 char goal string.
+    candidates
+        Same dict shape accepted by :func:`freeze_manifest`.
+    paths
+        Optional explicit :class:`StoragePaths`; defaults to ``StoragePaths()``.
+    active_threads_referenced
+        Optional list like ``["T001", "T002"]`` for the manifest.
+    strict
+        Forwarded to :func:`freeze_manifest`.
+
+    Returns
+    -------
+    FreezeReport
+        The underlying freeze report. Extra work (state + INDEX) completed
+        only when the report's ``all_passed`` is True.
+
+    Raises
+    ------
+    Phase1FreezeError
+        From :func:`freeze_manifest` when any candidate fails validation.
+    research.storage.state.InvalidPhaseTransition
+        When the state is not idle — caller must first ``finish_batch`` or
+        ``state reset``.
+    """
+    paths = paths or StoragePaths()
+    # Ensure the vault / batches tree exists so first-time users don't trip.
+    paths.batches_dir.mkdir(parents=True, exist_ok=True)
+    paths.directions_dir.mkdir(parents=True, exist_ok=True)
+    paths.factors_dir.mkdir(parents=True, exist_ok=True)
+
+    direction_md = paths.direction_file(direction)
+    if not direction_md.exists():
+        raise FileNotFoundError(
+            f"direction file missing: {direction_md} — create it before "
+            "calling start_phase1"
+        )
+
+    state = StateFile(paths.state_file)
+    batch_id = state.next_batch_id()
+
+    # Transition idle → designed. Raises InvalidPhaseTransition if not idle.
+    state.begin_batch(batch_id)
+
+    batch_dir = paths.batch_dir(batch_id)
+    batch_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        report = freeze_manifest(
+            batch_id=batch_id,
+            direction=direction,
+            batch_goal=batch_goal,
+            candidates=candidates,
+            existing_canonicals=collect_existing_canonicals(paths),
+            manifest_path=paths.batch_manifest_file(batch_id),
+            round_counter=state.read().round,
+            sample_policy=_config_sample_policy(paths),
+            direction_md_ref=f"vault/directions/{direction}.md",
+            active_threads_referenced=active_threads_referenced or [],
+            strict=strict,
+        )
+    except Exception:
+        # Roll back the state transition so the caller can retry cleanly.
+        state.update(current_batch=None, current_batch_phase=None)
+        raise
+
+    # Refresh INDEX lower half (best-effort — don't fail Phase 1 on it)
+    try:
+        from research.memory.index_refresher import refresh_index
+        refresh_index(paths, round_counter=state.read().round)
+    except Exception as exc:  # pragma: no cover
+        import sys
+        print(f"[start_phase1] INDEX refresh failed: {exc}", file=sys.stderr)
+
+    return report

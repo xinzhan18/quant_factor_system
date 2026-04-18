@@ -128,10 +128,56 @@ class StateFile:
             )
         return State.from_dict(data)
 
+    # Alias — skill docs + call-sites use either name.
+    load = read
+
     def write(self, state: State) -> None:
         """Stamp ``last_activity`` and atomically write state.yaml."""
         stamped = state.with_patch(last_activity=_now_iso())
         save_yaml(self._path, stamped.to_dict())
+
+    def update(self, **kwargs: Any) -> State:
+        """Patch individual fields on the current state and persist.
+
+        Low-level escape hatch — prefer :meth:`begin_batch`, :meth:`transition_phase`,
+        :meth:`finish_batch`, :meth:`mark_consolidated` when they apply. Fails
+        :class:`InvalidStateSchema` if ``kwargs`` leaves the state malformed.
+        """
+        new = self.read().with_patch(**kwargs)
+        self.write(new)
+        return new
+
+    def reset(self) -> State:
+        """Reset the state file to the idle baseline (no batch / round 0).
+
+        Destructive: clears ``current_batch`` / ``current_batch_phase`` /
+        ``last_batch`` and resets counters. Intended for post-``git rm`` /
+        fresh-checkout reconciliation when the vault has been wiped but the
+        state file lingers. CLI guards this behind ``--confirm``.
+        """
+        new = State(
+            current_batch=None,
+            current_batch_phase=None,
+            last_batch=None,
+            round=0,
+            last_activity="",
+            rounds_since_last_consolidation=0,
+        )
+        self.write(new)
+        return new
+
+    def next_batch_id(self) -> str:
+        """Return the next ``batch_NNN`` identifier without mutating state.
+
+        Derived from ``max(current_batch, last_batch) + 1``. Pure — safe to
+        call from CLI / scripts / planner before actually opening the batch.
+        """
+        state = self.read()
+        last_seen = 0
+        for candidate in (state.current_batch, state.last_batch):
+            if candidate:
+                last_seen = max(last_seen, _batch_id_to_int(candidate))
+        return _int_to_batch_id(last_seen + 1)
 
     # ------------------------------------------------------------------
     # High-level transitions
@@ -213,3 +259,19 @@ class StateFile:
 def _now_iso() -> str:
     """UTC ISO-8601 timestamp with second precision."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+_BATCH_ID_RE = __import__("re").compile(r"^batch_(\d+)$")
+
+
+def _batch_id_to_int(batch_id: str) -> int:
+    """Parse ``batch_NNN`` → NNN. Raises :class:`ValueError` on mismatch."""
+    m = _BATCH_ID_RE.match(batch_id)
+    if not m:
+        raise ValueError(f"batch_id {batch_id!r} does not match batch_NNN pattern")
+    return int(m.group(1))
+
+
+def _int_to_batch_id(n: int) -> str:
+    """NNN → ``batch_NNN`` with 3-digit zero padding (keeps sort order)."""
+    return f"batch_{n:03d}"
