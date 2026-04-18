@@ -286,19 +286,55 @@ def preconditions_ok(
 # ---------------------------------------------------------------------------
 
 
+def _backup_dir(paths: StoragePaths) -> Path:
+    return paths.vault_meta_dir.parent / "_consolidation" / "backup"
+
+
+def _backup_targets(paths: StoragePaths, targets: Iterable[Path]) -> dict[Path, Path]:
+    """Copy each existing target md into _consolidation/backup/ keyed by path.
+
+    Returns a map from original path → backup path. Missing targets are
+    skipped (brand-new files are fine to write without a backup).
+    """
+    bdir = _backup_dir(paths)
+    bdir.mkdir(parents=True, exist_ok=True)
+    mapping: dict[Path, Path] = {}
+    for i, tgt in enumerate(targets):
+        if not tgt.exists():
+            continue
+        # Flatten paths — use index + stem so directions/vol.md and
+        # lessons.md never collide.
+        backup_path = bdir / f"{i:03d}_{tgt.name}"
+        shutil.copy2(tgt, backup_path)
+        mapping[tgt] = backup_path
+    return mapping
+
+
+def _restore_from_backup(mapping: dict[Path, Path]) -> None:
+    """Copy backups back to their original paths."""
+    for original, backup in mapping.items():
+        if backup.exists():
+            shutil.copy2(backup, original)
+
+
 def run_phase5_consolidation(inputs: Phase5Inputs) -> Phase5Result:
     """Run all five Phase 5 steps end-to-end.
 
     Raises
     ------
     Phase5PreconditionError
-        If state.current_batch is not None or git tree is dirty.
+        If state.current_batch is not None, git tree is dirty, or a
+        stale ``_consolidation/backup/`` dir exists.
+    Exception
+        Any exception raised by ``rewrite_callback`` propagates after
+        all partially-written files are restored from backup.
     """
     paths = inputs.paths
+    backup_dir = _backup_dir(paths)
 
     # --- Step 1: Pre-checks ---
     state_file = StateFile(paths.state_file)
-    failures = preconditions_ok(state_file, inputs.repo_root)
+    failures = preconditions_ok(state_file, inputs.repo_root, backup_dir)
     if failures:
         raise Phase5PreconditionError(
             "phase5 preconditions failed: " + "; ".join(failures)
@@ -307,27 +343,40 @@ def run_phase5_consolidation(inputs: Phase5Inputs) -> Phase5Result:
     # --- Step 2: Pre-pack ---
     packet_map = prepack_consolidation(paths)
 
-    # --- Step 3 + 4: Dispatch rewrites ---
-    rewritten: list[Path] = []
-    if inputs.rewrite_callback is not None:
-        # Parallel (per R3 LLM only reads one file at a time, but the
-        # orchestrator can invoke many callbacks — in production this is
-        # actual subagent parallelism; in tests the callback is sync.)
-        for target_key, pkt_path in packet_map.items():
-            if target_key == "index":
-                continue  # INDEX runs last after directions finish
-            output_path, kind = _output_for(paths, target_key)
-            pkt_text = pkt_path.read_text(encoding="utf-8")
-            inputs.rewrite_callback(pkt_text, pkt_path, output_path, kind)
-            rewritten.append(output_path)
+    # Build the list of targets (paths we're about to overwrite) for backup.
+    all_targets: list[Path] = []
+    for target_key in packet_map:
+        if target_key == "index":
+            all_targets.append(paths.vault_index_file)
+        else:
+            output_path, _ = _output_for(paths, target_key)
+            all_targets.append(output_path)
+    backup_map = _backup_targets(paths, all_targets)
 
-        # INDEX upper half (synchronous — depends on all directions)
-        idx_pkt = packet_map["index"]
-        idx_text = idx_pkt.read_text(encoding="utf-8")
-        inputs.rewrite_callback(
-            idx_text, idx_pkt, paths.vault_index_file, "index"
-        )
-        rewritten.append(paths.vault_index_file)
+    # --- Step 3 + 4: Dispatch rewrites (restore-on-failure) ---
+    rewritten: list[Path] = []
+    try:
+        if inputs.rewrite_callback is not None:
+            # Directions + lessons first; INDEX runs after (barrier).
+            for target_key, pkt_path in packet_map.items():
+                if target_key == "index":
+                    continue
+                output_path, kind = _output_for(paths, target_key)
+                pkt_text = pkt_path.read_text(encoding="utf-8")
+                inputs.rewrite_callback(pkt_text, pkt_path, output_path, kind)
+                rewritten.append(output_path)
+
+            # INDEX upper half (synchronous — depends on all directions)
+            idx_pkt = packet_map["index"]
+            idx_text = idx_pkt.read_text(encoding="utf-8")
+            inputs.rewrite_callback(
+                idx_text, idx_pkt, paths.vault_index_file, "index"
+            )
+            rewritten.append(paths.vault_index_file)
+    except Exception:
+        logger.exception("phase5 rewrite failed — restoring from backup")
+        _restore_from_backup(backup_map)
+        raise
 
     # --- INDEX lower half auto-section refresh ---
     # The rewrite_callback handled the upper half; now Python refreshes
@@ -335,7 +384,10 @@ def run_phase5_consolidation(inputs: Phase5Inputs) -> Phase5Result:
     current_state = state_file.read()
     refresh_index(paths, round_counter=current_state.round)
 
-    # --- Step 5: Commit + mark_consolidated ---
+    # --- Step 5: state update BEFORE commit so state.yaml is atomically
+    # staged in the same commit.
+    state_file.mark_consolidated()
+
     commit_result: CommitResult | None = None
     if inputs.do_commit and rewritten:
         files_to_stage: list[Path] = list(rewritten) + [paths.state_file]
@@ -346,7 +398,9 @@ def run_phase5_consolidation(inputs: Phase5Inputs) -> Phase5Result:
         )
         commit_result = create_commit(inputs.repo_root, message, staged)
 
-    state_file.mark_consolidated()
+    # --- Cleanup: drop backup dir on success ---
+    if backup_dir.exists():
+        shutil.rmtree(backup_dir, ignore_errors=True)
 
     return Phase5Result(
         targets=list(packet_map.keys()),
