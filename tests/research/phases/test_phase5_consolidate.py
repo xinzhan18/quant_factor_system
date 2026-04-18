@@ -228,6 +228,75 @@ class TestRunPhase5:
         with pytest.raises(Phase5PreconditionError, match="batch in flight"):
             run_phase5_consolidation(inputs)
 
+    def test_rewrite_failure_restores_from_backup(self, tmp_path: Path) -> None:
+        storage = tmp_path / "storage"
+        paths = StoragePaths(storage)
+        paths.ensure_dirs()
+        paths.vault_lessons_file.write_text("ORIGINAL lessons\n")
+        update_direction_frontmatter(
+            paths.direction_file("vol"), batch_id="batch_001", new_admits=[]
+        )
+        original_vol = paths.direction_file("vol").read_text(encoding="utf-8")
+        paths.vault_index_file.write_text(
+            "# INDEX\n\nORIGINAL upper\n"
+            "<!-- BEGIN AUTO-SECTION -->\n<!-- END AUTO-SECTION -->\n"
+        )
+        original_index = paths.vault_index_file.read_text(encoding="utf-8")
+        _bootstrap_idle_state(paths, round_=5)
+        _init_repo(tmp_path)
+        subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True, capture_output=True)
+
+        call_count = {"n": 0}
+
+        def flaky(
+            packet_text: str, packet_path: Path, output_path: Path, kind: str
+        ) -> None:
+            call_count["n"] += 1
+            # First call succeeds (lessons), second raises (mid-rewrite failure).
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("CORRUPTED\n")
+            if call_count["n"] >= 2:
+                raise RuntimeError("subagent crashed")
+
+        inputs = Phase5Inputs(
+            paths=paths,
+            repo_root=tmp_path,
+            trigger=ConsolidationTrigger(reason="manual"),
+            rewrite_callback=flaky,
+            do_commit=False,
+        )
+        with pytest.raises(RuntimeError, match="subagent crashed"):
+            run_phase5_consolidation(inputs)
+
+        # All touched files restored to original content.
+        assert paths.vault_lessons_file.read_text(encoding="utf-8") == "ORIGINAL lessons\n"
+        assert paths.direction_file("vol").read_text(encoding="utf-8") == original_vol
+        assert paths.vault_index_file.read_text(encoding="utf-8") == original_index
+
+    def test_stale_backup_dir_blocks_run(self, tmp_path: Path) -> None:
+        storage = tmp_path / "storage"
+        paths = StoragePaths(storage)
+        paths.ensure_dirs()
+        _bootstrap_idle_state(paths)
+        _init_repo(tmp_path)
+        subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True, capture_output=True)
+
+        # Pre-create stale backup dir (simulates prior failed run).
+        stale = paths.vault_meta_dir.parent / "_consolidation" / "backup"
+        stale.mkdir(parents=True, exist_ok=True)
+
+        inputs = Phase5Inputs(
+            paths=paths,
+            repo_root=tmp_path,
+            trigger=ConsolidationTrigger(reason="manual"),
+            rewrite_callback=lambda *a: None,
+            do_commit=False,
+        )
+        with pytest.raises(Phase5PreconditionError, match="backup"):
+            run_phase5_consolidation(inputs)
+
     def test_end_to_end_no_commit(self, tmp_path: Path) -> None:
         storage = tmp_path / "storage"
         paths = StoragePaths(storage)
