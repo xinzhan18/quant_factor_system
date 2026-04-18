@@ -140,59 +140,95 @@ max_lib_corr: <float>
 
 从 packet 中的 Judge Synthesis 抽档位词和 reason codes。
 
-### 3. 预测能力（Predictive Power）
+### 通用小节模板（Section 3-8 每张图都照抄这个结构）
 
-对每个白名单内的图表，写一段**三段式叙事**（这是 F005 的核心模式）：
+**每张白名单内的图**都必须写成下面这一整段（不要只放 embed 不写叙事）：
 
 ```markdown
-#### {子标题}
+#### {中文子标题}
 
 > [!info]- 阅读指南
-> {1-2 句说明横纵轴 + 色彩编码}
+> {1-2 句说明横纵轴 + 色彩编码 + 如何"读懂"这张图}
 
-![[F{id}/{chart_name}.png|600]]
+![[F{id}/{chart_basename}.png|600]]
 
-**第一，{观察点}。** {深度解读——不只是复述数字}
+**第一，{观察点}。** {深度解读——不只是复述数字，要给出因子层面的洞察}
 
-**第二，{观察点}。** {对比 IS/OOS 或同族因子}
+**第二，{观察点}。** {对比 IS vs OOS / 与近邻因子的差异 / 年度或制度切片}
 
-**第三，{观察点}。** {失效场景 / 风险提示}
+**第三，{观察点}。** {失效场景 / 风险提示 / 与 hypothesis 的呼应}
 ```
 
-子图（白名单里有就写，没有就跳过整段）：
-- IC 时序走势 (`ic_timeseries`)
-- 累积 IC (`cumulative_ic`)
-- 滚动 IC (`rolling_ic`)
-- IC 分布 (`ic_distribution`)
-- 月度 IC 热力图 (`monthly_heatmap`)
+如果 `report.json.charts` 里**没有**某个图名，**整个小节（含 embed 和三段叙事）全部跳过**，不要留空占位、更不要伪造图名。
+
+---
+
+### 3. 预测能力（Predictive Power）
+
+对下列每张图都写"通用小节"（有图就写，没有就跳）：
+
+| 子标题 | chart basename | 读图要点 |
+|---|---|---|
+| IC 时序走势 | `ic_timeseries` | IS/OOS IC 的方向稳定性、年度拐点、制度切换 |
+| 累积 IC | `cumulative_ic` | 斜率稳定性 = 因子长期有效性；斜率变化 = 信号强弱周期 |
+| 滚动 IC (20/60/120d) | `rolling_ic` | 短中长三窗口的一致性；120d 近 0 = 因子失效预警 |
+| IC 分布 | `ic_distribution` | IS/OOS 均值是否同号；OOS 分布是否更宽 |
+| 月度 IC 热力图 | `monthly_heatmap` | 季节性、最强/最弱年段、制度相关性 |
+
+嵌入格式示例：
+```markdown
+#### IC 时序走势
+> [!info]- 阅读指南
+> 横轴交易日，纵轴日截面 Rank IC。蓝=Train，红=Validation。零轴两侧发散越清晰，方向越明确。
+
+![[F{id}/ic_timeseries.png|600]]
+
+**第一，...**  **第二，...**  **第三，...**
+```
 
 ### 4. 盈利能力（Profitability）
 
-- 分组年化收益 (`quintile_bar`)
-- 验证期分组收益 (`quintile_returns_oos`)
-- 累积净值曲线 (`cumulative_returns`)
-- 多空策略表现 (`long_short`)
-- 年度分组热力图 (`annual_group_returns`)
+| 子标题 | chart basename | 读图要点 |
+|---|---|---|
+| 分组年化收益（全期） | `quintile_bar` | Q1..Q5 梯度是否完整、L/S 价差、多空贡献均衡度 |
+| 验证期分组收益（OOS 日均） | `quintile_returns_oos` | 多头端是否仍有区分力、空头端是否变稳/变弱 |
+| 累积净值曲线 | `cumulative_returns` | Q1-Q5 是否持续发散、熊市/牛市表现、关键年份冲击 |
+| 多空策略表现 | `long_short` | Sharpe、最大回撤、关键回撤段落解释 |
+| 年度分组热力图 | `annual_group_returns` | 年度方向一致性、最差年的错位情况 |
+
+每张图都按"通用小节模板"写完整（embed + 阅读指南 + 三段叙事）。
 
 ### 5. 风险归因（Risk Attribution）
 
-- Barra 风格因子暴露 (`style_exposure_bar`)
-- Alpha 存活瀑布 (`alpha_waterfall`)
+| 子标题 | chart basename | 读图要点 |
+|---|---|---|
+| Barra 风格因子暴露 | `style_exposure_bar` | 主导风格是谁（dominant_style_exposure）、是否与近邻因子形成互补或重叠 |
+| Alpha 存活瀑布 | `alpha_waterfall` | Raw IC → Barra Residual IC 的衰减比例；`alpha_survival_ratio` 越高越干净 |
+
+每张图按"通用小节模板"写。Alpha waterfall 的三段叙事要讲清：(1) 原始 IC 强度 (2) 被风格吸收了多少 (3) 残余 alpha 是否仍显著。
 
 ### 6. 信号稳定性（Stability）
 
-- 多验证窗口 IC (`support_window_ic`)
-- 稳定性综合 (`stability_summary`)
+| 子标题 | chart basename | 读图要点 |
+|---|---|---|
+| 多验证窗口 IC 一致性 | `support_window_ic` | 各窗口 ICIR 是否同号、最强窗口对应哪段市场 |
+| 稳定性综合仪表盘 | `stability_summary` | IS→Val decay、sign consistency、dispersion 三项联合解读 |
 
 ### 7. 衰减与可交易性（Decay & Tradability）
 
-- IC 衰减 (`ic_decay`)
-- 因子值分布 (`factor_distribution`)
-- 覆盖率 (`coverage`)
+| 子标题 | chart basename | 读图要点 |
+|---|---|---|
+| IC 衰减曲线 | `ic_decay` | 持有期 1→60d 的 IC 轨迹；反衰减（长周期 \|IC\| 更大）是稀缺特性 |
+| 因子值分布（IS vs OOS） | `factor_distribution` | 两期分布是否漂移；极端值占比、偏度/峰度的对比 |
+| 覆盖率 | `coverage` | 全期覆盖是否稳定、是否有低覆盖段落（对应新上市/停牌潮） |
 
 ### 8. 独特性（Uniqueness）
 
-- 因子库相关矩阵 (`correlation_bar`)
+| 子标题 | chart basename | 读图要点 |
+|---|---|---|
+| 因子库相关矩阵 | `correlation_bar` | 最高相关的前 N 个因子、是否存在 0.7+ 高重叠；与哪些家族天然对冲 |
+
+三段叙事重点讲：(1) 最高相关是谁、意味着什么 (2) 与近邻因子的**机制差异** (3) 在已有库基础上的增量价值（`incremental_ic`）
 
 ### 9. 综合评分（Composite Score）
 
