@@ -1,0 +1,63 @@
+batch_id: batch_001
+round: 0
+direction: amount_volatility_signal
+direction_md_ref: vault/directions/amount_volatility_signal.md
+batch_goal: 首轮切入 amount_volatility_signal 方向：以 $amount（成交额）为核心信号源，三条 thread 并发测试 ——
+  T001 CV 窗口比值（短/长资金稳定性断层）、T002 分布形状（偏度/峰度/尖峰度）、T003 价量一致性（相关性/斜率）。目的：建立 $amount 派生因子的基线
+  alpha 强度谱、过滤市值代理、定位下一轮 deepen 的 thread。
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-18T14:22:35Z'
+frozen_at: '2026-04-18T14:22:35Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Std($amount, 10), Mean($amount, 10))
+  canonical: Div(Std($amount,10),Mean($amount,10))
+  rationale: T001 baseline：10d 成交额 CV。短期资金参与稳定性指标；CV 小 = 持续稳定流入（机构特征），CV 大 = 事件性异动。Scale-invariant（比值），规避市值代理。
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Std($amount, 60), Mean($amount, 60))
+  canonical: Div(Std($amount,60),Mean($amount,60))
+  rationale: T001 baseline：60d 成交额 CV。长窗口基线，用于对比 C001 & 构成 C003 的分母。
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Div(Std($amount, 10), Mean($amount, 10)), Div(Std($amount, 60),
+    Mean($amount, 60)))
+  canonical: Div(Div(Std($amount,10),Mean($amount,10)),Div(Std($amount,60),Mean($amount,60)))
+  rationale: T001 核心：短/长 CV 比值。> 1 表示短期资金参与异动（散户涌入 / 事件驱动，预期 contrarian alpha）；< 1
+    表示短期稳定（机构持续）。资金结构断层信号。
+- candidate_id: C004
+  source_type: dsl
+  expression: Skew($amount, 20)
+  canonical: Skew($amount,20)
+  rationale: T002：20d 成交额偏度。右偏（正）= 少数几天巨量拖高均值，暗示信息驱动集中交易。方向先验：右偏 → contrarian（均值回归）。
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Max($amount, 20), Mean($amount, 20))
+  canonical: Div(Max($amount,20),Mean($amount,20))
+  rationale: T002 尾部：20d 最大成交额 / 均值。高值 = 近期有显著异动天，刻画资金参与的尖峰度。Scale-invariant 比值，orthogonal
+    于 skew（捕捉最大值本身而非分布形状）。
+- candidate_id: C006
+  source_type: dsl
+  expression: Corr($amount, Delta($close, 1), 20)
+  canonical: Corr($amount,Delta($close,1),20)
+  rationale: T003 核心：20d 成交额与当日价格变化的相关性。正 = 放量跟随涨跌（trend-confirming）；负 = 放量逆势（absorption
+    / 承接抛压，预期反转 alpha）。符号预期偏负（小市值反转）。
+- candidate_id: C007
+  source_type: dsl
+  expression: Slope(Log($amount), 20)
+  canonical: Slope(Log($amount),20)
+  rationale: T003：20d log 成交额线性趋势斜率。正 = 资金逐步流入（持续性信号）；负 = 资金流出。Log 让量级无关化。
+- candidate_id: C008
+  source_type: dsl
+  expression: Kurt($amount, 20)
+  canonical: Kurt($amount,20)
+  rationale: T002 尾部厚度：20d 成交额峰度。高峰度 = 异常大单发生概率高，反映信息驱动参与；与 skew 互补（峰度不含方向）。
