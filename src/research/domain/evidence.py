@@ -253,7 +253,6 @@ class BatchExecuteResult:
     """Aggregated execution results for a full batch."""
 
     batch_id: str
-    sample_policy_version: str
     evaluation_profile_id: str
     candidates: tuple = ()  # tuple of CandidateExecuteResult
     total_candidates: int = 0

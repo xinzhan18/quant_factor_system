@@ -67,7 +67,7 @@ class TestSupportWindow:
 class TestSamplePolicy:
     def test_default_policy(self):
         policy = SamplePolicy.default()
-        assert policy.validation_policy_version == "v3"
+        assert policy.validation_window_id == "std_2024"
         assert policy.train_start == date(2015, 1, 1)
         assert policy.train_end == date(2023, 12, 31)
         assert policy.validation_start == date(2024, 1, 1)
@@ -77,7 +77,6 @@ class TestSamplePolicy:
     def test_validation_after_train(self):
         with pytest.raises(ValueError, match="after train"):
             SamplePolicy(
-                validation_policy_version="v3",
                 validation_window_id="bad",
                 data_start=date(2015, 1, 1),
                 active_train_range=(date(2015, 1, 1), date(2024, 6, 30)),
@@ -87,7 +86,6 @@ class TestSamplePolicy:
     def test_train_range_ordering(self):
         with pytest.raises(ValueError, match="Train range"):
             SamplePolicy(
-                validation_policy_version="v3",
                 validation_window_id="bad",
                 data_start=date(2015, 1, 1),
                 active_train_range=(date(2023, 12, 31), date(2015, 1, 1)),
@@ -97,7 +95,6 @@ class TestSamplePolicy:
     def test_validation_range_ordering(self):
         with pytest.raises(ValueError, match="Validation range"):
             SamplePolicy(
-                validation_policy_version="v3",
                 validation_window_id="bad",
                 data_start=date(2015, 1, 1),
                 active_train_range=(date(2015, 1, 1), date(2023, 12, 31)),
@@ -107,7 +104,6 @@ class TestSamplePolicy:
     def test_holdout_after_validation(self):
         with pytest.raises(ValueError, match="Holdout start"):
             SamplePolicy(
-                validation_policy_version="v3",
                 validation_window_id="bad",
                 data_start=date(2015, 1, 1),
                 active_train_range=(date(2015, 1, 1), date(2023, 12, 31)),
@@ -122,7 +118,6 @@ class TestSamplePolicy:
             end=date(2023, 12, 31),
         )
         policy = SamplePolicy(
-            validation_policy_version="v3",
             validation_window_id="test",
             data_start=date(2015, 1, 1),
             active_train_range=(date(2015, 1, 1), date(2023, 12, 31)),

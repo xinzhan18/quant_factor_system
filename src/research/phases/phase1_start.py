@@ -313,7 +313,6 @@ def freeze_manifest(
     existing_canonicals: Iterable[str],
     manifest_path: str | Path,
     *,
-    sample_policy_version: str = "v3",
     strict: bool = True,
 ) -> FreezeReport:
     """Validate every candidate and atomically write ``manifest.yaml``.
@@ -338,8 +337,6 @@ def freeze_manifest(
         Used for dedup against the library.
     manifest_path
         Where to write the frozen manifest.
-    sample_policy_version
-        Embedded in the manifest so Phase 2 can cross-check.
     strict
         If True (default), any candidate failure or batch_goal failure
         aborts the freeze via :class:`Phase1FreezeError`. If False,
@@ -453,7 +450,6 @@ def freeze_manifest(
         "batch_id": batch_id,
         "direction": direction,
         "batch_goal": batch_goal.strip() if batch_goal else "",
-        "sample_policy_version": sample_policy_version,
         "candidates": manifest_candidates,
     }
 

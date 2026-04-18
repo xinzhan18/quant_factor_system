@@ -1,32 +1,24 @@
 """§7.MT multiple testing budget — Phase 3 pre-pack input.
 
-Core insight (refactor_plan §7.MT): the multiple-testing counters are
-**pure functions of ``storage/batches/``**. There is no persistent
-``batch_usage`` table because git already has all the data — scanning a
-hundred small ``manifest.yaml`` files takes milliseconds, so we never
-cache.
+The multiple-testing counters are **pure functions of
+``storage/batches/``**. There is no persistent ``batch_usage`` table
+because git already has all the data — scanning a hundred small
+``manifest.yaml`` files takes milliseconds, so we never cache.
 
 Two public functions:
 
 * :func:`scan_batches_for_mt` — walk ``batches/batch_*/manifest.yaml``,
-  count judged-only batches, bucket by direction and sample_policy
-  version. Pure function, no I/O besides glob + yaml load.
+  count judged-only batches, bucket by direction. Pure function, no I/O
+  besides glob + yaml load.
 * :func:`compute_mt_budget` — consume those counts plus the current
-  candidate's validation metrics, apply the §7.MT formula (constants
-  from ``config.yaml.thresholds.mt_budget``), return the dict that goes
-  into CP03 ``numeric_hint``.
+  candidate's validation metrics, apply the formula (constants from
+  ``config.yaml.thresholds.mt_budget``), return the dict that goes into
+  CP03 ``numeric_hint``.
 
-The formula itself and its constants are extracted from the legacy
-``research.stats.multiple_testing`` module into the new namespace — we
-do not import from ``research.stats`` (that package is in the R9
-deprecated list).
+Two hard constraints:
 
-Three hard constraints (per refactor_plan §7.MT):
-
-1. **Python algorithm**, LLM cannot override the bucket value
-2. **sample_policy_version bump resets validation_exposure** — the scan
-   only counts batches whose manifest declares the current version
-3. **Judged-only** — scan skips batches without a ``judge.md`` (avoids
+1. **Python algorithm** — LLM cannot override the bucket value
+2. **Judged-only** — scan skips batches without a ``judge.md`` (avoids
    half-finished batches polluting counts)
 """
 
@@ -61,7 +53,6 @@ def scan_batches_for_mt(
     batches_dir: str | Path,
     current_batch_id: str,
     current_direction: str,
-    sample_policy_version: str,
 ) -> MtCounts:
     """Count judged-only historical batches from the ``batches/`` directory.
 
@@ -74,15 +65,12 @@ def scan_batches_for_mt(
         self-correction loops.
     current_direction
         ``direction`` string to match for ``direction_candidates``.
-    sample_policy_version
-        Only batches with this exact version contribute to
-        ``validation_exposure``. Bumping the version in ``config.yaml``
-        effectively resets the budget.
 
     Returns
     -------
     MtCounts
         Counts ready to be passed into :func:`compute_mt_budget`.
+        ``validation_exposure`` counts every judged prior batch.
     """
     root = Path(batches_dir)
     if not root.exists():
@@ -97,10 +85,8 @@ def scan_batches_for_mt(
         batch_dir = manifest_path.parent
         batch_id = batch_dir.name
 
-        # Skip current batch and anything lexicographically after it
         if batch_id >= current_batch_id:
             continue
-        # Judged-only: require judge.md alongside manifest
         if not (batch_dir / "judge.md").exists():
             continue
 
@@ -115,8 +101,7 @@ def scan_batches_for_mt(
 
         if manifest.get("direction") == current_direction:
             per_direction += n_cand
-        if manifest.get("sample_policy_version") == sample_policy_version:
-            exposure += 1
+        exposure += 1
 
     return MtCounts(
         cumulative_candidates=cumulative,

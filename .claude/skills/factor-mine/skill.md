@@ -10,12 +10,12 @@ user_invocable: true
 
 线性 5 阶段循环，每轮产出一个 batch（manifest → result → judge → factor.yaml + commit）。全自主模式运行，不停下来问用户确认（见 CLAUDE.md "Autonomous Mining Mode"）。
 
-**Skill 调度链**：mine 是编排器，按顺序调用 4 个子 skill：
+**Skill 调度链**：mine 是编排器，按顺序调用 3 个子 skill + 1 条裸命令：
 
 ```
 /factor-mine
   ├── Phase 1: 调用 /factor-idea (候选设计 + manifest 冻结)
-  ├── Phase 2: 调用 /factor-execute (纯 Python 向量化计算)
+  ├── Phase 2: 跑 `research execute batch_{N}` (纯 Python, 无 LLM, 不需要 skill)
   ├── Phase 3: 调用 /factor-judge (6 checkpoint 判决)
   ├── Phase 4: Python 归档 + LLM 更新 direction + 后台调用 /factor-report (深度报告 subagent)
   └── Phase 5: (条件触发) 调用 /factor-consolidate (周期性 memory 重写)
@@ -52,33 +52,34 @@ user_invocable: true
 4. Python 验证 + 冻结 → 产出 `batches/batch_{N}/manifest.yaml`
 5. 验证：`state.yaml.current_batch_phase == "designed"`
 
-### Step 3 — 调用 `/factor-execute`（Phase 2 EXECUTE）
-按 `/factor-execute` skill 的流程：
-1. `PYTHONPATH=src python3 -m research execute batch_{N}`
-2. 纯 Python，零 LLM 参与
-3. **Multi-horizon**：对 config.evaluation.horizons（默认 [1, 5, 10]）每个 h 算完整 metrics (IC/mono/Barra/feasibility)
-4. **Multi-universe**：primary (csi1000) 跑 full metrics，reference (csi300/csi500/all) 跑 lite metrics (IC/mono/ls_tstat)
-5. **Holdout 不算**：result.yaml 没有 holdout 字段
-6. 产出 `batches/batch_{N}/result.yaml`
-7. 验证：`state.yaml.current_batch_phase` 推进到 `"judged"`
+### Step 3 — Phase 2 EXECUTE（裸命令，无 LLM）
+
+```bash
+PYTHONPATH=src python3 -m research execute batch_{N}
+```
+
+- 纯 Python 向量化计算，产出 `batches/batch_{N}/result.yaml`（schema 见 `phase2_execute.py`）
+- Holdout 绝不计算（架构硬约束，见 `vault/lessons.md` "No holdout leakage"）
+- Multi-horizon / Multi-universe 行为由 `config.yaml.evaluation` 驱动
+- 验证：`state.yaml.current_batch_phase` 推进到 `"judged"`
+- 单候选异常不中断 batch，该候选仅保留 `compute_error` 字段
 
 ### Step 4 — 调用 `/factor-judge`（Phase 3 JUDGE）
-按 `/factor-judge` skill 的流程：
-1. Python 前置（具体 CLI 命令）：
+按 `/factor-judge` skill 的流程（详见该 skill，此处只列骨架）：
+1. Python 前置：
    ```bash
-   PYTHONPATH=src python3 -m research judge batch_{N} pre-pack
+   PYTHONPATH=src python3 -m research judge batch_{N} pre-hint
    ```
-   这一步自动完成：CP01 hard gates → §7.MT 扫描 → 生成 `_packets/judge_packet.md`
-2. LLM 读 `_packets/judge_packet.md`（**R3 单一输入**）→ 写 `batches/batch_{N}/judge.md`
-   - **judge_packet 里包含 multi-horizon 对比表**（h1/h5/h10），LLM 可以讨论 horizon 差异
-   - **judge_packet 里包含 multi-universe 对比表**（csi300/csi500/all），但 CP01-CP06 只看 primary (csi1000)
-   - **CP03 body 必须引用 `mt_bucket`**
-3. Python 审计：
+   产出 `batches/batch_{N}/_hints.yaml`（hard_gate + MT 计数 + 每候选 mt_budget）
+2. 主 agent 读 `_hints.yaml` + `result.yaml` + `directions/{dir}.md` + `lessons.md`
+3. 主 agent **并行派发 subagents**：每个 candidate_id 一个 `general-purpose` subagent，按 `/factor-judge` 的 "Subagent 调用模板" 注入 prompt，产出 `batches/batch_{N}/candidates/C{id}.md`
+4. 主 agent 汇总 subagent 返回的 verdict，写 `batches/batch_{N}/judge.md`（索引 + 跨候选观察）
+5. Python 批量审计：
    ```bash
    PYTHONPATH=src python3 -m research judge batch_{N} audit
    ```
-4. 如果 audit 失败 → LLM 重写 judge.md → 重新 audit（最多 3 次）
-5. 验证：`judge.md` 通过 audit
+6. audit 失败 → 按违规列表重派对应 subagent（C{id}.md 问题）或主 agent 重写 judge.md；最多 3 轮
+7. 主 agent 更新 `directions/{dir}.md`（Threads evidence trail + Known Failures + Narrative Log）
 
 ### Step 5 — Phase 4 ARCHIVE
 
@@ -102,12 +103,9 @@ user_invocable: true
 - 完成时独立 commit：`[report] F{id} {name} report generated`
 - 失败不阻塞主循环（factor.yaml 已 committed）
 
-**Step 4 — LLM（主，阻塞）：更新 direction.md body**
-- 追加 Narrative Log（本轮总结：admits/rejects/reserves + 关键发现）
-- 更新 thread evidence trail（本 batch 相关的 thread 状态变化）
-- （可能）改 frontmatter 中的 `status`（如 active → exhausted）
-- （可能）改 frontmatter 中的 `priority`
-- Reject 的处理：在 Narrative Log 里一行摘要，完整 reasoning 留在 `judge.md`
+**Step 4 — LLM（阻塞）：更新 direction.md body**
+- LLM 根据 judge.md 判决结果更新 direction.md（Narrative Log / Threads / Known Failures）
+- 具体格式要求和 audit 规则见 `/factor-judge` "Direction Body 更新" 一节
 
 **Step 5 — Python（阻塞）：主 commit**
 - `research commit {batch_id}`

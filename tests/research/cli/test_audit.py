@@ -15,7 +15,6 @@ def _seed_config(paths: StoragePaths) -> None:
     save_yaml(
         paths.config_file,
         {
-            "sample_policy": {"sample_policy_version": "v3"},
             "thresholds": {
                 "mt_budget": {
                     "family_log_base": 600,
@@ -36,7 +35,6 @@ def _seed_batch(
     batch_id: str,
     direction: str,
     n_candidates: int,
-    sample_policy_version: str = "v3",
     with_judge: bool = True,
 ) -> None:
     bdir = paths.batch_dir(batch_id)
@@ -46,7 +44,6 @@ def _seed_batch(
         {
             "batch_id": batch_id,
             "direction": direction,
-            "sample_policy_version": sample_policy_version,
             "candidates": [{"candidate_id": f"C{i:03d}"} for i in range(n_candidates)],
         },
     )
@@ -59,10 +56,10 @@ class TestFormatMtBudgetReport:
         paths = StoragePaths(tmp_path)
         paths.ensure_dirs()
         _seed_config(paths)
-        report = format_mt_budget_report(paths, "v3")
+        report = format_mt_budget_report(paths)
         assert "Cumulative candidates: 0" in report
-        assert "Validation exposure (this policy): 0" in report
-        assert "low" in report  # predicted bucket
+        assert "Validation exposure: 0" in report
+        assert "low" in report
 
     def test_populated_global(self, tmp_path: Path) -> None:
         paths = StoragePaths(tmp_path)
@@ -70,9 +67,9 @@ class TestFormatMtBudgetReport:
         _seed_config(paths)
         _seed_batch(paths, "batch_001", "vol", 5)
         _seed_batch(paths, "batch_002", "mom", 6)
-        report = format_mt_budget_report(paths, "v3")
+        report = format_mt_budget_report(paths)
         assert "Cumulative candidates: 11" in report
-        assert "Validation exposure (this policy): 2" in report
+        assert "Validation exposure: 2" in report
 
     def test_direction_scoped(self, tmp_path: Path) -> None:
         paths = StoragePaths(tmp_path)
@@ -81,7 +78,7 @@ class TestFormatMtBudgetReport:
         _seed_batch(paths, "batch_001", "vol", 5)
         _seed_batch(paths, "batch_002", "mom", 6)
         _seed_batch(paths, "batch_003", "vol", 4)
-        report = format_mt_budget_report(paths, "v3", direction="vol")
+        report = format_mt_budget_report(paths, direction="vol")
         assert "direction=vol" in report
         assert "Cumulative candidates (all directions): 15" in report
         assert "Direction candidates: 9" in report

@@ -42,7 +42,7 @@ from research.archive.factor_writer import (
 from research.archive.python_archiver import archive_python_factor
 from research.archive.report_packer import (
     ReportPacketInputs,
-    extract_judge_synthesis,
+    extract_candidate_synthesis,
     write_report_packet,
 )
 from research.memory.direction_updater import update_direction_frontmatter
@@ -59,6 +59,17 @@ from research.storage.yaml_io import load_yaml, load_yaml_unsafe
 # a plain Python function. The "sandbox" aspect (one input, one output,
 # no DB/Qlib) is enforced by the caller layer, not this module.
 ReportCallback = Callable[[str, Path, Path], None]
+
+# Chart builder callback signature:
+#
+#   chart_builder(factor_id, assets_dir) -> list[str]
+#
+# Runs the heavy Qlib/DB computation (ReportDataBuilder.save_for_vault)
+# that produces ``vault/factors/F{id}/report_data.json`` + PNG charts.
+# Returns the list of chart basenames (no extension) for packet embedding.
+# Injection point: production wires it to :class:`report.builder.ReportDataBuilder`;
+# tests pass ``None`` to skip chart generation entirely.
+ChartBuilderCallback = Callable[[str, Path], list[str]]
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +97,14 @@ class Phase4Inputs:
     """Optional Phase 4 Step 3 subagent dispatch. If None, report packets
     are still written but factor.md is not — useful for tests and for
     running Phase 4 without the report layer (e.g. during bootstrap)."""
+
+    chart_builder: ChartBuilderCallback | None = None
+    """Optional Phase 4 Step 2 heavy-compute hook. When provided, runs
+    ReportDataBuilder to produce ``vault/factors/F{id}/report_data.json``
+    + PNG charts. The returned chart list is embedded in the packet so
+    the subagent knows which images are safe to wikilink. Any exception
+    is logged and treated as "no charts" — the main archive commit must
+    not be blocked by chart-generation failure."""
 
 
 @dataclass
@@ -155,6 +174,90 @@ def _sanitize_name(name: str) -> str:
     return s.strip("_") or "factor"
 
 
+# Retention policy: admits permanent, non-admits keep current + 2 prior batches.
+DIAGNOSTICS_RETENTION_BATCHES = 3
+
+
+def _admitted_ids_for_batch(paths: StoragePaths, batch_id: str) -> set[str]:
+    """Return candidate IDs admitted in a batch by reading its judge.md.
+
+    Returns ``set()`` for batches without a judge.md (e.g. not yet
+    judged) — nothing is deleted in that case. This is conservative by
+    design: missing evidence → keep data.
+    """
+    try:
+        judge_path = paths.batch_judge_file(batch_id)
+        if not judge_path.exists():
+            return set()
+        fm = _parse_judge_frontmatter(judge_path)
+    except Exception:  # noqa: BLE001 — never block archive on retention
+        return set()
+    return {
+        c.get("candidate_id", "")
+        for c in (fm.get("candidates") or [])
+        if c.get("verdict") == "admit"
+    }
+
+
+def _prune_non_admit_diagnostics(
+    paths: StoragePaths,
+    current_batch_id: str,
+    retention: int = DIAGNOSTICS_RETENTION_BATCHES,
+) -> list[Path]:
+    """Delete non-admit candidate diagnostics older than ``retention`` batches.
+
+    Sorts batch dirs lexicographically (assumes ``batch_NNN`` monotone
+    pad-3 IDs) and deletes every non-admit candidate subdir in batches
+    strictly older than the last ``retention`` batches ending at
+    ``current_batch_id``. Admitted candidates are never deleted.
+
+    Returns the list of deleted directories for audit logging.
+    """
+    import shutil
+
+    root = paths.batch_diagnostics_root
+    if not root.exists():
+        return []
+
+    all_batches = sorted(
+        [p.name for p in root.iterdir() if p.is_dir() and p.name.startswith("batch_")]
+    )
+    if not all_batches:
+        return []
+
+    # Keep the last `retention` batches up to and including current_batch_id.
+    # Anything older is eligible for non-admit pruning.
+    if current_batch_id in all_batches:
+        cutoff_idx = all_batches.index(current_batch_id) - retention + 1
+    else:
+        cutoff_idx = len(all_batches) - retention + 1
+    eligible = all_batches[:cutoff_idx] if cutoff_idx > 0 else []
+
+    deleted: list[Path] = []
+    for batch_id in eligible:
+        batch_diag_dir = paths.batch_diagnostics_dir(batch_id)
+        if not batch_diag_dir.exists():
+            continue
+        admitted_ids = _admitted_ids_for_batch(paths, batch_id)
+        for cand_dir in list(batch_diag_dir.iterdir()):
+            if not cand_dir.is_dir():
+                continue
+            if cand_dir.name in admitted_ids:
+                continue
+            try:
+                shutil.rmtree(cand_dir)
+                deleted.append(cand_dir)
+            except OSError as exc:
+                logger.warning("phase4: failed to prune %s: %s", cand_dir, exc)
+        # If the whole batch dir is empty (all candidates pruned), remove it
+        try:
+            if not any(batch_diag_dir.iterdir()):
+                batch_diag_dir.rmdir()
+        except OSError:
+            pass
+    return deleted
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
@@ -195,7 +298,6 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
 
     archived: list[AllocatedFactor] = []
     py_archives: list[Path] = []
-    sample_policy_version = result.get("sample_policy_version", "v3")
 
     for admit in admits:
         cid = admit["candidate_id"]
@@ -208,7 +310,6 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
             manifest_entry=manifest_entry,
             batch_id=inputs.batch_id,
             direction=inputs.direction,
-            sample_policy_version=sample_policy_version,
         )
         archived.append(allocated)
 
@@ -224,26 +325,37 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
                 )
                 py_archives.append(dst)
 
-    # --- Step 3: report packets + optional subagent dispatch ---
+    # --- Step 2b: heavy-compute charts + Step 3 packet + optional subagent ---
     report_packets: list[Path] = []
     factor_md_paths: list[Path] = []
-    # Read the full judge.md body once so we can slice per-candidate
-    # synthesis sections.
-    judge_body = judge_path.read_text(encoding="utf-8")
     for a in archived:
+        # --- Chart generation (ReportDataBuilder) ---
+        # Runs BEFORE packet write so the chart list can be embedded.
+        # Must never block the main commit — any failure → empty list.
+        available_charts: list[str] = []
+        if inputs.chart_builder is not None:
+            assets_dir = paths.factor_assets_dir(a.factor_id)
+            try:
+                available_charts = list(
+                    inputs.chart_builder(a.factor_id, assets_dir) or []
+                )
+            except Exception as exc:
+                logger.warning(
+                    "phase4: chart_builder failed for %s: %s — "
+                    "packet will list no charts",
+                    a.factor_id, exc,
+                )
+
         packet_path = batch_dir / "_packets" / f"report_packet_{a.factor_id}.md"
-        # Find the original candidate_id for this factor by scanning admits
-        admit_entry = next(
-            (c for c in admits if c.get("candidate_id")),
-            None,
-        )
         # Match admit entry by same index (admits list is ordered the
         # same way we iterated in the allocation loop above, so this
         # lines up positionally)
         idx = archived.index(a)
         admit_entry = admits[idx] if idx < len(admits) else {}
-        synthesis = extract_judge_synthesis(
-            judge_body, admit_entry.get("candidate_id", "")
+        synthesis = extract_candidate_synthesis(
+            paths.batch_candidate_md_file(
+                inputs.batch_id, admit_entry.get("candidate_id", "")
+            )
         )
         packet_text = write_report_packet(
             ReportPacketInputs(
@@ -253,6 +365,7 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
                 direction_excerpt=inputs.direction_excerpt,
                 judge_synthesis=synthesis,
                 admitted_in_batch=inputs.batch_id,
+                available_charts=available_charts,
             ),
             packet_path,
         )
@@ -306,6 +419,14 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
         )
         staged = stage_files(inputs.repo_root, files_to_stage)
         commit_result = create_commit(inputs.repo_root, message, staged)
+
+    # --- Diagnostics retention: admits permanent, non-admits keep 3 batches ---
+    pruned = _prune_non_admit_diagnostics(paths, inputs.batch_id)
+    if pruned:
+        logger.info(
+            "phase4: pruned %d non-admit diagnostic dirs under batch_diagnostics/",
+            len(pruned),
+        )
 
     # --- Finish batch (clears current_batch, increments round) ---
     state_file.finish_batch()

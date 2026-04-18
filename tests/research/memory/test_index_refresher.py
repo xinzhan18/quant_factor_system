@@ -109,6 +109,34 @@ class TestPriorityColumn:
         assert "Priority" in text
 
 
+class TestThreadsColumn:
+    def test_active_threads_counted(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        d = paths.direction_file("cov")
+        d.write_text(
+            "---\ndirection_id: cov\nstatus: exploring\npriority: high\n"
+            "rounds: 2\nadmits: 1\nlast_batch: batch_006\nmembers: [F007]\n---\n"
+            "\n# cov\n\n## Threads\n\n"
+            "### T001: question [◉ ACTIVE]\n"
+            "### T002: answered [✓ ANSWERED batch_005]\n"
+            "### T003: another [◉ ACTIVE]\n",
+            encoding="utf-8",
+        )
+        rows = collect_direction_stats(paths.directions_dir)
+        assert len(rows) == 1
+        assert rows[0]["active_threads"] == 2
+
+    def test_render_includes_threads_column(self) -> None:
+        rows = [{
+            "direction_id": "cov", "status": "exploring",
+            "priority": "high", "rounds": 2, "admits": 1,
+            "last_batch": "batch_006", "active_threads": 2,
+        }]
+        text = render_auto_section(rows, total_admitted=1, round_counter=6, last_consolidation_round=None)
+        assert "Threads" in text
+        assert "| 2 |" in text
+
+
 class TestRefreshIndex:
     def test_creates_skeleton_when_missing(self, tmp_path: Path) -> None:
         paths = _bootstrap(tmp_path)

@@ -10,24 +10,6 @@ import pandas as pd
 from .constants import TRADING_DAYS_PER_YEAR
 
 
-def ic_summary_from_series(daily_ics: pd.Series) -> dict:
-    """Compute IC summary statistics from a daily IC series.
-
-    Returns dict with keys: ic_mean, ic_std, ic_ir, ic_win_rate.
-    """
-    if daily_ics.empty:
-        return {"ic_mean": np.nan, "ic_std": np.nan, "ic_ir": np.nan, "ic_win_rate": np.nan}
-    arr = daily_ics.values.astype(float)
-    valid = arr[~np.isnan(arr)]
-    if len(valid) == 0:
-        return {"ic_mean": np.nan, "ic_std": np.nan, "ic_ir": np.nan, "ic_win_rate": np.nan}
-    ic_mean = float(np.mean(valid))
-    ic_std = float(np.std(valid, ddof=1)) if len(valid) > 1 else np.nan
-    ic_ir = float(ic_mean / ic_std) if ic_std and ic_std > 0 else np.nan
-    ic_win_rate = float(np.sum(valid > 0) / len(valid))
-    return {"ic_mean": ic_mean, "ic_std": ic_std, "ic_ir": ic_ir, "ic_win_rate": ic_win_rate}
-
-
 def annualize_return(daily_returns: pd.Series) -> float:
     """Annualize the mean of daily returns."""
     if daily_returns.empty:
@@ -68,16 +50,6 @@ def calmar_ratio(ann_ret: float, max_dd: float) -> float:
     if np.isnan(ann_ret) or np.isnan(max_dd) or max_dd == 0:
         return np.nan
     return float(ann_ret / abs(max_dd))
-
-
-def win_rate(series: pd.Series) -> float:
-    """Compute fraction of positive values in a series."""
-    if series.empty:
-        return np.nan
-    valid = series.dropna()
-    if len(valid) == 0:
-        return np.nan
-    return float((valid > 0).sum() / len(valid))
 
 
 def sortino_ratio(daily_returns: pd.Series) -> float:

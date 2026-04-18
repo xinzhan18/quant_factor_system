@@ -8,8 +8,10 @@ import pandas as pd
 import pytest
 import yaml
 
+from core.factor_stats import multiindex_to_flat
+
 from research.compute.vectorized_redundancy import (
-    batch_dedup,
+    compute_incremental_ic,
     compute_pairwise_redundancy,
 )
 
@@ -89,34 +91,28 @@ class TestComputePairwiseRedundancy:
         assert result["nearest_factor_id"] == result_df["nearest_factor_id"]
 
 
-class TestBatchDedup:
-    def test_detects_self_duplicate(
+class TestComputeIncrementalIC:
+    def test_returns_none_for_empty_library(
+        self, candidate_signal: pd.DataFrame
+    ) -> None:
+        # Construct a minimal returns frame aligned with candidate
+        cand_flat = multiindex_to_flat(candidate_signal)
+        ret_flat = cand_flat.copy()
+        ret_flat["value"] = 0.001  # trivial constant returns
+        assert compute_incremental_ic(cand_flat, ret_flat, {}) is None
+
+    def test_runs_over_library(
         self,
         candidate_signal: pd.DataFrame,
         library_signals: dict[str, pd.DataFrame],
     ) -> None:
-        # Candidate and library_F001 are identical in the fixture
-        # (F001 is a copy of the candidate)
-        candidates = {
-            "C001": candidate_signal,
-            "C002": library_signals["F001"],
+        cand_flat = multiindex_to_flat(candidate_signal)
+        # Build synthetic forward-returns correlated with the candidate
+        ret_flat = cand_flat.copy()
+        ret_flat["value"] = cand_flat["value"] * 0.01 + 0.0005
+        lib_flat = {
+            fid: multiindex_to_flat(df) for fid, df in library_signals.items()
         }
-        pairs = batch_dedup(candidates, threshold=0.9)
-        assert len(pairs) == 1
-        id_a, id_b, corr = pairs[0]
-        assert {id_a, id_b} == {"C001", "C002"}
-        assert corr >= 0.99
-
-    def test_no_duplicates_below_threshold(
-        self,
-        library_signals: dict[str, pd.DataFrame],
-    ) -> None:
-        # F001 / F002 / F003 have correlations 1.0 / 0.56 / 0.005 with
-        # the candidate, but pairwise with each other they should be
-        # mostly independent. Threshold 0.9 → only F001↔F001 duplicates.
-        candidates = {
-            "CA": library_signals["F002"],
-            "CB": library_signals["F003"],
-        }
-        pairs = batch_dedup(candidates, threshold=0.9)
-        assert pairs == []
+        result = compute_incremental_ic(cand_flat, ret_flat, lib_flat)
+        # Returns either None (degenerate) or a finite float
+        assert result is None or isinstance(result, float)

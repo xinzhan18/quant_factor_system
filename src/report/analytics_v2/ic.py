@@ -1,4 +1,7 @@
-"""IC section extractor — pull IC fields from a result.yaml candidate entry."""
+"""IC section extractor — schema v3.
+
+Reads from ``candidate["ic"]`` produced by Phase 2 orchestrator.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +10,8 @@ from typing import Any
 
 def extract_ic_section(candidate: dict[str, Any]) -> dict[str, Any]:
     """Return the IC metrics block for a report."""
-    es = candidate.get("effect_strength") or {}
+    ic = candidate.get("ic") or {}
     return {
-        "train": es.get("train") or {},
-        "validation": es.get("validation") or {},
+        "train": ic.get("train") or {},
+        "validation": ic.get("validation") or {},
     }

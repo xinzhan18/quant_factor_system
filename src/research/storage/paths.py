@@ -132,8 +132,19 @@ class StoragePaths:
         return self.batch_signals_dir(batch_id) / f"{candidate_id}.parquet"
 
     def batch_packets_dir(self, batch_id: str) -> Path:
-        """Scratch dir for LLM pre-pack packets. Cleaned after each batch."""
+        """Scratch dir for report packets (Phase 4). Cleaned after each batch."""
         return self.batch_dir(batch_id) / "_packets"
+
+    def batch_hints_file(self, batch_id: str) -> Path:
+        """Phase 3 Python-only hints: hard_gate results + MT counts + per-candidate mt_budget."""
+        return self.batch_dir(batch_id) / "_hints.yaml"
+
+    def batch_candidates_dir(self, batch_id: str) -> Path:
+        """Per-candidate judge markdown files (one per candidate_id)."""
+        return self.batch_dir(batch_id) / "candidates"
+
+    def batch_candidate_md_file(self, batch_id: str, candidate_id: str) -> Path:
+        return self.batch_candidates_dir(batch_id) / f"{candidate_id}.md"
 
     # ------------------------------------------------------------------
     # Cache
@@ -157,6 +168,20 @@ class StoragePaths:
 
     def factor_value_cache_file(self, key: str) -> Path:
         return self.factor_values_cache_dir / f"{key}.parquet"
+
+    # Per-candidate diagnostic arrays (Q1..Qn daily, IC daily, long-short daily)
+    # — lives under cache/ so it's regenerable; pruned by retention policy.
+    @property
+    def batch_diagnostics_root(self) -> Path:
+        return self.cache_dir / "batch_diagnostics"
+
+    def batch_diagnostics_dir(self, batch_id: str) -> Path:
+        return self.batch_diagnostics_root / batch_id
+
+    def candidate_diagnostics_dir(
+        self, batch_id: str, candidate_id: str
+    ) -> Path:
+        return self.batch_diagnostics_dir(batch_id) / candidate_id
 
     # ------------------------------------------------------------------
     # Python factors (admitted, source-of-truth implementation)

@@ -65,8 +65,7 @@ from research.feasibility.concentration import (  # noqa: E402
 from research.feasibility.liquidity import compute_liquidity_coverage  # noqa: E402
 from research.feasibility.proxy_portfolio import build_proxy_portfolio  # noqa: E402
 from research.feasibility.stress import (  # noqa: E402
-    compute_half_life,
-    compute_holding_period_proxy,
+    compute_signal_half_life,
     compute_rebalance_stress,
 )
 from research.redundancy.pairwise import compute_pairwise_redundancy  # noqa: E402
@@ -258,7 +257,7 @@ def _compute_effect_strength(panel: dict[str, Any]) -> dict[str, Any]:
     train_stats = ic_summary(ic_train)
     val_stats = ic_summary(ic_val)
 
-    qret_val, daily_ls_val = quintile_returns(
+    qret_val, daily_ls_val, _ = quintile_returns(
         fv_val, fr_val, n_quantiles=5, min_obs=30
     )
     mono_val = monotonicity(qret_val)
@@ -333,7 +332,6 @@ def _compute_stability(panel: dict[str, Any]) -> dict[str, Any]:
             "dispersion": float(split["dispersion"])
             if not pd.isna(split["dispersion"])
             else None,
-            "bucket": split["bucket"],
             "n_splits": int(split["n_splits"]),
         },
         "support_windows": {
@@ -384,11 +382,8 @@ def _compute_feasibility(panel: dict[str, Any]) -> dict[str, Any]:
     small_cap = compute_small_cap_concentration(
         proxy.abs_weights, panel["cap_mi"], pct=0.30
     )
-    half_life = compute_half_life(panel["candidate_mi"], max_lag=20)
-    holding_bucket = compute_holding_period_proxy(half_life)
-    stress = compute_rebalance_stress(
-        turnover_mean, tail, liquidity
-    )
+    half_life = compute_signal_half_life(panel["candidate_mi"], max_lag=20)
+    stress = compute_rebalance_stress(turnover_mean, tail, liquidity)
 
     return {
         "turnover_mean": turnover_mean,
@@ -396,10 +391,8 @@ def _compute_feasibility(panel: dict[str, Any]) -> dict[str, Any]:
         "tail_concentration": float(tail),
         "small_cap_concentration": float(small_cap),
         "half_life": float(half_life),
-        "holding_period": holding_bucket,
         "rebalance_stress": {
-            "proxy": float(stress["rebalance_stress_proxy"]),
-            "bucket": stress["rebalance_stress_bucket"],
+            "proxy": float(stress),
         },
     }
 

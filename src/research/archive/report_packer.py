@@ -49,7 +49,7 @@ layer, not by this module):
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,11 @@ class ReportPacketInputs:
     """Optional one-liner about the nearest library factor (for uniqueness)."""
 
     admitted_in_batch: str = ""
+
+    available_charts: list[str] = field(default_factory=list)
+    """Chart basenames (no ``.png``) produced by ReportDataBuilder in
+    ``vault/factors/F{id}/``. The subagent must embed only charts from
+    this whitelist — any image not listed here does not exist on disk."""
 
 
 def _format_yaml_block(data: dict[str, Any]) -> str:
@@ -139,6 +144,28 @@ def build_report_packet(inputs: ReportPacketInputs) -> str:
         parts.append(inputs.nearest_factor_summary.strip())
         parts.append("")
 
+    if inputs.available_charts:
+        parts.append("## Available Charts")
+        parts.append("")
+        parts.append(
+            "The following PNG charts exist in `vault/factors/"
+            f"{factor_id}/` and may be embedded via "
+            f"`![[{factor_id}/<name>.png]]`. **Do not embed any chart "
+            "name that is not on this list** — the file would not exist."
+        )
+        parts.append("")
+        for chart in inputs.available_charts:
+            parts.append(f"- `{chart}`")
+        parts.append("")
+    else:
+        parts.append("## Available Charts")
+        parts.append("")
+        parts.append(
+            "_No charts generated (ReportDataBuilder did not run or failed). "
+            "Write a text-only report — do not include any `![[...png]]` embeds._"
+        )
+        parts.append("")
+
     parts.append("## Instructions")
     parts.append("")
     parts.append(
@@ -146,7 +173,9 @@ def build_report_packet(inputs: ReportPacketInputs) -> str:
         "economic mechanism, the validation evidence, the risk cleanness, "
         "and the library positioning. Use only the information in this "
         "packet — do not open other files, call Qlib, or reach the DB. "
-        "Output path: `vault/factors/{factor_id}.md`."
+        "Embed only charts listed in the **Available Charts** section "
+        "(skip any section whose chart is unavailable). "
+        f"Output path: `vault/factors/{factor_id}.md`."
     )
     parts.append("")
 
@@ -164,18 +193,14 @@ def write_report_packet(
     return text
 
 
-def extract_judge_synthesis(judge_md_text: str, candidate_id: str) -> str:
-    """Pull the ``## C{id}`` H2 section out of a judge.md body.
+def extract_candidate_synthesis(candidate_md_path: str | Path) -> str:
+    """Read the full ``candidates/C{id}.md`` file as the judge synthesis.
 
-    Useful as a helper when Phase 4 builds the report packet — we don't
-    want to re-parse the full audit layer just to extract one section.
-    Returns "" if not found.
+    Phase 4 injects this text into ``report_packet_F{id}.md`` so the factor
+    report subagent can quote the judge's CP reasoning. Returns the raw file
+    contents (frontmatter + body); empty string if file is missing.
     """
-    # Match the H2 line containing the candidate id and capture to next H2/EOF
-    pattern = re.compile(
-        rf"(^##\s+[^\n]*\b{re.escape(candidate_id)}\b[^\n]*\n.*?)"
-        r"(?=^##\s+|\Z)",
-        re.MULTILINE | re.DOTALL,
-    )
-    m = pattern.search(judge_md_text)
-    return m.group(1).strip() if m else ""
+    p = Path(candidate_md_path)
+    if not p.exists():
+        return ""
+    return p.read_text(encoding="utf-8").strip()

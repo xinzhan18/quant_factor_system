@@ -1,12 +1,11 @@
 # Research system configuration — single source of truth
-# Schema per refactor_plan.md §10. All skills / CLI / pipeline read from here.
+# All skills / CLI / pipeline read from here.
 # Edited by hand (rare). Phase 5 consolidation may touch thresholds.
 
 universe: csi1000
 qlib_data_dir: ~/.qlib/qlib_data/cn_data_1d
 
 sample_policy:
-  sample_policy_version: v3
   train_range: [2015-01-01, 2021-12-31]
   validation_range: [2022-01-01, 2023-12-31]
   holdout_range: [2024-01-01, 2024-12-31]   # Phase 2/3 never see this
@@ -30,6 +29,11 @@ preprocess:
   neutralize: false                 # keep off — CP04 Barra residual does post-hoc check
 
 thresholds:
+  # CP01 Hard Gates
+  hard_gates:
+    min_coverage: 0.80
+    min_oos_decay: 0.20        # OOS IC / IS IC ratio — below = total signal collapse
+    min_ic_oos: 0.008          # |IC_OOS| minimum — below = noise
   # CP03 Statistical Strength
   icir_strong: 0.30
   icir_weak: 0.15

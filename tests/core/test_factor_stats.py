@@ -188,30 +188,34 @@ class TestQuintileReturns:
     def test_basic(self):
         factor_df = _make_flat(n_dates=50, n_symbols=200)
         returns_df = _make_returns(factor_df, ic_target=0.5)
-        q_rets, ls_rets = quintile_returns(factor_df, returns_df)
+        q_rets, ls_rets, per_q_daily = quintile_returns(factor_df, returns_df)
         assert len(q_rets) == 5
         assert "q1" in q_rets and "q5" in q_rets
         assert len(ls_rets) > 0
+        assert list(per_q_daily.columns) == [f"q{i + 1}" for i in range(5)]
+        assert per_q_daily.index.name == "datetime"
 
     def test_empty(self):
         empty = pd.DataFrame(columns=["time", "symbol", "value"])
-        q_rets, ls_rets = quintile_returns(empty, empty)
+        q_rets, ls_rets, per_q_daily = quintile_returns(empty, empty)
         assert len(q_rets) == 5
         assert all(np.isnan(v) for v in q_rets.values())
+        assert per_q_daily.empty
 
     def test_custom_quantiles(self):
         factor_df = _make_flat(n_dates=50, n_symbols=200)
         returns_df = _make_returns(factor_df)
-        q_rets, ls_rets = quintile_returns(
+        q_rets, ls_rets, per_q_daily = quintile_returns(
             factor_df, returns_df, n_quantiles=10
         )
         assert len(q_rets) == 10
+        assert list(per_q_daily.columns) == [f"q{i + 1}" for i in range(10)]
 
     def test_monotonic_with_strong_signal(self):
         """With strong positive IC, Q5 should beat Q1."""
         factor_df = _make_flat(n_dates=50, n_symbols=200)
         returns_df = _make_returns(factor_df, ic_target=2.0, seed=42)
-        q_rets, _ = quintile_returns(factor_df, returns_df)
+        q_rets, _, _ = quintile_returns(factor_df, returns_df)
         # With very strong signal, expect Q5 > Q1
         assert q_rets["q5"] > q_rets["q1"]
 

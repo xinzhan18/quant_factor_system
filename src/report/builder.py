@@ -31,6 +31,8 @@ from report.analytics.uniqueness import UniquenessAnalyzer
 from report.scorer import CompositeScorer
 from report.data_prep import merge_factor_price
 from report.charts.theme import PNG_WIDTH, PNG_HEIGHT, PNG_SCALE
+from research.compute.cache import FactorValueCache
+from research.storage.paths import StoragePaths
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +54,15 @@ class ReportDataBuilder:
         """Run full 6-analyzer computation pipeline, return report_data dict.
 
         Args:
-            vault_dir: If set, export charts as PNG into vault_dir/assets/FXXX/.
+            vault_dir: If set, export charts as PNG into ``vault_dir/factors/FXXX/``
+                       (colocated with ``F{id}.yaml`` / ``F{id}.md``).
                        Charts dict values become relative paths (for Obsidian embeds).
                        If None, charts are inline HTML (legacy mode).
         """
         t0_total = time.perf_counter()
 
         if vault_dir:
-            self._vault_assets_dir = os.path.join(vault_dir, "assets", f"F{self.factor_id}")
+            self._vault_assets_dir = os.path.join(vault_dir, "factors", f"F{self.factor_id}")
             os.makedirs(self._vault_assets_dir, exist_ok=True)
 
         # ---- Load metadata + main data (sequential: each depends on previous) ----
@@ -68,8 +71,11 @@ class ReportDataBuilder:
         logger.info("[TIMING] load_factor_metadata: %.2fs", time.perf_counter() - t0)
 
         t0 = time.perf_counter()
-        factor_df, price_df = self._load_data_from_db(meta["expression"])
-        logger.info("[TIMING] load_data_from_db (Qlib eval + DB price): %.2fs", time.perf_counter() - t0)
+        factor_df, price_df = self._load_data_from_cache(meta["expression"])
+        logger.info(
+            "[TIMING] load_data_from_cache (parquet reads): %.2fs",
+            time.perf_counter() - t0,
+        )
 
         split_date = pd.Timestamp(self.config.test_start)
         name = meta.get("name", "")
@@ -289,59 +295,117 @@ class ReportDataBuilder:
             f"Factor {self.factor_id!r} not found in vault or factor_meta table"
         )
 
-    def _load_data_from_db(self, expression: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Compute factor values via Qlib and load price data from DB.
+    def _load_data_from_cache(
+        self, expression: str
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Load factor values + price from caches — no Qlib, no DB.
 
-        Args:
-            expression: Qlib expression string for the factor.
+        Factor values come from ``FactorValueCache`` (hit by sha256(expr)).
+        Prices come from ``storage/cache/market_daily.parquet`` (built by
+        ``data_bridge.load_market_data``; the 1-day forward return column
+        is inverted to derive close prices only where needed for charts).
 
-        Returns:
-            Tuple of (factor_df[time, symbol, value], price_df[time, symbol, close]).
+        If either cache is cold, we fall through to a one-off Qlib call
+        as a safety net — but log a warning so the user can warm the cache
+        by running a Phase 2 batch first.
+        """
+        paths = StoragePaths("storage")
+        cache = FactorValueCache(paths.factor_values_cache_dir)
+        key = cache.make_key(expression)
+        cached = cache.get(key)
+
+        start = pd.Timestamp(self.config.train_start)
+        end = pd.Timestamp(self.config.test_end)
+
+        if cached is not None:
+            df = cached.reset_index()
+            # cached DF has (datetime, instrument) index
+            if "datetime" in df.columns:
+                df = df.rename(columns={"datetime": "time", "instrument": "symbol"})
+            factor_df = df[["time", "symbol", "value"]]
+            factor_df = factor_df[
+                (factor_df["time"] >= start) & (factor_df["time"] <= end)
+            ]
+            factor_df = factor_df.dropna(subset=["value"]).reset_index(drop=True)
+        else:
+            logger.warning(
+                "factor cache miss for %s — falling back to Qlib", expression
+            )
+            factor_df = self._qlib_fallback_factor(expression, start, end)
+
+        price_df = self._load_price_from_cache(paths, start, end)
+        if price_df.empty:
+            raise ValueError(
+                f"No price data in {paths.market_daily_cache} for {start}..{end}"
+            )
+        symbols = set(factor_df["symbol"].unique().tolist())
+        price_df = price_df[price_df["symbol"].isin(symbols)].reset_index(drop=True)
+
+        return factor_df, price_df
+
+    @staticmethod
+    def _load_price_from_cache(
+        paths: StoragePaths, start: pd.Timestamp, end: pd.Timestamp
+    ) -> pd.DataFrame:
+        """Derive close prices from the cached market_daily parquet.
+
+        The parquet stores forward returns (returns_1d = close_{t+1}/close_t - 1)
+        plus amount/market_cap. We reconstruct a closing-price-like series by
+        cumulatively unwinding returns_1d per symbol. For chart purposes
+        (rebased curves), any monotone scaling of close is fine.
+        """
+        if not paths.market_daily_cache.exists():
+            return pd.DataFrame(columns=["time", "symbol", "close"])
+
+        raw = pd.read_parquet(paths.market_daily_cache)
+        if isinstance(raw.index, pd.MultiIndex):
+            raw = raw.reset_index()
+        raw = raw.rename(columns={"datetime": "time", "instrument": "symbol"})
+        ret_col = next(
+            (c for c in ("returns_1d", "$close", "close") if c in raw.columns),
+            None,
+        )
+        if ret_col is None:
+            return pd.DataFrame(columns=["time", "symbol", "close"])
+        raw["time"] = pd.to_datetime(raw["time"])
+        raw = raw[(raw["time"] >= start) & (raw["time"] <= end)].copy()
+
+        if ret_col == "returns_1d":
+            # returns_1d is the forward 1-day return. Cumulative-prod gives
+            # a close-proxy that's up to a constant multiple of true close.
+            raw = raw.sort_values(["symbol", "time"])
+            raw["close"] = (
+                (1.0 + raw["returns_1d"].fillna(0)).groupby(raw["symbol"]).cumprod()
+            )
+            return raw[["time", "symbol", "close"]].reset_index(drop=True)
+
+        return raw[["time", "symbol", ret_col]].rename(columns={ret_col: "close"})
+
+    def _qlib_fallback_factor(
+        self, expression: str, start: pd.Timestamp, end: pd.Timestamp
+    ) -> pd.DataFrame:
+        """Last-resort Qlib evaluation when the cache is cold.
+
+        Kept as a safety net so a report can still be generated on a fresh
+        checkout. Normal flow: Phase 2 runs first → cache populated →
+        reports are pure parquet reads.
         """
         self._ensure_qlib_initialized()
         from qlib.data import D
 
         instruments = D.instruments("all")
-        start = self.config.train_start
-        end = self.config.test_end
-
         factor_qlib = D.features(
             instruments=instruments,
             fields=[expression],
-            start_time=start,
-            end_time=end,
+            start_time=str(start.date()),
+            end_time=str(end.date()),
         )
         if factor_qlib.empty:
             raise ValueError(f"Qlib returned no data for expression={expression!r}")
-
-        # Flatten MultiIndex (instrument, datetime) -> [time, symbol, value]
-        factor_df = factor_qlib.iloc[:, [0]].reset_index()
-        factor_df.columns = ["symbol", "time", "value"]
-        factor_df = factor_df[["time", "symbol", "value"]]
-        factor_df["time"] = pd.to_datetime(factor_df["time"])
-        factor_df = factor_df.dropna(subset=["value"])
-
-        # Load price data from market_daily
-        import psycopg2
-        try:
-            conn = psycopg2.connect(self.config.system.database.connection_string)
-        except psycopg2.Error as exc:
-            raise RuntimeError(f"Failed to connect to database: {exc}") from exc
-        try:
-            symbols = factor_df["symbol"].unique().tolist()
-            price_sql = (
-                "SELECT symbol, time, close FROM market_daily "
-                "WHERE symbol = ANY(%s) AND time BETWEEN %s AND %s"
-            )
-            price_df = pd.read_sql(price_sql, conn, params=[symbols, start, end])
-            if price_df.empty:
-                raise ValueError(
-                    f"No price data for {len(symbols)} symbols in {start}..{end}"
-                )
-            price_df["time"] = pd.to_datetime(price_df["time"])
-            return factor_df, price_df
-        finally:
-            conn.close()
+        df = factor_qlib.iloc[:, [0]].reset_index()
+        df.columns = ["symbol", "time", "value"]
+        df["time"] = pd.to_datetime(df["time"])
+        return df.dropna(subset=["value"])[["time", "symbol", "value"]]
 
     def _load_style_factors(self, symbols: list[str]) -> dict[str, pd.DataFrame]:
         """Load market_cap, pb_ratio, pe_ratio from Qlib for risk attribution.
@@ -384,95 +448,48 @@ class ReportDataBuilder:
     def _load_library_factors(
         self, target_symbols: list[str] | None = None
     ) -> dict[str, pd.DataFrame]:
-        """Load factor values for admitted library members (except self) from DB.
+        """Load admitted library factors from the expression cache (no DB).
 
-        Reads from factor_values table where admitted values are pre-stored,
-        avoiding repeated Qlib expression evaluations.
+        Uses :func:`research.compute.data_bridge.load_library_signals` which
+        hits ``FactorValueCache`` keyed on ``sha256(expression)``. Cache
+        misses are computed once across the full date window (Phase 2
+        also shares this cache, so the first batch warms it and every
+        subsequent report reads from parquet).
 
-        Uses a 2-year window and an optional symbol sample to keep the query
-        manageable (full-universe × 10-year = ~185M rows is prohibitively slow).
-
-        Args:
-            target_symbols: Optional list of symbols from the target factor. When
-                provided, only this subset is loaded from DB (correlation estimates
-                from a 1000-stock sample are accurate to ±0.02).
-
-        Returns:
-            Dict mapping factor_id -> DataFrame[time, symbol, value].
+        The self factor is filtered out because correlation against self
+        is always 1.0 and degrades the top-5 display.
         """
-        import psycopg2
-        try:
-            conn = psycopg2.connect(self.config.system.database.connection_string)
-        except psycopg2.Error as exc:
-            logger.warning("Failed to connect to DB for library factors: %s", exc)
-            return {}
+        from research.compute.data_bridge import load_library_signals
+
+        paths = StoragePaths("storage")
+
+        corr_window_start = (
+            pd.Timestamp(self.config.test_end) - pd.DateOffset(years=2)
+        ).strftime("%Y-%m-%d")
 
         try:
-            # Get admitted factor IDs (excluding self)
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT factor_id FROM factor_meta "
-                    "WHERE factor_id != %s AND status = 'admitted'",
-                    (self.factor_id,),
-                )
-                factor_ids = [r[0] for r in cur.fetchall()]
-
-            if not factor_ids:
-                return {}
-
-            # Use last 2 years only — cross-sectional rank correlations are stable over time.
-            corr_window_start = (
-                pd.Timestamp(self.config.test_end) - pd.DateOffset(years=2)
-            ).strftime("%Y-%m-%d")
-
-            # Sample up to 1000 symbols from the target factor for the query.
-            # Spearman cross-sectional correlation estimated on 1000 stocks is
-            # accurate to ±0.02 vs full universe — sufficient for the 0.7 threshold.
-            _MAX_CORR_SYMBOLS = 200
-            if target_symbols and len(target_symbols) > _MAX_CORR_SYMBOLS:
-                import numpy as np
-                rng = np.random.RandomState(42)
-                sample_syms = rng.choice(target_symbols, size=_MAX_CORR_SYMBOLS, replace=False).tolist()
-            else:
-                sample_syms = target_symbols or []
-
-            # Batch-load all library factor values in one query (date + symbol bounded)
-            factor_names = [f"factor_{fid}" for fid in factor_ids]
-            placeholders = ",".join(["%s"] * len(factor_names))
-            if sample_syms:
-                sql = (
-                    f"SELECT factor_name, time, symbol, value FROM factor_values "
-                    f"WHERE factor_name IN ({placeholders}) "
-                    f"AND time BETWEEN %s AND %s "
-                    f"AND symbol = ANY(%s)"
-                )
-                params = factor_names + [corr_window_start, self.config.test_end, sample_syms]
-            else:
-                sql = (
-                    f"SELECT factor_name, time, symbol, value FROM factor_values "
-                    f"WHERE factor_name IN ({placeholders}) "
-                    f"AND time BETWEEN %s AND %s"
-                )
-                params = factor_names + [corr_window_start, self.config.test_end]
-            all_df = pd.read_sql(sql, conn, params=params)
+            raw = load_library_signals(
+                paths,
+                start=corr_window_start,
+                end=str(self.config.test_end),
+            )
         except Exception as exc:
-            logger.warning("Failed to load library factors from DB: %s", exc)
-            return {}
-        finally:
-            conn.close()
-
-        if all_df.empty:
+            logger.warning("Failed to load library factors from cache: %s", exc)
             return {}
 
-        all_df["time"] = pd.to_datetime(all_df["time"])
-        all_df = all_df.dropna(subset=["value"])
-
-        name_to_id = {f"factor_{fid}": fid for fid in factor_ids}
-        result = {}
-        for fname, grp in all_df.groupby("factor_name"):
-            fid = name_to_id.get(fname)
-            if fid:
-                result[fid] = grp[["time", "symbol", "value"]].reset_index(drop=True)
+        result: dict[str, pd.DataFrame] = {}
+        for fid, mi_df in raw.items():
+            if fid == f"F{self.factor_id}" or fid == self.factor_id:
+                continue
+            flat = mi_df.reset_index()
+            flat = flat.rename(
+                columns={"datetime": "time", "instrument": "symbol"}
+            )
+            flat = flat[["time", "symbol", "value"]].dropna(subset=["value"])
+            if target_symbols:
+                flat = flat[flat["symbol"].isin(set(target_symbols))]
+            if not flat.empty:
+                result[fid] = flat.reset_index(drop=True)
         return result
 
     # ---- Chart output (PNG for vault, HTML for legacy) ----
@@ -520,10 +537,11 @@ class ReportDataBuilder:
             vault_dir: Path to the Obsidian vault root.
 
         Returns:
-            Path to the report_data.json file.
+            Path to the report_data.json file (lives in ``vault/factors/F{id}/``
+            alongside the generated PNG charts).
         """
         data = self.build(vault_dir=vault_dir)
-        json_dir = os.path.join(vault_dir, "assets", f"F{self.factor_id}")
+        json_dir = os.path.join(vault_dir, "factors", f"F{self.factor_id}")
         os.makedirs(json_dir, exist_ok=True)
         json_path = os.path.join(json_dir, "report_data.json")
         with open(json_path, "w", encoding="utf-8") as f:

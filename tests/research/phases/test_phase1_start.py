@@ -178,7 +178,6 @@ class TestFreezeManifest:
         loaded = load_yaml(manifest_path)
         assert loaded["batch_id"] == "batch_test"
         assert loaded["direction"] == "volatility"
-        assert loaded["sample_policy_version"] == "v3"
         assert len(loaded["candidates"]) == 2
         # canonical captured for DSL candidates
         assert loaded["candidates"][0]["canonical"]

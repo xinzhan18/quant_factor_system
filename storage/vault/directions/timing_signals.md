@@ -55,7 +55,7 @@ IdxMax 和 IdxMin 算子返回"过去 N 天内极值发生在哪一天"——这
 _(empty — first batch)_
 
 ## Related
-- [[../factors/F005]] — IdxMax(上影线,20)×(-5日ret) 已证明 timing 方向可行
+- [[factors/F005]] — IdxMax(上影线,20)×(-5日ret) 已证明 timing 方向可行
 - [[../lessons#Prior Signal Space Knowledge]] — "Timing signals (IdxMax/IdxMin based)" listed as promising
 
 ## Narrative Log

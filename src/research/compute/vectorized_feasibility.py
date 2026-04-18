@@ -18,11 +18,14 @@ Pipeline:
    time-averaged.
 4. :func:`compute_small_cap_concentration` — fraction of weight in
    small-caps (market cap ≤ 30th pct), time-averaged.
-5. :func:`compute_half_life` — first lag where mean autocorrelation
-   drops below 0.5.
-6. :func:`compute_holding_period_proxy` — half-life → short/medium/long
-   bucket label.
-7. :func:`compute_rebalance_stress` — ``turnover × tail / max(lcr, 0.10)``.
+5. :func:`compute_signal_half_life` — first lag where mean signal
+   autocorrelation drops below 0.5. **Distinct from IC-decay half-life**
+   (``research.compute.vectorized_ic.compute_ic_half_life``) — this is a
+   persistence measure of the raw signal, not of its forward IC.
+6. :func:`compute_signal_autocorr_lag1` — lag-1 cross-sectional factor
+   autocorrelation, exposed as a standalone metric for the judge packet.
+7. :func:`compute_rebalance_stress` — raw ``turnover × tail / max(lcr, 0.10)``
+   scalar. The judge LLM, not Python, interprets it — no bucket label.
 
 All functions consume MultiIndex(datetime, instrument) DataFrames with a
 single value column, matching the legacy feasibility API so golden tests
@@ -35,6 +38,8 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+
+from core.factor_stats import factor_autocorrelation, multiindex_to_flat
 
 
 # ---------------------------------------------------------------------------
@@ -302,19 +307,18 @@ def compute_small_cap_concentration(
 # ---------------------------------------------------------------------------
 
 
-def compute_half_life(signal: pd.DataFrame, *, max_lag: int = 20) -> float:
-    """Estimate signal half-life from mean autocorrelation decay.
+def compute_signal_half_life(signal: pd.DataFrame, *, max_lag: int = 20) -> float:
+    """Estimate **signal** half-life from mean autocorrelation decay.
 
     For each instrument, compute per-lag autocorrelation of the signal.
     Average across instruments per lag; the half-life is the first lag
     where mean autocorrelation drops below 0.5, or ``max_lag`` if it
     never does.
 
-    The legacy implementation had a per-instrument for-loop; we keep the
-    same structure here because per-symbol ACF must handle variable
-    valid-day sets. The inner operation is a fixed ``max_lag`` numpy
-    corrcoef, which is cheap enough that vectorizing across symbols is
-    not worth the bookkeeping.
+    Naming note: this is the *signal* persistence half-life (a property
+    of the factor time-series itself). The *IC-decay* half-life (a
+    property of the factor's forward-return relationship) lives in
+    ``research.compute.vectorized_ic.compute_ic_half_life``.
     """
     col = signal.columns[0]
     acf_by_lag: dict[int, list[float]] = {lag: [] for lag in range(1, max_lag + 1)}
@@ -342,13 +346,29 @@ def compute_half_life(signal: pd.DataFrame, *, max_lag: int = 20) -> float:
     return float(max_lag)
 
 
-def compute_holding_period_proxy(half_life: float) -> str:
-    """Map half-life to ``short`` / ``medium`` / ``long``."""
-    if half_life <= 3:
-        return "short"
-    if half_life <= 10:
-        return "medium"
-    return "long"
+def compute_signal_autocorr_lag1(
+    signal: pd.DataFrame, *, max_dates: int = 50, min_obs: int = 10
+) -> float | None:
+    """Mean cross-sectional lag-1 factor autocorrelation.
+
+    Delegates to ``core.factor_stats.factor_autocorrelation`` with
+    ``lags=[1]`` and returns the single scalar. ``None`` when the input
+    is too sparse to compute.
+    """
+    if signal is None or signal.empty:
+        return None
+    flat = multiindex_to_flat(signal)
+    if flat.empty:
+        return None
+    out = factor_autocorrelation(
+        flat, lags=[1], min_obs=min_obs, max_dates=max_dates
+    )
+    if not out:
+        return None
+    corr = out[0].get("corr")
+    if corr is None or not np.isfinite(corr):
+        return None
+    return round(float(corr), 6)
 
 
 # ---------------------------------------------------------------------------
@@ -360,19 +380,7 @@ def compute_rebalance_stress(
     turnover: float,
     tail_concentration: float,
     liquidity_coverage_ratio: float,
-) -> dict:
-    """``stress = turnover × tail_concentration / max(lcr, 0.10)``."""
+) -> float:
+    """Raw rebalance-stress scalar ``turnover × tail / max(lcr, 0.10)``."""
     lcr_safe = max(liquidity_coverage_ratio, 0.10)
-    stress = turnover * tail_concentration / lcr_safe
-
-    if stress < 0.20:
-        bucket = "low"
-    elif stress <= 0.50:
-        bucket = "medium"
-    else:
-        bucket = "high"
-
-    return {
-        "rebalance_stress_proxy": float(stress),
-        "rebalance_stress_bucket": bucket,
-    }
+    return float(turnover * tail_concentration / lcr_safe)

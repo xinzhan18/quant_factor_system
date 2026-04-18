@@ -1,15 +1,13 @@
 """Factor writer — allocate ``F{id}`` and persist ``vault/factors/F{id}.yaml``.
 
-Allocation rule (Q39 fix):
+Allocation rule:
 
-* F{id} is monotonically increasing. The next id is ``max(existing) + 1``,
-  or ``F020`` when the vault is empty (preserves "new system starts at
-  F020 per refactor_plan R6).
+* F{id} is monotonically increasing. The next id is ``max(existing) + 1``.
 * Existing file detection scans ``vault/factors/F*.yaml`` — ids never
-  reused even after retirement (Q39 regression prevention).
+  reused even after retirement.
 * The write is atomic (temp + replace) via ``yaml_io.save_yaml``.
 
-The factor.yaml frontmatter schema (refactor_plan §8):
+The factor.yaml frontmatter schema:
 
 .. code-block:: yaml
 
@@ -22,7 +20,6 @@ The factor.yaml frontmatter schema (refactor_plan §8):
     admitted_at: 2026-04-12T10:30:00Z
     admitted_in_batch: batch_103
     status: active
-    sample_policy_version: v3
     signal_ref: batches/batch_103/signals/C001.parquet
     direction: fundamental_price_divergence
     mechanism: "..."
@@ -101,7 +98,6 @@ def build_factor_record(
     manifest_entry: dict[str, Any],
     batch_id: str,
     direction: str,
-    sample_policy_version: str,
 ) -> dict[str, Any]:
     """Compose the ``factor.yaml`` frontmatter dict from inputs.
 
@@ -115,19 +111,18 @@ def build_factor_record(
     manifest_entry
         The candidate dict from ``manifest.yaml["candidates"]`` (has
         the expression / python path that the result dict may not).
-    batch_id, direction, sample_policy_version
+    batch_id, direction
         Context keys.
     """
     source_type = admit_entry.get("source_type") or manifest_entry.get("source_type", "dsl")
     record: dict[str, Any] = {
         "factor_id": factor_id,
         "name": admit_entry.get("name") or manifest_entry.get("name") or factor_id,
-        "family_tag": direction,  # family is a string tag on the factor now
+        "family_tag": direction,
         "source_type": source_type,
         "admitted_at": _now_iso(),
         "admitted_in_batch": batch_id,
         "status": "active",
-        "sample_policy_version": sample_policy_version,
         "signal_ref": f"batches/{batch_id}/signals/{admit_entry.get('candidate_id', '?')}.parquet",
         "direction": direction,
     }
@@ -142,18 +137,15 @@ def build_factor_record(
         record["python_path"] = manifest_entry.get("path") or admit_entry.get("path")
 
     # Attach a compact validation snapshot for Phase 4 reporting
-    es = admit_entry.get("effect_strength") or {}
-    val = es.get("validation") or {}
+    ic = admit_entry.get("ic") or {}
+    val = ic.get("validation") or {}
+    q_val = (admit_entry.get("quintile") or {}).get("validation") or {}
     record["validation_metrics"] = {
         "ic_mean": val.get("ic_mean"),
         "ic_ir": val.get("ic_ir"),
         "ic_win_rate": val.get("ic_win_rate"),
-        "monotonicity": (admit_entry.get("quintile") or {}).get(
-            "monotonicity_validation"
-        ),
-        "long_short_mean": (admit_entry.get("quintile") or {}).get(
-            "long_short_mean_validation"
-        ),
+        "monotonicity": q_val.get("monotonicity"),
+        "long_short_mean": q_val.get("ls_mean"),
     }
     record["risk_metrics"] = {
         "style_r_squared": (admit_entry.get("barra") or {}).get("style_r_squared"),
@@ -192,7 +184,6 @@ def allocate_and_write_factor(
     manifest_entry: dict[str, Any],
     batch_id: str,
     direction: str,
-    sample_policy_version: str,
 ) -> AllocatedFactor:
     """Allocate a fresh id and write the factor.yaml in one call.
 
@@ -205,7 +196,6 @@ def allocate_and_write_factor(
         manifest_entry=manifest_entry,
         batch_id=batch_id,
         direction=direction,
-        sample_policy_version=sample_policy_version,
     )
     yaml_path = write_factor_yaml(factors_dir, record)
     return AllocatedFactor(

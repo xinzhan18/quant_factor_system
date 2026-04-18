@@ -48,10 +48,16 @@ Rewritten periodically by Phase 5 CONSOLIDATION. Do NOT append per-batch lessons
 
 - **No market-cap shortcut**: Factors strongly correlated (`|corr| > 0.3`) with `$market_cap` or `$circ_market_cap` are rejected — these are size-factor proxies, not alpha.
 - **No holdout leakage**: Phase 2 / Phase 3 code must never read 2024 data. Holdout is physically isolated in `storage/_holdout_private/`.
-- **Vectorization (R5)**: No `for` loop over rows / dates / symbols. Use `groupby` / broadcasting / `einsum` / `np.linalg.pinv`.
+- **Vectorization (R5)**: No `for` loop over rows / dates / symbols. Use `groupby` / broadcasting / `einsum` / `np.linalg.pinv`. Also forbidden: `groupby.transform` (implicit for-loop over dates). Pattern: long → wide pivot → row-level numpy ops on `(n_dates × n_symbols)` matrix → wide → long.
 - **Barra residual baseline**: Factor alpha is measured AFTER removing Barra style exposures, not before. `style_r²` and `alpha_survival` are the relevant metrics for CP04 Risk Cleanness.
 - **Redundancy guardrail (CP05)**: Reject if `max_lib_corr > 0.70` against an already-admitted factor.
 - **Sample policy versioning**: Upgrading `sample_policy_version` in `config.yaml` (e.g., `v3 → v4`) resets the `validation_exposure` counter in §7.MT multiple testing budget. Do not upgrade lightly.
+
+## Metric Semantics (disambiguation traps)
+
+- **`ic.half_life_days`** — **IC decay** half-life. Fitted from multi-horizon train IC curve, unit = holding horizon days. Answers: how fast does alpha decay as holding period extends?
+- **`feasibility.signal_half_life`** — **signal autocorrelation** half-life. Per-symbol signal ACF dropping to 0.5 at first lag, unit = trading days. Answers: how sticky is the signal itself?
+- **Not interchangeable**. Legacy single-name `half_life` field is deprecated.
 
 ## Prior Signal Space Knowledge (from legacy library, for reference only)
 

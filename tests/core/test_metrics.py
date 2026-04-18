@@ -6,51 +6,13 @@ import pandas as pd
 import pytest
 
 from core.metrics import (
-    ic_summary_from_series,
     annualize_return,
     annualize_volatility,
     sharpe_ratio,
     max_drawdown,
     calmar_ratio,
-    win_rate,
 )
 from core.constants import TRADING_DAYS_PER_YEAR
-
-
-# ── ic_summary_from_series ──
-
-
-class TestICSummary:
-    def test_normal(self):
-        ics = pd.Series([0.05, -0.02, 0.03, 0.01, -0.01])
-        result = ic_summary_from_series(ics)
-        assert result["ic_mean"] == pytest.approx(0.012, abs=1e-6)
-        assert result["ic_std"] > 0
-        assert result["ic_ir"] == pytest.approx(result["ic_mean"] / result["ic_std"])
-        assert result["ic_win_rate"] == pytest.approx(3 / 5)
-
-    def test_empty(self):
-        result = ic_summary_from_series(pd.Series(dtype=float))
-        assert math.isnan(result["ic_mean"])
-        assert math.isnan(result["ic_std"])
-        assert math.isnan(result["ic_ir"])
-        assert math.isnan(result["ic_win_rate"])
-
-    def test_all_nan(self):
-        result = ic_summary_from_series(pd.Series([np.nan, np.nan]))
-        assert math.isnan(result["ic_mean"])
-
-    def test_single_value(self):
-        result = ic_summary_from_series(pd.Series([0.05]))
-        assert result["ic_mean"] == pytest.approx(0.05)
-        assert math.isnan(result["ic_std"])  # ddof=1 with n=1
-
-    def test_zero_std(self):
-        result = ic_summary_from_series(pd.Series([0.0, 0.0, 0.0]))
-        assert result["ic_mean"] == 0.0
-        assert result["ic_std"] == 0.0
-        assert math.isnan(result["ic_ir"])
-        assert result["ic_win_rate"] == 0.0
 
 
 # ── annualize_return ──
@@ -130,24 +92,6 @@ class TestCalmarRatio:
     def test_nan_inputs(self):
         assert math.isnan(calmar_ratio(np.nan, -0.1))
         assert math.isnan(calmar_ratio(0.1, np.nan))
-
-
-# ── win_rate ──
-
-
-class TestWinRate:
-    def test_normal(self):
-        s = pd.Series([0.01, -0.02, 0.03, 0.0, -0.01])
-        assert win_rate(s) == pytest.approx(2 / 5)
-
-    def test_empty(self):
-        assert math.isnan(win_rate(pd.Series(dtype=float)))
-
-    def test_all_nan(self):
-        assert math.isnan(win_rate(pd.Series([np.nan, np.nan])))
-
-    def test_all_positive(self):
-        assert win_rate(pd.Series([0.01, 0.02, 0.03])) == pytest.approx(1.0)
 
 
 # ── sortino_ratio ──

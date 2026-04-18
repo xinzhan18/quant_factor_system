@@ -24,12 +24,14 @@ def _candidate(**overrides: Any) -> dict[str, Any]:
         "candidate_id": "C001",
         "source_type": "dsl",
         "expression": "Std($close, 20)",
-        "effect_strength": {
+        "ic": {
             "validation": {"ic_mean": 0.016, "ic_ir": 0.338, "ic_win_rate": 0.6}
         },
         "quintile": {
-            "monotonicity_validation": 0.95,
-            "long_short_mean_validation": 0.007,
+            "validation": {
+                "monotonicity": 0.95,
+                "ls_mean": 0.007,
+            },
         },
         "barra": {"style_r_squared": 0.08, "alpha_survival_ratio": 0.81},
     }
@@ -92,7 +94,6 @@ class TestBuildFactorRecord:
             manifest_entry=_manifest_entry(),
             batch_id="batch_001",
             direction="volatility",
-            sample_policy_version="v3",
         )
         assert rec["factor_id"] == "F001"
         assert rec["family_tag"] == "volatility"
@@ -113,7 +114,6 @@ class TestBuildFactorRecord:
             ),
             batch_id="batch_001",
             direction="structural",
-            sample_policy_version="v3",
         )
         assert rec["source_type"] == "python"
         assert rec["python_path"].endswith("C001.py")
@@ -122,7 +122,7 @@ class TestBuildFactorRecord:
 class TestWriteFactorYaml:
     def test_writes_and_reads_back(self, tmp_path: Path) -> None:
         rec = build_factor_record(
-            "F001", _candidate(), _manifest_entry(), "batch_001", "vol", "v3"
+            "F001", _candidate(), _manifest_entry(), "batch_001", "vol"
         )
         path = write_factor_yaml(tmp_path / "factors", rec)
         assert path.exists()
@@ -135,7 +135,7 @@ class TestWriteFactorYaml:
         (d / "F001.yaml").write_text("existing")
 
         rec = build_factor_record(
-            "F001", _candidate(), _manifest_entry(), "batch_001", "vol", "v3"
+            "F001", _candidate(), _manifest_entry(), "batch_001", "vol"
         )
         with pytest.raises(FactorAllocationError, match="already exists"):
             write_factor_yaml(d, rec)
@@ -149,7 +149,6 @@ class TestAllocateAndWrite:
             manifest_entry=_manifest_entry(),
             batch_id="batch_001",
             direction="vol",
-            sample_policy_version="v3",
         )
         assert allocated.factor_id == "F001"
         assert allocated.yaml_path.exists()
@@ -162,7 +161,6 @@ class TestAllocateAndWrite:
             manifest_entry=_manifest_entry(candidate_id="C001"),
             batch_id="batch_001",
             direction="vol",
-            sample_policy_version="v3",
         )
         a2 = allocate_and_write_factor(
             factors_dir=tmp_path / "factors",
@@ -170,7 +168,6 @@ class TestAllocateAndWrite:
             manifest_entry=_manifest_entry(candidate_id="C002"),
             batch_id="batch_001",
             direction="vol",
-            sample_policy_version="v3",
         )
         assert a1.factor_id == "F001"
         assert a2.factor_id == "F002"

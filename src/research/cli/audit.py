@@ -28,7 +28,6 @@ def _load_mt_config(paths: StoragePaths) -> MtBudgetConfig:
 
 def format_mt_budget_report(
     paths: StoragePaths,
-    sample_policy_version: str,
     direction: str | None = None,
 ) -> str:
     """Render a human-readable ``mt-budget`` summary.
@@ -48,13 +47,12 @@ def format_mt_budget_report(
             paths.batches_dir,
             current_batch_id="zzz_not_a_real_batch",
             current_direction="<global>",
-            sample_policy_version=sample_policy_version,
         )
         hint = compute_mt_budget(counts, cfg)
-        lines.append(f"# Multiple-Testing Budget ({sample_policy_version})")
+        lines.append("# Multiple-Testing Budget")
         lines.append("")
         lines.append(f"- Cumulative candidates: {counts.cumulative_candidates}")
-        lines.append(f"- Validation exposure (this policy): {counts.validation_exposure}")
+        lines.append(f"- Validation exposure: {counts.validation_exposure}")
         lines.append(f"- Batches scanned: {counts.n_batches_scanned}")
         lines.append("")
         lines.append(
@@ -67,16 +65,13 @@ def format_mt_budget_report(
         paths.batches_dir,
         current_batch_id="zzz_not_a_real_batch",
         current_direction=direction,
-        sample_policy_version=sample_policy_version,
     )
     hint = compute_mt_budget(counts, cfg)
-    lines.append(
-        f"# Multiple-Testing Budget — direction={direction} ({sample_policy_version})"
-    )
+    lines.append(f"# Multiple-Testing Budget — direction={direction}")
     lines.append("")
     lines.append(f"- Cumulative candidates (all directions): {counts.cumulative_candidates}")
     lines.append(f"- Direction candidates: {counts.direction_candidates}")
-    lines.append(f"- Validation exposure (this policy): {counts.validation_exposure}")
+    lines.append(f"- Validation exposure: {counts.validation_exposure}")
     lines.append(f"- Batches scanned: {counts.n_batches_scanned}")
     lines.append("")
     lines.append(
@@ -110,12 +105,4 @@ def register_audit_subcommand(subparsers: argparse._SubParsersAction) -> None:
 def _run_mt_budget(args: argparse.Namespace) -> None:
     storage_root = Path(getattr(args, "storage_root", "storage"))
     paths = StoragePaths(storage_root)
-    cfg = load_yaml(paths.config_file) or {}
-    sample_policy_version = (
-        (cfg.get("sample_policy") or {}).get("sample_policy_version", "v3")
-    )
-    print(
-        format_mt_budget_report(
-            paths, sample_policy_version, direction=args.direction
-        )
-    )
+    print(format_mt_budget_report(paths, direction=args.direction))

@@ -11,7 +11,7 @@ import yaml
 from research.archive.report_packer import (
     ReportPacketInputs,
     build_report_packet,
-    extract_judge_synthesis,
+    extract_candidate_synthesis,
     write_report_packet,
 )
 
@@ -91,6 +91,23 @@ class TestBuildReportPacket:
         assert "python_path" in text
         assert "F020_triple_product.py" in text
 
+    def test_available_charts_listed(self) -> None:
+        text = build_report_packet(
+            _inputs(available_charts=["ic_timeseries", "quintile_bar"])
+        )
+        assert "## Available Charts" in text
+        assert "- `ic_timeseries`" in text
+        assert "- `quintile_bar`" in text
+        # Whitelist warning is present in the section body
+        assert "Do not embed any chart name that is not on this list" in text
+
+    def test_empty_available_charts_warns_no_embeds(self) -> None:
+        text = build_report_packet(_inputs(available_charts=[]))
+        assert "## Available Charts" in text
+        assert "No charts generated" in text
+        # Instructions must steer the subagent toward text-only output
+        assert "do not include any `![[...png]]` embeds" in text
+
 
 class TestWriteReportPacket:
     def test_writes_to_disk(self, tmp_path: Path) -> None:
@@ -100,20 +117,17 @@ class TestWriteReportPacket:
         assert out.read_text(encoding="utf-8") == text
 
 
-class TestExtractJudgeSynthesis:
-    def test_extracts_h2_section(self) -> None:
-        body = (
-            "## C001 — ADMIT\n\n"
-            "### CP01\nok\n\n"
-            "### CP03\nstrong, mt_bucket=medium\n\n"
-            "## C002 — REJECT\n\n"
-            "### CP01\nfailed\n"
+class TestExtractCandidateSynthesis:
+    def test_reads_full_candidate_md(self, tmp_path: Path) -> None:
+        p = tmp_path / "C001.md"
+        p.write_text(
+            "---\ncandidate_id: C001\nverdict: admit\n---\n\n"
+            "## CP03\nstrong, mt_bucket=medium, search_adjusted=0.41\n",
+            encoding="utf-8",
         )
-        section = extract_judge_synthesis(body, "C001")
-        assert "## C001" in section
-        assert "mt_bucket=medium" in section
-        assert "C002" not in section
+        text = extract_candidate_synthesis(p)
+        assert "candidate_id: C001" in text
+        assert "mt_bucket=medium" in text
 
-    def test_missing_returns_empty(self) -> None:
-        body = "# Just a title\n\n## C999\ncontent"
-        assert extract_judge_synthesis(body, "C042") == ""
+    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
+        assert extract_candidate_synthesis(tmp_path / "nope.md") == ""

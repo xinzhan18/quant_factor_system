@@ -31,28 +31,18 @@ def sample_df() -> pd.DataFrame:
 
 class TestMakeKey:
     def test_deterministic(self) -> None:
-        k1 = FactorValueCache.make_key("Std($close,20)", "v3", "p1")
-        k2 = FactorValueCache.make_key("Std($close,20)", "v3", "p1")
+        k1 = FactorValueCache.make_key("Std($close,20)")
+        k2 = FactorValueCache.make_key("Std($close,20)")
         assert k1 == k2
 
     def test_length_16_hex(self) -> None:
-        k = FactorValueCache.make_key("Std($close,20)", "v3", "p1")
+        k = FactorValueCache.make_key("Std($close,20)")
         assert len(k) == 16
         assert all(c in "0123456789abcdef" for c in k)
 
     def test_expression_changes_key(self) -> None:
-        k1 = FactorValueCache.make_key("Std($close,20)", "v3", "p1")
-        k2 = FactorValueCache.make_key("Std($close,30)", "v3", "p1")
-        assert k1 != k2
-
-    def test_sample_policy_version_changes_key(self) -> None:
-        k1 = FactorValueCache.make_key("Std($close,20)", "v3", "p1")
-        k2 = FactorValueCache.make_key("Std($close,20)", "v4", "p1")
-        assert k1 != k2
-
-    def test_preprocess_version_changes_key(self) -> None:
-        k1 = FactorValueCache.make_key("Std($close,20)", "v3", "p1")
-        k2 = FactorValueCache.make_key("Std($close,20)", "v3", "p2")
+        k1 = FactorValueCache.make_key("Std($close,20)")
+        k2 = FactorValueCache.make_key("Std($close,30)")
         assert k1 != k2
 
 
@@ -66,7 +56,7 @@ class TestCrud:
     def test_put_get_roundtrip(
         self, cache: FactorValueCache, sample_df: pd.DataFrame
     ) -> None:
-        key = FactorValueCache.make_key("Std($close,20)", "v3", "p1")
+        key = FactorValueCache.make_key("Std($close,20)")
         cache.put(key, sample_df)
         loaded = cache.get(key)
         assert loaded is not None
@@ -75,7 +65,7 @@ class TestCrud:
     def test_contains_after_put(
         self, cache: FactorValueCache, sample_df: pd.DataFrame
     ) -> None:
-        key = FactorValueCache.make_key("X", "v", "p")
+        key = FactorValueCache.make_key("X")
         assert cache.contains(key) is False
         cache.put(key, sample_df)
         assert cache.contains(key) is True
@@ -83,7 +73,7 @@ class TestCrud:
     def test_invalidate_existing(
         self, cache: FactorValueCache, sample_df: pd.DataFrame
     ) -> None:
-        key = FactorValueCache.make_key("X", "v", "p")
+        key = FactorValueCache.make_key("X")
         cache.put(key, sample_df)
         assert cache.invalidate(key) is True
         assert cache.get(key) is None
@@ -95,7 +85,7 @@ class TestCrud:
         self, cache: FactorValueCache, sample_df: pd.DataFrame
     ) -> None:
         for i in range(3):
-            cache.put(FactorValueCache.make_key(f"X{i}", "v", "p"), sample_df)
+            cache.put(FactorValueCache.make_key(f"X{i}"), sample_df)
         assert cache.size() == 3
         assert cache.clear() == 3
         assert cache.size() == 0
@@ -104,9 +94,9 @@ class TestCrud:
         self, cache: FactorValueCache, sample_df: pd.DataFrame
     ) -> None:
         assert cache.size() == 0
-        cache.put(FactorValueCache.make_key("A", "v", "p"), sample_df)
+        cache.put(FactorValueCache.make_key("A"), sample_df)
         assert cache.size() == 1
-        cache.put(FactorValueCache.make_key("B", "v", "p"), sample_df)
+        cache.put(FactorValueCache.make_key("B"), sample_df)
         assert cache.size() == 2
 
 
@@ -116,7 +106,7 @@ class TestAtomicWrite:
         cache: FactorValueCache,
         sample_df: pd.DataFrame,
     ) -> None:
-        key = FactorValueCache.make_key("X", "v", "p")
+        key = FactorValueCache.make_key("X")
         cache.put(key, sample_df)
         leftover = list(cache.cache_dir.glob("*.tmp"))
         assert leftover == []
@@ -126,7 +116,7 @@ class TestAtomicWrite:
         cache: FactorValueCache,
         sample_df: pd.DataFrame,
     ) -> None:
-        key = FactorValueCache.make_key("X", "v", "p")
+        key = FactorValueCache.make_key("X")
         cache.put(key, sample_df)
         df2 = sample_df * 10
         cache.put(key, df2)
@@ -141,3 +131,32 @@ class TestCacheDir:
         FactorValueCache(target)
         assert target.exists()
         assert target.is_dir()
+
+
+class TestGetSlice:
+    def test_miss_returns_none(self, cache: FactorValueCache) -> None:
+        out = cache.get_slice("missingkey", "2024-01-01", "2024-12-31")
+        assert out is None
+
+    def test_full_window_put_then_slice(
+        self, cache: FactorValueCache, sample_df: pd.DataFrame
+    ) -> None:
+        key = FactorValueCache.make_key("Std($close,20)")
+        cache.put(key, sample_df)
+        out = cache.get_slice(key, "2024-01-02", "2024-01-02")
+        assert out is not None
+        assert len(out) == 2  # both symbols on 2024-01-02
+        out_full = cache.get_slice(key, "2024-01-02", "2024-01-03")
+        pd.testing.assert_frame_equal(out_full, sample_df)
+
+    def test_empty_slice_is_not_miss(
+        self, cache: FactorValueCache, sample_df: pd.DataFrame
+    ) -> None:
+        """A valid cache hit with an empty window slice returns an empty
+        DataFrame, NOT None — callers distinguish 'no data in window'
+        from 'cache miss'."""
+        key = FactorValueCache.make_key("Std($close,20)")
+        cache.put(key, sample_df)
+        out = cache.get_slice(key, "2099-01-01", "2099-12-31")
+        assert out is not None
+        assert out.empty

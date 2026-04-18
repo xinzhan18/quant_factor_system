@@ -38,13 +38,18 @@ _FRONTMATTER_RE = re.compile(
 )
 
 
-def _read_direction_frontmatter(path: Path) -> dict[str, Any]:
+def _read_direction_frontmatter_and_body(path: Path) -> tuple[dict[str, Any], str]:
     text = path.read_text(encoding="utf-8")
     m = _FRONTMATTER_RE.match(text)
     if not m:
-        return {}
+        return {}, text
     fm = yaml.safe_load(m.group("fm"))
-    return fm if isinstance(fm, dict) else {}
+    return (fm if isinstance(fm, dict) else {}), m.group("body")
+
+
+def _count_active_threads(body: str) -> int:
+    """Count threads marked [◉ ACTIVE] in the body."""
+    return len(re.findall(r"\[◉ ACTIVE\]", body))
 
 
 def collect_direction_stats(directions_dir: str | Path) -> list[dict[str, Any]]:
@@ -54,7 +59,7 @@ def collect_direction_stats(directions_dir: str | Path) -> list[dict[str, Any]]:
     if not p.exists():
         return rows
     for md in sorted(p.glob("*.md")):
-        fm = _read_direction_frontmatter(md)
+        fm, body = _read_direction_frontmatter_and_body(md)
         if not fm:
             continue
         rows.append(
@@ -65,6 +70,7 @@ def collect_direction_stats(directions_dir: str | Path) -> list[dict[str, Any]]:
                 "rounds": int(fm.get("rounds", 0)),
                 "admits": int(fm.get("admits", 0)),
                 "last_batch": fm.get("last_batch") or "—",
+                "active_threads": _count_active_threads(body),
             }
         )
     return rows
@@ -87,10 +93,10 @@ def render_auto_section(
     lines = [BEGIN_SENTINEL, ""]
 
     # Direction table
-    lines.append("| Direction | Status | Priority | Rounds | Admits | Last batch |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| Direction | Status | Priority | Rounds | Admits | Threads | Last batch |")
+    lines.append("|---|---|---|---|---|---|---|")
     if not direction_rows:
-        lines.append("| _no directions yet_ | — | — | 0 | 0 | — |")
+        lines.append("| _no directions yet_ | — | — | 0 | 0 | 0 | — |")
     else:
         for r in direction_rows:
             lines.append(
@@ -102,6 +108,7 @@ def render_auto_section(
                         str(r.get("priority", "medium")),
                         str(r["rounds"]),
                         str(r["admits"]),
+                        str(r.get("active_threads", 0)),
                         str(r["last_batch"]),
                     ]
                 )

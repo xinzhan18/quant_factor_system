@@ -4,9 +4,8 @@ Subcommands map to the 5-phase architecture + utility commands:
 
     research mine [--once] [--direction TAG] [--dsl-only]
     research execute BATCH_ID
-    research judge BATCH_ID
-    research judge pre-pack BATCH_ID
-    research judge audit BATCH_ID
+    research judge BATCH_ID pre-hint
+    research judge BATCH_ID audit
     research archive BATCH_ID
     research consolidate [--target TARGET] [--dry-run]
     research commit BATCH_ID
@@ -47,8 +46,8 @@ def main() -> None:
     judge_p = sub.add_parser("judge", help="Phase 3 — checkpoint judge")
     judge_p.add_argument("batch_id", nargs="?", default=None)
     judge_p.add_argument("judge_sub", nargs="?", default=None,
-                         choices=["pre-pack", "audit"],
-                         help="Sub-step: pre-pack or audit")
+                         choices=["pre-hint", "audit"],
+                         help="Sub-step: pre-hint (write _hints.yaml) or audit")
 
     archive_p = sub.add_parser("archive", help="Phase 4 — factor archive + commit")
     archive_p.add_argument("batch_id")
@@ -196,34 +195,19 @@ def _cmd_judge(args: argparse.Namespace) -> None:
     batch_id = args.batch_id
     judge_sub = args.judge_sub
 
-    if judge_sub == "pre-pack":
-        from research.checkpoints.generator import (
-            PacketContext, PacketInputs, write_judge_packet,
-        )
+    if judge_sub == "pre-hint":
+        from research.checkpoints.hard_gates import HardGatesConfig
         from research.checkpoints.mt_budget import MtBudgetConfig
+        from research.phases.phase3_judge import (
+            Phase3PreHintInputs,
+            run_phase3_prehint,
+        )
 
-        result = load_yaml_unsafe(paths.batch_result_file(batch_id))
         manifest = load_yaml(paths.batch_manifest_file(batch_id))
         direction = manifest.get("direction", "unknown")
 
-        # Build context from direction.md
-        direction_excerpt = ""
-        threads_excerpt = ""
-        dir_file = paths.direction_file(direction)
-        if dir_file.exists():
-            import re
-            body = dir_file.read_text(encoding="utf-8")
-            thread_lines = re.findall(r"^- T\d+ \[[^\]]+\].*$", body, re.MULTILINE)
-            if thread_lines:
-                threads_excerpt = "\n".join(thread_lines)
-
-        lessons_excerpt = ""
-        if paths.vault_lessons_file.exists():
-            lessons_excerpt = paths.vault_lessons_file.read_text(encoding="utf-8")[:2000]
-
         config = load_yaml(paths.config_file) or {}
         mt_raw = config.get("thresholds", {}).get("mt_budget", {})
-        # Flatten nested 'weights' dict to match MtBudgetConfig fields
         weights = mt_raw.pop("weights", {})
         mt_flat = {**mt_raw}
         for k, v in weights.items():
@@ -231,38 +215,65 @@ def _cmd_judge(args: argparse.Namespace) -> None:
         mt_flat.pop("adjusted_strength_discount", None)  # not in MtBudgetConfig
         mt_cfg = MtBudgetConfig(**mt_flat)
 
-        packet_inputs = PacketInputs(
+        hg_raw = config.get("thresholds", {}).get("hard_gates", {})
+        hg_cfg = HardGatesConfig.from_config_dict(hg_raw)
+
+        inputs = Phase3PreHintInputs(
             batch_id=batch_id,
             direction=direction,
-            result=result,
-            context=PacketContext(
-                direction_excerpt=direction_excerpt,
-                lessons_excerpt=lessons_excerpt,
-                threads_excerpt=threads_excerpt,
-            ),
-            current_sample_policy_version=config.get("sample_policy_version", "v3"),
-            batches_dir=paths.batches_dir,
+            batch_dir=paths.batch_dir(batch_id),
+            batches_root=paths.batches_dir,
+            hints_path=paths.batch_hints_file(batch_id),
+            factors_dir=paths.factors_dir,
+            hard_gates_config=hg_cfg,
             mt_budget_config=mt_cfg,
         )
-        packet_path = paths.batch_packets_dir(batch_id) / "judge_packet.md"
-        write_judge_packet(packet_inputs, packet_path)
-        print(f"Wrote {packet_path}")
+        result = run_phase3_prehint(inputs)
+        n_cands = len(result.hints["per_candidate"])
+        n_fail = sum(
+            1 for e in result.hints["per_candidate"].values()
+            if not e.get("hard_gate", {}).get("passed")
+        )
+        print(
+            f"Wrote {result.hints_path} ({n_cands} candidates, "
+            f"{n_fail} hard-gate fail)"
+        )
 
     elif judge_sub == "audit":
-        from research.checkpoints.audit import audit_judge_md, JudgeAuditError
+        from research.checkpoints.audit import JudgeAuditError, audit_batch_judge
 
-        judge_path = paths.batch_judge_file(batch_id)
+        hints_path = paths.batch_hints_file(batch_id)
+        if not hints_path.exists():
+            print(
+                f"Audit FAILED: _hints.yaml missing at {hints_path} — run 'judge pre-hint' first",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        result = load_yaml_unsafe(paths.batch_result_file(batch_id))
+        hints = load_yaml(hints_path)
+        manifest = load_yaml(paths.batch_manifest_file(batch_id))
+        direction = manifest.get("direction", "unknown")
         try:
-            parsed = audit_judge_md(judge_path)
-            n = len(parsed.frontmatter.get("candidates", []))
-            print(f"Audit PASSED: {n} candidates checked")
+            parsed = audit_batch_judge(
+                paths.batch_dir(batch_id),
+                result,
+                hints,
+                direction_path=paths.direction_file(direction),
+                index_path=paths.vault_index_file,
+            )
+            n = len(parsed.candidates)
+            print(f"Audit PASSED: {n} candidate md files + judge.md verified")
         except JudgeAuditError as exc:
             print(f"Audit FAILED: {exc}", file=sys.stderr)
             sys.exit(1)
 
     else:
         print(f"judge: batch_id={batch_id}")
-        print("Run 'judge pre-pack' then write judge.md, then 'judge audit'.")
+        print(
+            "Run 'judge pre-hint' first, then write candidates/*.md + judge.md, "
+            "then 'judge audit'."
+        )
 
 
 def _cmd_archive(args: argparse.Namespace) -> None:

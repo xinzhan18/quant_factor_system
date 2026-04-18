@@ -78,8 +78,6 @@ class SamplePolicy:
 
     Attributes
     ----------
-    validation_policy_version : str
-        Schema version of this policy (e.g. ``"v3"``).
     validation_window_id : str
         Human-readable identifier for the active evaluation window.
     data_start : date
@@ -97,7 +95,6 @@ class SamplePolicy:
         Whether holdout was actually consumed in this round.
     """
 
-    validation_policy_version: str
     validation_window_id: str
 
     data_start: date
@@ -156,7 +153,6 @@ class SamplePolicy:
     def default(cls) -> SamplePolicy:
         """Return the standard A-share daily policy (train<=2023, val=2024, holdout=2025+)."""
         return cls(
-            validation_policy_version="v3",
             validation_window_id="std_2024",
             data_start=date(2015, 1, 1),
             active_train_range=(date(2015, 1, 1), date(2023, 12, 31)),

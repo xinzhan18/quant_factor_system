@@ -40,6 +40,7 @@ Phase 5's correctness.
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -261,6 +262,7 @@ def _is_git_clean(repo_root: Path) -> bool:
 def preconditions_ok(
     state_file: StateFile,
     repo_root: Path,
+    backup_dir: Path | None = None,
 ) -> list[str]:
     """Return a list of precondition failure messages (empty = all OK)."""
     failures: list[str] = []
@@ -271,6 +273,11 @@ def preconditions_ok(
         )
     if not _is_git_clean(repo_root):
         failures.append("git tree is dirty")
+    if backup_dir is not None and backup_dir.exists():
+        failures.append(
+            f"_consolidation/backup/ exists at {backup_dir} — "
+            "previous run failed without cleanup; resolve manually"
+        )
     return failures
 
 

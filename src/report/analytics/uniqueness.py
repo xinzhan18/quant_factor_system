@@ -1,20 +1,17 @@
-"""UniquenessAnalyzer -- factor independence analysis with correlation matrix and incremental IC.
+"""UniquenessAnalyzer -- factor independence analysis with correlation matrix.
 
-Computes cross-sectional Spearman rank correlations between a target factor and
-all factors in the library, identifies the most correlated factors, and optionally
-computes incremental IC (IC of residuals after removing library exposures via
-cross-sectional OLS).
+Computes cross-sectional Spearman rank correlations between a target factor
+and all factors in the library, and identifies the most correlated factors.
+Incremental IC is intentionally not computed here — admitted factors already
+pass corr_max < 0.7 upstream in Phase 2.
 """
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from concurrent.futures import ThreadPoolExecutor
-from scipy.stats import spearmanr
 
 from core.factor_stats import (
-    incremental_ic as _shared_incremental_ic,
     pairwise_cross_sectional_corr as _shared_pairwise_corr,
 )
 from report.charts.theme import apply_theme, COLORS
@@ -103,23 +100,6 @@ class UniquenessAnalyzer:
         Delegates to core.factor_stats.pairwise_cross_sectional_corr.
         """
         return _shared_pairwise_corr(df_a, df_b, min_obs=30)
-
-    def _compute_incremental_ic(
-        self,
-        target_df: pd.DataFrame,
-        library_factors: dict[str, pd.DataFrame],
-        merged_df: pd.DataFrame,
-    ) -> tuple[float | None, float | None]:
-        """Compute IC of residuals after removing library factor exposures.
-
-        Delegates to core.factor_stats.incremental_ic.
-        """
-        returns_df = merged_df[["time", "symbol", "future_return"]].rename(
-            columns={"future_return": "value"},
-        ).drop_duplicates()
-        return _shared_incremental_ic(
-            target_df, returns_df, library_factors, min_obs=30,
-        )
 
     # ------------------------------------------------------------------
     # Chart generation

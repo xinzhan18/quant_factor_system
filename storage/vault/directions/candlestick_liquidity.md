@@ -38,22 +38,22 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 ### T001: Shadow × turnover 交互是否有独立 alpha [◉ ACTIVE]
 **Question**: 上影线/下影线比例与换手率的乘积，在控制 Barra 风格后是否保留 alpha？
 **Evidence trail**:
-- [[../batches/batch_001/judge#C001|batch_001 C001]]: upper_shadow×turnover IC=-0.051 ICIR=-0.444 但 style_r2=0.35 → reserve (vol contaminated)
-- [[../batches/batch_001/judge#C002|batch_001 C002]]: lower_shadow×turnover IC=-0.064 **ICIR=-0.576** alpha_surv=0.61 → **[[../factors/F001|F001]] admitted** (override CP04: alpha_surv > 0.60)
+- [[batches/batch_001/judge#C001|batch_001 C001]]: upper_shadow×turnover IC=-0.051 ICIR=-0.444 但 style_r2=0.35 → reserve (vol contaminated)
+- [[batches/batch_001/judge#C002|batch_001 C002]]: lower_shadow×turnover IC=-0.064 **ICIR=-0.576** alpha_surv=0.61 → **[[factors/F001|F001]] admitted** (override CP04: alpha_surv > 0.60)
 **Next probes**: 尝试 CsRank 归一化减少 vol 暴露; 换用 $amount 替代 $turnover_rate
 
 ### T002: Body ratio 的时间序列特征是否有预测力 [◉ ACTIVE]
 **Question**: body ratio (|close-open|/(high-low)) 的滚动统计量（mean/std/trend）是否预测未来收益？
 **Evidence trail**:
-- [[../batches/batch_001/judge#C005|batch_001 C005]]: Mean(body_ratio,20) IC=0.001 → noise, reject
-- [[../batches/batch_001/judge#C006|batch_001 C006]]: Std(body_ratio,20) IC=0.006 ICIR=0.155 → too weak, reserve
+- [[batches/batch_001/judge#C005|batch_001 C005]]: Mean(body_ratio,20) IC=0.001 → noise, reject
+- [[batches/batch_001/judge#C006|batch_001 C006]]: Std(body_ratio,20) IC=0.006 ICIR=0.155 → too weak, reserve
 **Next probes**: 尝试 Cov(body_ratio, returns) 或 body_ratio 的 delta/trend 变化
 
 ### T003: OHLC range compression 信号 [◉ ACTIVE]
 **Question**: 日内价格区间 (high-low)/close 的压缩/扩张是否预测波动率 regime change？
 **Evidence trail**:
-- [[../batches/batch_001/judge#C007|batch_001 C007]]: range_compression(5/60) IC=-0.038 ICIR=-0.339 alpha_surv=0.67 → reserve (borderline CP04)
-- [[../batches/batch_001/judge#C008|batch_001 C008]]: range×turnover IC=-0.072 但 style_r2=0.61 → reject (vol proxy)
+- [[batches/batch_001/judge#C007|batch_001 C007]]: range_compression(5/60) IC=-0.038 ICIR=-0.339 alpha_surv=0.67 → reserve (borderline CP04)
+- [[batches/batch_001/judge#C008|batch_001 C008]]: range×turnover IC=-0.072 但 style_r2=0.61 → reject (vol proxy)
 **Next probes**: 纯 range compression 不加 turnover; 尝试更长 lookback (10/120)
 
 ## Known Failures
@@ -67,8 +67,8 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 
 ## Narrative Log
 
-### 2026-04-12 [[../batches/batch_001/judge|batch_001]]
-首轮探索。8 候选，2 admit（[[../factors/F001|F001]] 下影线×换手率、[[../factors/F002|F002]] 影线乘积），3 reserve，3 reject。
+### 2026-04-12 [[batches/batch_001/judge|batch_001]]
+首轮探索。8 候选，2 admit（[[factors/F001|F001]] 下影线×换手率、[[factors/F002|F002]] 影线乘积），3 reserve，3 reject。
 
 **核心发现**：影线信号 IC 强劲（ICIR -0.42 到 -0.58），但 Barra vol_20d 暴露严重（style_r2 0.21-0.61）。换手率条件因子同时放大了信号和 vol 污染。影线乘积（F002）不含换手率，风险最干净（style_r2=0.21）。
 
@@ -76,8 +76,8 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 
 状态：exploring → **productive**（首批 admit）。方向保持高优先级——原始 IC 强但需要更干净的变体。
 
-### 2026-04-13 [[../batches/batch_002/judge|batch_002]]
-第二轮：CsRank 正交化实验。8 候选，1 admit（[[../factors/F003|F003]] 下影线ratio×CsRank(amount)），1 reserve，6 reject。
+### 2026-04-13 [[batches/batch_002/judge|batch_002]]
+第二轮：CsRank 正交化实验。8 候选，1 admit（[[factors/F003|F003]] 下影线ratio×CsRank(amount)），1 reserve，6 reject。
 
 **核心发现**：
 1. CsRank 正交化成功降 vol（style_r2 从 0.2-0.6 降到 0.02-0.03），但 IC 也大幅下降。==信号和 vol 暴露高度纠缠==。
@@ -93,8 +93,8 @@ A-share 日内 K 线形态（影线比例、实体大小）包含订单流信息
 
 **下一步**：探索 shadow 信号与 fundamental 字段的交互（如 shadow × PE rank）；或尝试 TsRank 时序排名替代 CsRank 截面排名。
 
-### 2026-04-13 [[../batches/batch_003/judge|batch_003]]
-第三轮：shadow × fundamental + TsRank + momentum 交互。8 候选，1 admit（[[../factors/F004|F004]] 上影线/close × 负5日收益），0 reserve，7 reject。
+### 2026-04-13 [[batches/batch_003/judge|batch_003]]
+第三轮：shadow × fundamental + TsRank + momentum 交互。8 候选，1 admit（[[factors/F004|F004]] 上影线/close × 负5日收益），0 reserve，7 reject。
 
 **核心发现**：
 1. ==冗余是本轮主要瓶颈==。TsRank(shadow_product) style_r2=0.024 极干净、ICIR=-0.499，但 max_corr=0.743 vs F002 超标。下影线×相对换手 也同理（corr=0.744）。随着因子库增长，候选空间被挤压。

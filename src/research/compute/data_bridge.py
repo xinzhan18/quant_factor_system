@@ -28,10 +28,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from research.compute.cache import FactorValueCache
 from research.compute.preprocess import PreprocessConfig
 from research.phases.phase2_execute import CandidateInputs, Phase2Inputs, run_phase2
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import load_yaml
+
+# Full cache window. Library/candidate DSL signals are materialized once
+# across this entire window and sliced on read, so different batch time
+# ranges all share one cached expression → key-stable.
+CACHE_FULL_START = "2015-01-01"
+CACHE_FULL_END = "2025-12-31"
 
 logger = logging.getLogger(__name__)
 
@@ -178,40 +185,60 @@ def build_barra_style_matrix(
 # ---------------------------------------------------------------------------
 
 
+DEFAULT_DECAY_HORIZONS: list[int] = [1, 3, 5, 10, 20]
+
+
+def _returns_col(h: int) -> str:
+    """Column name for h-day forward returns."""
+    return f"returns_{h}d"
+
+
 def load_market_data(
     start: str = "2015-01-01",
     end: str = "2023-12-31",
     cache_path: Path | None = None,
+    decay_horizons: list[int] | None = None,
 ) -> pd.DataFrame:
     """Load market data fields needed by Phase 2.
 
     Returns DataFrame with MultiIndex (time, symbol) and columns:
-    ``returns_1d``, ``$amount``, ``$market_cap``.
+    ``returns_1d``, ``returns_3d``, ..., ``$amount``, ``$market_cap``.
 
-    If *cache_path* provided, reads from / writes to parquet.
+    If *cache_path* provided, reads from / writes to parquet.  When the
+    cache exists but is missing required horizon columns it is rebuilt
+    automatically.
     """
+    if decay_horizons is None:
+        decay_horizons = list(DEFAULT_DECAY_HORIZONS)
+
+    required_cols = {_returns_col(h) for h in decay_horizons} | {"$amount", "$market_cap"}
+
     if cache_path and cache_path.exists():
         logger.info("Loading cached market_daily from %s", cache_path)
         df = pd.read_parquet(cache_path)
-        # Ensure datetime index
         if isinstance(df.index, pd.MultiIndex):
             time_level = df.index.get_level_values(0)
             if not pd.api.types.is_datetime64_any_dtype(time_level):
                 df.index = df.index.set_levels(pd.to_datetime(df.index.levels[0]), level=0)
-        return df
+        # If cache is missing required columns, rebuild
+        if required_cols.issubset(set(df.columns)):
+            return df
+        logger.info("Cache missing columns %s — rebuilding",
+                     required_cols - set(df.columns))
 
-    logger.info("Loading market data from Qlib (%s to %s)", start, end)
+    logger.info("Loading market data from Qlib (%s to %s, horizons=%s)",
+                start, end, decay_horizons)
     from qlib.data import D
 
     inst_dict = D.instruments("all")
-    fields = [
-        "Ref($close, -1) / $close - 1",  # forward returns (t+1)
+    # One D.features call for all horizons + amount + market_cap
+    fields = [f"Ref($close, -{h}) / $close - 1" for h in decay_horizons] + [
         "$amount",
         "$market_cap",
     ]
     df = D.features(inst_dict, fields=fields, start_time=start, end_time=end)
     df = _qlib_to_time_symbol(df)
-    df.columns = ["returns_1d", "$amount", "$market_cap"]
+    df.columns = [_returns_col(h) for h in decay_horizons] + ["$amount", "$market_cap"]
 
     if cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -234,33 +261,64 @@ def load_library_signals(
 ) -> dict[str, pd.DataFrame]:
     """Load all admitted factors' signals for redundancy check.
 
-    Reads ``vault/factors/F*.yaml`` to get expressions, evaluates DSL
-    factors via Qlib, and returns ``{factor_id: MultiIndex DataFrame}``.
+    Reads ``vault/factors/F*.yaml`` to get expressions, then partitions
+    into cache hits / misses. Misses are computed in a single batched
+    ``eval_dsl_batch`` call over the full time window
+    (``CACHE_FULL_START`` → ``CACHE_FULL_END``) and persisted to
+    ``FactorValueCache`` under ``sha256(expr)`` keys. Every call slices
+    the cached full-window frame down to ``[start, end]``.
+
+    Returns ``{factor_id: MultiIndex DataFrame}``.
     """
     factor_files = sorted(paths.factors_dir.glob("F*.yaml"))
     if not factor_files:
         return {}
 
-    exprs: dict[str, str] = {}
+    expr_by_fid: dict[str, str] = {}
     for f in factor_files:
         meta = load_yaml(f) or {}
         fid = meta.get("factor_id", f.stem)
         expr = meta.get("expression")
         source = meta.get("source_type", "dsl")
         if source == "dsl" and expr:
-            exprs[fid] = expr
+            expr_by_fid[fid] = expr
 
-    if not exprs:
+    if not expr_by_fid:
         return {}
 
-    logger.info("Loading %d library signals for redundancy", len(exprs))
-    series_dict = eval_dsl_batch(exprs, start=start, end=end)
+    cache = FactorValueCache(paths.factor_values_cache_dir)
 
-    result = {}
-    for fid, series in series_dict.items():
-        df = series.to_frame(name="value")
-        df.index.names = ["datetime", "instrument"]
-        result[fid] = df
+    result: dict[str, pd.DataFrame] = {}
+    misses: dict[str, str] = {}  # fid → expr for misses
+    for fid, expr in expr_by_fid.items():
+        key = cache.make_key(expr)
+        hit = cache.get_slice(key, start=start, end=end)
+        if hit is not None:
+            result[fid] = hit
+        else:
+            misses[fid] = expr
+
+    if misses:
+        logger.info(
+            "library cache: %d/%d hit, %d miss — computing",
+            len(result), len(expr_by_fid), len(misses),
+        )
+        full_series = eval_dsl_batch(
+            misses, start=CACHE_FULL_START, end=CACHE_FULL_END,
+        )
+        for fid, series in full_series.items():
+            full_df = series.to_frame(name="value")
+            full_df.index.names = ["datetime", "instrument"]
+            cache.put(cache.make_key(misses[fid]), full_df)
+            # Slice to requested window for return value
+            level0 = full_df.index.get_level_values(0)
+            mask = (level0 >= pd.Timestamp(start)) & (level0 <= pd.Timestamp(end))
+            result[fid] = full_df.loc[mask]
+    else:
+        logger.info(
+            "library cache: %d/%d hit (full cache)",
+            len(result), len(expr_by_fid),
+        )
 
     return result
 
@@ -272,28 +330,78 @@ def load_library_signals(
 
 def evaluate_candidates(
     manifest: dict[str, Any],
+    paths: StoragePaths | None = None,
     market_df: pd.DataFrame | None = None,
     start: str = "2015-01-01",
     end: str = "2023-12-31",
 ) -> list[CandidateInputs]:
     """Evaluate each candidate in the manifest and return CandidateInputs list.
 
-    DSL candidates are evaluated via Qlib D.features().
-    Python candidates are loaded and executed via python_runner.
+    DSL candidates hit the full-window ``FactorValueCache`` keyed on
+    ``sha256(expression)``; misses are computed over
+    ``[CACHE_FULL_START, CACHE_FULL_END]`` and persisted, then sliced
+    to ``[start, end]``. Python candidates are loaded and executed via
+    python_runner without caching (closures are not key-stable).
     """
     from research.compute.python_runner import load_python_candidate, run_python_factor
 
     candidates = manifest.get("candidates", [])
     results: list[CandidateInputs] = []
 
+    cache = (
+        FactorValueCache(paths.factor_values_cache_dir) if paths is not None else None
+    )
+
+    # First pass: collect DSL expressions that miss the cache so we can
+    # batch-evaluate them in one Qlib call.
+    dsl_misses: dict[str, str] = {}  # candidate_id → expr
+    dsl_hits: dict[str, pd.Series] = {}  # candidate_id → sliced series
+    for cand in candidates:
+        if cand.get("source_type", "dsl") != "dsl":
+            continue
+        expr = cand.get("expression", "")
+        if not expr or cache is None:
+            continue
+        key = cache.make_key(expr)
+        hit = cache.get_slice(key, start=start, end=end)
+        if hit is not None and not hit.empty:
+            dsl_hits[cand["candidate_id"]] = hit.iloc[:, 0]
+        else:
+            dsl_misses[cand["candidate_id"]] = expr
+
+    # Compute misses over the full window in one Qlib call
+    dsl_full_series: dict[str, pd.Series] = {}
+    if dsl_misses:
+        dsl_full_series = eval_dsl_batch(
+            dsl_misses, start=CACHE_FULL_START, end=CACHE_FULL_END,
+        )
+        if cache is not None:
+            for cid, full_series in dsl_full_series.items():
+                full_df = full_series.to_frame(name="value")
+                full_df.index.names = ["datetime", "instrument"]
+                cache.put(cache.make_key(dsl_misses[cid]), full_df)
+
     for cand in candidates:
         cid = cand["candidate_id"]
         source_type = cand.get("source_type", "dsl")
         expression = cand.get("expression", "")
+        py_ref = ""
 
         try:
             if source_type == "dsl":
-                series = eval_dsl_expression(expression, start=start, end=end)
+                if cid in dsl_hits:
+                    series = dsl_hits[cid]
+                elif cid in dsl_full_series:
+                    full = dsl_full_series[cid]
+                    level0 = full.index.get_level_values(0)
+                    mask = (
+                        (level0 >= pd.Timestamp(start))
+                        & (level0 <= pd.Timestamp(end))
+                    )
+                    series = full.loc[mask]
+                else:
+                    # Fallback path (no cache / no expr): direct eval
+                    series = eval_dsl_expression(expression, start=start, end=end)
             else:
                 py_ref = cand.get("python_ref", cand.get("path", ""))
                 loaded = load_python_candidate(py_ref)
@@ -351,10 +459,15 @@ def build_phase2_inputs(
     full_start = train_start
     full_end = val_end
 
-    # 1. Market data (returns, amount, market_cap)
+    eval_cfg = config.get("evaluation", {})
+    decay_horizons = eval_cfg.get("decay_horizons", DEFAULT_DECAY_HORIZONS)
+    primary_horizon = eval_cfg.get("primary_horizon", 5)
+
+    # 1. Market data (multi-horizon returns + amount + market_cap)
     market = load_market_data(
         start=full_start, end=full_end,
         cache_path=paths.market_daily_cache,
+        decay_horizons=decay_horizons,
     )
 
     # 2. Barra style matrix
@@ -368,13 +481,23 @@ def build_phase2_inputs(
 
     # 4. Candidate signals
     candidates = evaluate_candidates(
-        manifest, start=full_start, end=full_end,
+        manifest, paths=paths, start=full_start, end=full_end,
     )
 
-    # 5. Extract single columns
-    forward_returns_flat = market[["returns_1d"]].reset_index()
-    forward_returns_flat.columns = ["time", "symbol", "value"]
-    forward_returns_flat["time"] = pd.to_datetime(forward_returns_flat["time"])
+    # 5. Extract per-horizon forward returns as flat DataFrames
+    def _extract_returns(col: str) -> pd.DataFrame:
+        df = market[[col]].reset_index()
+        df.columns = ["time", "symbol", "value"]
+        df["time"] = pd.to_datetime(df["time"])
+        return df
+
+    # Resolve primary horizon: must exist in decay_horizons
+    if primary_horizon not in decay_horizons:
+        primary_horizon = decay_horizons[0]
+
+    forward_returns_by_horizon = {
+        h: _extract_returns(_returns_col(h)) for h in decay_horizons
+    }
 
     amount_data = market[["$amount"]].copy()
     amount_data.columns = ["$amount"]
@@ -392,18 +515,22 @@ def build_phase2_inputs(
         zscore=pp_cfg.get("zscore", True),
     )
 
+    universe = config.get("universe") or config.get("universes", {}).get("primary", "csi1000")
+
     return Phase2Inputs(
         batch_id=batch_id,
         candidates=candidates,
-        forward_returns_flat=forward_returns_flat,
+        forward_returns_by_horizon=forward_returns_by_horizon,
+        primary_horizon=int(primary_horizon),
         style_matrix=style_matrix,
         library_signals=library_signals,
         amount_data=amount_data,
         market_cap=market_cap_data,
         train_range=(train_start, train_end),
         validation_range=(val_start, val_end),
-        sample_policy_version=sample.get("sample_policy_version", "v3"),
         preprocess_config=preprocess_config,
+        universe=universe,
+        paths=paths,
     )
 
 

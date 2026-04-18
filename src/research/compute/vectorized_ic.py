@@ -1,16 +1,24 @@
 """Vectorized IC computation — Phase 2 interface over ``core.factor_stats``.
 
-``core.factor_stats.daily_cross_sectional_ic`` is already the fully
-vectorized reference implementation (pivot → rank → matrix Pearson, no
-per-date Python loop). This module is a thin orchestration wrapper that:
+``core.factor_stats.daily_cross_sectional_ic`` is the fully vectorized
+reference implementation (pivot → rank → matrix Pearson, no per-date
+Python loop). This module orchestrates IC at three scopes:
 
-1. runs IC on train and validation slices,
-2. returns a structured dict ready to be merged into ``result.yaml``,
-3. optionally runs support-window flip checks.
+1. **Single-slice IC** — ``compute_ic_series`` + ``compute_ic_stats`` for
+   one flat ``[time, symbol, value]`` panel.
+2. **Train / validation effect strength** — ``compute_effect_strength``
+   runs IC on both splits and returns the dict consumed by
+   ``result.yaml.candidates[].ic.{train,validation}``.
+3. **Multi-horizon + analytics** — ``compute_multi_horizon_ic`` runs IC
+   for every forward-return horizon on both train and validation;
+   ``compute_ic_analytics`` derives by-year / autocorr / cum-IC drawdown
+   / best-worst quarter from an IC series;
+   ``compute_ic_half_life`` maps the per-horizon train IC means into a
+   half-life estimate via ``core.factor_stats.estimate_half_life``.
 
-The "核心数学" lives in ``core/``, which is not deprecated — importing it
-from new P1 code is explicitly allowed (only ``research.{logic,governance,
-feasibility,redundancy,risk,stats}`` are forbidden by R9).
+All functions are pure and stateless. Every metric is produced exactly
+once — upstream callers must not re-run ``compute_ic_series`` on the
+same slice.
 """
 
 from __future__ import annotations
@@ -20,7 +28,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from core.factor_stats import daily_cross_sectional_ic, ic_summary
+from core.factor_stats import (
+    daily_cross_sectional_ic,
+    estimate_half_life,
+    ic_by_year,
+    ic_summary,
+)
+from core.metrics import max_drawdown
 
 
 def _filter_range(df: pd.DataFrame, start: str, end: str) -> pd.DataFrame:
@@ -42,7 +56,7 @@ def compute_ic_series(
 
 
 def compute_ic_stats(ic_series: pd.Series) -> dict[str, float]:
-    """``ic_mean / ic_std / ic_ir / ic_win_rate`` for one IC series."""
+    """``ic_mean / ic_std / ic_ir / ic_win_rate / n_days`` for one IC series."""
     stats = ic_summary(ic_series)
     return {
         "ic_mean": stats["ic_mean"],
@@ -60,11 +74,13 @@ def compute_effect_strength(
     validation_range: tuple[str, str],
     min_obs: int = 30,
 ) -> dict[str, Any]:
-    """Train / validation IC metrics in one structured dict.
+    """Train / validation IC stats + raw IC series for downstream stability.
 
-    Returns a shape identical to what ``result.yaml`` will hold for the
-    "effect_strength" block, plus the raw IC series (not persisted into
-    YAML but passed to downstream stability / reliability modules).
+    Returns
+    -------
+    dict
+        ``{"train": stats, "validation": stats, "ic_series_train": Series,
+        "ic_series_validation": Series}``
     """
     fv_train = _filter_range(factor_flat, *train_range)
     fr_train = _filter_range(returns_flat, *train_range)
@@ -74,90 +90,125 @@ def compute_effect_strength(
     ic_train = compute_ic_series(fv_train, fr_train, min_obs=min_obs)
     ic_val = compute_ic_series(fv_val, fr_val, min_obs=min_obs)
 
-    train_stats = compute_ic_stats(ic_train)
-    val_stats = compute_ic_stats(ic_val)
-
     return {
-        "train": train_stats,
-        "validation": val_stats,
-        # Raw series carried forward for stability / support_windows
+        "train": compute_ic_stats(ic_train),
+        "validation": compute_ic_stats(ic_val),
         "ic_series_train": ic_train,
         "ic_series_validation": ic_val,
     }
 
 
-def compute_support_windows(
+def compute_multi_horizon_ic(
     factor_flat: pd.DataFrame,
-    returns_flat: pd.DataFrame,
-    primary_sign: float,
-    windows: list[dict[str, Any]],
+    returns_by_horizon: dict[int, pd.DataFrame],
+    train_range: tuple[str, str],
+    validation_range: tuple[str, str],
     min_obs: int = 30,
-) -> dict[str, Any]:
-    """Run IC checks on support validation windows and detect sign flips.
+) -> dict[int, dict[str, Any]]:
+    """Multi-horizon IC on train + validation.
 
-    Replaces the old ``research.stats.support_windows.check_support_windows``.
+    Produces per-horizon stats for every key in ``returns_by_horizon`` —
+    intended as the single IC computation pass for the whole evaluation.
+    Callers derive ``ic.train / ic.validation`` (primary horizon) from
+    this result without rerunning ``compute_ic_series``.
 
-    Parameters
-    ----------
-    factor_flat, returns_flat
-        Flat ``[time, symbol, value]`` frames.
-    primary_sign
-        +1 or -1 — the sign of the IC mean from the primary validation
-        window. Used as reference for flip detection.
-    windows
-        List of ``{"window_id": str, "range": [start, end]}`` dicts.
-    min_obs
-        Minimum cross-sectional observations per day.
+    Returns
+    -------
+    dict[int, dict]
+        ``{h: {"train": stats, "validation": stats, "ic_series_train":
+        Series, "ic_series_validation": Series}}``
+    """
+    fv_train = _filter_range(factor_flat, *train_range)
+    fv_val = _filter_range(factor_flat, *validation_range)
+
+    out: dict[int, dict[str, Any]] = {}
+    for h, ret_flat in returns_by_horizon.items():
+        fr_train_h = _filter_range(ret_flat, *train_range)
+        fr_val_h = _filter_range(ret_flat, *validation_range)
+
+        ic_train = compute_ic_series(fv_train, fr_train_h, min_obs=min_obs)
+        ic_val = compute_ic_series(fv_val, fr_val_h, min_obs=min_obs)
+
+        out[int(h)] = {
+            "train": compute_ic_stats(ic_train),
+            "validation": compute_ic_stats(ic_val),
+            "ic_series_train": ic_train,
+            "ic_series_validation": ic_val,
+        }
+    return out
+
+
+def compute_ic_analytics(ic_series: pd.Series) -> dict[str, Any]:
+    """Derive by-year, autocorr, cumulative-IC MDD, best/worst quarter.
+
+    Input is a ``DatetimeIndex`` series (train + validation concatenated
+    is conventional for by_year, but any IC series works).
 
     Returns
     -------
     dict
-        ``{"checks": [per-window dicts], "warning": "none"|"single_flip"|
-        "repeated_flip"}``
+        ``{"by_year": dict, "autocorr_lag1": float|None,
+        "cum_ic_max_drawdown": float|None,
+        "best_quarter": float|None, "worst_quarter": float|None}``
     """
-    checks: list[dict[str, Any]] = []
-    n_flips = 0
+    if ic_series is None or ic_series.empty:
+        return {
+            "by_year": {},
+            "autocorr_lag1": None,
+            "cum_ic_max_drawdown": None,
+            "best_quarter": None,
+            "worst_quarter": None,
+        }
 
-    for win in windows:
-        wid = win["window_id"]
-        start, end = win["range"][0], win["range"][1]
+    by_year = ic_by_year(ic_series)
 
-        fv = _filter_range(factor_flat, start, end)
-        fr = _filter_range(returns_flat, start, end)
-
-        ic_series = compute_ic_series(fv, fr, min_obs=min_obs)
-        if ic_series.empty:
-            checks.append(
-                {
-                    "window_id": wid,
-                    "ic_mean_support": None,
-                    "sign_consistent": False,
-                }
-            )
-            continue
-
-        ic_mean = float(ic_series.mean())
-        sign_ok = (
-            bool(np.sign(ic_mean) == np.sign(primary_sign))
-            if abs(ic_mean) > 1e-10
-            else False
-        )
-        if not sign_ok:
-            n_flips += 1
-
-        checks.append(
-            {
-                "window_id": wid,
-                "ic_mean_support": round(ic_mean, 6),
-                "sign_consistent": sign_ok,
-            }
-        )
-
-    if n_flips == 0:
-        warning = "none"
-    elif n_flips == 1:
-        warning = "single_flip"
+    arr = ic_series.dropna().values.astype(float)
+    autocorr_lag1: float | None
+    if len(arr) > 2:
+        c = np.corrcoef(arr[:-1], arr[1:])[0, 1]
+        autocorr_lag1 = float(c) if np.isfinite(c) else None
     else:
-        warning = "repeated_flip"
+        autocorr_lag1 = None
 
-    return {"checks": checks, "warning": warning}
+    cum_ic_mdd = float(max_drawdown(ic_series.cumsum()))
+    if not np.isfinite(cum_ic_mdd):
+        cum_ic_mdd_out: float | None = None
+    else:
+        cum_ic_mdd_out = round(cum_ic_mdd, 6)
+
+    quarterly = ic_series.groupby(
+        [ic_series.index.year, ic_series.index.quarter]
+    ).mean()
+    if len(quarterly) == 0:
+        best_q: float | None = None
+        worst_q: float | None = None
+    else:
+        best_q = float(quarterly.max())
+        worst_q = float(quarterly.min())
+
+    return {
+        "by_year": by_year,
+        "autocorr_lag1": round(autocorr_lag1, 6) if autocorr_lag1 is not None else None,
+        "cum_ic_max_drawdown": cum_ic_mdd_out,
+        "best_quarter": round(best_q, 6) if best_q is not None else None,
+        "worst_quarter": round(worst_q, 6) if worst_q is not None else None,
+    }
+
+
+def compute_ic_half_life(ic_means_by_horizon: dict[int, float]) -> float | None:
+    """IC-decay half-life from a per-horizon mean IC dict.
+
+    Thin wrapper over ``core.factor_stats.estimate_half_life`` that
+    filters non-finite entries and returns ``None`` instead of NaN.
+    """
+    clean = {
+        int(h): float(v)
+        for h, v in ic_means_by_horizon.items()
+        if v is not None and np.isfinite(v)
+    }
+    if len(clean) < 2:
+        return None
+    hl = estimate_half_life(clean)
+    if hl is None or not np.isfinite(hl):
+        return None
+    return round(float(hl), 4)

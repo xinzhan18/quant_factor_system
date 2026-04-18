@@ -1,26 +1,21 @@
-"""FactorValueCache — parquet-backed disk cache keyed by content hash.
+"""FactorValueCache — parquet-backed disk cache keyed by expression hash.
 
-Key rule (refactor_plan §11):
+    key = sha256(expression)[:16]
 
-    key = sha256(f"{expression}|{sample_policy_version}|{preprocess_version}")[:16]
+Cache files live at ``storage/cache/factor_values/{key}.parquet``.
 
-Changing *any* of the three components invalidates the cache automatically.
 No TTL, no automatic cleanup — stale entries are removed manually via the
-``research cache`` CLI (P6). Manual control keeps the rule simple and
-avoids the classic "cleanup logic has a bug and wipes live data" failure
-mode documented in the old ``cleanup()`` path.
-
-Cache files live at
-``storage/cache/factor_values/{key}.parquet``.
+``research cache`` CLI. If upstream policy (sample range, preprocessing)
+changes, the user clears the cache explicitly. Manual control keeps the
+rule simple and avoids a cleanup-logic bug wiping live data.
 
 Concurrent writes are not expected (Phase 2 runs single-process) but writes
-are atomic-ish via ``to_parquet`` followed by a rename if the target exists
-to prevent torn files.
+are atomic via ``to_parquet`` → ``os.replace`` to prevent torn files.
 
 Usage:
 
     cache = FactorValueCache(paths.factor_values_cache_dir)
-    key = cache.make_key("Std($close, 20)", "v3", "p1")
+    key = cache.make_key("Std($close, 20)")
     df = cache.get(key)
     if df is None:
         df = expensive_compute(...)
@@ -57,19 +52,14 @@ class FactorValueCache:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def make_key(
-        expression: str,
-        sample_policy_version: str,
-        preprocess_version: str,
-    ) -> str:
-        """Return a 16-char hex digest of the three cache components.
+    def make_key(expression: str) -> str:
+        """Return a 16-char hex digest of the expression.
 
         The first 16 hex chars of SHA-256 give ~64 bits of entropy — more
         than enough to avoid collisions for any realistic cache size, and
         short enough to keep filenames readable.
         """
-        raw = f"{expression}|{sample_policy_version}|{preprocess_version}"
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+        return hashlib.sha256(expression.encode("utf-8")).hexdigest()[:16]
 
     # ------------------------------------------------------------------
     # CRUD
@@ -99,6 +89,35 @@ class FactorValueCache:
             except OSError:
                 pass
             return None
+
+    def get_slice(
+        self,
+        key: str,
+        start: str | pd.Timestamp,
+        end: str | pd.Timestamp,
+    ) -> pd.DataFrame | None:
+        """Load cache entry and slice to the ``[start, end]`` date window.
+
+        Returns ``None`` only on true miss (file doesn't exist or is
+        corrupt). An empty slice is a valid cached result — callers should
+        treat empty-but-not-None as "cache hit, no data in window".
+
+        Assumes the DataFrame has a MultiIndex whose first level is a
+        datetime-like axis. If the first level isn't a DatetimeIndex it
+        falls back to the full frame.
+        """
+        full = self.get(key)
+        if full is None:
+            return None
+        if not isinstance(full.index, pd.MultiIndex):
+            return full
+        level0 = full.index.get_level_values(0)
+        if not pd.api.types.is_datetime64_any_dtype(level0):
+            return full
+        start_ts = pd.Timestamp(start)
+        end_ts = pd.Timestamp(end)
+        mask = (level0 >= start_ts) & (level0 <= end_ts)
+        return full.loc[mask]
 
     def put(self, key: str, df: pd.DataFrame) -> None:
         """Write a DataFrame to the cache.

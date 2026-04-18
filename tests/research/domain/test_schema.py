@@ -73,7 +73,6 @@ class TestFactorRecord:
         rec = FactorRecord()
         assert rec.factor_id == ""
         assert rec.status == "active"
-        assert rec.evaluation_version == "v3"
         assert rec.metrics_snapshot == {}
         assert isinstance(rec.lineage, Lineage)
 
@@ -84,7 +83,7 @@ class TestFactorRecord:
 
     def test_evaluation_context_defaults(self):
         ctx = EvaluationContext()
-        assert ctx.sample_policy_version == ""
+        assert ctx.eval_profile == ""
         assert ctx.holdout_used is False
 
 

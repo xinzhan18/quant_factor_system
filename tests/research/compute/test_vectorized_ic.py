@@ -20,9 +20,11 @@ import yaml
 
 from research.compute.vectorized_ic import (
     compute_effect_strength,
+    compute_ic_analytics,
+    compute_ic_half_life,
     compute_ic_series,
     compute_ic_stats,
-    compute_support_windows,
+    compute_multi_horizon_ic,
 )
 
 FIXTURES = Path(__file__).parent / "_fixtures"
@@ -151,47 +153,81 @@ class TestComputeEffectStrength:
             ), f"validation.{field} mismatch"
 
 
-class TestComputeSupportWindows:
-    def test_support_windows_match_golden(
+class TestComputeIcAnalytics:
+    def test_analytics_on_validation_ic(
         self,
         factor_flat: pd.DataFrame,
         returns_flat: pd.DataFrame,
-        golden: dict,
+        date_range: tuple[str, str, str, str],
     ) -> None:
-        # Rebuild the windows dict from the golden dates (these come from
-        # generate_golden.py, so we hardcode the split: first_half is days
-        # 360..479, second_half is 480..599).
-        dates = pd.bdate_range(start=START_DATE, periods=N_DAYS)
-        windows = [
-            {
-                "window_id": "val_first_half",
-                "range": [str(dates[360].date()), str(dates[479].date())],
-            },
-            {
-                "window_id": "val_second_half",
-                "range": [str(dates[480].date()), str(dates[VAL_END_IDX].date())],
-            },
-        ]
-
-        # Primary sign from golden ic_mean_validation
-        primary_mean = golden["effect_strength"]["validation"]["ic_mean"]
-        primary_sign = 1.0 if primary_mean > 0 else -1.0
-
-        result = compute_support_windows(
-            factor_flat,
-            returns_flat,
-            primary_sign=primary_sign,
-            windows=windows,
-            min_obs=30,
+        _, _, val_start, val_end = date_range
+        mask_fv = (factor_flat["time"] >= pd.Timestamp(val_start)) & (
+            factor_flat["time"] <= pd.Timestamp(val_end)
         )
+        mask_fr = (returns_flat["time"] >= pd.Timestamp(val_start)) & (
+            returns_flat["time"] <= pd.Timestamp(val_end)
+        )
+        ic = compute_ic_series(factor_flat[mask_fv], returns_flat[mask_fr])
+        analytics = compute_ic_analytics(ic)
 
-        g = golden["stability"]["support_windows"]
-        assert result["warning"] == g["warning"]
-        assert len(result["checks"]) == len(g["checks"])
+        assert set(analytics.keys()) == {
+            "by_year",
+            "autocorr_lag1",
+            "cum_ic_max_drawdown",
+            "best_quarter",
+            "worst_quarter",
+        }
+        assert isinstance(analytics["by_year"], dict)
+        assert analytics["autocorr_lag1"] is not None
+        assert analytics["cum_ic_max_drawdown"] is not None
+        assert analytics["best_quarter"] >= analytics["worst_quarter"]
 
-        for new_c, g_c in zip(result["checks"], g["checks"]):
-            assert new_c["window_id"] == g_c["window_id"]
-            assert new_c["ic_mean_support"] == pytest.approx(
-                g_c["ic_mean_support"], abs=1e-6
-            )
-            assert new_c["sign_consistent"] == g_c["sign_consistent"]
+    def test_empty_series(self) -> None:
+        empty = pd.Series(dtype=float)
+        empty.index = pd.DatetimeIndex([])
+        out = compute_ic_analytics(empty)
+        assert out["by_year"] == {}
+        assert out["autocorr_lag1"] is None
+        assert out["best_quarter"] is None
+
+
+class TestComputeMultiHorizonIc:
+    def test_multiple_horizons(
+        self,
+        factor_flat: pd.DataFrame,
+        returns_flat: pd.DataFrame,
+        date_range: tuple[str, str, str, str],
+    ) -> None:
+        train_start, train_end, val_start, val_end = date_range
+        returns_by_h = {1: returns_flat, 5: returns_flat}
+        out = compute_multi_horizon_ic(
+            factor_flat,
+            returns_by_h,
+            train_range=(train_start, train_end),
+            validation_range=(val_start, val_end),
+        )
+        assert set(out.keys()) == {1, 5}
+        for h in (1, 5):
+            for split in ("train", "validation"):
+                for field in ("ic_mean", "ic_std", "ic_ir", "ic_win_rate", "n_days"):
+                    assert field in out[h][split]
+            assert isinstance(out[h]["ic_series_train"], pd.Series)
+            assert isinstance(out[h]["ic_series_validation"], pd.Series)
+
+
+class TestComputeIcHalfLife:
+    def test_clean_decay(self) -> None:
+        ic_means = {1: 0.02, 3: 0.015, 5: 0.01, 10: 0.005, 20: 0.002}
+        hl = compute_ic_half_life(ic_means)
+        assert hl is not None
+        # target = 0.01, reached at h=5 → half-life exactly 5
+        assert hl == pytest.approx(5.0, abs=1e-4)
+
+    def test_insufficient_points(self) -> None:
+        assert compute_ic_half_life({1: 0.02}) is None
+        assert compute_ic_half_life({}) is None
+
+    def test_nan_values_filtered(self) -> None:
+        ic_means = {1: 0.02, 3: float("nan"), 5: 0.01}
+        hl = compute_ic_half_life(ic_means)
+        assert hl is not None

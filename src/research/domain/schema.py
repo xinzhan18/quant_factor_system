@@ -97,23 +97,22 @@ class Lineage:
 
 @dataclass
 class EvaluationContext:
-    """Records which policy / profile was active when a factor was admitted."""
+    """Records which profile was active when a factor was admitted."""
 
-    sample_policy_version: str = ""
     eval_profile: str = ""
     holdout_used: bool = False
 
 
 # ======================================================================
-# FactorRecord v3
+# FactorRecord
 # ======================================================================
 
 @dataclass
 class FactorRecord:
     """A factor admitted to the registry.
 
-    This is the v3 schema defined in memory.md.  It is the metadata
-    truth source stored at ``storage/registry/factors/factor_XXX.yaml``.
+    The metadata truth source stored at
+    ``storage/registry/factors/factor_XXX.yaml``.
     """
 
     # ---- Identity ----
@@ -138,7 +137,6 @@ class FactorRecord:
     decision: str = "admit"  # "admit" | "replace"
     replace_target_id: Optional[str] = None
     status: str = "active"  # "active" | "legacy" | "retired"
-    evaluation_version: str = "v3"
 
     # ---- Evaluation Context ----
     evaluation_context: EvaluationContext = field(

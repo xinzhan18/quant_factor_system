@@ -30,6 +30,7 @@ module-level defaults so tests are deterministic.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -93,30 +94,21 @@ def winsorize_mad(
 def zscore_cross_section(wide: pd.DataFrame) -> pd.DataFrame:
     """Cross-sectional z-score per row (date).
 
-    Uses ``ddof=0`` (population std) to match the refactor_plan §6
-    reference implementation. Rows with zero or undefined std (e.g. all
-    NaN or all constant) collapse to ``0.0`` where a value existed,
+    Uses ``ddof=0`` (population std). Rows with zero or undefined std
+    (all NaN or constant) collapse to ``0.0`` where a value existed,
     ``NaN`` otherwise.
     """
-    row_mean = wide.mean(axis=1, skipna=True)
-    row_std = wide.std(axis=1, skipna=True, ddof=0)
-
-    # Protect against zero / NaN std: safe_std replaces 0 with NaN so the
-    # division yields NaN, then we fill back to 0.0 where the original
-    # value was present.
-    safe_std = row_std.where(row_std > 0)
-    centered = wide.sub(row_mean, axis=0)
-    out = centered.div(safe_std, axis=0)
-
-    # Any row where std was 0 gets filled with 0 for originally-valid cells
-    original_valid = wide.notna()
-    zero_std_rows = row_std.fillna(0).eq(0)
-    if zero_std_rows.any():
-        fill_mask = original_valid.loc[zero_std_rows[zero_std_rows].index]
-        out.loc[zero_std_rows[zero_std_rows].index] = out.loc[
-            zero_std_rows[zero_std_rows].index
-        ].mask(fill_mask, 0.0)
-    return out
+    arr = wide.to_numpy(dtype=float, copy=True)
+    # All-NaN rows raise "Mean of empty slice" RuntimeWarning from numpy;
+    # they still resolve to NaN which we mask back below. Suppressing
+    # keeps logs clean on failure paths where a candidate collapses.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mean = np.nanmean(arr, axis=1, keepdims=True)
+        std = np.nanstd(arr, axis=1, keepdims=True)
+    out = np.divide(arr - mean, std, out=np.zeros_like(arr), where=std > 0)
+    out[np.isnan(arr)] = np.nan  # originally-NaN cells stay NaN
+    return pd.DataFrame(out, index=wide.index, columns=wide.columns)
 
 
 def preprocess_factor(

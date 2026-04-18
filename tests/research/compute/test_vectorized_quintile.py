@@ -9,7 +9,10 @@ import pandas as pd
 import pytest
 import yaml
 
-from research.compute.vectorized_quintile import compute_quintile_returns
+from research.compute.vectorized_quintile import (
+    compute_long_short_stats,
+    compute_quintile_returns,
+)
 
 FIXTURES = Path(__file__).parent / "_fixtures"
 INPUTS = FIXTURES / "inputs"
@@ -107,3 +110,28 @@ class TestQuintileReturns:
             golden_ls.values,
             decimal=10,
         )
+
+
+class TestLongShortStats:
+    def test_empty_returns_empty_dict(self) -> None:
+        assert compute_long_short_stats([]) == {}
+
+    def test_normal_series(self) -> None:
+        daily = [0.001, -0.0005, 0.002, 0.0, -0.001, 0.0015]
+        out = compute_long_short_stats(daily)
+        expected_keys = {
+            "mean", "std", "sharpe", "sortino", "calmar",
+            "max_dd", "max_dd_duration", "tstat", "n_days",
+        }
+        assert set(out.keys()) == expected_keys
+        assert out["n_days"] == 6
+        assert out["mean"] == pytest.approx(float(np.mean(daily)), abs=1e-6)
+
+    def test_nan_filtered(self) -> None:
+        daily = [0.001, float("nan"), 0.002]
+        out = compute_long_short_stats(daily)
+        assert out["n_days"] == 2
+
+    def test_zero_std(self) -> None:
+        out = compute_long_short_stats([0.001, 0.001, 0.001])
+        assert out["tstat"] == 0.0

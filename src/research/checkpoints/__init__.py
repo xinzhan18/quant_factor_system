@@ -1,8 +1,7 @@
-"""Checkpoint layer for Phase 3 JUDGE.
+"""Checkpoint layer for Phase 3 JUDGE (graph-judge schema).
 
 * ``hard_gates.py`` — CP01 pure-function rejection rules
-* ``generator.py`` — pre-pack ``_packets/judge_packet.md`` for LLM judge
-* ``audit.py`` — post-judge validation (schema, refs, mt_bucket citation)
-
-Skeleton only at P0. Implementations land in P2.
+* ``mt_budget.py`` — §7.MT cross-batch scan + search-adjusted formula
+* ``hints.py`` — produces ``_hints.yaml`` (Python-only judge input)
+* ``audit.py`` — post-judge validation of ``candidates/*.md`` + ``judge.md``
 """

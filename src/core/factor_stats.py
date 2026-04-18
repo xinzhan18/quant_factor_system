@@ -220,12 +220,13 @@ def quintile_returns(
     returns_df: pd.DataFrame,
     n_quantiles: int = 5,
     min_obs: int = 5,
-) -> Tuple[Dict[str, float], List[float]]:
-    """Compute quintile (or n-quantile) average returns and daily long-short returns.
+) -> Tuple[Dict[str, float], List[float], pd.DataFrame]:
+    """Compute quintile (or n-quantile) average returns, daily long-short
+    returns, and per-quintile daily return series.
 
-    Fully vectorized: pivots to (date × stock) matrices, assigns quantile buckets
-    via cross-sectional rank, then aggregates with numpy masked operations.
-    No Python for-loop over dates.
+    Fully vectorized: pivots to (date × stock) matrices, assigns quantile
+    buckets via cross-sectional rank, then aggregates with numpy masked
+    operations. No Python for-loop over dates.
 
     Args:
         factor_df: Flat DataFrame [time, symbol, value].
@@ -234,14 +235,23 @@ def quintile_returns(
         min_obs: Minimum valid observations per day to include.
 
     Returns:
-        Tuple of (average quintile returns dict, daily long-short return list).
+        Tuple of
+        * average per-quintile returns dict (``{"q1", ..., "qN"}``)
+        * daily long-short return list (dropped NaN)
+        * per-quintile daily DataFrame (date × ``q1..qN`` columns).
+          Empty DataFrame when inputs are empty.
     """
+    empty_df = pd.DataFrame(columns=[f"q{i + 1}" for i in range(n_quantiles)])
     merged = factor_df.merge(
         returns_df, on=["time", "symbol"], suffixes=("_factor", "_return"),
     )
     merged = merged.dropna(subset=["value_factor", "value_return"])
     if merged.empty:
-        return {f"q{i + 1}": np.nan for i in range(n_quantiles)}, []
+        return (
+            {f"q{i + 1}": np.nan for i in range(n_quantiles)},
+            [],
+            empty_df,
+        )
 
     # Pivot to (date × stock) matrices
     factor_wide = merged.pivot(index="time", columns="symbol", values="value_factor")
@@ -251,7 +261,11 @@ def quintile_returns(
     n_valid = factor_wide.notna().sum(axis=1)
     valid_days = n_valid[n_valid >= max(n_quantiles, min_obs)].index
     if valid_days.empty:
-        return {f"q{i + 1}": np.nan for i in range(n_quantiles)}, []
+        return (
+            {f"q{i + 1}": np.nan for i in range(n_quantiles)},
+            [],
+            empty_df,
+        )
     factor_wide = factor_wide.loc[valid_days]
     returns_wide = returns_wide.loc[valid_days]
 
@@ -264,20 +278,28 @@ def quintile_returns(
 
     ret_vals = returns_wide.values  # (n_days, n_stocks)
 
-    # Per-quintile mean return across all days
+    import warnings
     avg_qs: Dict[str, float] = {}
-    for q in range(n_quantiles):
-        mask = buckets == q
-        q_returns = np.where(mask, ret_vals, np.nan)
-        avg_qs[f"q{q + 1}"] = float(np.nanmean(q_returns))
+    per_q_daily_cols = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN slice
+        for q in range(n_quantiles):
+            mask = buckets == q
+            q_returns = np.where(mask, ret_vals, np.nan)
+            avg_qs[f"q{q + 1}"] = float(np.nanmean(q_returns))
+            per_q_daily_cols[f"q{q + 1}"] = np.nanmean(q_returns, axis=1)
+
+    per_q_daily = pd.DataFrame(
+        per_q_daily_cols, index=pd.Index(valid_days, name="datetime")
+    )
 
     # Daily long-short: top quintile mean - bottom quintile mean (per day)
-    top = np.nanmean(np.where(buckets == n_quantiles - 1, ret_vals, np.nan), axis=1)
-    bot = np.nanmean(np.where(buckets == 0, ret_vals, np.nan), axis=1)
+    top = per_q_daily[f"q{n_quantiles}"].to_numpy()
+    bot = per_q_daily["q1"].to_numpy()
     ls = top - bot
     daily_ls: List[float] = ls[np.isfinite(ls)].tolist()
 
-    return avg_qs, daily_ls
+    return avg_qs, daily_ls, per_q_daily
 
 
 # ──────────────────── Monotonicity ────────────────────
@@ -466,12 +488,17 @@ def incremental_ic(
     library_factors: Dict[str, pd.DataFrame],
     min_obs: int = 30,
 ) -> Tuple[Optional[float], Optional[float]]:
-    """Compute IC of factor residuals after regressing out library factor exposures.
+    """Compute IC of factor residuals after regressing out library exposures.
 
-    Vectorized pre-join: merges all library factors into a single panel once
-    (eliminates inner loop over library factors per date), then iterates over
-    dates for the unavoidable per-date OLS solve (variable valid-stock sets
-    prevent full outer vectorization).
+    Fully batched: pivots everything into (D, S, K) tensors, solves
+    ``K+I·λ ridged`` normal equations per date with a single
+    ``np.linalg.solve`` call, computes residuals via einsum, then gets
+    daily cross-sectional Spearman via ranked Pearson.
+
+    Per-date valid-stock mask is realised by NaN→0 on ``X`` and ``y`` —
+    dropped stocks contribute zero to ``XᵀX`` and ``Xᵀy`` so the solve is
+    equivalent to dropping them. Ridge (λ = 1e-4 · mean_diag(XᵀX)) keeps
+    the solve stable as the library grows and K approaches S.
 
     Args:
         factor_df: Target factor [time, symbol, value].
@@ -485,46 +512,104 @@ def incremental_ic(
     if not library_factors:
         return None, None
 
-    # Pre-join all data into one panel (eliminates inner loop over library factors)
-    panel = factor_df.rename(columns={"value": "target"})
-    panel = panel.merge(
-        returns_df.rename(columns={"value": "future_return"}),
-        on=["time", "symbol"], how="inner",
-    )
-    for fid, fdf in library_factors.items():
-        panel = panel.merge(
-            fdf[["time", "symbol", "value"]].rename(columns={"value": fid}),
-            on=["time", "symbol"], how="inner",
-        )
+    # Pivot everything to a shared (date × symbol) grid per field
+    target_wide = factor_df.set_index(["time", "symbol"])["value"].unstack(level=-1)
+    ret_wide = returns_df.set_index(["time", "symbol"])["value"].unstack(level=-1)
 
     lib_cols = list(library_factors.keys())
-    panel = panel.dropna(subset=["target", "future_return"] + lib_cols)
-    if panel.empty:
+    lib_wides = {
+        fid: library_factors[fid].set_index(["time", "symbol"])["value"].unstack(-1)
+        for fid in lib_cols
+    }
+
+    # Align all on the intersection of dates × symbols
+    dates = target_wide.index
+    symbols = target_wide.columns
+    for f in (ret_wide, *lib_wides.values()):
+        dates = dates.intersection(f.index)
+        symbols = symbols.intersection(f.columns)
+    if len(dates) == 0 or len(symbols) == 0:
         return None, None
 
-    daily_residual_ics = []
+    target = target_wide.loc[dates, symbols].to_numpy(dtype=float)   # (D, S)
+    ret = ret_wide.loc[dates, symbols].to_numpy(dtype=float)         # (D, S)
+    X = np.stack(
+        [lib_wides[fid].loc[dates, symbols].to_numpy(dtype=float)
+         for fid in lib_cols],
+        axis=-1,
+    )  # (D, S, K)
 
-    for _, group in panel.groupby("time"):
-        if len(group) < min_obs:
-            continue
-        X = group[lib_cols].values          # (n_stocks, n_lib_factors)
-        y = group["target"].values          # (n_stocks,)
-        ret_vals = group["future_return"].values
+    # Joint validity mask
+    mask = np.isfinite(target) & np.isfinite(ret) & np.all(np.isfinite(X), axis=-1)
+    n_valid = mask.sum(axis=1)                   # (D,)
+    keep_day = n_valid >= min_obs
+    if not keep_day.any():
+        return None, None
+
+    # Zero out invalid rows — they then contribute nothing to XᵀX / Xᵀy
+    target_z = np.where(mask, target, 0.0)
+    X_z = np.where(mask[..., None], X, 0.0)
+
+    # Normal equations batched across dates
+    XtX = np.einsum("dsi,dsj->dij", X_z, X_z)    # (D, K, K)
+    Xty = np.einsum("dsi,ds->di", X_z, target_z)  # (D, K)
+
+    # Scale-invariant ridge: λ_d = 1e-4 · mean(diag(XᵀX_d))
+    K = len(lib_cols)
+    diag_mean = np.einsum("dii->d", XtX) / max(K, 1)
+    lam = 1e-4 * diag_mean                        # (D,)
+    XtX += lam[:, None, None] * np.eye(K)
+
+    # Batched solve. For dates that fail we fall back to NaN below.
+    beta = np.full((XtX.shape[0], K), np.nan)
+    valid_idx = np.where(keep_day)[0]
+    if valid_idx.size > 0:
+        # numpy's batched solve wants b shape (..., M, N); we want N=1 per
+        # date so reshape and squeeze.
+        b_batched = Xty[valid_idx, :, None]                          # (n, K, 1)
         try:
-            coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-            residual = y - X @ coeffs
-            if np.std(residual) < 1e-10:
-                continue
-            corr, _ = spearmanr(residual, ret_vals)
-            if np.isfinite(corr):
-                daily_residual_ics.append(corr)
-        except (np.linalg.LinAlgError, ValueError):
-            continue
+            solved = np.linalg.solve(XtX[valid_idx], b_batched)      # (n, K, 1)
+            beta[valid_idx] = solved[..., 0]
+        except np.linalg.LinAlgError:
+            # Fall back to lstsq per date for the problematic batch
+            for d in valid_idx:
+                try:
+                    beta[d], *_ = np.linalg.lstsq(XtX[d], Xty[d], rcond=None)
+                except np.linalg.LinAlgError:
+                    continue
 
-    if not daily_residual_ics:
+    # Residuals and masked residuals for rank correlation
+    resid = target - np.einsum("dsi,di->ds", X, np.nan_to_num(beta, nan=0.0))
+    resid = np.where(mask, resid, np.nan)
+
+    # Per-date cross-sectional Spearman = Pearson(rank(resid), rank(ret))
+    # Using the same rank-corr pattern as vectorized_redundancy._rank_corr_timeseries.
+    # Rank per row, NaN preserved.
+    resid_df = pd.DataFrame(resid, index=dates, columns=symbols)
+    ret_df = pd.DataFrame(np.where(mask, ret, np.nan), index=dates, columns=symbols)
+    resid_r = resid_df.rank(axis=1, method="average").to_numpy(dtype=float)
+    ret_r = ret_df.rank(axis=1, method="average").to_numpy(dtype=float)
+
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mr = np.nanmean(resid_r, axis=1, keepdims=True)
+        mt = np.nanmean(ret_r, axis=1, keepdims=True)
+        dr = resid_r - mr
+        dt = ret_r - mt
+        num = np.nansum(dr * dt, axis=1)
+        den = np.sqrt(np.nansum(dr * dr, axis=1)) * np.sqrt(np.nansum(dt * dt, axis=1))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        corr = np.where(den > 0, num / den, np.nan)
+
+    # Drop dates that didn't satisfy min_obs OR whose residual was
+    # degenerate (std ~ 0) OR whose pearson is non-finite.
+    corr = np.where(keep_day, corr, np.nan)
+    valid = np.isfinite(corr)
+    if not valid.any():
         return None, None
 
-    ics = np.array(daily_residual_ics)
+    ics = corr[valid]
     ic_mean = float(np.mean(ics))
     ic_std = float(np.std(ics))
     icir = float(ic_mean / ic_std) if ic_std > 0 else 0.0

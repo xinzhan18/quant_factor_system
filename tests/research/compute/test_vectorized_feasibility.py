@@ -5,8 +5,7 @@ Verifies that the new vectorized implementations of:
 - compute_liquidity_coverage
 - compute_tail_concentration
 - compute_small_cap_concentration
-- compute_half_life
-- compute_holding_period_proxy
+- compute_signal_half_life
 - compute_rebalance_stress
 
 match the golden values computed by the legacy `research.feasibility.*`
@@ -23,10 +22,10 @@ import yaml
 
 from research.compute.vectorized_feasibility import (
     build_proxy_portfolio,
-    compute_half_life,
-    compute_holding_period_proxy,
     compute_liquidity_coverage,
     compute_rebalance_stress,
+    compute_signal_autocorr_lag1,
+    compute_signal_half_life,
     compute_small_cap_concentration,
     compute_tail_concentration,
 )
@@ -137,19 +136,31 @@ class TestSmallCapConcentration:
         )
 
 
-class TestHalfLife:
+class TestSignalHalfLife:
     def test_matches_golden(
         self, candidate_signal: pd.DataFrame, golden: dict
     ) -> None:
-        result = compute_half_life(candidate_signal, max_lag=20)
+        result = compute_signal_half_life(candidate_signal, max_lag=20)
         assert result == pytest.approx(
             golden["feasibility"]["half_life"], abs=ATOL
         )
 
-    def test_holding_period_bucket_matches(self, golden: dict) -> None:
-        hl = golden["feasibility"]["half_life"]
-        bucket = compute_holding_period_proxy(hl)
-        assert bucket == golden["feasibility"]["holding_period"]
+
+class TestSignalAutocorrLag1:
+    def test_returns_finite_for_autocorrelated_signal(
+        self, candidate_signal: pd.DataFrame
+    ) -> None:
+        # The fixture signal is smooth enough to have non-trivial lag-1 corr
+        result = compute_signal_autocorr_lag1(candidate_signal)
+        assert result is not None
+        assert -1.0 <= result <= 1.0
+
+    def test_empty_signal_returns_none(self) -> None:
+        empty = pd.DataFrame(
+            columns=["value"],
+            index=pd.MultiIndex.from_tuples([], names=["datetime", "instrument"]),
+        )
+        assert compute_signal_autocorr_lag1(empty) is None
 
 
 class TestRebalanceStress:
@@ -160,9 +171,7 @@ class TestRebalanceStress:
             g["tail_concentration"],
             g["liquidity_coverage"],
         )
-        assert result["rebalance_stress_proxy"] == pytest.approx(
+        assert isinstance(result, float)
+        assert result == pytest.approx(
             g["rebalance_stress"]["proxy"], abs=ATOL
-        )
-        assert (
-            result["rebalance_stress_bucket"] == g["rebalance_stress"]["bucket"]
         )

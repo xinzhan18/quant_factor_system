@@ -1,25 +1,28 @@
-"""Phase 2 EXECUTE orchestrator.
+"""Phase 2 EXECUTE orchestrator (schema v3).
 
 Consumes a frozen manifest + pre-computed factor values + reference data
 and produces ``batches/batch_{id}/result.yaml``. Zero LLM involvement.
 
-The orchestrator is intentionally **thin**: all the heavy math lives in
-``research.compute.vectorized_*`` modules. Phase 2's job is to:
+Design invariants (result.yaml schema v3):
 
-1. split each candidate's signal into train / validation ranges
-2. call every vectorized module and collect structured outputs
-3. catch per-candidate failures so one bad candidate doesn't break the batch
-4. serialize the whole thing to ``result.yaml`` with the frozen schema
+* **Single source of truth per metric** — IC stats live at
+  ``candidates[].ic.*``, monotonicity at ``candidates[].quintile.*.monotonicity``,
+  library correlation at ``candidates[].uniqueness.max_lib_corr``. No parallel
+  duplicated blocks. Every metric is produced by exactly one vectorized
+  module.
+* **Multi-horizon, not multi-universe** — the orchestrator runs every
+  entry in ``inputs.forward_returns_by_horizon`` on both train and
+  validation and derives the IC-decay half-life from the per-horizon
+  train means. Multi-universe is not part of this phase.
+* **``multiple_testing_risk_bucket`` is populated by Phase 3 pre-pack**
+  (``checkpoints/generator.py``) — Phase 2 writes ``None``.
+* **Per-candidate failures are isolated** — an exception on one
+  candidate sets its ``compute_error`` field and produces no metric
+  fields; sibling candidates continue normally.
 
-Data ingestion (DB / Qlib / DSL expression evaluation) is **out of scope
-for P1.4**. The inputs-dataclass is the contract between this orchestrator
-and whatever future Phase 1 / data layer produces the factor values. That
-boundary is what makes Phase 2 end-to-end-testable on synthetic data
-without a live database.
-
-The ``multiple_testing_risk_bucket`` field in ``result.yaml`` is left
-``None`` at Phase 2 time; P2 ``checkpoints/generator.py`` fills it in
-during Phase 3 pre-pack via ``stats/mt_budget.py`` (see §7.MT).
+Downstream consumers (hard_gates / generator / factor_writer) read
+``candidates[]`` fields directly — see the plan document for the field
+path table.
 """
 
 from __future__ import annotations
@@ -30,59 +33,54 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
+from core.factor_stats import multiindex_to_flat
 from research.compute.preprocess import PreprocessConfig, preprocess_factor
 from research.compute.vectorized_barra import compute_barra_exposures
+from research.compute.vectorized_distribution import compute_distribution
 from research.compute.vectorized_feasibility import (
     build_proxy_portfolio,
-    compute_half_life,
-    compute_holding_period_proxy,
     compute_liquidity_coverage,
     compute_rebalance_stress,
+    compute_signal_autocorr_lag1,
+    compute_signal_half_life,
     compute_small_cap_concentration,
     compute_tail_concentration,
 )
 from research.compute.vectorized_ic import (
-    compute_effect_strength,
-    compute_support_windows,
+    compute_ic_analytics,
+    compute_ic_half_life,
+    compute_multi_horizon_ic,
 )
-from research.compute.vectorized_quintile import compute_quintile_returns
-from research.compute.vectorized_redundancy import compute_pairwise_redundancy
+from research.compute.vectorized_quintile import (
+    compute_long_short_stats,
+    compute_quintile_returns,
+)
+from research.compute.vectorized_redundancy import (
+    compute_incremental_ic,
+    compute_pairwise_redundancy,
+)
 from research.compute.vectorized_stability import (
     compute_sign_consistency,
     compute_split_stability,
     compute_train_validation_decay,
 )
-from research.compute.report_card import compute_report_card
+from research.storage.paths import StoragePaths
 from research.storage.yaml_io import save_yaml
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Schema + inputs
+# Inputs
 # ---------------------------------------------------------------------------
-
-# Frozen result.yaml schema version. Bump this if the structure changes;
-# P2 (Phase 3 JUDGE) cross-checks it so a schema mismatch fails loudly
-# instead of silently mis-parsing.
-RESULT_SCHEMA_VERSION = "1"
 
 
 @dataclass
 class CandidateInputs:
-    """Per-candidate data bundle consumed by Phase 2.
-
-    All Series/DataFrames use the conventional indices:
-
-    * ``factor_series`` — MultiIndex ``(time, symbol)`` Series of raw
-      factor values (pre-preprocess)
-    * ``tradable_mask`` — MultiIndex ``(time, symbol)`` bool Series
-
-    The orchestrator pivots / re-flattens as needed for each downstream
-    vectorized module.
-    """
+    """Per-candidate data bundle consumed by Phase 2."""
 
     candidate_id: str
     expression: str
@@ -98,40 +96,35 @@ class Phase2Inputs:
     batch_id: str
     candidates: list[CandidateInputs]
 
-    forward_returns_flat: pd.DataFrame
-    """Flat ``[time, symbol, value]`` frame of forward returns."""
+    forward_returns_by_horizon: dict[int, pd.DataFrame]
+    """``{horizon_days: flat [time, symbol, value]}`` — forward returns
+    for every horizon to score. ``primary_horizon`` must be one of the
+    keys; its IC drives the train/validation top-level fields and the
+    Barra residual IC."""
+
+    primary_horizon: int
 
     style_matrix: pd.DataFrame
-    """MultiIndex (datetime, instrument) with the 7 Barra style columns."""
-
     library_signals: dict[str, pd.DataFrame]
-    """``{factor_id: MultiIndex DataFrame}`` — admitted factors for redundancy."""
-
     amount_data: pd.DataFrame
-    """MultiIndex (datetime, instrument) single-column ``$amount``."""
-
     market_cap: pd.DataFrame
-    """MultiIndex (datetime, instrument) single-column ``$market_cap``."""
 
     train_range: tuple[str, str]
     validation_range: tuple[str, str]
-    support_windows: list[dict[str, Any]] = field(default_factory=list)
 
-    sample_policy_version: str = "v3"
-    preprocess_version: str = "p1"
     preprocess_config: PreprocessConfig = field(default_factory=PreprocessConfig)
+    universe: str = "csi1000"
+
+    # Optional — when provided, per-candidate Q1..Qn daily / IC daily /
+    # long-short daily series are persisted to
+    # ``paths.candidate_diagnostics_dir(batch_id, cand_id)`` and
+    # ``result.yaml.candidates[].diagnostics_relpath`` references them.
+    paths: StoragePaths | None = None
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _series_to_flat(s: pd.Series) -> pd.DataFrame:
-    """MultiIndex(time, symbol) Series → flat [time, symbol, value]."""
-    df = s.reset_index()
-    df.columns = ["time", "symbol", "value"]
-    return df
 
 
 def _series_to_mi_df(s: pd.Series, col: str = "value") -> pd.DataFrame:
@@ -145,6 +138,91 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _expression_depth(expr: str) -> int:
+    """Crude nesting depth — open-paren count, matching legacy behavior."""
+    return int(expr.count("(")) if expr else 0
+
+
+def _strip_ic_series(by_horizon: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    """Drop ``ic_series_train`` / ``ic_series_validation`` before YAML."""
+    return {
+        h: {
+            "train": blk["train"],
+            "validation": blk["validation"],
+        }
+        for h, blk in by_horizon.items()
+    }
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics parquet writer
+# ---------------------------------------------------------------------------
+
+
+def _persist_diagnostics(
+    *,
+    inputs: "Phase2Inputs",
+    candidate_id: str,
+    qret_train: dict[str, Any],
+    qret_val: dict[str, Any],
+    ic_train_series: pd.Series,
+    ic_val_series: pd.Series,
+) -> str | None:
+    """Write per-candidate daily diagnostic series to parquet.
+
+    Writes four files under ``paths.candidate_diagnostics_dir``:
+
+    * ``quantile_daily_train.parquet`` — (date × Q1..Qn)
+    * ``quantile_daily_validation.parquet`` — (date × Q1..Qn)
+    * ``long_short_daily.parquet`` — (date × value) derived from Q5-Q1
+    * ``ic_daily.parquet`` — (date × ic_train, ic_validation)
+
+    Returns the diagnostics dir path relative to the storage root so
+    Phase 4 can resolve it without hard-coding ``cache/``.
+    """
+    if inputs.paths is None:
+        return None
+    out_dir = inputs.paths.candidate_diagnostics_dir(inputs.batch_id, candidate_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    q_train_df: pd.DataFrame = qret_train["per_quintile_daily"]
+    q_val_df: pd.DataFrame = qret_val["per_quintile_daily"]
+    q_train_df.to_parquet(out_dir / "quantile_daily_train.parquet")
+    q_val_df.to_parquet(out_dir / "quantile_daily_validation.parquet")
+
+    # Long-short series = Q_n - Q_1 per date (preserves NaN days)
+    def _ls_from(qdf: pd.DataFrame) -> pd.DataFrame:
+        if qdf.empty:
+            return pd.DataFrame({"long_short": []}, index=pd.Index([], name="datetime"))
+        q_last = qdf.columns[-1]
+        return pd.DataFrame(
+            {"long_short": (qdf[q_last] - qdf["q1"]).to_numpy()},
+            index=qdf.index,
+        )
+
+    ls_train = _ls_from(q_train_df)
+    ls_val = _ls_from(q_val_df)
+    pd.concat(
+        {"train": ls_train, "validation": ls_val},
+        names=["split"],
+    ).to_parquet(out_dir / "long_short_daily.parquet")
+
+    ic_df = pd.concat(
+        {
+            "train": ic_train_series.rename("ic").to_frame(),
+            "validation": ic_val_series.rename("ic").to_frame(),
+        },
+        names=["split"],
+    )
+    ic_df.to_parquet(out_dir / "ic_daily.parquet")
+
+    try:
+        rel = str(out_dir.relative_to(inputs.paths.root))
+    except ValueError:
+        rel = str(out_dir)
+    return rel
+
+
 # ---------------------------------------------------------------------------
 # Per-candidate evaluation
 # ---------------------------------------------------------------------------
@@ -154,71 +232,128 @@ def _evaluate_candidate(
     cand: CandidateInputs,
     inputs: Phase2Inputs,
 ) -> dict[str, Any]:
-    """Run the full vectorized metric suite on one candidate.
+    """Run the full vectorized metric suite on one candidate (schema v3).
 
-    On failure, returns a minimal dict with ``compute_error`` filled in —
-    sibling candidates continue.
+    On failure, returns ``{"candidate_id", "expression", "source_type",
+    "expression_depth", "compute_error"}`` only — no partial metric
+    fields, sibling candidates continue.
     """
     try:
-        # --- 1. Preprocess (MAD winsorize + z-score) ---
+        if inputs.primary_horizon not in inputs.forward_returns_by_horizon:
+            raise ValueError(
+                f"primary_horizon={inputs.primary_horizon} missing from "
+                "forward_returns_by_horizon"
+            )
+
+        # --- 1. Preprocess (tradable mask → MAD winsorize → z-score) ---
         clean_series = preprocess_factor(
             cand.factor_series,
             inputs.preprocess_config,
             tradable_mask=cand.tradable_mask,
         )
-
-        factor_flat = _series_to_flat(clean_series.dropna())
-        if factor_flat.empty:
-            raise ValueError("preprocessed factor is empty (all NaN)")
-
         coverage = float(clean_series.notna().mean())
 
-        # --- 2. Effect strength (IC mean/std/ir/win_rate/mono) ---
-        es = compute_effect_strength(
+        cand_mi = _series_to_mi_df(clean_series.dropna())
+        if cand_mi.empty:
+            raise ValueError("preprocessed factor is empty (all NaN)")
+
+        factor_flat = cand_mi.reset_index()
+        factor_flat.columns = ["time", "symbol", "value"]
+
+        # --- 2. Multi-horizon IC (one pass for every horizon × split) ---
+        by_horizon = compute_multi_horizon_ic(
             factor_flat,
-            inputs.forward_returns_flat,
+            inputs.forward_returns_by_horizon,
             train_range=inputs.train_range,
             validation_range=inputs.validation_range,
         )
-        ic_series_train = es.pop("ic_series_train")
-        ic_series_val = es.pop("ic_series_validation")
-        primary_sign = 1.0 if es["validation"]["ic_mean"] > 0 else -1.0
+        primary = by_horizon[inputs.primary_horizon]
+        ic_train_series: pd.Series = primary["ic_series_train"]
+        ic_val_series: pd.Series = primary["ic_series_validation"]
+        train_ic_mean = primary["train"]["ic_mean"]
+        val_ic_mean = primary["validation"]["ic_mean"]
 
-        # --- 3. Quintile returns + monotonicity on validation slice ---
-        val_start, val_end = inputs.validation_range
-        mask_fv = (factor_flat["time"] >= pd.Timestamp(val_start)) & (
-            factor_flat["time"] <= pd.Timestamp(val_end)
-        )
-        mask_fr = (
-            inputs.forward_returns_flat["time"] >= pd.Timestamp(val_start)
-        ) & (inputs.forward_returns_flat["time"] <= pd.Timestamp(val_end))
-        qret = compute_quintile_returns(
-            factor_flat[mask_fv],
-            inputs.forward_returns_flat[mask_fr],
-        )
+        # Primary horizon sign — drives Barra survival + downstream gates
+        if val_ic_mean is None or not np.isfinite(val_ic_mean) or val_ic_mean == 0:
+            primary_sign = 1
+        else:
+            primary_sign = 1 if val_ic_mean > 0 else -1
 
-        # --- 4. Stability (split + support windows + decay + sign consistency) ---
-        split = compute_split_stability(ic_series_val)
-        support = (
-            compute_support_windows(
-                factor_flat,
-                inputs.forward_returns_flat,
-                primary_sign=primary_sign,
-                windows=inputs.support_windows,
-            )
-            if inputs.support_windows
-            else {"checks": [], "warning": "none"}
-        )
-        sign_ok = compute_sign_consistency(ic_series_train, ic_series_val)
-        decay = compute_train_validation_decay(
-            es["train"]["ic_mean"], es["validation"]["ic_mean"]
+        # Combined (train + validation) IC series for by-year / quarter / autocorr
+        combined_series = pd.concat(
+            [ic_train_series, ic_val_series]
+        ).sort_index()
+        ic_analytics = compute_ic_analytics(combined_series)
+
+        sign_consistent = compute_sign_consistency(ic_train_series, ic_val_series)
+        tv_decay = compute_train_validation_decay(train_ic_mean, val_ic_mean)
+        tv_decay_out: float | None = (
+            None if pd.isna(tv_decay) else round(float(tv_decay), 4)
         )
 
-        # --- 5. Redundancy vs library ---
-        cand_mi = _series_to_mi_df(clean_series.dropna())
+        horizon_train_means = {
+            h: blk["train"]["ic_mean"] for h, blk in by_horizon.items()
+        }
+        half_life_days = compute_ic_half_life(horizon_train_means)
+
+        # --- 3. Quintile (train + validation) + long-short stats ---
+        fv_train_flat = factor_flat[
+            (factor_flat["time"] >= pd.Timestamp(inputs.train_range[0]))
+            & (factor_flat["time"] <= pd.Timestamp(inputs.train_range[1]))
+        ]
+        fv_val_flat = factor_flat[
+            (factor_flat["time"] >= pd.Timestamp(inputs.validation_range[0]))
+            & (factor_flat["time"] <= pd.Timestamp(inputs.validation_range[1]))
+        ]
+        primary_returns = inputs.forward_returns_by_horizon[inputs.primary_horizon]
+        fr_train_flat = primary_returns[
+            (primary_returns["time"] >= pd.Timestamp(inputs.train_range[0]))
+            & (primary_returns["time"] <= pd.Timestamp(inputs.train_range[1]))
+        ]
+        fr_val_flat = primary_returns[
+            (primary_returns["time"] >= pd.Timestamp(inputs.validation_range[0]))
+            & (primary_returns["time"] <= pd.Timestamp(inputs.validation_range[1]))
+        ]
+
+        qret_train = compute_quintile_returns(fv_train_flat, fr_train_flat)
+        qret_val = compute_quintile_returns(fv_val_flat, fr_val_flat)
+
+        ls_stats_train = compute_long_short_stats(qret_train["long_short_daily"])
+        ls_stats_val = compute_long_short_stats(qret_val["long_short_daily"])
+
+        # Persist daily diagnostic series to parquet (so Phase 4 doesn't recompute)
+        diagnostics_relpath = _persist_diagnostics(
+            inputs=inputs,
+            candidate_id=cand.candidate_id,
+            qret_train=qret_train,
+            qret_val=qret_val,
+            ic_train_series=ic_train_series,
+            ic_val_series=ic_val_series,
+        )
+
+        # --- 4. Stability (split + decay + sign consistency already above) ---
+        split = compute_split_stability(ic_val_series)
+
+        # --- 5. Uniqueness (library correlation + incremental IC) ---
         redundancy = compute_pairwise_redundancy(cand_mi, inputs.library_signals)
 
-        # --- 6. Feasibility (proxy portfolio + liq + concentration + stress) ---
+        ret_flat = inputs.forward_returns_by_horizon[inputs.primary_horizon]
+        library_flat = {
+            fid: multiindex_to_flat(df)
+            for fid, df in inputs.library_signals.items()
+        }
+        incr_ic = compute_incremental_ic(factor_flat, ret_flat, library_flat)
+
+        uniqueness = {
+            "max_lib_corr": redundancy["max_lib_corr"],
+            "nearest_factor_id": redundancy["nearest_factor_id"],
+            "is_near_duplicate": redundancy["is_near_duplicate"],
+            "exceeds_threshold": redundancy["exceeds_threshold"],
+            "all_correlations": redundancy["all_correlations"],
+            "incremental_ic": incr_ic,
+        }
+
+        # --- 6. Feasibility (portfolio-side + signal persistence) ---
         tradable_mi = _series_to_mi_df(
             cand.tradable_mask.astype(bool), col="tradable"
         )
@@ -229,104 +364,75 @@ def _evaluate_candidate(
         small_cap = compute_small_cap_concentration(
             proxy.abs_weights, inputs.market_cap
         )
-        half_life = compute_half_life(cand_mi)
-        holding = compute_holding_period_proxy(half_life)
-        stress = compute_rebalance_stress(turnover_mean, tail, lcr)
+        signal_half_life = compute_signal_half_life(cand_mi)
+        signal_autocorr = compute_signal_autocorr_lag1(cand_mi)
+        rebalance_stress = compute_rebalance_stress(turnover_mean, tail, lcr)
 
-        # --- 7. Barra residual IC (CP04) ---
+        # --- 7. Barra residual IC (CP04) — primary horizon only ---
         barra = compute_barra_exposures(
             factor_flat,
             inputs.style_matrix,
-            inputs.forward_returns_flat,
-            raw_view_ic=es["validation"]["ic_mean"],
+            primary_returns,
+            raw_view_ic=val_ic_mean,
         )
 
-        # --- 8. Full 6-dimension FactorReportCard (旧 evaluator 多维分析) ---
-        try:
-            # factor_flat is [time, symbol, value]; split into IS/OOS DataFrames
-            train_start_ts = pd.Timestamp(inputs.train_range[0])
-            train_end_ts = pd.Timestamp(inputs.train_range[1])
-            val_start_ts = pd.Timestamp(inputs.validation_range[0])
-            val_end_ts = pd.Timestamp(inputs.validation_range[1])
-
-            fv_is = factor_flat[
-                (factor_flat["time"] >= train_start_ts)
-                & (factor_flat["time"] <= train_end_ts)
-            ]
-            fv_oos = factor_flat[
-                (factor_flat["time"] >= val_start_ts)
-                & (factor_flat["time"] <= val_end_ts)
-            ]
-            ret_is = inputs.forward_returns_flat[
-                (inputs.forward_returns_flat["time"] >= train_start_ts)
-                & (inputs.forward_returns_flat["time"] <= train_end_ts)
-            ]
-            ret_oos = inputs.forward_returns_flat[
-                (inputs.forward_returns_flat["time"] >= val_start_ts)
-                & (inputs.forward_returns_flat["time"] <= val_end_ts)
-            ]
-
-            # daily_ics_by_horizon: {1: ic_series_train} — we only have h=1
-            daily_ics_by_horizon = {1: ic_series_train}
-
-            # lib_corr_profile from redundancy
-            lib_corr_profile = redundancy.get("all_correlations") or {}
-
-            rc = compute_report_card(
-                daily_ics_is=ic_series_train,
-                daily_ics_oos=ic_series_val,
-                factor_vals_is=fv_is.set_index(["time", "symbol"])["value"].to_frame(),
-                factor_vals_oos=fv_oos.set_index(["time", "symbol"])["value"].to_frame(),
-                returns_is=ret_is.set_index(["time", "symbol"])["value"].to_frame(),
-                returns_oos=ret_oos.set_index(["time", "symbol"])["value"].to_frame(),
-                daily_ics_by_horizon=daily_ics_by_horizon,
-                lib_values={},  # loaded separately if needed
-                lib_corr_profile=lib_corr_profile,
-                stage2_info={"max_corr": redundancy.get("max_lib_corr", 0.0),
-                             "max_corr_factor": redundancy.get("nearest_factor_id")},
-                expression_depth=cand.expression.count("("),
-            )
-            report_card = rc.to_dict()
-        except Exception as rc_exc:
-            logger.warning("report_card failed for %s: %s", cand.candidate_id, rc_exc)
-            report_card = None
+        # --- 8. Distribution ---
+        distribution = compute_distribution(cand_mi)
 
         return {
             "candidate_id": cand.candidate_id,
             "expression": cand.expression,
             "source_type": cand.source_type,
+            "expression_depth": _expression_depth(cand.expression),
             "coverage": round(coverage, 4),
             "sign": int(primary_sign),
-            "report_card": report_card,
-            "effect_strength": es,
+            "compute_error": None,
+            "ic": {
+                "train": primary["train"],
+                "validation": primary["validation"],
+                "sign_consistent": sign_consistent,
+                "train_validation_decay": tv_decay_out,
+                "by_year": ic_analytics["by_year"],
+                "autocorr_lag1": ic_analytics["autocorr_lag1"],
+                "cum_ic_max_drawdown": ic_analytics["cum_ic_max_drawdown"],
+                "best_quarter": ic_analytics["best_quarter"],
+                "worst_quarter": ic_analytics["worst_quarter"],
+                "by_horizon": _strip_ic_series(by_horizon),
+                "half_life_days": half_life_days,
+            },
+            "diagnostics_relpath": diagnostics_relpath,
             "quintile": {
-                "quintile_returns_validation": qret["quintile_returns"],
-                "monotonicity_validation": qret["monotonicity"],
-                "long_short_mean_validation": qret["long_short_mean"],
-                "long_short_n_days": qret["long_short_n_days"],
+                "train": {
+                    **qret_train["quintile_returns"],
+                    "monotonicity": qret_train["monotonicity"],
+                    "ls_mean": qret_train["long_short_mean"],
+                    "n_days": qret_train["long_short_n_days"],
+                },
+                "validation": {
+                    **qret_val["quintile_returns"],
+                    "monotonicity": qret_val["monotonicity"],
+                    "ls_mean": qret_val["long_short_mean"],
+                    "n_days": qret_val["long_short_n_days"],
+                },
+                "ls_stats": {
+                    "train": ls_stats_train,
+                    "validation": ls_stats_val,
+                },
             },
-            "stability": {
-                "split_stability": split,
-                "support_windows": support,
-                "sign_consistency_train_validation": sign_ok,
-                "train_validation_decay": None
-                if pd.isna(decay)
-                else round(float(decay), 4),
-            },
-            "redundancy": redundancy,
+            "stability": {"split_stability": split},
+            "uniqueness": uniqueness,
             "feasibility": {
                 "turnover_mean": turnover_mean,
                 "liquidity_coverage": lcr,
                 "tail_concentration": tail,
                 "small_cap_concentration": small_cap,
-                "half_life": half_life,
-                "holding_period": holding,
-                "rebalance_stress": stress,
+                "signal_half_life": signal_half_life,
+                "signal_autocorr_lag1": signal_autocorr,
+                "rebalance_stress": rebalance_stress,
             },
             "barra": barra,
-            # §7.MT populated in Phase 3 pre-pack, not here
+            "distribution": distribution,
             "multiple_testing_risk_bucket": None,
-            "compute_error": None,
         }
     except Exception as exc:  # noqa: BLE001 — intentional catch-all
         logger.exception(
@@ -336,6 +442,7 @@ def _evaluate_candidate(
             "candidate_id": cand.candidate_id,
             "expression": cand.expression,
             "source_type": cand.source_type,
+            "expression_depth": _expression_depth(cand.expression),
             "compute_error": f"{type(exc).__name__}: {exc}",
         }
 
@@ -346,26 +453,22 @@ def _evaluate_candidate(
 
 
 def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
-    """Run Phase 2 on all candidates in *inputs* and write ``result.yaml``.
-
-    Returns the ``result`` dict that was written (useful for in-process
-    testing; production callers go through the file).
-    """
-    results: list[dict[str, Any]] = []
-    for cand in inputs.candidates:
-        results.append(_evaluate_candidate(cand, inputs))
+    """Run Phase 2 on all candidates in *inputs* and write ``result.yaml``."""
+    results = [_evaluate_candidate(c, inputs) for c in inputs.candidates]
 
     n_ok = sum(1 for r in results if r.get("compute_error") is None)
     n_err = len(results) - n_ok
 
+    horizons = sorted(int(h) for h in inputs.forward_returns_by_horizon.keys())
+
     result = {
-        "schema_version": RESULT_SCHEMA_VERSION,
         "batch_id": inputs.batch_id,
         "generated_at": _now_iso(),
-        "sample_policy_version": inputs.sample_policy_version,
-        "preprocess_version": inputs.preprocess_version,
+        "universe": inputs.universe,
         "train_range": list(inputs.train_range),
         "validation_range": list(inputs.validation_range),
+        "horizons": horizons,
+        "primary_horizon": int(inputs.primary_horizon),
         "n_candidates": len(results),
         "n_ok": n_ok,
         "n_errors": n_err,

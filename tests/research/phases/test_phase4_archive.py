@@ -56,7 +56,6 @@ def _bootstrap_batch(
         "batch_id": batch_id,
         "direction": direction,
         "batch_goal": "Probe fundamental × price divergence for " + direction,
-        "sample_policy_version": "v3",
         "candidates": [
             {
                 "candidate_id": cid,
@@ -70,9 +69,7 @@ def _bootstrap_batch(
     save_yaml(bdir / "manifest.yaml", manifest)
 
     result = {
-        "schema_version": "1",
         "batch_id": batch_id,
-        "sample_policy_version": "v3",
         "candidates": [
             {
                 "candidate_id": cid,
@@ -81,7 +78,7 @@ def _bootstrap_batch(
                 "coverage": 0.95,
                 "sign": 1,
                 "compute_error": None,
-                "effect_strength": {
+                "ic": {
                     "train": {"ic_mean": 0.018, "ic_ir": 0.30, "ic_win_rate": 0.58},
                     "validation": {
                         "ic_mean": 0.016,
@@ -90,8 +87,10 @@ def _bootstrap_batch(
                     },
                 },
                 "quintile": {
-                    "monotonicity_validation": 0.95,
-                    "long_short_mean_validation": 0.007,
+                    "validation": {
+                        "monotonicity": 0.95,
+                        "ls_mean": 0.007,
+                    },
                 },
                 "barra": {
                     "style_r_squared": 0.08,
@@ -271,6 +270,67 @@ class TestPhase4ReportCallback:
         assert not result.factor_md_paths[0].exists()
 
 
+class TestPhase4ChartBuilder:
+    def test_chart_builder_success_embeds_in_packet(self, tmp_path: Path) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+        _bootstrap_batch(paths, "batch_001", ["C001"], "vol")
+
+        seen: list[tuple[str, Path]] = []
+
+        def fake_chart_builder(factor_id: str, assets_dir: Path) -> list[str]:
+            seen.append((factor_id, assets_dir))
+            return ["ic_timeseries", "quintile_bar"]
+
+        inputs = Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+            chart_builder=fake_chart_builder,
+        )
+        result = run_phase4_archive(inputs)
+
+        assert seen == [("F001", paths.factor_assets_dir("F001"))]
+        packet_text = result.report_packets[0].read_text(encoding="utf-8")
+        assert "## Available Charts" in packet_text
+        assert "- `ic_timeseries`" in packet_text
+        assert "- `quintile_bar`" in packet_text
+
+    def test_chart_builder_failure_does_not_block_archive(
+        self, tmp_path: Path
+    ) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+        _bootstrap_batch(paths, "batch_001", ["C001"], "vol")
+
+        def broken_chart_builder(factor_id: str, assets_dir: Path) -> list[str]:
+            raise RuntimeError("qlib init failed")
+
+        inputs = Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+            chart_builder=broken_chart_builder,
+        )
+        result = run_phase4_archive(inputs)
+
+        # Archive still succeeded: factor allocated, packet written
+        assert [a.factor_id for a in result.admitted] == ["F001"]
+        packet_text = result.report_packets[0].read_text(encoding="utf-8")
+        # Empty-charts branch active
+        assert "No charts generated" in packet_text
+
+
 class TestPhase4WithCommit:
     def test_commit_writes_git_object(self, tmp_path: Path) -> None:
         storage_root = tmp_path / "storage"
@@ -292,3 +352,101 @@ class TestPhase4WithCommit:
         assert len(result.commit.commit_hash) == 40
         # Commit message subject format
         assert result.commit.message.startswith("[mine] batch_001 | vol | admits=1")
+
+
+class TestDiagnosticsRetention:
+    """Phase 4 prunes non-admit diagnostic dirs older than 3 batches."""
+
+    def _seed_diag(
+        self,
+        paths: StoragePaths,
+        batch_id: str,
+        admit_ids: list[str],
+        reject_ids: list[str],
+    ) -> None:
+        """Create per-candidate diagnostic dirs for a historical batch."""
+        for cid in admit_ids + reject_ids:
+            d = paths.candidate_diagnostics_dir(batch_id, cid)
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "ic_daily.parquet").write_bytes(b"stub")
+        # Also write a minimal judge.md so _prune_ can read verdicts
+        bdir = paths.batch_dir(batch_id)
+        bdir.mkdir(parents=True, exist_ok=True)
+        fm = {
+            "batch_id": batch_id,
+            "candidates": (
+                [
+                    {
+                        "candidate_id": cid,
+                        "verdict": "admit",
+                        "hard_gate_result": "all_pass",
+                        "checkpoint_positions": {},
+                        "referenced_context": [],
+                    }
+                    for cid in admit_ids
+                ]
+                + [
+                    {
+                        "candidate_id": cid,
+                        "verdict": "reject",
+                        "hard_gate_result": "all_pass",
+                        "checkpoint_positions": {},
+                        "referenced_context": [],
+                    }
+                    for cid in reject_ids
+                ]
+            ),
+        }
+        (bdir / "judge.md").write_text(
+            f"---\n{yaml.dump(fm, sort_keys=False)}\n---\nbody",
+            encoding="utf-8",
+        )
+
+    def test_prunes_non_admits_older_than_three_batches(
+        self, tmp_path: Path
+    ) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+
+        # Seed 4 historical batches + the current one
+        for bid, admits, rejects in [
+            ("batch_001", ["C001"], ["C002", "C003"]),  # oldest, eligible
+            ("batch_002", ["C004"], ["C005"]),          # eligible
+            ("batch_003", [], ["C006"]),                # KEEP (within window)
+            ("batch_004", ["C007"], ["C008"]),          # KEEP (within window)
+        ]:
+            self._seed_diag(paths, bid, admits, rejects)
+
+        # Current batch being archived
+        _bootstrap_state(paths, "batch_005")
+        _bootstrap_batch(paths, "batch_005", ["C009"], "vol")
+        # Seed diag for current batch too
+        paths.candidate_diagnostics_dir("batch_005", "C009").mkdir(
+            parents=True, exist_ok=True
+        )
+
+        run_phase4_archive(Phase4Inputs(
+            batch_id="batch_005",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+        ))
+
+        # batch_001 + batch_002 are older than (current - 3 + 1):
+        # keep_cutoff = index(batch_005) - 3 + 1 = 4 - 3 + 1 = 2
+        # eligible = all_batches[:2] = [batch_001, batch_002]
+        # Non-admits in those batches must be gone; admits preserved.
+        assert not paths.candidate_diagnostics_dir("batch_001", "C002").exists()
+        assert not paths.candidate_diagnostics_dir("batch_001", "C003").exists()
+        assert paths.candidate_diagnostics_dir("batch_001", "C001").exists()
+        assert not paths.candidate_diagnostics_dir("batch_002", "C005").exists()
+        assert paths.candidate_diagnostics_dir("batch_002", "C004").exists()
+
+        # batch_003 + batch_004 + batch_005 untouched (within window)
+        assert paths.candidate_diagnostics_dir("batch_003", "C006").exists()
+        assert paths.candidate_diagnostics_dir("batch_004", "C007").exists()
+        assert paths.candidate_diagnostics_dir("batch_004", "C008").exists()
+        assert paths.candidate_diagnostics_dir("batch_005", "C009").exists()

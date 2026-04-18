@@ -1,15 +1,19 @@
-"""Vectorized pairwise redundancy — CP05 inputs.
+"""Vectorized uniqueness checks — Phase 2 CP05 inputs.
 
-Thin re-implementation of the legacy ``research.redundancy.pairwise``:
+Two ways to ask "how much does this candidate overlap with the existing
+library?":
 
-* cross-sectional Spearman rank correlation per date, averaged
-* candidate-vs-library pairwise with a ``nearest_factor_id`` summary
-* batch-level dedup to flag near-duplicate candidates within one batch
+1. **Pairwise rank correlation** (``compute_pairwise_redundancy``) — for
+   each library factor, compute daily cross-sectional Spearman rank
+   correlation, take the time-mean, and report the maximum absolute
+   correlation + the nearest factor. Drives the ``uniqueness.max_lib_corr``
+   field in ``result.yaml``.
 
-The old pairwise module already uses the right per-date structure
-(``groupby(level=0).apply(_corr)``). The speedup on large panels comes
-not from within a single pair but from avoiding N² pair overhead. We
-keep the same math so the golden fixture matches bit-for-bit.
+2. **Incremental IC** (``compute_incremental_ic``) — regress the
+   candidate onto the library per-date, take the residual, and compute
+   its IC against forward returns. If residual IC ≈ raw IC, the
+   candidate carries independent signal; if it collapses, the library
+   already spans it. Delegates to ``core.factor_stats.incremental_ic``.
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from core.factor_stats import incremental_ic
+
 
 def _as_series(signal: pd.DataFrame | pd.Series) -> pd.Series:
     """Extract a single-column DataFrame as a Series, or pass through."""
@@ -27,29 +33,61 @@ def _as_series(signal: pd.DataFrame | pd.Series) -> pd.Series:
     return signal  # type: ignore[return-value]
 
 
-def _rank_corr_per_date(
-    candidate: pd.Series,
-    library_factor: pd.Series,
+def _rank_corr_timeseries(
+    cand_wide: pd.DataFrame,
+    lib_wide: pd.DataFrame,
+    min_obs: int = 5,
 ) -> pd.Series:
-    """Cross-sectional Spearman rank correlation for each date.
+    """Daily cross-sectional Spearman rank correlation.
 
-    Both inputs must share a (datetime, instrument) MultiIndex.
-    Returns a Series indexed by date with one correlation per row.
+    Vectorised: joint-dropna mask, per-row rank (pandas ``rank(axis=1)``
+    uses argsort internally — no Python per-row loop), Pearson on ranks
+    via nansum/nanmean. Returns a Series indexed by date.
     """
-    merged = pd.concat(
-        [candidate.rename("cand"), library_factor.rename("lib")],
-        axis=1,
-    ).dropna()
-
-    if merged.empty:
+    # Align to shared (date × symbol) grid, inner-join on both axes
+    idx = cand_wide.index.intersection(lib_wide.index)
+    cols = cand_wide.columns.intersection(lib_wide.columns)
+    if len(idx) == 0 or len(cols) == 0:
         return pd.Series(dtype=float)
+    cand_a = cand_wide.loc[idx, cols]
+    lib_a = lib_wide.loc[idx, cols]
 
-    def _corr(group: pd.DataFrame) -> float:
-        if len(group) < 5:
-            return float("nan")
-        return group["cand"].rank().corr(group["lib"].rank())
+    # Joint validity mask — ranks must use the same valid set
+    joint = cand_a.notna() & lib_a.notna()
+    n_valid = joint.sum(axis=1)
+    keep_rows = n_valid >= min_obs
+    if not keep_rows.any():
+        return pd.Series(dtype=float, index=idx)
 
-    return merged.groupby(level=0).apply(_corr).dropna()
+    cand_m = cand_a.where(joint)
+    lib_m = lib_a.where(joint)
+
+    # Per-row rank (method='average' matches pandas default used by old impl)
+    cand_r = cand_m.rank(axis=1, method="average")
+    lib_r = lib_m.rank(axis=1, method="average")
+
+    # Pearson of ranks, per row, via nan-aware numpy
+    ca = cand_r.to_numpy(dtype=float)
+    la = lib_r.to_numpy(dtype=float)
+
+    # Suppress "mean of empty slice" — empty rows resolve to NaN which is
+    # masked out by keep_rows below.
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mc = np.nanmean(ca, axis=1, keepdims=True)
+        ml = np.nanmean(la, axis=1, keepdims=True)
+        c_dev = ca - mc
+        l_dev = la - ml
+        num = np.nansum(c_dev * l_dev, axis=1)
+        den_c = np.sqrt(np.nansum(c_dev * c_dev, axis=1))
+        den_l = np.sqrt(np.nansum(l_dev * l_dev, axis=1))
+    den = den_c * den_l
+    with np.errstate(invalid="ignore", divide="ignore"):
+        corr = np.where(den > 0, num / den, np.nan)
+    out = pd.Series(corr, index=idx)
+    out = out.where(keep_rows, np.nan)
+    return out.dropna()
 
 
 def compute_pairwise_redundancy(
@@ -77,15 +115,14 @@ def compute_pairwise_redundancy(
     ``exceeds_threshold``).
     """
     cand = _as_series(candidate_signal)
+    cand_wide = cand.unstack(level=-1)
 
     all_corrs: dict[str, float] = {}
     for fid, lib_df in library_signals.items():
         lib_series = _as_series(lib_df)
-        daily_corrs = _rank_corr_per_date(cand, lib_series)
-        if daily_corrs.empty:
-            all_corrs[fid] = float("nan")
-        else:
-            all_corrs[fid] = float(daily_corrs.mean())
+        lib_wide = lib_series.unstack(level=-1)
+        daily = _rank_corr_timeseries(cand_wide, lib_wide)
+        all_corrs[fid] = float(daily.mean()) if not daily.empty else float("nan")
 
     if not all_corrs:
         return {
@@ -120,27 +157,36 @@ def compute_pairwise_redundancy(
     }
 
 
-def batch_dedup(
-    candidate_signals: dict[str, pd.DataFrame | pd.Series],
-    threshold: float = 0.9,
-) -> list[tuple[str, str, float]]:
-    """Identify near-duplicate pairs within a batch of candidates.
+def compute_incremental_ic(
+    factor_flat: pd.DataFrame,
+    returns_flat: pd.DataFrame,
+    library_flat: dict[str, pd.DataFrame],
+    min_obs: int = 30,
+) -> float | None:
+    """IC of candidate residuals after projecting out the library panel.
 
-    Returns a list of ``(id_a, id_b, abs_corr)`` tuples where the
-    absolute mean cross-sectional rank correlation exceeds *threshold*.
+    Thin wrapper over ``core.factor_stats.incremental_ic`` — returns the
+    first element (``ic_mean``) and normalizes NaN/None to ``None`` for
+    YAML friendliness.
+
+    Parameters
+    ----------
+    factor_flat
+        Flat ``[time, symbol, value]`` candidate panel.
+    returns_flat
+        Flat ``[time, symbol, value]`` forward-returns panel.
+    library_flat
+        ``{factor_id: flat DataFrame}``. Callers that hold MultiIndex
+        library signals should convert via
+        ``core.factor_stats.multiindex_to_flat`` first.
     """
-    ids = list(candidate_signals.keys())
-    pairs: list[tuple[str, str, float]] = []
+    if not library_flat:
+        return None
 
-    for i in range(len(ids)):
-        s_i = _as_series(candidate_signals[ids[i]])
-        for j in range(i + 1, len(ids)):
-            s_j = _as_series(candidate_signals[ids[j]])
-            daily_corrs = _rank_corr_per_date(s_i, s_j)
-            if daily_corrs.empty:
-                continue
-            abs_corr = abs(float(daily_corrs.mean()))
-            if abs_corr > threshold:
-                pairs.append((ids[i], ids[j], round(abs_corr, 4)))
-
-    return pairs
+    min_required = max(min_obs, len(library_flat) + 2)
+    ic_mean, _ = incremental_ic(
+        factor_flat, returns_flat, library_flat, min_obs=min_required
+    )
+    if ic_mean is None or not np.isfinite(ic_mean):
+        return None
+    return round(float(ic_mean), 6)

@@ -178,7 +178,6 @@ class TestBatchExecuteResult:
     def test_empty_batch(self):
         res = BatchExecuteResult(
             batch_id="batch_042",
-            sample_policy_version="v3",
             evaluation_profile_id="standard_eval_v2",
         )
         assert res.total_candidates == 0
@@ -197,7 +196,6 @@ class TestBatchExecuteResult:
         )
         res = BatchExecuteResult(
             batch_id="batch_042",
-            sample_policy_version="v3",
             evaluation_profile_id="standard_eval_v2",
             candidates=(c1, c2),
             total_candidates=2,

@@ -10,7 +10,6 @@ import pytest
 import yaml
 
 from research.compute.vectorized_stability import (
-    compute_expanding_window_ic,
     compute_sign_consistency,
     compute_split_stability,
     compute_train_validation_decay,
@@ -45,7 +44,7 @@ class TestSplitStability:
         g = golden["stability"]["split_stability"]
 
         assert result["n_splits"] == g["n_splits"]
-        assert result["bucket"] == g["bucket"]
+        assert "bucket" not in result
         assert result["sign_consistency"] == pytest.approx(
             g["sign_consistency"], abs=1e-6
         )
@@ -62,8 +61,9 @@ class TestSplitStability:
             index=pd.DatetimeIndex(["2024-01-02", "2024-01-03"]),
         )
         result = compute_split_stability(ic, n_splits=4, min_days=60)
-        assert result["bucket"] == "insufficient_splits"
         assert result["n_splits"] == 0
+        assert result["sign_consistency"] is None
+        assert result["dispersion"] is None
 
 
 class TestSignConsistency:
@@ -95,33 +95,9 @@ class TestTrainValidationDecay:
         result = compute_train_validation_decay(0.0, 0.05)
         assert np.isnan(result)
 
-    def test_sign_ignored(self) -> None:
-        """Ratio is |val| / |train| — sign doesn't matter."""
-        assert compute_train_validation_decay(-0.10, 0.05) == pytest.approx(0.5)
+    def test_sign_flip_yields_negative_ratio(self) -> None:
+        """Signed ratio: opposite signs produce a negative decay."""
+        assert compute_train_validation_decay(0.10, -0.05) == pytest.approx(-0.5)
 
-
-class TestExpandingWindowSmoke:
-    """Smoke test — expanding window is not in golden.yaml, so we just check
-    it runs on the fixture inputs and produces the expected shape + a
-    plausible pass/fail."""
-
-    def test_expanding_window_runs(self) -> None:
-        # Fixture spans 2018-01-02 to 2020-04-20 (600 business days).
-        # Start at 2018-02 with 3-month steps → ~8 expansion points.
-        fv = pd.read_parquet(INPUTS / "factor_values.parquet")
-        fr = pd.read_parquet(INPUTS / "forward_returns.parquet")
-        result = compute_expanding_window_ic(
-            fv, fr, start="2018-02-01", step_months=3, min_obs=30
-        )
-        assert "path" in result
-        assert "pass" in result
-        assert isinstance(result["pass"], bool)
-        # Should have at least 6 expansion points within the fixture span
-        assert len(result["path"]) >= 6
-        # The fixture factor has a strong stable signal, so sign_consistency
-        # must be 1.0 (every expansion yields the same-sign IC)
-        assert result["sign_consistency"] == pytest.approx(1.0)
-        # Stability must be >= 0.3 (low coefficient of variation)
-        assert result["stability"] >= 0.3
-        # Both criteria met → pass must be True
-        assert result["pass"] is True
+    def test_both_negative_positive_ratio(self) -> None:
+        assert compute_train_validation_decay(-0.10, -0.05) == pytest.approx(0.5)

@@ -1,0 +1,46 @@
+batch_id: batch_009
+direction: timing_signals
+batch_goal: 'Second round timing: IdxMin对称测试, 60天窗口, timing×fundamental/vol conditioning,
+  timing差异(vol vs tur)'
+sample_policy_version: v3
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: IdxMin($volume, 20)
+  canonical: IdxMin($volume,20)
+  rationale: IdxMin(volume,20) — 最低成交量位置。F008 是 IdxMax，这是对称测试
+- candidate_id: C002
+  source_type: dsl
+  expression: IdxMin($turnover_rate, 20)
+  canonical: IdxMin($turnover_rate,20)
+  rationale: IdxMin(turnover,20) — F009 的对称测试
+- candidate_id: C003
+  source_type: dsl
+  expression: IdxMax($volume, 60)
+  canonical: IdxMax($volume,60)
+  rationale: IdxMax(volume,60) — 更长窗口版的 F008
+- candidate_id: C004
+  source_type: dsl
+  expression: IdxMax($turnover_rate, 60)
+  canonical: IdxMax($turnover_rate,60)
+  rationale: IdxMax(turnover,60) — 更长窗口版的 F009
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(IdxMax($volume, 20), CsRank(Mul($pb_ratio, -1)))
+  canonical: Mul(CsRank(Mul($pb_ratio,-1)),IdxMax($volume,20))
+  rationale: volume timing × CsRank(-PB) — timing信号 × 低估值条件
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(IdxMax($turnover_rate, 20), CsRank(Mul($pe_ratio, -1)))
+  canonical: Mul(CsRank(Mul($pe_ratio,-1)),IdxMax($turnover_rate,20))
+  rationale: turnover timing × CsRank(-PE) — timing × 低PE
+- candidate_id: C007
+  source_type: dsl
+  expression: Sub(IdxMax($volume, 20), IdxMax($turnover_rate, 20))
+  canonical: Sub(IdxMax($volume,20),IdxMax($turnover_rate,20))
+  rationale: IdxMax(vol) - IdxMax(tur) — volume和turnover放量日不同天=异常
+- candidate_id: C008
+  source_type: dsl
+  expression: Mul(IdxMax($volume, 20), Std(Div($close, Ref($close, 1)), 5))
+  canonical: Mul(IdxMax($volume,20),Std(Div($close,Ref($close,1)),5))
+  rationale: volume timing × 5日波动率 — 放量距今 × 近期波动
