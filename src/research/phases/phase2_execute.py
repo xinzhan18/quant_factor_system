@@ -164,6 +164,7 @@ def _persist_diagnostics(
     inputs: "Phase2Inputs",
     candidate_id: str,
     clean_series: pd.Series,
+    cand_tradable_mask: pd.Series,
     qret_train: dict[str, Any],
     qret_val: dict[str, Any],
     ic_train_series: pd.Series,
@@ -219,20 +220,23 @@ def _persist_diagnostics(
     )
     ic_df.to_parquet(out_dir / "ic_daily.parquet")
 
-    # Coverage daily: fraction of universe with non-null factor value per date.
-    # Uses the preprocessed series so coverage matches what enters downstream
-    # analytics (same series as the other 4 diagnostic files).
-    time_level = clean_series.index.names[0]
-    factor_wide = clean_series.unstack(level=-1)
-    if factor_wide.shape[1] == 0:
-        coverage_values = np.zeros(factor_wide.shape[0], dtype=float)
-    else:
-        coverage_values = (
-            factor_wide.notna().sum(axis=1).to_numpy() / factor_wide.shape[1]
+    # Coverage daily: fraction of tradable universe with non-null factor value per date.
+    # Denominator = count of tradable symbols per date (from cand.tradable_mask),
+    # not the symbol count of the factor series itself.
+    if not isinstance(clean_series.index, pd.MultiIndex):
+        raise ValueError(
+            f"_persist_diagnostics: expected MultiIndex(time, symbol), got {clean_series.index.names}"
         )
+    tradable_wide = cand_tradable_mask.unstack(level=-1).astype(bool)
+    factor_wide = clean_series.unstack(level=-1)
+    # Align on the intersection of dates and symbols
+    tradable_aligned, factor_aligned = tradable_wide.align(factor_wide, join="inner")
+    numer = (factor_aligned.notna() & tradable_aligned).sum(axis=1)
+    denom = tradable_aligned.sum(axis=1).replace(0, pd.NA)
+    coverage_series = (numer / denom).fillna(0.0)
     coverage_df = pd.DataFrame(
-        {"coverage": coverage_values},
-        index=pd.Index(factor_wide.index, name="datetime"),
+        {"coverage": coverage_series.to_numpy()},
+        index=pd.Index(coverage_series.index, name="datetime"),
     )
     coverage_df.to_parquet(out_dir / "coverage_daily.parquet")
 
@@ -386,6 +390,7 @@ def _evaluate_candidate(
             inputs=inputs,
             candidate_id=cand.candidate_id,
             clean_series=clean_series,
+            cand_tradable_mask=cand.tradable_mask,
             qret_train=qret_train,
             qret_val=qret_val,
             ic_train_series=ic_train_series,

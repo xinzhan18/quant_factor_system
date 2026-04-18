@@ -353,6 +353,8 @@ class TestPhase2EndToEnd:
             "quantile_daily_validation.parquet",
             "long_short_daily.parquet",
             "ic_daily.parquet",
+            "coverage_daily.parquet",
+            "factor_hist.parquet",
         ):
             assert (diag_dir / name).exists(), f"missing {name}"
 
