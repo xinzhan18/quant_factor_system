@@ -359,3 +359,113 @@ class TestPhase2EndToEnd:
         q_val = pd.read_parquet(diag_dir / "quantile_daily_validation.parquet")
         assert list(q_val.columns) == ["q1", "q2", "q3", "q4", "q5"]
         assert len(q_val) > 0
+
+    def test_persist_diagnostics_writes_coverage_daily(
+        self,
+        tmp_path: Path,
+        candidate_mi: pd.Series,
+        tradable_mi: pd.Series,
+        forward_returns: pd.DataFrame,
+        style_matrix: pd.DataFrame,
+        library_signals: dict[str, pd.DataFrame],
+        amount_data: pd.DataFrame,
+        market_cap: pd.DataFrame,
+        date_range: tuple[str, str, str, str],
+    ) -> None:
+        from research.storage.paths import StoragePaths
+
+        train_start, train_end, val_start, val_end = date_range
+        cand_series = _align_series_time_index(candidate_mi)
+        trad_series = _align_series_time_index(tradable_mi)
+
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+
+        inputs = Phase2Inputs(
+            batch_id="batch_diag002",
+            candidates=[
+                CandidateInputs(
+                    candidate_id="C001",
+                    expression="good",
+                    source_type="dsl",
+                    factor_series=cand_series,
+                    tradable_mask=trad_series,
+                ),
+            ],
+            forward_returns_by_horizon={1: forward_returns},
+            primary_horizon=1,
+            style_matrix=style_matrix,
+            library_signals=library_signals,
+            amount_data=amount_data,
+            market_cap=market_cap,
+            train_range=(train_start, train_end),
+            validation_range=(val_start, val_end),
+            paths=paths,
+        )
+
+        out_path = tmp_path / "result.yaml"
+        result = run_phase2(inputs, out_path)
+
+        diag_dir = paths.candidate_diagnostics_dir("batch_diag002", "C001")
+        cov = pd.read_parquet(diag_dir / "coverage_daily.parquet")
+        assert cov.columns.tolist() == ["coverage"]
+        assert cov.index.name == "datetime"
+        assert (cov["coverage"] >= 0).all() and (cov["coverage"] <= 1).all()
+        assert len(cov) > 0
+
+    def test_persist_diagnostics_writes_factor_hist(
+        self,
+        tmp_path: Path,
+        candidate_mi: pd.Series,
+        tradable_mi: pd.Series,
+        forward_returns: pd.DataFrame,
+        style_matrix: pd.DataFrame,
+        library_signals: dict[str, pd.DataFrame],
+        amount_data: pd.DataFrame,
+        market_cap: pd.DataFrame,
+        date_range: tuple[str, str, str, str],
+    ) -> None:
+        from research.storage.paths import StoragePaths
+
+        train_start, train_end, val_start, val_end = date_range
+        cand_series = _align_series_time_index(candidate_mi)
+        trad_series = _align_series_time_index(tradable_mi)
+
+        paths = StoragePaths(tmp_path)
+        paths.ensure_dirs()
+
+        inputs = Phase2Inputs(
+            batch_id="batch_diag003",
+            candidates=[
+                CandidateInputs(
+                    candidate_id="C001",
+                    expression="good",
+                    source_type="dsl",
+                    factor_series=cand_series,
+                    tradable_mask=trad_series,
+                ),
+            ],
+            forward_returns_by_horizon={1: forward_returns},
+            primary_horizon=1,
+            style_matrix=style_matrix,
+            library_signals=library_signals,
+            amount_data=amount_data,
+            market_cap=market_cap,
+            train_range=(train_start, train_end),
+            validation_range=(val_start, val_end),
+            paths=paths,
+        )
+
+        out_path = tmp_path / "result.yaml"
+        result = run_phase2(inputs, out_path)
+
+        diag_dir = paths.candidate_diagnostics_dir("batch_diag003", "C001")
+        hist = pd.read_parquet(diag_dir / "factor_hist.parquet")
+        assert set(hist.columns) == {"bin_edge_lo", "bin_edge_hi", "is_freq", "oos_freq"}
+        assert len(hist) == 50  # 50 bins
+        assert (hist["is_freq"] >= 0).all()
+        assert (hist["oos_freq"] >= 0).all()
+        assert abs(hist["is_freq"].sum() - 1.0) < 0.01
+        assert abs(hist["oos_freq"].sum() - 1.0) < 0.01
+        # Edges should be increasing
+        assert (hist["bin_edge_hi"] > hist["bin_edge_lo"]).all()

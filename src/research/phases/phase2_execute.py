@@ -163,6 +163,7 @@ def _persist_diagnostics(
     *,
     inputs: "Phase2Inputs",
     candidate_id: str,
+    clean_series: pd.Series,
     qret_train: dict[str, Any],
     qret_val: dict[str, Any],
     ic_train_series: pd.Series,
@@ -170,12 +171,14 @@ def _persist_diagnostics(
 ) -> str | None:
     """Write per-candidate daily diagnostic series to parquet.
 
-    Writes four files under ``paths.candidate_diagnostics_dir``:
+    Writes six files under ``paths.candidate_diagnostics_dir``:
 
     * ``quantile_daily_train.parquet`` — (date × Q1..Qn)
     * ``quantile_daily_validation.parquet`` — (date × Q1..Qn)
     * ``long_short_daily.parquet`` — (date × value) derived from Q5-Q1
     * ``ic_daily.parquet`` — (date × ic_train, ic_validation)
+    * ``coverage_daily.parquet`` — (date × coverage fraction of universe)
+    * ``factor_hist.parquet`` — 50-bin IS/OOS factor value histogram
 
     Returns the diagnostics dir path relative to the storage root so
     Phase 4 can resolve it without hard-coding ``cache/``.
@@ -215,6 +218,63 @@ def _persist_diagnostics(
         names=["split"],
     )
     ic_df.to_parquet(out_dir / "ic_daily.parquet")
+
+    # Coverage daily: fraction of universe with non-null factor value per date.
+    # Uses the preprocessed series so coverage matches what enters downstream
+    # analytics (same series as the other 4 diagnostic files).
+    time_level = clean_series.index.names[0]
+    factor_wide = clean_series.unstack(level=-1)
+    if factor_wide.shape[1] == 0:
+        coverage_values = np.zeros(factor_wide.shape[0], dtype=float)
+    else:
+        coverage_values = (
+            factor_wide.notna().sum(axis=1).to_numpy() / factor_wide.shape[1]
+        )
+    coverage_df = pd.DataFrame(
+        {"coverage": coverage_values},
+        index=pd.Index(factor_wide.index, name="datetime"),
+    )
+    coverage_df.to_parquet(out_dir / "coverage_daily.parquet")
+
+    # Factor value histogram (IS / OOS split via 50 shared bins over pooled range).
+    # Bin edges span 0.5th-99.5th pooled percentile for robustness vs. outliers.
+    is_start = pd.Timestamp(inputs.train_range[0])
+    is_end = pd.Timestamp(inputs.train_range[1])
+    oos_start = pd.Timestamp(inputs.validation_range[0])
+    oos_end = pd.Timestamp(inputs.validation_range[1])
+
+    clean_flat = clean_series.dropna().reset_index()
+    clean_flat.columns = ["datetime", "instrument", "v"]
+    is_mask = (clean_flat["datetime"] >= is_start) & (
+        clean_flat["datetime"] <= is_end
+    )
+    oos_mask = (clean_flat["datetime"] >= oos_start) & (
+        clean_flat["datetime"] <= oos_end
+    )
+    is_vals = clean_flat.loc[is_mask, "v"].to_numpy()
+    oos_vals = clean_flat.loc[oos_mask, "v"].to_numpy()
+
+    pooled = (
+        np.concatenate([is_vals, oos_vals])
+        if (is_vals.size + oos_vals.size) > 0
+        else np.array([0.0, 1.0])
+    )
+    lo, hi = np.nanpercentile(pooled, [0.5, 99.5])
+    if not np.isfinite(lo) or not np.isfinite(hi) or lo >= hi:
+        lo, hi = 0.0, 1.0
+    edges = np.linspace(lo, hi, 51)
+    is_hist, _ = np.histogram(is_vals, bins=edges)
+    oos_hist, _ = np.histogram(oos_vals, bins=edges)
+    is_freq = is_hist / max(is_hist.sum(), 1)
+    oos_freq = oos_hist / max(oos_hist.sum(), 1)
+    pd.DataFrame(
+        {
+            "bin_edge_lo": edges[:-1],
+            "bin_edge_hi": edges[1:],
+            "is_freq": is_freq,
+            "oos_freq": oos_freq,
+        }
+    ).to_parquet(out_dir / "factor_hist.parquet", index=False)
 
     try:
         rel = str(out_dir.relative_to(inputs.paths.root))
@@ -325,6 +385,7 @@ def _evaluate_candidate(
         diagnostics_relpath = _persist_diagnostics(
             inputs=inputs,
             candidate_id=cand.candidate_id,
+            clean_series=clean_series,
             qret_train=qret_train,
             qret_val=qret_val,
             ic_train_series=ic_train_series,
