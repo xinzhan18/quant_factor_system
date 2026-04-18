@@ -17,7 +17,7 @@ user_invocable: true
   ├── Phase 1: 调用 /factor-idea (候选设计 + manifest 冻结)
   ├── Phase 2: 跑 `research execute batch_{N}` (纯 Python, 无 LLM, 不需要 skill)
   ├── Phase 3: 调用 /factor-judge (6 checkpoint 判决)
-  ├── Phase 4: Python 归档 + LLM 更新 direction + 后台调用 /factor-report (深度报告 subagent)
+  ├── Phase 4: Python 归档 (F{id} 分配 + backfill + render_factor 画图) + 后台调用 /factor-report
   └── Phase 5: (条件触发) 调用 /factor-consolidate (周期性 memory 重写)
 ```
 
@@ -81,48 +81,63 @@ PYTHONPATH=src python3 -m research execute batch_{N}
 6. audit 失败 → 按违规列表重派对应 subagent（C{id}.md 问题）或主 agent 重写 judge.md；最多 3 轮
 7. 主 agent 更新 `directions/{dir}.md`（Threads evidence trail + Known Failures + Narrative Log）
 
-### Step 5 — Phase 4 ARCHIVE
+### Step 5 — Phase 4 ARCHIVE（纯 Python + 1 个后台 subagent）
 
-**关键顺序**：LLM 写 direction body（Step 4）BEFORE Python 改 frontmatter（Step 6）。这防止 LLM 覆盖 Python 的计数器增量。
+**与 Phase 3 JUDGE 的分工**：direction.md **body**（Narrative Log / Threads / Known Failures）由 Phase 3 JUDGE 完成（audit c14/c15/c16 强制），**Phase 4 不再碰 body**。Phase 4 只做 factor 归档 + F{id} 回填 + 后台 report 派发 + direction.md frontmatter 计数器 + 主 commit。
 
-7 步流程：
+6 步流程：
 
-**Step 1 — Python（阻塞）：归档 factor.yaml**
-- 分配 F{id}（单调递增）
+**Step 1 — Python：factor.yaml 归档**
+- 按 judge.md 里 `verdict=admit` 的 candidate_id 升序，调 `factor_writer.allocate_and_write_factor` 单调分配 F{id}
 - 写 `vault/factors/F{id}.yaml`
-- 如果 `source_type: python`，复制 .py 到 `python_factors/`
+- `source_type: python` 时 copy `.py` → `python_factors/F{id}_{name}.py`
 
-**Step 2 — Python（阻塞）：生成 report_packet**
-- 算 Layer 2 derived analytics（按年/月聚合）
-- 画图表到 `factors/F{id}/*.png`
-- Pack 到 `_packets/report_packet_F{id}.md`
+**Step 2 — Python：F{id} 回填（backfill）**
+三处机械 edit，全部幂等（再跑一次无副作用）：
+- `batches/{batch}/candidates/C{id}.md` frontmatter：`factor_id: null` → `factor_id: F{id}`
+- `batches/{batch}/judge.md` 表格行："admit" → "admit → F{id}"，detail 单元格追加 `· [[factors/F{id}]]`
+- `directions/{dir}.md` Thread evidence trail：对应 admit 行末追加 `→ [[factors/F{id}]]`
 
-**Step 3 — Subagent（后台，不阻塞）：写 factor.md**
-- 每个 admit 一个后台 subagent，调用 `/factor-report`
-- 读 `report_packet_F{id}.md`（**R3 单一输入**），写 `vault/factors/F{id}.md`
-- 完成时独立 commit：`[report] F{id} {name} report generated`
-- 失败不阻塞主循环（factor.yaml 已 committed）
+代码：`src/research/archive/backfill.py`。
 
-**Step 4 — LLM（阻塞）：更新 direction.md body**
-- LLM 根据 judge.md 判决结果更新 direction.md（Narrative Log / Threads / Known Failures）
-- 具体格式要求和 audit 规则见 `/factor-judge` "Direction Body 更新" 一节
+**Step 3 — Python：render_factor 画图（R4 无重算）**
+- 调 `report.render.render_factor(F{id}, storage_root)`
+- 纯 load + plot：从 `cache/batch_diagnostics/{batch}/{cid}/` 读 6 个 parquet（ic_daily / quantile_daily_train / quantile_daily_validation / long_short_daily / coverage_daily / factor_hist）+ 从 `result.yaml` 读 scalars/dicts
+- 产出：
+  - `vault/factors/F{id}/*.png` — 18 张图
+  - `vault/factors/F{id}/report.json` — 图表白名单 + 7 维 composite 得分 + scalars
+- 零 Qlib / 零 DB / 零重算。失败不阻塞主 commit（per-chart isolation）
 
-**Step 5 — Python（阻塞）：主 commit**
-- `research commit {batch_id}`
-- Commit message 格式：`[mine] batch_{N} | {direction} | admits=X rejects=Y reserves=Z`
-- 不含 factor.md（后台生成，独立 commit）
-- pre-commit hook 失败 → raise 硬 fail，下一轮 mine 不启动
+**Step 4 — Python：report_packer 打包**
+- 读 `factor.yaml` + judge C{id}.md（Judge Synthesis）+ direction hypothesis + `report.json.charts`（图表白名单）
+- 写 `batches/{batch}/_packets/report_packet_F{id}.md`
+- 作为 `/factor-report` subagent 的 **R3 单一输入**
 
-**Step 6 — Python（阻塞）：更新 direction frontmatter**
-- `rounds` ++
-- `admits` ++
-- `members` append F{id}
-- `last_batch` = batch_{N}
-- `last_activity` = now
+**Step 5 — Subagent（后台，不阻塞）：写 factor.md**
+- dispatch `/factor-report`，注入 packet 路径
+- subagent 读 packet + `report.json`，按 F005 模板写 `vault/factors/F{id}.md`
+- 完成后独立 commit：`[report] F{id} {name} report generated`
+- 失败隔离 → append `_subagent_failures.log`，主循环不受影响
 
-**Step 7 — Python（阻塞）：刷新 INDEX 下半段**
-- 重新生成统计表（含 Category / Priority 列）
-- 验证：`state.yaml.current_batch == null`（finish_batch 已执行）
+**Step 6 — Python：direction frontmatter + INDEX + 主 commit**
+- `direction_updater.update_direction_frontmatter`：
+  - `rounds` ++
+  - `admits` += n_admits
+  - `members` append each F{id}
+  - `last_batch` = batch_{N}
+  - `last_activity` = now
+- `index_refresher` 刷新 `INDEX.md` 下半段统计表
+- `research commit {batch_id}` 单一主 commit，包含：
+  - `factor.yaml` × n_admits
+  - backfill 改动（C{id}.md / judge.md / direction.md）
+  - `_packets/report_packet_F{id}.md`
+  - `vault/factors/F{id}/*.png` + `report.json`
+  - direction frontmatter + INDEX
+  - **不含** `factor.md`（Step 5 后台独立提交）
+
+Commit message 格式：`[mine] batch_{N} | {direction} | admits=X rejects=Y reserves=Z`
+
+验证：`state.yaml.current_batch == null`（finish_batch 已执行）
 
 ### Step 6 — Phase 5 CONSOLIDATION（条件检查）
 检查 `config.yaml.consolidation.auto_triggers`，任一满足即触发：
@@ -151,6 +166,7 @@ PYTHONPATH=src python3 -m research execute batch_{N}
 - **§7.MT**：CP03 numeric_hint 必含 `mt_bucket`，audit 强制 grep 验证，LLM 不能 override
 - **Q32 幂等**：State DAG 强制 `designed → executing → judged → archived → idle`，双重 archive 自动 raise
 - **R3 单一输入**：LLM judge 只读 `judge_packet.md`，report subagent 只读 `report_packet_F{id}.md`
+- **R4 无重算**：Phase 4 `render_factor` 只读 `cache/batch_diagnostics/` parquet + `result.yaml`，不重跑 IC/quintile/Barra。Phase 3 judge 也只读 `result.yaml`（不读 parquet），判决和画图各自消费 Phase 2 的不同切片。
 
 ## 自主模式行为
 
