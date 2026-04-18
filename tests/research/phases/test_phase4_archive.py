@@ -354,6 +354,172 @@ class TestPhase4WithCommit:
         assert result.commit.message.startswith("[mine] batch_001 | vol | admits=1")
 
 
+class TestPhase4Backfill:
+    """Phase 4 backfills the newly-allocated F{id} into Phase 3 artifacts.
+
+    After allocation, the raw C{id} references in candidates/C{id}.md,
+    judge.md, and directions/{dir}.md must gain the factor_id link.
+    """
+
+    def _seed_phase3_artifacts(
+        self,
+        paths: StoragePaths,
+        batch_id: str,
+        candidate_ids: list[str],
+        direction: str,
+    ) -> None:
+        """Write candidate md + direction md reflecting post-JUDGE state."""
+        bdir = paths.batch_dir(batch_id)
+        cand_dir = bdir / "candidates"
+        cand_dir.mkdir(parents=True, exist_ok=True)
+        for cid in candidate_ids:
+            fm = {
+                "candidate_id": cid,
+                "factor_id": None,
+                "verdict": "admit",
+            }
+            md = (
+                f"---\n{yaml.dump(fm, sort_keys=False)}---\n\n"
+                f"## Synthesis\n\nAdmit rationale for {cid}.\n"
+            )
+            (cand_dir / f"{cid}.md").write_text(md, encoding="utf-8")
+
+        # Rewrite judge.md with a table row per candidate so backfill
+        # has the "admit" verdict cell + candidate wikilink to patch
+        judge_fm = {
+            "batch_id": batch_id,
+            "direction": direction,
+            "candidates": [
+                {
+                    "candidate_id": cid,
+                    "verdict": "admit",
+                    "hard_gate_result": "all_pass",
+                    "checkpoint_positions": {},
+                    "referenced_context": [],
+                }
+                for cid in candidate_ids
+            ],
+            "batch_summary": {
+                "total": len(candidate_ids),
+                "admit": len(candidate_ids),
+                "reserve": 0,
+                "reject": 0,
+            },
+        }
+        rows = "\n".join(
+            f"| {cid} | admit | ok | [[batches/{batch_id}/candidates/{cid}]] |"
+            for cid in candidate_ids
+        )
+        judge_body = (
+            f"---\n{yaml.dump(judge_fm, sort_keys=False)}---\n\n"
+            f"## Verdict Table\n\n"
+            f"| candidate | verdict | note | detail |\n"
+            f"|---|---|---|---|\n"
+            f"{rows}\n"
+        )
+        (bdir / "judge.md").write_text(judge_body, encoding="utf-8")
+
+        # Direction md with Thread trail line that ends in "→ **admit**"
+        dir_path = paths.direction_file(direction)
+        dir_path.parent.mkdir(parents=True, exist_ok=True)
+        dir_fm = {
+            "direction": direction,
+            "status": "active",
+            "batches_run": [],
+            "admitted_factors": [],
+        }
+        thread_lines = "\n".join(
+            f"- [[batches/{batch_id}/candidates/{cid}|{cid}]]: "
+            f"rationale → **admit**"
+            for cid in candidate_ids
+        )
+        dir_body = (
+            f"---\n{yaml.dump(dir_fm, sort_keys=False)}---\n\n"
+            f"## Thread {batch_id}\n\n{thread_lines}\n"
+        )
+        dir_path.write_text(dir_body, encoding="utf-8")
+
+    def test_phase4_backfills_factor_id_into_candidate_judge_direction(
+        self, tmp_path: Path
+    ) -> None:
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+        _bootstrap_batch(paths, "batch_001", ["C001"], "vol")
+        self._seed_phase3_artifacts(paths, "batch_001", ["C001"], "vol")
+
+        inputs = Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+        )
+        result = run_phase4_archive(inputs)
+        assert result.admitted, "fixture must have at least one admit"
+        fid = result.admitted[0].factor_id
+        cid = "C001"
+
+        cand_md = paths.batch_candidate_md_file("batch_001", cid).read_text(
+            encoding="utf-8"
+        )
+        judge_md = paths.batch_judge_file("batch_001").read_text(encoding="utf-8")
+        dir_md = paths.direction_file("vol").read_text(encoding="utf-8")
+
+        assert f"factor_id: {fid}" in cand_md
+        assert f"admit → {fid}" in judge_md
+        assert f"[[factors/{fid}]]" in judge_md
+        assert f"admit → [[factors/{fid}]]" in dir_md
+
+    def test_phase4_no_admits_skips_batch_level_backfill(
+        self, tmp_path: Path
+    ) -> None:
+        """When nothing is admitted, judge.md + direction.md untouched by backfill."""
+        storage_root = tmp_path / "storage"
+        _init_repo(tmp_path)
+        paths = StoragePaths(storage_root)
+        paths.ensure_dirs()
+        _bootstrap_state(paths, "batch_001")
+
+        # Manually bootstrap batch with zero admits
+        bdir = paths.batch_dir("batch_001")
+        bdir.mkdir(parents=True, exist_ok=True)
+        save_yaml(
+            bdir / "manifest.yaml",
+            {
+                "batch_id": "batch_001",
+                "direction": "vol",
+                "batch_goal": "zero admits",
+                "candidates": [],
+            },
+        )
+        save_yaml(bdir / "result.yaml", {"batch_id": "batch_001", "candidates": []})
+        fm = {
+            "batch_id": "batch_001",
+            "direction": "vol",
+            "candidates": [],
+            "batch_summary": {
+                "total": 0, "admit": 0, "reserve": 0, "reject": 0,
+            },
+        }
+        (bdir / "judge.md").write_text(
+            f"---\n{yaml.dump(fm, sort_keys=False)}\n---\n\n## body",
+            encoding="utf-8",
+        )
+
+        inputs = Phase4Inputs(
+            batch_id="batch_001",
+            direction="vol",
+            paths=paths,
+            repo_root=tmp_path,
+            do_commit=False,
+        )
+        result = run_phase4_archive(inputs)
+        assert result.admitted == []
+
+
 class TestDiagnosticsRetention:
     """Phase 4 prunes non-admit diagnostic dirs older than 3 batches."""
 

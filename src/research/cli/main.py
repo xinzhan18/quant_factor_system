@@ -290,11 +290,21 @@ def _cmd_archive(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     direction = manifest.get("direction", "unknown")
+
+    def _chart_builder(factor_id: str, _assets_dir: Path) -> list[str]:
+        from report.render import render_factor
+
+        manifest = render_factor(factor_id, storage_root=paths.root)
+        return list(manifest.get("charts", {}).keys())
+
     inputs = Phase4Inputs(
         batch_id=batch_id,
         direction=direction,
         paths=paths,
         repo_root=Path("."),
+        chart_builder=_chart_builder,
+        # report_callback stays None — the /factor-mine loop dispatches
+        # the /factor-report subagent, not this CLI.
     )
     result = run_phase4_archive(inputs)
     n = len(result.admitted)

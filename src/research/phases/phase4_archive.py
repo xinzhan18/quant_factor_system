@@ -29,6 +29,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from research.archive.backfill import (
+    backfill_candidate_md,
+    backfill_direction_md,
+    backfill_judge_md,
+)
 from research.archive.commit import (
     CommitResult,
     build_commit_message,
@@ -324,6 +329,27 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
                     src, paths.python_factors_dir, allocated.factor_id, name
                 )
                 py_archives.append(dst)
+
+    # --- Back-fill F{id} into Phase 3 artifacts (candidates/judge/direction) ---
+    # Surgical Python edits — must run AFTER allocation (fid known) and
+    # BEFORE packet write so downstream consumers see the fills.
+    cand_to_fid: dict[str, str] = {
+        admits[i]["candidate_id"]: archived[i].factor_id
+        for i in range(len(archived))
+    }
+    for cid, fid in cand_to_fid.items():
+        cand_path = paths.batch_candidate_md_file(inputs.batch_id, cid)
+        if cand_path.exists():
+            backfill_candidate_md(cand_path, fid)
+    if cand_to_fid:
+        judge_path_for_backfill = paths.batch_judge_file(inputs.batch_id)
+        if judge_path_for_backfill.exists():
+            backfill_judge_md(judge_path_for_backfill, cand_to_fid)
+        dir_path_for_backfill = paths.direction_file(inputs.direction)
+        if dir_path_for_backfill.exists():
+            backfill_direction_md(
+                dir_path_for_backfill, cand_to_fid, inputs.batch_id
+            )
 
     # --- Step 2b: heavy-compute charts + Step 3 packet + optional subagent ---
     report_packets: list[Path] = []
