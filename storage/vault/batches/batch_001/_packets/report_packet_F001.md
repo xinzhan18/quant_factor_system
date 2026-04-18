@@ -167,6 +167,157 @@ CV 高 → 近 10 日内至少有 1–2 天出现与均值显著偏离的成交�
 >
 > F{id} 由 Phase 4 分配，本文件 frontmatter `factor_id: null`。
 
+## Detailed Metrics
+
+All numeric fields from Phase 2 / Phase 3 for this candidate. Tables in the report should cite these directly — do not mark fields as `—` if they appear below.
+
+```yaml
+metrics:
+  cp03:
+    ic_oos: -0.040376913506727244
+    icir_oos: -0.7158056873727735
+    ls_tstat_oos: -3.7843
+    ic_is: -0.04004418106211288
+    icir_is: -0.48172873554379253
+    ic_std_is: 0.08312599624539646
+    ic_std_oos: 0.05640764556498972
+    n_days_is: 1704
+    n_days_oos: 484
+    ic_win_rate_is: 0.29518779342723006
+    ic_win_rate_oos: 0.23760330578512398
+    monotonicity_is: -0.9999999999999999
+    monotonicity_oos: -0.9999999999999999
+    quintile_returns_is:
+      q1: 0.0010619276436045766
+      q2: 0.0008339190972037613
+      q3: 0.0006254572654142976
+      q4: 0.0004945727996528149
+      q5: 0.00024907413171604276
+    quintile_returns_oos:
+      q1: 0.0003210604772903025
+      q2: 0.00013297864643391222
+      q3: -3.481439489405602e-05
+      q4: -0.00014195236144587398
+      q5: -0.00034738032263703644
+    ls_mean_is: -0.0007637604726945758
+    ls_mean_oos: -0.0006727336273970725
+    ls_sharpe_oos: -2.7278
+    ls_sortino_oos: -4.0491
+    ls_calmar_oos: -0.557
+    ls_max_dd_oos: -0.3044
+    ls_sharpe_is: -1.595
+    ls_tstat_is: -4.1489
+    ls_max_dd_is: -1.219
+  cp04:
+    style_r_squared: 0.11406013504438384
+    alpha_survival_ratio: 0.7612
+    extreme_ratio: 0.023111
+    barra_residual_ic: -0.030734
+    barra_residual_icir: -0.459204
+    dominant_style_exposure: vol_20d
+    style_crowding_risk: medium
+    style_exposures:
+      log_circ_cap: 0.08733688498510546
+      book_to_price: 0.13425923700583997
+      mom_12_1: 0.19727198242653837
+      str_1m: 1.2759691191651095
+      vol_20d: 24.484617761482863
+      turnover_20d: 3.335654712662005
+      ep_ratio: 0.3788559109862046
+    distribution_skew: 1.4372
+    distribution_kurt: 2.2755
+    distribution_zero_ratio: 0.0
+  cp05:
+    max_lib_corr: 0.0
+    is_near_duplicate: false
+    incremental_ic: null
+    nearest_factor_id: null
+    nearest_factor_expression: null
+    all_correlations: {}
+    exceeds_threshold: false
+  cp06:
+    sign_consistency: 1.0
+    train_validation_decay: 1.0083
+    sign_consistent: true
+    ic_by_year:
+      2015: -0.03356329171650554
+      2016: -0.04031696626166032
+      2017: -0.03910205951466245
+      2018: -0.05564254150916523
+      2019: -0.05204551512217917
+      2020: -0.038627692471904715
+      2021: -0.02096456710327177
+      2022: -0.03741906004266764
+      2023: -0.04333476697078686
+    worst_quarter_ic: -0.060104
+    best_quarter_ic: -0.00608
+    ic_autocorr_lag1: 0.086023
+    cum_ic_max_drawdown: -87.715542
+    split_ic_means:
+    - -0.04549030500264493
+    - -0.029347815082690354
+    - -0.042248972559393465
+    - -0.04442056138218026
+    split_dispersion: 0.1603
+    n_splits: 4
+  feasibility:
+    turnover_mean: 0.8014093016745716
+    liquidity_coverage: 0.6846498297515107
+    tail_concentration: 0.007160010349375038
+    small_cap_concentration: 0.31723869523767767
+    signal_half_life: 5.0
+    signal_autocorr_lag1: 0.8942
+    rebalance_stress:
+      value: 0.00838107108878996
+      rebalance_stress_bucket: low
+    ic_half_life_days: null
+mt_budget:
+  score: 0.0
+  bucket: low
+  terms:
+    family: 0.0
+    direction: 0.0
+    exposure: 0.0
+  search_adjusted:
+    raw: 0.9
+    adjusted: 0.9
+    bucket: high
+hard_gate:
+  passed: true
+  reasons: []
+  gate_results:
+    compute_error:
+      passed: true
+    forbidden:
+      passed: true
+    coverage:
+      passed: true
+      value: 0.9632
+      threshold: 0.8
+    sign_flip:
+      passed: true
+      train_ic: -0.04004418106211288
+      val_ic: -0.040376913506727244
+    ic_oos_min:
+      passed: true
+      value: -0.040376913506727244
+      threshold: 0.008
+    oos_decay:
+      passed: true
+      value: 1.0083
+      threshold: 0.2
+    mono_flip:
+      passed: true
+      train: -0.9999999999999999
+      validation: -0.9999999999999999
+    near_duplicate:
+      passed: true
+      max_corr: 0.0
+      nearest: null
+coverage: 0.9632
+expression: Div(Std($amount, 10), Mean($amount, 10))
+```
+
 ## Available Charts
 
 The following PNG charts exist in `vault/factors/F001/` and may be embedded via `![[F001/<name>.png]]`. **Do not embed any chart name that is not on this list** — the file would not exist.

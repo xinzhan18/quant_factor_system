@@ -47,6 +47,7 @@ from research.archive.factor_writer import (
 from research.archive.python_archiver import archive_python_factor
 from research.archive.report_packer import (
     ReportPacketInputs,
+    cleanup_finished_packets,
     extract_candidate_synthesis,
     write_report_packet,
 )
@@ -296,6 +297,12 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
     manifest = load_yaml(paths.batch_manifest_file(inputs.batch_id))
     judge_fm = _parse_judge_frontmatter(judge_path)
 
+    hints_path = paths.batch_hints_file(inputs.batch_id)
+    hints_per_cand: dict[str, dict[str, Any]] = {}
+    if hints_path.exists():
+        hints_doc = load_yaml(hints_path) or {}
+        hints_per_cand = hints_doc.get("per_candidate") or {}
+
     admits = _find_admits(judge_fm)
     logger.info(
         "phase4: %s has %d admits to archive", inputs.batch_id, len(admits)
@@ -308,6 +315,7 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
         cid = admit["candidate_id"]
         result_entry = _result_entry_by_id(result, cid)
         manifest_entry = _manifest_entry_by_id(manifest, cid)
+        factor_name = admit.get("factor_name")
 
         allocated = allocate_and_write_factor(
             factors_dir=paths.factors_dir,
@@ -315,6 +323,7 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
             manifest_entry=manifest_entry,
             batch_id=inputs.batch_id,
             direction=inputs.direction,
+            factor_name=factor_name,
         )
         archived.append(allocated)
 
@@ -383,6 +392,7 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
                 inputs.batch_id, admit_entry.get("candidate_id", "")
             )
         )
+        cand_hints = hints_per_cand.get(admit_entry.get("candidate_id", ""), {})
         packet_text = write_report_packet(
             ReportPacketInputs(
                 factor_id=a.factor_id,
@@ -392,6 +402,7 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
                 judge_synthesis=synthesis,
                 admitted_in_batch=inputs.batch_id,
                 available_charts=available_charts,
+                hints_per_candidate=cand_hints,
             ),
             packet_path,
         )
@@ -452,6 +463,15 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
         logger.info(
             "phase4: pruned %d non-admit diagnostic dirs under batch_diagnostics/",
             len(pruned),
+        )
+
+    # --- Packet cleanup: delete scratch packets whose factor.md now exists ---
+    # Skip the current batch — its subagents may still be running and reading
+    # their packets. Prior batches' subagents have had time to finish.
+    cleaned_packets = cleanup_finished_packets(paths, skip_batch=inputs.batch_id)
+    if cleaned_packets:
+        logger.info(
+            "phase4: cleaned %d finished report packet(s)", len(cleaned_packets)
         )
 
     # --- Finish batch (clears current_batch, increments round) ---

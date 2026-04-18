@@ -81,6 +81,14 @@ class ReportPacketInputs:
     in ``vault/factors/F{id}/``. The subagent must embed only charts from
     this whitelist — any image not listed here does not exist on disk."""
 
+    hints_per_candidate: dict[str, Any] = field(default_factory=dict)
+    """The per-candidate slice of ``_hints.yaml`` (cp03/cp04/cp06/feasibility/
+    mt_budget/hard_gate.gate_results). Emitted as a YAML block under
+    ``## Detailed Metrics`` so the subagent can fill tables that the judge
+    synthesis doesn't spell out (multi-horizon IC — if present — full L/S
+    stats, full style_exposures, distribution moments, ic_by_year, split_*,
+    feasibility fields)."""
+
 
 def _format_yaml_block(data: dict[str, Any]) -> str:
     """Render a dict as a fenced YAML code block."""
@@ -136,6 +144,23 @@ def build_report_packet(inputs: ReportPacketInputs) -> str:
         parts.append("## Judge Synthesis")
         parts.append("")
         parts.append(inputs.judge_synthesis.strip())
+        parts.append("")
+
+    if inputs.hints_per_candidate:
+        metrics_block = {
+            k: inputs.hints_per_candidate[k]
+            for k in ("metrics", "mt_budget", "hard_gate", "coverage", "expression")
+            if k in inputs.hints_per_candidate
+        }
+        parts.append("## Detailed Metrics")
+        parts.append("")
+        parts.append(
+            "All numeric fields from Phase 2 / Phase 3 for this candidate. "
+            "Tables in the report should cite these directly — do not mark "
+            "fields as `—` if they appear below."
+        )
+        parts.append("")
+        parts.append(_format_yaml_block(metrics_block))
         parts.append("")
 
     if inputs.nearest_factor_summary.strip():
@@ -204,3 +229,72 @@ def extract_candidate_synthesis(candidate_md_path: str | Path) -> str:
     if not p.exists():
         return ""
     return p.read_text(encoding="utf-8").strip()
+
+
+# ---------------------------------------------------------------------------
+# Packet cleanup — packets are scratch; delete once subagent wrote factor.md
+# ---------------------------------------------------------------------------
+
+_PACKET_FILE_RE = re.compile(r"^report_packet_(F\d+)\.md$")
+
+
+def cleanup_finished_packets(
+    paths: Any,  # StoragePaths — typed Any to avoid circular import
+    *,
+    skip_batch: str | None = None,
+    dry_run: bool = False,
+) -> list[Path]:
+    """Delete ``report_packet_F{id}.md`` files whose factor.md exists.
+
+    A packet is scratch input for the ``/factor-report`` subagent; once the
+    subagent has written ``vault/factors/F{id}.md`` the packet's job is done.
+    We keep packets around only while the subagent might still be reading
+    them (i.e. the current batch that just dispatched them).
+
+    Parameters
+    ----------
+    paths
+        :class:`StoragePaths` — used for ``batches_dir`` and ``factor_md_file``.
+    skip_batch
+        If given, leave that batch's packets alone (subagents for the
+        batch-in-progress may still be reading). Typical caller passes the
+        current batch_id at the start of Phase 4.
+    dry_run
+        Report what would be deleted but don't touch the filesystem.
+
+    Returns
+    -------
+    list[Path]
+        Packet paths that were (or would be) deleted.
+    """
+    deleted: list[Path] = []
+    batches_dir = paths.batches_dir
+    if not batches_dir.exists():
+        return deleted
+
+    for batch_dir in sorted(batches_dir.iterdir()):
+        if not batch_dir.is_dir():
+            continue
+        if skip_batch and batch_dir.name == skip_batch:
+            continue
+        packets_dir = batch_dir / "_packets"
+        if not packets_dir.exists():
+            continue
+        for packet in packets_dir.iterdir():
+            m = _PACKET_FILE_RE.match(packet.name)
+            if not m:
+                continue
+            factor_id = m.group(1)
+            factor_md = paths.factor_md_file(factor_id)
+            if factor_md.exists() and factor_md.stat().st_size > 0:
+                deleted.append(packet)
+                if not dry_run:
+                    packet.unlink()
+        # Tidy: if the packets dir is now empty, remove it.
+        if not dry_run:
+            try:
+                if not any(packets_dir.iterdir()):
+                    packets_dir.rmdir()
+            except OSError:
+                pass
+    return deleted
