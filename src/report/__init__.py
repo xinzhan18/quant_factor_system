@@ -1,6 +1,6 @@
-"""Factor report generation — analytics v2 + report packer.
+"""Factor report generation — composite scoring + chart rendering.
 
-Legacy exports (ICAnalyzer, ProfitAnalyzer, CompositeScorer, etc.) are
-removed. New consumers use ``report.analytics_v2`` extractors which
-consume ``result.yaml`` directly per R4 (no recomputation).
+The report pipeline consists of ``report.composite`` (scoring) and
+``report.render`` (chart + markdown output), which consume ``result.yaml``
+directly per R4 (no recomputation).
 """

@@ -69,10 +69,10 @@ ReportCallback = Callable[[str, Path, Path], None]
 #
 #   chart_builder(factor_id, assets_dir) -> list[str]
 #
-# Runs the heavy Qlib/DB computation (ReportDataBuilder.save_for_vault)
-# that produces ``vault/factors/F{id}/report_data.json`` + PNG charts.
+# Runs the heavy Qlib/DB computation (report.render.render_factor)
+# that produces ``vault/factors/F{id}/`` PNG charts + manifest.
 # Returns the list of chart basenames (no extension) for packet embedding.
-# Injection point: production wires it to :class:`report.builder.ReportDataBuilder`;
+# Injection point: production wires it to :func:`report.render.render_factor`;
 # tests pass ``None`` to skip chart generation entirely.
 ChartBuilderCallback = Callable[[str, Path], list[str]]
 
@@ -105,11 +105,11 @@ class Phase4Inputs:
 
     chart_builder: ChartBuilderCallback | None = None
     """Optional Phase 4 Step 2 heavy-compute hook. When provided, runs
-    ReportDataBuilder to produce ``vault/factors/F{id}/report_data.json``
-    + PNG charts. The returned chart list is embedded in the packet so
-    the subagent knows which images are safe to wikilink. Any exception
-    is logged and treated as "no charts" — the main archive commit must
-    not be blocked by chart-generation failure."""
+    ``report.render.render_factor`` to produce ``vault/factors/F{id}/``
+    PNG charts + manifest. The returned chart list is embedded in the
+    packet so the subagent knows which images are safe to wikilink. Any
+    exception is logged and treated as "no charts" — the main archive
+    commit must not be blocked by chart-generation failure."""
 
 
 @dataclass
@@ -355,7 +355,7 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
     report_packets: list[Path] = []
     factor_md_paths: list[Path] = []
     for a in archived:
-        # --- Chart generation (ReportDataBuilder) ---
+        # --- Chart generation (report.render.render_factor) ---
         # Runs BEFORE packet write so the chart list can be embedded.
         # Must never block the main commit — any failure → empty list.
         available_charts: list[str] = []

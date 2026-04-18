@@ -77,8 +77,8 @@ class ReportPacketInputs:
     admitted_in_batch: str = ""
 
     available_charts: list[str] = field(default_factory=list)
-    """Chart basenames (no ``.png``) produced by ReportDataBuilder in
-    ``vault/factors/F{id}/``. The subagent must embed only charts from
+    """Chart basenames (no ``.png``) produced by ``report.render.render_factor``
+    in ``vault/factors/F{id}/``. The subagent must embed only charts from
     this whitelist — any image not listed here does not exist on disk."""
 
 
@@ -161,7 +161,7 @@ def build_report_packet(inputs: ReportPacketInputs) -> str:
         parts.append("## Available Charts")
         parts.append("")
         parts.append(
-            "_No charts generated (ReportDataBuilder did not run or failed). "
+            "_No charts generated (report.render.render_factor did not run or failed). "
             "Write a text-only report — do not include any `![[...png]]` embeds._"
         )
         parts.append("")
