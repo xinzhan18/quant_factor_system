@@ -14,16 +14,16 @@ last_consolidation_round: null
 
 ## 活跃方向
 
-### [[directions/volume_price_signal|Volume-Price Signal]] `exploring→productive` `high`
-batch_001 首批 6 候选 (T001/T002/T003 baselines) → admit 1 (C005, T003 vol-weighted anchor), reserve 3, reject 2. T001 answered (price-level wins over return-level). 核心阻塞是 CP04 — 全家族 `alpha_survival_ratio` 0.31–0.46 低于 0.60 clean 阈值，`dominant_style_exposure=vol_20d`。T004 (Barra-vol 脱敏) 新增为 batch_002 首要议题。
+### [[directions/amount_volatility_signal|成交额波动率信号]] `productive` `high`
+首批 [[batches/batch_001/judge|batch_001]] 8 候选 → 1 admit (C001 `amount_cv_10`) / 2 reserve / 5 reject。T001 短窗口 CV 确认为 core edge（ICIR_OOS=-0.716，9 年同号），T002 尾部信号待 vol_20d 正交化，T003 当前算子族失败（Log 发散 / Corr 分位翻转）→ 新开 T004 替代实现。**方向级结构发现**：8/8 候选 dominant_style=vol_20d，下批优先 orthogonalize 验证。
 
 ## 最近 Batch
 
-- [[batches/batch_001/judge|batch_001]] (volume_price_signal): 6 candidates → 1 admit / 3 reserve / 2 reject。核心发现：PV correlation family 整体是 vol_20d 风格代理，edge 存在但 alpha_survival 不过关。
+- [[batches/batch_001/judge|batch_001]] (amount_volatility_signal): 8 候选 → admit=1 / reserve=2 / reject=5。core finding: 短窗口 CV (C001) 强 alpha + 完美单调，但全方向 dominant_style=vol_20d 需下轮 orthogonalize。
 
 ## 因子库
 
-- **batch_001 admitted (pending F{id} allocation)**: C005 `Mul(Corr($close, $volume, 20), Std($volume, 20))` — T003 anchor, ICIR_oos=-0.362 ls_t=-3.68, CP04 poor but admitted as direction reference.
+_（Phase 4 分配 F{id} 后刷新；本批 admit C001 `amount_cv_10` 将在 Phase 4 归档后列出）_
 
 ---
 
@@ -33,7 +33,7 @@ batch_001 首批 6 候选 (T001/T002/T003 baselines) → admit 1 (C005, T003 vol
 
 | Direction | Status | Priority | Rounds | Admits | Threads | Last batch |
 |---|---|---|---|---|---|---|
-| volume_price_signal | exploring | high | 1 | 1 | 3 | batch_001 |
+| amount_volatility_signal | productive | high | 1 | 1 | 2 | batch_001 |
 
 | Metric | Value |
 |---|---|
