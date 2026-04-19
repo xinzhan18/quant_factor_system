@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-19T05:47:52Z
-round: 4
+generated_at: 2026-04-19T06:06:00Z
+round: 5
 total_active_directions: 3
 total_factors_admitted: 1
-last_batch: batch_004
+last_batch: batch_005
 last_consolidation_round: null
 ---
 
@@ -21,11 +21,12 @@ last_consolidation_round: null
 首批 [[batches/batch_004/judge|batch_004]] 即触发 saturated：5 候选 5/5 `dominant_style=vol_20d`，"换手率脱离 vol_20d 风格空间"hypothesis 证伪。仅 C003 加速度 (alpha_survival=1.085) 突破 dealbreaker reserve，四 thread 全部证伪。C001 turnover CV 与 F001 相关 0.955 → shares 短窗近常数 CV 结构等价。
 
 ### [[directions/value_liquidity_interaction|价值 × 流动性交互]] `exploring` `high`
-首批 [[batches/batch_005/judge|batch_005]] 产出**两项结构性正面发现**：(1) C004 `Div(Delta($pe,20), $pe)` alpha_survival=**0.92** + dom=**str_1m** 首次跳出流动性风格天花板（ls_t=-1.22 reserve）；(2) C005 `Div($pb, Mean(amount,20))` **IC=+0.032 / mono=+1.0 / cum_dd=-2.17（全库最浅）/ 9 年全正** — positive edge 真实但 Barra 吞噬。**元教训**：乘法交互 ≠ 维度交互；出路是自归一化变化率 + 分母去市值。
+累计 2 batches，10 候选 → 0 admit / 5 reserve / 5 reject。[[batches/batch_006/judge|batch_006]] **T006 三点通用性确立** — PE/PB/PS 自归一化速率 (C004_b5 / C001 / C002) 在 rank-order 层形态高度一致（alpha_survival 0.92/0.79/0.72、dom=**str_1m**）跨 valuation 普适；但 **ls_t 全部弱 <2**，PnL 层未兑现。T001 "分母去市值" 路径证伪（C003 vs C005_b5 诊断）。**C004_b6 极端悖论**：style_r²=0.08 clean + alpha_survival=0.0009 poor — "低 style_r² ≠ barra-clean" 标本。下轮 batch_007 方案 A+B：合成 + 秩差 DSL 内验证 PnL 转化；若失败转 Python Barra residual (R8)。
 
 ## 最近 Batch
 
-- [[batches/batch_005/judge|batch_005]] (value_liquidity_interaction): 5 候选 → admit=0 / reserve=1 / reject=4。core finding: **C004 首次跳出流动性风格天花板**（dom=str_1m, alpha_survival=0.92）+ **C005 首个 positive IC+perfect mono**。下批 T003 升级、C005 分母替换、T006 通用性测试。
+- [[batches/batch_006/judge|batch_006]] (value_liquidity_interaction): 5 候选 → admit=0 / reserve=3 / reject=2。core finding: **T006 PE/PB/PS 自归一化速率三点通用性确立**（alpha_survival 0.92/0.79/0.72 全 dom=str_1m）但 ls_t 全弱<2；T001 "分母去市值" 路径证伪；C004_b6 极端悖论（低 style_r² + 极低 alpha_survival）。
+- [[batches/batch_005/judge|batch_005]] (value_liquidity_interaction): 5 候选 → admit=0 / reserve=1 / reject=4。core finding: **C004 首次跳出流动性风格天花板**（dom=str_1m, alpha_survival=0.92）+ **C005 首个 positive IC+perfect mono**。
 - [[batches/batch_004/judge|batch_004]] (turnover_structural_signal): 5 候选 → admit=0 / reserve=1 / reject=4。core finding: **turnover 同样撞 vol_20d 天花板**——"field 换方向"非"维度切换"。方向 status saturated。
 - [[batches/batch_003/judge|batch_003]] (amount_volatility_signal): 5 候选 → admit=0 / reserve=4 / reject=1。core finding: **DSL 实现空间对 vol_20d 无解**，T002/T004 四子路径全落。
 - [[batches/batch_002/judge|batch_002]] (amount_volatility_signal): 5 候选 → admit=0 / reserve=2 / reject=3。core finding: **T001 窗口扫描答案 = 10d 最优**（F001 anchor 地位确立）。
@@ -49,12 +50,12 @@ last_consolidation_round: null
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 3 | 1 | 0 | batch_003 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
-| value_liquidity_interaction | exploring | high | 1 | 0 | 2 | batch_005 |
+| value_liquidity_interaction | exploring | high | 2 | 0 | 1 | batch_006 |
 
 | Metric | Value |
 |---|---|
 | Total factors admitted | 1 |
-| Current round | 4 |
+| Current round | 5 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
