@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-19T11:16:57Z
-round: 6
+generated_at: 2026-04-19T11:26:12Z
+round: 7
 total_active_directions: 3
-total_factors_admitted: 1
-last_batch: batch_006
+total_factors_admitted: 2
+last_batch: batch_007
 last_consolidation_round: null
 ---
 
@@ -39,6 +39,7 @@ last_consolidation_round: null
 
 <!-- BEGIN FACTOR-LIBRARY -->
 - [[factors/F001|amount_cv_10]] `A` · amount_volatility_signal · ICIR_oos=-0.716, Mono=-1.00 · `Div(Std($amount, 10), Mean($amount, 10))`
+- [[factors/F002|pb_amount_ratio_20]] · value_liquidity_interaction · ICIR_oos=0.263, Mono=1.00 · `Div($pb_ratio, Mean($amount, 20))`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -51,12 +52,12 @@ last_consolidation_round: null
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 3 | 1 | 0 | batch_003 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
-| value_liquidity_interaction | exploring | high | 3 | 0 | 1 | batch_007 |
+| value_liquidity_interaction | productive | high | 4 | 1 | 1 | batch_005 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 1 |
-| Current round | 6 |
+| Total factors admitted | 2 |
+| Current round | 7 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->

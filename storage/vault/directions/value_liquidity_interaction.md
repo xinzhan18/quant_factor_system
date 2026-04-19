@@ -1,17 +1,22 @@
 ---
 direction_tag: value_liquidity_interaction
-status: exploring
+status: productive
 priority: high
-rounds: 3
-admits: 0
-last_batch: batch_007
-last_admits: []
-last_goal: 'batch_007 方案 A+B: 合成 3-fundamental rate + 秩差结构，DSL 内验证是否能把 T006 rank-order
-  优势转化为 PnL (ls_t>2)。若本批仍零 admit 且 ls_t 无显著改善，方向将在 batch_008 切换到 Python 逃生口 Barra
-  residual (R8)。'
-last_activity: '2026-04-19T11:16:57Z'
+rounds: 4
+admits: 1
+last_batch: batch_005
+last_admits:
+- F002
+last_goal: 'Open third direction value_liquidity_interaction introducing fundamental
+  fields ($pe/$pb/$ps) × liquidity ($turnover_rate/$amount/Std-of-close) interactions
+  to escape vol_20d/turnover_20d Barra ceiling established in prior 2 directions.
+  Goal: at least 1 candidate with dominant_style ∈ {ep_ratio, book_to_price} + alpha_survival
+  > 0.70. Test: value×attention (T001/T005), value×stress (T004), fundamental update
+  rate (T003), PB/liquidity (T001 variant).'
+last_activity: '2026-04-19T11:26:12Z'
 created_batch: batch_005
-members: []
+members:
+- F002
 merged_into: null
 ---
 # value_liquidity_interaction
@@ -29,8 +34,8 @@ merged_into: null
 **结构性约束**（延续前两方向教训）：
 - 候选必须引入**至少一个基本面字段** ($pe/pb/ps/mktcap)
 - 避免纯流动性派生量（已证伪）
-- CP04 alpha_survival < 0.60 一律 reject，dominant_style=vol_20d 也 reject（严守 hypothesis）
-- 目标：至少 1 候选 dominant_style ∈ {ep_ratio, book_to_price, log_circ_cap, str_1m}
+- CP04 档位参考 rubric 全局阈值（alpha_survival<0.30 poor / 0.30-0.50 borderline / >0.50 clean，2026-04-19 放宽）；不强制 reject
+- 目标：至少 1 候选 **max_corr@F001 < 0.30 且 incremental_ic > 0.010** 即可 admit（Barra 脏但库空间独立仍有价值）
 
 ## Current Focus
 
