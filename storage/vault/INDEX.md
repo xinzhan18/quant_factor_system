@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-19T13:07:56Z
-round: 8
-total_active_directions: 3
-total_factors_admitted: 2
-last_batch: batch_008
+generated_at: 2026-04-19T13:36:43Z
+round: 9
+total_active_directions: 4
+total_factors_admitted: 3
+last_batch: batch_009
 last_consolidation_round: null
 ---
 
@@ -13,6 +13,9 @@ last_consolidation_round: null
 > 上半段由 LLM 维护；下半段由 Python 自动刷新。
 
 ## 活跃方向
+
+### [[directions/intraday_price_formation|日内价格形成]] `exploring` `high`
+首批 [[batches/batch_010/judge|batch_010]] 8 候选 → **1 admit (F003 overnight_gap_normalized)** / 0 reserve / 7 reject。**核心发现**：隔夜跳空（open 与前收的关系）是最稳定的 OHLCV-only 信号，ls_t=8.36 + 完美单调 + 9年 IC 全正；日内价格比率类指标（K线身体比/上影线比例）全部 mono_sign_flip 失效。DSL OHLCV-only 空间可产生 admit，但路径比预期窄。
 
 ### [[directions/amount_volatility_signal|成交额波动率信号]] `productive` `high`
 累计 4 batches，24 候选 → 1 admit / 10 reserve / 13 reject（admit 率 **4.2%**）。[[batches/batch_008/judge|batch_008]] **第 4 次确认 vol_20d 结构性瓶颈**：19/19 非 hard_gate 候选 100% dominant_style=vol_20d。C003 最强 rank-order(mono=-1.0, max_corr=0.07@F001) 但 alpha_surv=0.24 触 CP04 poor。**DSL 空间已物理封闭**，唯一逃生口：Python vol_20d Barra residual。
@@ -25,6 +28,7 @@ last_consolidation_round: null
 
 ## 最近 Batch
 
+- [[batches/batch_010/judge|batch_010]] (intraday_price_formation): 8 候选 → admit=1 (F003 overnight_gap_normalized) / reserve=0 / reject=7。**首批 OHLCV-only 候选**：7/8 hard_gate 全部 mono_sign_flip 失效；C004 隔夜跳空/昨日波幅 ls_t=8.36 + 完美单调 + 9年 IC 全正，唯一 admit。
 - **[RETROACTIVE 2026-04-19]** [[batches/batch_005/judge|batch_005]] C005 reject → **admit F002 `pb_amount_ratio_20`**。触发：config `alpha_surv_min` 0.60→0.40；rubric CP04 档位放宽；direction-level 自设硬规则（alpha_survival<0.60 一律 reject + dom=vol_20d 一律 reject）已删除。
 - [[batches/batch_009/judge|batch_009]] (value_liquidity_interaction): 7 候选 → admit=0 / reserve=2 / reject=5。**self-norm rate×turnover 4/4 全灭**；C005 dom=str_1m breakthrough(历史首次) 但 incr_ic=-0.033(库 reducer) reject；C007 ls_t=-2.43(PnL 最强) vol_20d=18.8 极端。**DSL 空间穷尽**，唯一出口：Python Barra residual。
 - [[batches/batch_008/judge|batch_008]] (amount_volatility_signal): 6 候选 → admit=0 / reserve=4 / reject=2。**第 4 次 vol_20d 瓶颈确认**：C003 最强 rank-order(mono=-1.0, max_corr=0.07@F001) 但 alpha_surv=0.24 触 CP04 poor；C002/C005 near-dup(style_r²=0.78)。DSL 封闭，**唯一逃生口：Python Barra residual**。
@@ -43,6 +47,7 @@ last_consolidation_round: null
 <!-- BEGIN FACTOR-LIBRARY -->
 - [[factors/F001|amount_cv_10]] `A` · amount_volatility_signal · ICIR_oos=-0.716, Mono=-1.00 · `Div(Std($amount, 10), Mean($amount, 10))`
 - [[factors/F002|pb_amount_ratio_20]] `A` · value_liquidity_interaction · ICIR_oos=0.263, Mono=1.00 · `Div($pb_ratio, Mean($amount, 20))`
+- [[factors/F003|overnight_gap_normalized]] · intraday_price_formation · ICIR_oos=0.379, Mono=1.00 · `Div(Sub($open, Ref($close, 1)), Mean($high, 1))`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -54,13 +59,14 @@ last_consolidation_round: null
 | Direction | Status | Priority | Rounds | Admits | Threads | Last batch |
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
+| intraday_price_formation | productive | high | 2 | 2 | 1 | batch_010 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 2 |
-| Current round | 8 |
+| Total factors admitted | 3 |
+| Current round | 9 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
