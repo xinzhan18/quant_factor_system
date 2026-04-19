@@ -1,4 +1,32 @@
 ---
+factor_id: F002
+direction: value_liquidity_interaction
+admitted_in_batch: batch_005
+---
+
+# Report Packet — F002
+
+## Factor YAML Summary
+
+```yaml
+name: pb_amount_ratio_20
+expression: Div($pb_ratio, Mean($amount, 20))
+source_type: dsl
+family_tag: value_liquidity_interaction
+validation_metrics:
+  ic_mean: 0.03169019180804957
+  ic_ir: 0.2631582793314787
+  ic_win_rate: 0.609504132231405
+  monotonicity: 0.9999999999999999
+  long_short_mean: 0.0014754911735658687
+risk_metrics:
+  style_r_squared: 0.4134843668324224
+  alpha_survival_ratio: 0.296
+```
+
+## Judge Synthesis
+
+---
 candidate_id: C005
 batch_id: batch_005
 direction: value_liquidity_interaction
@@ -175,3 +203,216 @@ reject_reason_short: null
 > - C005 是方向首个 positive 信号，即使 reject 也值得作为"发现"写入 direction.md Narrative Log
 > 
 > 本文件 frontmatter `verdict: reject`，`factor_id: null`，`factor_name: null`。
+
+## Detailed Metrics
+
+All numeric fields from Phase 2 / Phase 3 for this candidate. Tables in the report should cite these directly — do not mark fields as `—` if they appear below.
+
+```yaml
+metrics:
+  cp03:
+    ic_oos: 0.03169019180804957
+    icir_oos: 0.2631582793314787
+    ls_tstat_oos: 4.6775
+    ic_is: 0.022023872901518884
+    icir_is: 0.1842382782006423
+    ic_std_is: 0.11954015808557475
+    ic_std_oos: 0.12042255287789014
+    n_days_is: 1705
+    n_days_oos: 484
+    ic_win_rate_is: 0.5964809384164222
+    ic_win_rate_oos: 0.609504132231405
+    monotonicity_is: 0.9999999999999999
+    monotonicity_oos: 0.9999999999999999
+    quintile_returns_is:
+      q1: -5.6536173360655084e-05
+      q2: 0.00017191085498780012
+      q3: 0.0005000545061193407
+      q4: 0.0007852885755710304
+      q5: 0.0019384630722925067
+    quintile_returns_oos:
+      q1: -0.0008188622305169702
+      q2: -0.0003899791627191007
+      q3: 4.2838470108108595e-05
+      q4: 0.0003394389641471207
+      q5: 0.000660488847643137
+    ls_mean_is: 0.0021627479345678376
+    ls_mean_oos: 0.0014754911735658687
+    ls_sharpe_oos: 3.3716
+    ls_sortino_oos: 5.7447
+    ls_calmar_oos: 3.1311
+    ls_max_dd_oos: -0.1188
+    ls_sharpe_is: 3.281
+    ls_tstat_is: 8.5367
+    ls_max_dd_is: -4.1669
+    ic_by_horizon:
+      1:
+        ic_is: 0.022023872901518884
+        icir_is: 0.1842382782006423
+        win_rate_is: 0.5964809384164222
+        ic_oos: 0.03169019180804957
+        icir_oos: 0.2631582793314787
+        win_rate_oos: 0.609504132231405
+      3:
+        ic_is: 0.03323017519134552
+        icir_is: 0.2772133867590353
+        win_rate_is: 0.6205278592375366
+        ic_oos: 0.04650238210338777
+        icir_oos: 0.3643288160445099
+        win_rate_oos: 0.6239669421487604
+      5:
+        ic_is: 0.0394850002907749
+        icir_is: 0.3328816633139879
+        win_rate_is: 0.6463343108504399
+        ic_oos: 0.055922608916919594
+        icir_oos: 0.44103863012937805
+        win_rate_oos: 0.6549586776859504
+      10:
+        ic_is: 0.04682001093819248
+        icir_is: 0.39669457027470223
+        win_rate_is: 0.6744868035190615
+        ic_oos: 0.06980641684821254
+        icir_oos: 0.5888765751702804
+        win_rate_oos: 0.6900826446280992
+      20:
+        ic_is: 0.05482725138404414
+        icir_is: 0.4606347418556725
+        win_rate_is: 0.6674486803519062
+        ic_oos: 0.09115487297053798
+        icir_oos: 0.7855890942938315
+        win_rate_oos: 0.78099173553719
+  cp04:
+    style_r_squared: 0.4134843668324224
+    alpha_survival_ratio: 0.296
+    extreme_ratio: 0.004674
+    barra_residual_ic: 0.00938
+    barra_residual_icir: 0.144743
+    dominant_style_exposure: vol_20d
+    style_crowding_risk: high
+    style_exposures:
+      log_circ_cap: 0.42182320066899665
+      book_to_price: 1.0979708356100946
+      mom_12_1: 0.12150539367404518
+      str_1m: 0.572532368444092
+      vol_20d: 23.93423086596287
+      turnover_20d: 5.152880464565396
+      ep_ratio: 0.6340232298667391
+    distribution_skew: 1.1896
+    distribution_kurt: 1.4053
+    distribution_zero_ratio: 0.0
+  cp05:
+    max_lib_corr: 0.0288
+    is_near_duplicate: false
+    incremental_ic: 0.026841
+    nearest_factor_id: F001
+    nearest_factor_expression: Div(Std($amount, 10), Mean($amount, 10))
+    all_correlations:
+      F001: 0.0288025638884252
+    exceeds_threshold: false
+  cp06:
+    sign_consistency: 1.0
+    train_validation_decay: 1.4389
+    sign_consistent: true
+    ic_by_year:
+      2015: 0.017207249780579546
+      2016: 0.026112443151304256
+      2017: 0.015016014993765458
+      2018: 0.022433548847750742
+      2019: 0.02648185978597763
+      2020: 0.023379700000652176
+      2021: 0.023549783149344944
+      2022: 0.026223900316602943
+      2023: 0.037156483299496196
+    worst_quarter_ic: -0.00393
+    best_quarter_ic: 0.052077
+    ic_autocorr_lag1: 0.038548
+    cum_ic_max_drawdown: -2.168967
+    split_ic_means:
+    - 0.01888014845145787
+    - 0.033567652181748016
+    - 0.030678549993924317
+    - 0.04363441660506808
+    split_dispersion: 0.2784
+    n_splits: 4
+  feasibility:
+    turnover_mean: 0.08826251689473583
+    liquidity_coverage: 0.5831616649403579
+    tail_concentration: 0.006874874212464497
+    small_cap_concentration: 0.3193034997172672
+    signal_half_life: 20.0
+    signal_autocorr_lag1: 0.9983
+    rebalance_stress:
+      value: 0.0010405239881275295
+      rebalance_stress_bucket: low
+    ic_half_life_days: null
+mt_budget:
+  score: 0.2684
+  bucket: low
+  terms:
+    family: 0.49680925094377365
+    direction: 0.0
+    exposure: 0.1
+  search_adjusted:
+    raw: 0.9
+    adjusted: 0.7792
+    bucket: high
+hard_gate:
+  passed: true
+  reasons: []
+  gate_results:
+    compute_error:
+      passed: true
+    forbidden:
+      passed: true
+    coverage:
+      passed: true
+      value: 0.9881
+      threshold: 0.8
+    sign_flip:
+      passed: true
+      train_ic: 0.022023872901518884
+      val_ic: 0.03169019180804957
+    ic_oos_min:
+      passed: true
+      value: 0.03169019180804957
+      threshold: 0.008
+    oos_decay:
+      passed: true
+      value: 1.4389
+      threshold: 0.2
+    mono_flip:
+      passed: true
+      train: 0.9999999999999999
+      validation: 0.9999999999999999
+    near_duplicate:
+      passed: true
+      max_corr: 0.0288
+      nearest: F001
+coverage: 0.9881
+expression: Div($pb_ratio, Mean($amount, 20))
+```
+
+## Available Charts
+
+The following PNG charts exist in `vault/factors/F002/` and may be embedded via `![[F002/<name>.png]]`. **Do not embed any chart name that is not on this list** — the file would not exist.
+
+- `ic_timeseries`
+- `rolling_ic`
+- `ic_distribution`
+- `monthly_heatmap`
+- `quintile_bar`
+- `cumulative_returns`
+- `annual_group_returns`
+- `style_exposure_bar`
+- `alpha_waterfall`
+- `stability_panel`
+- `ic_decay`
+- `factor_distribution`
+- `coverage`
+- `correlation_bar`
+- `radar`
+
+## Instructions
+
+Write a deep analytical report on `F002`. Cover the economic mechanism, the validation evidence, the risk cleanness, and the library positioning. Use only the information in this packet — do not open other files, call Qlib, or reach the DB. Embed only charts listed in the **Available Charts** section (skip any section whose chart is unavailable). Output path: `vault/factors/F002.md`.
+

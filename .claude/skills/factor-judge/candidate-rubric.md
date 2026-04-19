@@ -196,8 +196,8 @@ metrics:
 
 | 指标 | clean | borderline | poor |
 |---|---|---|---|
-| `style_r_squared` | < 0.08 | 0.08 – 0.12 | > 0.12 |
-| `alpha_survival_ratio` | > 0.70 | 0.60 – 0.70 | < 0.60 |
+| `style_r_squared` | < 0.12 | 0.12 – 0.25 | > 0.25 |
+| `alpha_survival_ratio` | > 0.50 | 0.30 – 0.50 | < 0.30 |
 | `extreme_ratio` | < 0.01 | 0.01 – 0.03 | > 0.03 |
 
 | 档位 | 标准 |
@@ -205,13 +205,14 @@ metrics:
 | **good** | 三项都 clean |
 | **acceptable** | 至多一项 borderline |
 | **borderline** | 两项 borderline，或一项 poor 其余 clean |
-| **poor** | 任何两项 poor；或 `alpha_survival_ratio < 0.60` 单独触发 dealbreaker |
+| **poor** | 任何两项 poor |
 
 **CP04 body 强制**：cite `style_r_squared`、`alpha_survival_ratio`、`barra_residual_ic`，flag `dominant_style_exposure`；**Alpha killer 段**列 `style_contributions` 前 2-3 项（`{style}: delta_ic={…} ({pct}%)`），一句话总结"本因子主要被 `{top_style}` 吞噬，下轮需 orthogonalize / normalize by {top_style}"。
 
-**"dealbreaker" 的语义**（之前歧义，明文化）：
-- `alpha_survival_ratio < 0.60` 的 "dealbreaker" 只决定 **CP04 档位 = poor**，不强制 reject。Verdict 仍由综合 CP 判断（CP02–CP06 + MT）。
-- **但**：当同批 ≥ 2 个候选 CP04 都是 poor 且原因同一簇（同 `dominant_style_exposure`），最多 admit 1 个作为"方向 anchor"（单调性最干净 / Barra 残差 IC 最强的那个），其余只能 `reserve` 或 `reject`。这是防止风格重复入库的硬规则。
+**CP04 与 verdict 关系**（2026-04-19 放宽）：
+- CP04 档位纯粹**描述性**，不自动触发 reject。Verdict 由 CP02–CP06 + MT + 库增值综合判断。
+- **Barra 吞噬不等价 alpha 无效**：因子可以同时 `alpha_survival<0.50` **且** `max_lib_corr<0.30` **且** `incremental_ic > 0.005` — 这说明"Barra 空间内载体"但"库空间独立"，仍有库增值价值。
+- **Anchor rule**（防风格重复，规则不变）：当同批 ≥ 2 个候选 CP04 poor 且**同 `dominant_style_exposure`** 且**互相 `corr > 0.50`**（同源，非仅同风格），最多 admit 1 个。单点 poor + 低库相关不受限。
 - 首批（empty library）例外：CP05 `max_lib_corr=0` 机械 low 不能单独支持 admit，admit 判断此时倾向更严格（同批 anchor rule 仍适用）。
 
 ### CP05 Redundancy —— 2 指标 + 硬闸（low / medium / high）
