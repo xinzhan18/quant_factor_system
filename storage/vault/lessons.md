@@ -51,6 +51,7 @@ source: re-seeded for new iteration (engineering facts only)
 - **向量化（R5）**：禁止对行 / 日期 / 标的的 `for` 循环。用 `groupby` / broadcasting / `einsum` / `np.linalg.pinv`。同样禁用：`groupby.transform`（隐式按日期 for 循环）。标准套路：long → wide pivot → 在 `(n_dates × n_symbols)` 矩阵上做 row-level numpy 运算 → wide → long
 - **Barra residual 基线**：因子 alpha 是在**剥离 Barra 风格暴露之后**度量的，不是之前。`style_r²` 和 `alpha_survival` 是 CP04 Risk Cleanness 的核心指标
 - **冗余红线（CP05）**：对已 admitted 因子的 `max_lib_corr > 0.70` 直接 reject
+- **Python 因子必须进 library 对比（2026-04-20 修复）**：`data_bridge.load_library_signals` 历史上只加载 DSL 因子，Python 因子被完全跳过 —— 后果是 F005 作为 F004 的 bit-for-bit 复刻，相关度检查时找不到 F004，`max_lib_corr=0.15` 通过 near_duplicate gate。修复后 Python 因子也按 `sha256(源码)` 缓存进库。教训：任何护栏新增源类型时，redundancy / incremental_ic / 指标计算三条路径都要同步覆盖，否则"首个新类型 admit"之后的复刻必然漏网
 - **Sample policy 版本**：在 `config.yaml` 里升级 `sample_policy_version`（例如 `v3 → v4`）会重置 7.MT 多重检验预算的 `validation_exposure` 计数。不要轻易升
 
 ## Language Policy

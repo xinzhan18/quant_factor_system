@@ -1,0 +1,37 @@
+batch_id: batch_012
+round: 11
+direction: barra_residual_alpha
+direction_md_ref: vault/directions/barra_residual_alpha.md
+batch_goal: Test whether Barra style residuals carry alpha orthogonal to vol_20d/str_1m
+  — escape hatch from all exhausted DSL directions
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T14:17:06Z'
+frozen_at: '2026-04-19T14:17:06Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_012/python_candidates/C001.py
+  rationale: 'T001: Barra residual alpha — full 7-style OLS residual'
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_012/python_candidates/C002.py
+  rationale: 'T001: cap-neutral residual — strips only log_circ_cap beta'
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_012/python_candidates/C003.py
+  rationale: 'T001: vol-orthogonal residual — strips only vol_20d exposure'
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_012/python_candidates/C004.py
+  rationale: 'T002: residual mean-reversion — 5d rolling mean of Barra residual'
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_012/python_candidates/C005.py
+  rationale: 'T002: residual momentum — 20d pct_change of Barra residual'

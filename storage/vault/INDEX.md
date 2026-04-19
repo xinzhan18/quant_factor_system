@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-04-19T15:13:34Z
-round: 12
+generated_at: 2026-04-19T16:17:33Z
+round: 13
 total_active_directions: 5
 total_factors_admitted: 5
-last_batch: batch_012
-last_consolidation_round: null
+last_batch: batch_013
+last_consolidation_round: 10
 ---
 
 # Factor Research Index
@@ -55,7 +55,6 @@ last_consolidation_round: null
 - [[factors/F002|pb_amount_ratio_20]] `A` · value_liquidity_interaction · ICIR_oos=0.263, Mono=1.00 · `Div($pb_ratio, Mean($amount, 20))`
 - [[factors/F003|overnight_gap_normalized]] `B` · intraday_price_formation · ICIR_oos=0.379, Mono=1.00 · `Div(Sub($open, Ref($close, 1)), Mean($high, 1))`
 - [[factors/F004|barra_residual_return]] `B` · barra_residual_alpha · ICIR_oos=0.293, Mono=1.00
-- [[factors/F005|barra_residual_alpha_60d]] · barra_residual_alpha · ICIR_oos=0.293, Mono=1.00
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -67,7 +66,7 @@ last_consolidation_round: null
 | Direction | Status | Priority | Rounds | Admits | Threads | Last batch |
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
-| barra_residual_alpha | productive | high | 4 | 4 | 1 | batch_013 |
+| barra_residual_alpha | productive | high | 4 | 1 | 1 | batch_013 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
@@ -75,7 +74,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 5 |
-| Current round | 12 |
-| Last consolidation | — |
+| Current round | 13 |
+| Last consolidation | round 10 |
 
 <!-- END AUTO-SECTION -->

@@ -3,17 +3,16 @@ direction_tag: barra_residual_alpha
 status: productive
 priority: high
 rounds: 4
-admits: 4
+admits: 1
 last_batch: batch_013
-last_admits:
-- F005
+last_admits: []
 last_goal: 'Extend Barra residual hypothesis: vol_20d-only residual + size-neutral
   residual + residual×turnover interaction (round 2)'
-last_activity: '2026-04-19T15:13:34Z'
+last_activity: '2026-04-20T00:15:00Z'
 created_batch: batch_012
 members:
 - F004
-- F{next}
+retired_members:
 - F005
 merged_into: null
 ---
@@ -44,7 +43,7 @@ All existing directions hit vol_20d/str_1m style coupling as structural bottlene
 **Question**: Barra residual 与 F001/F002/F003 的增量 IC 是否 > 0？vol-20d-only residual 是否可行？
 **Evidence trail**:
 - [[batches/batch_012/candidates/C001|batch_012 C001]]: incremental_ic=0.032 max_corr=0.15（F002） → 正交
-- [[batches/batch_013/candidates/C001|batch_013 C001]]: Barra_residual_alpha_60d → admit (ICIR=0.293 ls_t=7.34)；vol_20d dominant style (coef=4.44) 但 residual IC=0.033 > raw IC=0.024
+- [[batches/batch_013/candidates/C001|batch_013 C001]]: Barra_residual_alpha_60d → **admit→retire** (F005, 2026-04-20 retired as bit-for-bit duplicate of F004; near_duplicate gate was blind to Python factors at commit time)
 - [[batches/batch_013/candidates/C002|batch_013 C002]]: vol-20d-only residual → reserve (ICIR=0.243 ls_t=7.28 alpha_surv=1.62 incremental_ic=0.030 max_corr=0.12)；比全剥离 survival 更高
 **Next probes**: C002 reserve 值得再观察；测试纯 vol_20d 信号 vs Barra residual 哪个 IC 更高
 

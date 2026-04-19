@@ -1,0 +1,41 @@
+batch_id: batch_013
+round: 12
+direction: barra_residual_alpha
+direction_md_ref: vault/directions/barra_residual_alpha.md
+batch_goal: 'Extend Barra residual hypothesis: vol_20d-only residual + size-neutral
+  residual + residual×turnover interaction (round 2)'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T14:57:45Z'
+frozen_at: '2026-04-19T14:57:45Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_013/python_candidates/C001.py
+  rationale: Full Barra residual (baseline replicate C001 from batch_012)
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_013/python_candidates/C002.py
+  rationale: 'Vol-20d-only residual: strip everything EXCEPT vol_20d — keep vol_20d
+    as signal, orthogonalize away other styles'
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_013/python_candidates/C003.py
+  rationale: 'Barra residual × turnover interaction: multiply Barra_residual by normalized
+    turnover — tests if liquidity-modulated residual carries alpha'
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_013/python_candidates/C004.py
+  rationale: '10d Barra residual: use 10d lookback for Barra style computation instead
+    of 20d — tests if shorter-horizon styles give cleaner residual'
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_013/python_candidates/C005.py
+  rationale: 'Size-neutral Barra residual: within each market-cap quintile, compute
+    Barra residual — strips size effect within groups'
