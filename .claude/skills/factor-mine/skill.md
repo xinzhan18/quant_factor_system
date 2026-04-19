@@ -133,6 +133,27 @@ Commit message：`[mine] batch_{N} | {direction} | admits=X rejects=Y reserves=Z
 - 还有 active direction → 回到 Phase 1
 - 所有 direction exhausted → 停，报"无可挖掘方向"
 - 系统级错误 → 停，报异常
+- **触发阈值校准**（见下节）→ 暂停继续 → 执行诊断 → 必要时追溯 admit → 继续循环
+
+## 阈值校准触发（防止错杀）
+
+每完成一轮 Phase 3 audit 后，**主 agent 必检**以下信号；任一命中 → **暂停 Phase 4 archive** → 走 [[vault/lessons#Threshold Calibration]] 诊断流程：
+
+1. **错杀 flag**：本批 judge.md 跨候选反思段含"potential over-rejection"（subagent 主动 flag 的候选——rubric §"错杀侦测"）
+2. **连续零 admit 警戒**：`last_batch.admits == 0` 且**最近 3 批累计 admit = 0** 且累计 reserve 候选中 ≥ 1 个满足库空间独立（`max_lib_corr<0.30` + `incremental_ic>0.010`）
+3. **Reserve 积压**：`累计 reserve / 累计 judged > 40%` 且零 admit
+4. **悖论复现**：同"反直觉指标组合"（如低 style_r² + 低 alpha_survival）≥ 2 次独立出现
+
+**命中后的 remediation**（参考 `lessons.md` Threshold Calibration §Step 1-4 完整流程）：
+
+```
+Step 1 诊断    → 扫描 reserve + reject 识别被错杀候选（manual grep + metric 交叉核对）
+Step 2 调阈    → 仅调必要层：direction.md 自设规则 → rubric 档位 → config.yaml
+Step 3 追溯    → state set phase=judged → 改 judge.md + C.md → research archive → dispatch report
+Step 4 审计    → lessons.md 历史校准记录追加一条，说明触发条件 + 新阈值
+```
+
+**绝对禁止**：在"连续零 admit"信号下**未经诊断就放宽** — 必须确认存在"真实被错杀候选"（满足库空间独立 + rank-order 完美 + 符号互补），而不是"信号真的都不够好"。混淆这两种情况 = 库质量稀释。
 
 ## 自主模式
 
@@ -141,4 +162,5 @@ Commit message：`[mine] batch_{N} | {direction} | admits=X rejects=Y reserves=Z
 - judge 严格按 6 CP + mt_budget，不人工复核
 - admit 自动 dispatch 后台 report subagent
 - 一轮结束自动 check consolidation 触发
+- **错杀侦测自动运行**：每批 audit 后 check 4 个 calibration triggers；命中则暂停 Phase 4 进入诊断
 - **只在系统级错误时停**：DB 断、文件损坏、Python 异常无法恢复

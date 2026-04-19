@@ -215,6 +215,14 @@ metrics:
 - **Anchor rule**（防风格重复，规则不变）：当同批 ≥ 2 个候选 CP04 poor 且**同 `dominant_style_exposure`** 且**互相 `corr > 0.50`**（同源，非仅同风格），最多 admit 1 个。单点 poor + 低库相关不受限。
 - 首批（empty library）例外：CP05 `max_lib_corr=0` 机械 low 不能单独支持 admit，admit 判断此时倾向更严格（同批 anchor rule 仍适用）。
 
+**错杀侦测**（subagent 必须主动 flag）：若候选同时满足以下**全部**条件，即使 CP04 poor / dom=vol_20d / 违反 direction 自设硬规则，**也不能 verdict=reject**，应给 verdict=reserve 并在反思段 flag "potential over-rejection"：
+- `max_lib_corr < 0.30` 且 `incremental_ic > 0.010` （库空间独立）
+- `monotonicity_oos` \|x\| ≥ 0.80 （rank-order 真实）
+- `sign_consistency = 1.0` 且 `cum_ic_max_drawdown` 比 library 中位数更浅
+- `nearest_factor` 的 IC 符号与本候选**相反**（符号互补；empty library 例外）
+
+主 agent 在 judge.md 跨候选反思段看到 ≥ 1 个错杀 flag 应**暂停当前批的 archive**，触发 [[lessons#Threshold Calibration]] 诊断流程。
+
 ### CP05 Redundancy —— 2 指标 + 硬闸（low / medium / high）
 
 字段：`metrics.cp05.{max_lib_corr, is_near_duplicate, nearest_factor_id, nearest_factor_expression, incremental_ic}`
