@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-19T13:59:11Z
-round: 10
-total_active_directions: 4
-total_factors_admitted: 3
-last_batch: batch_010
+generated_at: 2026-04-19T14:54:44Z
+round: 11
+total_active_directions: 5
+total_factors_admitted: 4
+last_batch: batch_011
 last_consolidation_round: null
 ---
 
@@ -26,8 +26,12 @@ last_consolidation_round: null
 ### [[directions/value_liquidity_interaction|价值 × 流动性交互]] `productive` `high`
 累计 5 batches，22 候选 → **1 admit (F002)** / 10 reserve / 11 reject。[[batches/batch_009/judge|batch_009]] self-norm rate×turnover 路径全灭(4/4 sign_flip)；C005 **dom=str_1m breakthrough**（方向首次非 vol_20d）但 incr_ic=-0.033(库 reducer) reject；C007 ls_t=-2.43(最强 PnL) 但 vol_20d=18.8 极端。**DSL 空间实质穷尽**，下批必须 Python Barra residual。
 
+### [[directions/barra_residual_alpha|Barra Residual Alpha]] `productive` `high`
+首批 [[batches/batch_012/judge|batch_012]]，5 候选 → **1 admit (F{next})** / 1 reserve / 3 reject。**Barra residual 假设验证成立**：C001 Barra_residual_IC=0.033 > raw IC=0.024；incremental_ic=0.032 全新机制空间。C003 reserve（style_r²=0.289 + vol_20d exposure=15.6 耦合严重）。C002/C004/C005 因 IC 不足或 sign_flip 拒绝。
+
 ## 最近 Batch
 
+- [[batches/batch_012/judge|batch_012]] (barra_residual_alpha): 5 候选 → admit=1 / reserve=1 / reject=3。**Barra residual 假设验证成立**：C001 Barra_residual_IC=0.033 > raw IC=0.024 admit；C003 reserve（style_r²=0.289 耦合）；C002/C004/C005 reject（IC 不足/sign_flip）。
 - [[batches/batch_011/judge|batch_011]] (intraday_price_formation): 8 候选 → admit=0 / reserve=0 / reject=8。**F003 扩展窗口全灭**：C001-C004 全部 ic_oos_too_low 或 mono_sign_flip；C005/C006 near_duplicate F003（corr=0.999）；C007 EMA($close,5) CP04 alpha_surv=0.085 证伪。方向 status → saturated。
 - [[batches/batch_010/judge|batch_010]] (intraday_price_formation): 8 候选 → admit=1 (F003 overnight_gap_normalized) / reserve=0 / reject=7。**首批 OHLCV-only 候选**：7/8 hard_gate 全部 mono_sign_flip 失效；C004 隔夜跳空/昨日波幅 ls_t=8.36 + 完美单调 + 9年 IC 全正，唯一 admit。
 - **[RETROACTIVE 2026-04-19]** [[batches/batch_005/judge|batch_005]] C005 reject → **admit F002 `pb_amount_ratio_20`**。触发：config `alpha_surv_min` 0.60→0.40；rubric CP04 档位放宽；direction-level 自设硬规则（alpha_survival<0.60 一律 reject + dom=vol_20d 一律 reject）已删除。
@@ -49,6 +53,7 @@ last_consolidation_round: null
 - [[factors/F001|amount_cv_10]] `A` · amount_volatility_signal · ICIR_oos=-0.716, Mono=-1.00 · `Div(Std($amount, 10), Mean($amount, 10))`
 - [[factors/F002|pb_amount_ratio_20]] `A` · value_liquidity_interaction · ICIR_oos=0.263, Mono=1.00 · `Div($pb_ratio, Mean($amount, 20))`
 - [[factors/F003|overnight_gap_normalized]] `B` · intraday_price_formation · ICIR_oos=0.379, Mono=1.00 · `Div(Sub($open, Ref($close, 1)), Mean($high, 1))`
+- [[factors/F004|barra_residual_return]] · barra_residual_alpha · ICIR_oos=0.293, Mono=1.00
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -60,14 +65,15 @@ last_consolidation_round: null
 | Direction | Status | Priority | Rounds | Admits | Threads | Last batch |
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
+| barra_residual_alpha | productive | high | 2 | 2 | 1 | batch_012 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 3 |
-| Current round | 10 |
+| Total factors admitted | 4 |
+| Current round | 11 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
