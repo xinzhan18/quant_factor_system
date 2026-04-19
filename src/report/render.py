@@ -48,12 +48,18 @@ def _load_yaml(p: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
-def _find_candidate(result: dict, expression: str) -> dict:
+def _find_candidate(result: dict, key: str) -> dict:
+    """Locate a candidate in result.yaml.
+
+    For DSL factors ``key`` is the expression string; for Python factors
+    it is the python_path (result.yaml stores it under ``expression``
+    for both source types — see factor_writer / mine loop output).
+    """
     for c in result.get("candidates", []) or []:
-        if c.get("expression") == expression:
+        if c.get("expression") == key:
             return c
     raise ValueError(
-        f"No candidate in result.yaml matching expression={expression!r}"
+        f"No candidate in result.yaml matching key={key!r}"
     )
 
 
@@ -70,7 +76,12 @@ def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[
     meta = _load_yaml(fy)
     batch_id = meta["admitted_in_batch"]
     result = _load_yaml(vault / "batches" / batch_id / "result.yaml")
-    candidate = _find_candidate(result, meta["expression"])
+    lookup_key = meta.get("expression") or meta.get("python_path")
+    if not lookup_key:
+        raise ValueError(
+            f"factor.yaml for {factor_id} has neither 'expression' nor 'python_path'"
+        )
+    candidate = _find_candidate(result, lookup_key)
 
     diag_rel = candidate.get("diagnostics_relpath")
     if not diag_rel:

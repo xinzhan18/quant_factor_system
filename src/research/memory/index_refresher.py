@@ -128,6 +128,8 @@ def collect_admitted_factors(factors_dir: str | Path) -> list[dict[str, Any]]:
             continue
         if not isinstance(data, dict):
             continue
+        if data.get("status") == "retired":
+            continue
         md_path = yaml_path.with_suffix(".md")
         grade: str | None = None
         if md_path.exists():

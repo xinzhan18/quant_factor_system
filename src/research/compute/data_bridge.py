@@ -86,20 +86,20 @@ def init_qlib(qlib_data_dir: str = "~/.qlib/qlib_data/cn_data_1d") -> None:
 
 
 def _qlib_to_time_symbol(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert Qlib's (instrument, datetime) MultiIndex to (time, symbol).
+    """Convert Qlib's (instrument, datetime) MultiIndex to (datetime, instrument).
 
     Qlib D.features() returns MultiIndex with level 0 = instrument (str),
-    level 1 = datetime. Phase 2 expects (time, symbol) with datetime time.
+    level 1 = datetime. Phase 2 expects (datetime, instrument) with datetime time.
     """
     if not isinstance(df.index, pd.MultiIndex):
         return df
     # Qlib order: (instrument, datetime) → swap to (datetime, instrument)
     df = df.swaplevel()
-    df.index.names = ["time", "symbol"]
+    df.index.names = ["datetime", "instrument"]
     df = df.sort_index()
-    # Ensure time level is datetime
-    time_level = df.index.get_level_values("time")
-    if not pd.api.types.is_datetime64_any_dtype(time_level):
+    # Ensure datetime level is datetime
+    dt_level = df.index.get_level_values("datetime")
+    if not pd.api.types.is_datetime64_any_dtype(dt_level):
         df.index = df.index.set_levels(
             pd.to_datetime(df.index.levels[0]), level=0
         )
@@ -211,7 +211,10 @@ def load_market_data(
     if decay_horizons is None:
         decay_horizons = list(DEFAULT_DECAY_HORIZONS)
 
-    required_cols = {_returns_col(h) for h in decay_horizons} | {"$amount", "$market_cap"}
+    required_cols = (
+        {_returns_col(h) for h in decay_horizons}
+        | {"$amount", "$market_cap", "$close", "$volume"}
+    )
 
     if cache_path and cache_path.exists():
         logger.info("Loading cached market_daily from %s", cache_path)
@@ -231,14 +234,17 @@ def load_market_data(
     from qlib.data import D
 
     inst_dict = D.instruments("all")
-    # One D.features call for all horizons + amount + market_cap
-    fields = [f"Ref($close, -{h}) / $close - 1" for h in decay_horizons] + [
-        "$amount",
-        "$market_cap",
-    ]
+    # One D.features call for all horizons + amount + market_cap + raw close/volume
+    fields = (
+        [f"Ref($close, -{h}) / $close - 1" for h in decay_horizons]
+        + ["$amount", "$market_cap", "$close", "$volume"]
+    )
     df = D.features(inst_dict, fields=fields, start_time=start, end_time=end)
     df = _qlib_to_time_symbol(df)
-    df.columns = [_returns_col(h) for h in decay_horizons] + ["$amount", "$market_cap"]
+    df.columns = (
+        [_returns_col(h) for h in decay_horizons]
+        + ["$amount", "$market_cap", "$close", "$volume"]
+    )
 
     if cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -258,39 +264,61 @@ def load_library_signals(
     paths: StoragePaths,
     start: str = "2015-01-01",
     end: str = "2023-12-31",
+    market_df: pd.DataFrame | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Load all admitted factors' signals for redundancy check.
 
-    Reads ``vault/factors/F*.yaml`` to get expressions, then partitions
-    into cache hits / misses. Misses are computed in a single batched
-    ``eval_dsl_batch`` call over the full time window
-    (``CACHE_FULL_START`` → ``CACHE_FULL_END``) and persisted to
-    ``FactorValueCache`` under ``sha256(expr)`` keys. Every call slices
-    the cached full-window frame down to ``[start, end]``.
+    Two source types contribute:
 
-    Returns ``{factor_id: MultiIndex DataFrame}``.
+    * **DSL factors** — ``vault/factors/F*.yaml`` with ``source_type=dsl``.
+      Computed via :func:`eval_dsl_batch` and cached per ``sha256(expr)``
+      key in ``FactorValueCache``.
+    * **Python factors** (R8 escape hatch) — ``source_type=python``, whose
+      ``python_path`` points to a validated Python factor module. Executed
+      via :mod:`research.compute.python_runner` against ``market_df``.
+      Cached per ``sha256(module source)`` key.
+
+    Both kinds land in the same ``{factor_id: MultiIndex DataFrame}`` dict
+    so downstream pairwise-redundancy treats them uniformly. Without this,
+    a Python candidate that replicates an already-admitted Python factor
+    sails past the ``near_duplicate`` hard gate (see F004/F005 incident:
+    library only held DSL factors, so the Python replica's max_lib_corr
+    was ~0.15 against DSL neighbours instead of ~1.0 against its twin).
+
+    Parameters
+    ----------
+    market_df
+        Time-symbol MultiIndex market data needed to execute Python
+        factors. Required iff any admitted factor has ``source_type=python``.
     """
     factor_files = sorted(paths.factors_dir.glob("F*.yaml"))
     if not factor_files:
         return {}
 
-    expr_by_fid: dict[str, str] = {}
+    dsl_expr_by_fid: dict[str, str] = {}
+    py_path_by_fid: dict[str, Path] = {}
     for f in factor_files:
         meta = load_yaml(f) or {}
         fid = meta.get("factor_id", f.stem)
-        expr = meta.get("expression")
         source = meta.get("source_type", "dsl")
-        if source == "dsl" and expr:
-            expr_by_fid[fid] = expr
+        if source == "dsl":
+            expr = meta.get("expression")
+            if expr:
+                dsl_expr_by_fid[fid] = expr
+        elif source == "python":
+            py_ref = meta.get("python_path")
+            if py_ref:
+                py_path_by_fid[fid] = Path(py_ref)
 
-    if not expr_by_fid:
+    if not dsl_expr_by_fid and not py_path_by_fid:
         return {}
 
     cache = FactorValueCache(paths.factor_values_cache_dir)
-
     result: dict[str, pd.DataFrame] = {}
-    misses: dict[str, str] = {}  # fid → expr for misses
-    for fid, expr in expr_by_fid.items():
+
+    # --- DSL factors (cached per expression hash) ---
+    misses: dict[str, str] = {}
+    for fid, expr in dsl_expr_by_fid.items():
         key = cache.make_key(expr)
         hit = cache.get_slice(key, start=start, end=end)
         if hit is not None:
@@ -300,8 +328,8 @@ def load_library_signals(
 
     if misses:
         logger.info(
-            "library cache: %d/%d hit, %d miss — computing",
-            len(result), len(expr_by_fid), len(misses),
+            "library DSL cache: %d/%d hit, %d miss — computing",
+            len(result), len(dsl_expr_by_fid), len(misses),
         )
         full_series = eval_dsl_batch(
             misses, start=CACHE_FULL_START, end=CACHE_FULL_END,
@@ -310,14 +338,52 @@ def load_library_signals(
             full_df = series.to_frame(name="value")
             full_df.index.names = ["datetime", "instrument"]
             cache.put(cache.make_key(misses[fid]), full_df)
-            # Slice to requested window for return value
             level0 = full_df.index.get_level_values(0)
             mask = (level0 >= pd.Timestamp(start)) & (level0 <= pd.Timestamp(end))
             result[fid] = full_df.loc[mask]
-    else:
+    elif dsl_expr_by_fid:
         logger.info(
-            "library cache: %d/%d hit (full cache)",
-            len(result), len(expr_by_fid),
+            "library DSL cache: %d/%d hit (full cache)",
+            len(result), len(dsl_expr_by_fid),
+        )
+
+    # --- Python factors (cached per module-source hash) ---
+    if py_path_by_fid:
+        if market_df is None:
+            raise ValueError(
+                "load_library_signals: market_df is required when the "
+                f"library contains Python factors ({sorted(py_path_by_fid)})"
+            )
+        from research.compute.python_runner import (
+            load_python_candidate, run_python_factor,
+        )
+
+        py_hit = 0
+        for fid, py_path in py_path_by_fid.items():
+            if not py_path.exists():
+                logger.warning(
+                    "library Python factor %s source missing: %s — skipped",
+                    fid, py_path,
+                )
+                continue
+            source_text = py_path.read_text(encoding="utf-8")
+            key = cache.make_key(source_text)
+            hit = cache.get_slice(key, start=start, end=end)
+            if hit is not None:
+                result[fid] = hit
+                py_hit += 1
+                continue
+            loaded = load_python_candidate(py_path)
+            series = run_python_factor(loaded, market_df)
+            full_df = series.to_frame(name="value")
+            full_df.index.names = ["datetime", "instrument"]
+            cache.put(key, full_df)
+            level0 = full_df.index.get_level_values(0)
+            mask = (level0 >= pd.Timestamp(start)) & (level0 <= pd.Timestamp(end))
+            result[fid] = full_df.loc[mask]
+        logger.info(
+            "library Python: %d/%d cache hit",
+            py_hit, len(py_path_by_fid),
         )
 
     return result
@@ -476,12 +542,14 @@ def build_phase2_inputs(
         cache_path=paths.barra_factors_cache,
     )
 
-    # 3. Library signals
-    library_signals = load_library_signals(paths, start=full_start, end=full_end)
+    # 3. Library signals (DSL + Python — both contribute to redundancy)
+    library_signals = load_library_signals(
+        paths, start=full_start, end=full_end, market_df=market,
+    )
 
     # 4. Candidate signals
     candidates = evaluate_candidates(
-        manifest, paths=paths, start=full_start, end=full_end,
+        manifest, paths=paths, market_df=market, start=full_start, end=full_end,
     )
 
     # 5. Extract per-horizon forward returns as flat DataFrames
