@@ -2,17 +2,14 @@
 direction_tag: value_liquidity_interaction
 status: exploring
 priority: high
-rounds: 2
+rounds: 3
 admits: 0
-last_batch: batch_006
+last_batch: batch_007
 last_admits: []
-last_goal: 'Continue value_liquidity_interaction after batch_005 twin positive findings.
-  (T006) Test generality of C004''s self-normalized rate structure — PB / PS rate
-  variants. (T001) Fix C005''s size-proxy issue by replacing Mean($amount) denom with
-  Mean($turnover_rate). (T003) Upgrade: PE rate decoupled from attention level. Goal:
-  ≥1 candidate admit (alpha_survival>0.60 + ls_t>2) or elevate C004/C005 via consistent
-  cross-variant evidence.'
-last_activity: '2026-04-19T06:06:00Z'
+last_goal: 'batch_007 方案 A+B: 合成 3-fundamental rate + 秩差结构，DSL 内验证是否能把 T006 rank-order
+  优势转化为 PnL (ls_t>2)。若本批仍零 admit 且 ls_t 无显著改善，方向将在 batch_008 切换到 Python 逃生口 Barra
+  residual (R8)。'
+last_activity: '2026-04-19T11:16:57Z'
 created_batch: batch_005
 members: []
 merged_into: null
@@ -48,6 +45,7 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 - [[batches/batch_005/candidates/C005|batch_005 C005]]: Div($pb, Mean(amount,20)) **IC=+0.032 mono=+1.0 cum_dd=-2.17** alpha_surv=0.30 dom=vol_20d → **reject** (positive edge 真实但 vol_20d 吞)
 - [[batches/batch_006/candidates/C003|batch_006 C003]]: Div($pb, Mean(tr,20)) **IC=+0.027 mono=+0.3 cum_dd=-2.64** alpha_surv=0.28 vol_20d=**25.2**(5.5× of C005_b5) → **reserve (诊断证据)**
 - [[batches/batch_006/candidates/C004|batch_006 C004]]: Div($pe, Mean(tr,20)) ICIR=+0.284 ls_t=+0.20 alpha_surv=**0.0009**(极端悖论) → **reject (极端 dealbreaker)**
+- [[batches/batch_007/candidates/C003|batch_007 C003]]: Sub(CsRank($pb), CsRank(Mean(tr,20))) **alpha_surv=0.71**(2.5× 改善) ICIR=+0.107 ls_t=+0.33 dom=vol_20d → **reserve** (秩差诊断)
 
 **Partial Answer**: 乘法结构 (Mul) 全部被量纲主导方吞噬；除法结构 `Div(fundamental, smoothed_liquidity)` 与 vol_20d **天然共存**（非分母代理问题）——C003 诊断实验证伪"分母去市值"路径。但 C005_b5/C003 positive IC 真实存在 + cum_dd<-3%（全库最浅）证明底层 value×illiquidity edge 真实。DSL 出路剩秩差结构或 Python Barra residual。
 **Next probes**: `Sub(CsRank($pb), CsRank(Mean($turnover_rate, 20)))` 秩差；Python 逃生口做 Barra residual。
@@ -64,6 +62,8 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 **Evidence trail**:
 - [[batches/batch_005/candidates/C004|batch_005 C004]]: Div(Delta($pe,20), $pe) **alpha_surv=0.92 dom=str_1m** ls_t=-1.22 mono=-0.3 → **reserve**
 - [[batches/batch_006/candidates/C005|batch_006 C005]]: Mul(Div(Delta($pe,20),$pe), Mean(tr,20)) alpha_surv=**0.29** dom=vol_20d → **reject (乘法第 5 次证伪)**
+- [[batches/batch_007/candidates/C004|batch_007 C004]]: Div(Delta($pe,20), Mean($pe,60)) alpha_surv=**0.86** dom=str_1m ls_t=-1.21 → **reserve** (60d-norm 边际)
+- [[batches/batch_007/candidates/C005|batch_007 C005]]: Div(PE_rate, turnover_rate) ls_t=**-2.92**(首个>2) ICIR=-0.284 mono=-0.9 alpha_surv=**0.097**(悖论) → **reject**
 
 **Partial Answer**: PE 自归一化变化率**成功跳出流动性风格天花板**（方向首次 dominant=str_1m + alpha_survival 超 0.70）。但 ls_t=-1.22 未达 PnL 显著。升级尝试 (C005_b6) 用 level 乘法被吞 — **rate × level 乘法彻底摧毁 rate 独立性**。
 **Next probes**: 秩差 `Sub(CsRank(PE_rate), CsRank(Mean(turnover)))` 或两 rate 除法 `Div(PE_rate, Div(Delta(Mean(tr,10),10), Mean(tr,10)))`；**禁**乘法升级。
@@ -94,6 +94,7 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 - [[batches/batch_005/candidates/C004|batch_005 C004]]: Div(Delta($pe,20), $pe) **alpha_surv=0.92** dom=str_1m ls_t=-1.22 → **reserve** (PE rate)
 - [[batches/batch_006/candidates/C001|batch_006 C001]]: Div(Delta($pb,20), $pb) **alpha_surv=0.79** dom=str_1m ls_t=-1.49 → **reserve** (PB rate)
 - [[batches/batch_006/candidates/C002|batch_006 C002]]: Div(Delta($ps,20), $ps) **alpha_surv=0.72** dom=str_1m ls_t=-1.47 → **reserve** (PS rate)
+- [[batches/batch_007/candidates/C001|batch_007 C001]]: Div(Add(Add(PE_rate, PB_rate), PS_rate), 3) **alpha_surv=0.86** dom=str_1m ls_t=-1.27 → **reserve** (3-fundamental 合成)
 
 **Answer**: **三点通用性确立** — PE/PB/PS 自归一化速率形态高度一致（alpha_survival 0.92/0.79/0.72，dom=str_1m，ls_t -1.2 到 -1.5）。"基本面字段自归一化变化率跳出 vol_20d 天花板" 在 rank-order 层是**跨 valuation 指标普适机制**。但 ls_t 全部弱 <2 → L/S PnL 层未兑现。
 **batch_007 合成尝试**：
