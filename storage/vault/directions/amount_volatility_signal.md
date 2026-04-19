@@ -2,16 +2,13 @@
 direction_tag: amount_volatility_signal
 status: productive
 priority: high
-rounds: 3
+rounds: 5
 admits: 1
-last_batch: batch_003
+last_batch: batch_008
 last_admits: []
-last_goal: 'Open new families per batch_002 closure: (T004) sign-preserved NaN-safe
-  alternatives to T003''s Log-Slope / signed-Delta failures — normalized Slope + signed-amount
-  ratio + sign-only Corr; (T002) robust tail via rolling quantile ratios (top-15%
-  / top-5% vs mean) replacing failed single-Max; avoid further same-family CV window
-  scans.'
-last_activity: '2026-04-18T18:27:41Z'
+last_goal: 验证 vol_20d 结构性瓶颈三条逃脱路径：C005 40d horizon 扩展、amount×turnover_rate 跨字段组合、新机制
+  amount acceleration
+last_activity: '2026-04-19T12:41:09Z'
 created_batch: batch_001
 members:
 - F001
@@ -59,10 +56,21 @@ merged_into: null
 - [[batches/batch_002/candidates/C004|batch_002 C004]]: Max/Mean_60 ic_oos=-0.0078 hard_gate, OOS 量级衰至前期 1/5 → **reject (hard_gate ic_oos_too_low)** → **延长窗口子路径 `[✗ DISPROVEN batch_002]`**
 - [[batches/batch_003/candidates/C003|batch_003 C003]]: Q0.85/Mean_20 ICIR_OOS=-0.460 mono=-0.9 alpha_survival=0.259 → **reserve** (Q85 分位 robust tail)
 - [[batches/batch_003/candidates/C004|batch_003 C004]]: Q0.95/Mean_20 ICIR_OOS=-0.543 mono=-1.0 vol_20d=35.3 (方向最高) alpha_survival=0.574 max_corr=0.52@F001 → **reserve** (Q95 极值尾)
+- [[batches/batch_008/candidates/C003|batch_008 C003]]: Div(Corr($amount,$volume,20),Corr($amount,$volume,60)) mono=-1.0 icir=-0.240 ls_t=-2.21 max_corr=0.07@F001 alpha_surv=0.241 → **reserve** (CP04 poor, mom_12_1 alpha killer)
+- [[batches/batch_008/candidates/C006|batch_008 C006]]: Skew($amount,20) ic_oos=-0.0033 hard_gate + mono_sign_flip → **reject** (hard_gate ic_oos_too_low)
 
 **Partial Answer**：20d 窗口下高阶矩（skew/kurt）噪声过大不可用；单点 Max/Mean_20 被 vol_20d 吞；Max/Mean_60 regime-dep 熄灭；**分位数实现 (batch_003 C003/C004) 虽数据质量好 (mono=-1.0 / -0.9)，但 alpha_survival 0.26/0.57 双双触 CP04 poor dealbreaker，vol_20d 暴露冲至 28.3/35.3（C004 是方向绝对最高）**——右偏 $amount 分布中高分位数代数上必与 CV (F001) 强相关。**T002 DSL-native 路径实质封闭**，出路仅剩 vol_20d orthogonalize (Python 逃生口) 或新字段组合。
 
-**Next probes**: vol_20d residual 版本（Python 逃生口）——对 C004 / C005_b1 做 Barra 残差化验证独立 alpha；或改 $turnover_rate × $amount 组合替代纯 $amount 分布形状。
+**Next probes**: **Python vol_20d Barra residual 是唯一未被证伪的子路径**——C003（rank-order 最强，mono=-1.0, max_corr=0.07@F001）或 C002（mono=-1.0, incr_ic=-0.024）残差化验证独立 alpha。DSL 空间 6 次证伪已物理封闭。
+
+### T005: Amount × Turnover_rate 跨字段交互 [◉ ACTIVE] 🆕 batch_008
+**Question**: `$amount` 的二阶统计量与 `$turnover_rate` 组合能否产生独立于 vol_20d 的新信号？
+**Evidence trail**:
+- [[batches/batch_008/candidates/C002|batch_008 C002]]: Div(Std($amount,20),Add(Mean($turnover_rate,20),1e-8)) mono=-1.0 icir=-0.156 style_r²=0.784 → **reserve** (Barra 高暴露 vol_20d 吞噬)
+- [[batches/batch_008/candidates/C005|batch_008 C005]]: Div(Std($amount,20),Mean($turnover_rate,20)) near-dup C002 style_r²=0.784 max_corr=0.60@F002 → **reserve**
+- [[batches/batch_008/candidates/C003|batch_008 C003]]: Div(Corr($amount,$volume,20),Corr($amount,$volume,60)) mono=-1.0 alpha_surv=0.24 → **reserve** (mom_12_1 alpha killer)
+
+**Next probes**: Python vol_20d Barra residual（唯一逃生口）；跨字段 DSL 路径 Barra 脏。
 
 ### T003: Amount 与 return 方向一致性 [✗ DISPROVEN batch_001] (partial — 算子实现层)
 **Question**: Corr($amount, Delta($close)) 和 Slope(Log($amount)) 能否捕捉 absorption / trend-confirming 的市场状态，并在跨期产生 alpha？符号预期：
@@ -81,14 +89,12 @@ merged_into: null
 - [[batches/batch_003/candidates/C001|batch_003 C001]]: Mean(Sign(Δclose)×amount, 20)/Mean(amount, 20) mono IS=0.70 OOS=-0.40 → **reject (hard_gate mono_sign_flip)** → **Sign×amount 条件均值子路径 `[✗ DISPROVEN batch_003]`**
 - [[batches/batch_003/candidates/C002|batch_003 C002]]: Slope(Div($amount, Mean($amount,20)), 20) ICIR_OOS=-0.175 ls_t=-1.29 mono_OOS=0.0 → **reserve** (归一化 Slope 弱)
 - [[batches/batch_003/candidates/C005|batch_003 C005]]: Corr(amount, Sign(Δclose), 20) ICIR_OOS=-0.273 ls_t=0.14 max_corr=0.07@F001 alpha_surv=0.509 → **reserve** (sign-only Corr PnL 坍塌但机制独立)
+- [[batches/batch_008/candidates/C001|batch_008 C001]]: Corr($amount, Sign(Δclose), 40) mono_sign_flip IS=0.70 OOS=-0.90 → **reject** (hard_gate mono_sign_flip, 40d horizon 未解决 regime 依赖)
+- [[batches/batch_008/candidates/C004|batch_008 C004]]: Delta(Mean($amount,20),5) icir=-0.256 ls_t=-3.00 mono=-0.10 incr_ic=-0.032 vol_20d=16.20 → **reserve** (cum_ic_mdd=-73.3, vol_20d 历史最高暴露)
 
-**Partial Answer**：T004 hypothesis 仍成立（C005 max_corr=0.07 证明有非-CV 的独立机制），但 DSL 实现空间**四次撞墙**——幅度-only/条件均值/归一化 Slope/sign-only Corr 四条子路径分别因信号过薄、mono_flip、ls_t 弱、PnL 坍塌未能 admit。**T004 DSL-native 实现空间事实上封闭**。
+**Partial Answer**：T004 hypothesis 仍成立（C005 max_corr=0.07 证明有非-CV 的独立机制），但 DSL 实现空间**五次撞墙**——幅度-only/条件均值/归一化 Slope/sign-only Corr 20d/40d 五条子路径分别因信号过薄、mono_flip、ls_t 弱、PnL 坍塌、horizon 不解决 regime 依赖全部未能 admit。**T004 DSL-native 实现空间事实上封闭**。
 
-**Next probes**:
-- vol_20d residual（Python 逃生口）C005 + C002 合成残差版
-- 延长 horizon：C005 在 20d horizon ic=-0.038 vs 1d=-0.017，低频持仓版可能有救（需换手压测）
-- 跨字段组合：`$amount × $turnover_rate` 条件均值
-- 已证伪子路径：20d Corr（幅度 / sign-only）、条件均值、归一化 Slope — 同家族不再探
+**Next probes**: Python vol_20d Barra residual（同 T002）——C003 sign-only Corr 机制（max_corr=0.07@F001）残差版是最后希望。
 
 ## Known Failures
 
@@ -105,6 +111,8 @@ merged_into: null
 - **C003_b3** `Div(Quantile($amount, 20, 0.85), Mean($amount, 20))` — Q85 分位 robust tail 替代 Max，mono=-0.9 但 alpha_survival=0.259（CP04 poor dealbreaker），vol_20d 暴露 28.3；右偏 $amount 分布下高分位数代数上必与 CV 强相关
 - **C004_b3** `Div(Quantile($amount, 20, 0.95), Mean($amount, 20))` — Q95 极值尾 mono=-1.0 完美 + ls_t=-3.11 最强，但 vol_20d=35.3（方向 18 候选绝对最高）+ alpha_survival=0.574 + max_corr=0.52@F001，本质"更脏 F001"；T002 DSL-native 路径封闭
 - **C005_b3** `Corr($amount, Sign(Delta($close, 1)), 20)` — sign-only Corr 机制正交（max_corr=0.07@F001，方向首例非 CV 家族）但 ls_t=0.14 PnL 坍塌；T004 sign-only Corr 有 IC 无 L/S
+- **C001_b8** `Corr($amount, Sign(Delta($close, 1)), 40)` — 40d horizon 扩展 mono_sign_flip（IS=0.70 OOS=-0.90）；horizon 延长不解决 regime 依赖，T004 sign-only Corr 40d 子路径封闭
+- **C006_b8** `Skew($amount, 20)` — 偏度重测 ic_oos=-0.0033 < 0.008 hard_gate + mono_sign_flip（IS=-0.90 OOS=0.50）；T002 高阶矩 DSL 路径 6 次证伪（batch_001 C004/C008 → batch_003 C003/C004 → batch_008 C003/C006），偏度/峰度在 20d 窗口统计噪声过大
 
 ## Related
 - [[lessons#Structural Constraints]]  （市值代理红线 / 向量化约束）
@@ -177,3 +185,24 @@ merged_into: null
 - **方案 C**：改 **horizon** —— 把 C005 sign-only Corr 在 5d / 20d 持仓期重测（IC 随 horizon 增强现象）
 
 若方案 A/C 仍零 admit 或方案 B 未执行，方向 `productive → saturated`。
+
+### 2026-04-19 [[batches/batch_008/judge|batch_008]]
+**admit=0 · reserve=4 (C002 C003 C004 C005) · reject=2 (C001 C006)**。方向第 4 次确认 vol_20d 结构性瓶颈。
+
+**核心发现**：
+1. **19/19 非 hard_gate 候选 100% dominant_style=vol_20d** — 结构性瓶颈不可绕过，DSL 无解
+2. **三条逃脱路径全部失败**：horizon 40d (C001 mono_sign_flip) / 跨字段组合 (C002/C005 style_r²=0.78; C003 alpha_surv=0.24) / amount momentum (C004 cum_ic_mdd=-73.3)
+3. **C003 是本批最大矛盾**：mono=-1.0 / max_corr=0.07@F001 / 9年全负 / 符号一致性=1.0 —— 完美的 rank-order + 正交信号，但 CP04 alpha_survival=0.24 触 poor dealbreaker
+4. **C002 vs C005 near-duplicate**：metrics 几乎 identical，incremental_ic 负值，对库无增值
+5. **新开 T005**（amount × turnover_rate 跨字段交互）— 同被 Barra 高暴露阻断
+
+**Thread 进展**：
+- T001: ANSWERED（不变）
+- T002: ACTIVE but **DSL-bounded**（第 6 次证伪，偏度/skew/分位数全部失败）
+- T003: DISPROVEN 算子层（不变）
+- T004: ACTIVE but **DSL-bounded**（第 5 次证伪，sign-only Corr 40d 也失败）
+- T005: 新增 ACTIVE（跨字段交互 — Barra 脏，Python 逃生口）
+
+**下轮唯一逃生口**：**Python vol_20d Barra residual**。C003（rank 最强，max_corr=0.07@F001）或 C002（mono=-1.0）残差版验证独立 alpha。若仍无独立 alpha，方向 `productive → saturated`。
+
+若下一轮 admit=0，方向转 `saturated`。
