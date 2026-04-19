@@ -38,6 +38,12 @@ from research.storage.paths import StoragePaths
 from research.storage.yaml_io import load_yaml, load_yaml_unsafe
 
 
+# Lazy-loaded library cache + market_df — populated on first use when
+# ``--refresh-uniqueness`` is set. Keeps imports cheap for callers that
+# don't need the expensive re-eval path.
+_LIB_CACHE: dict[str, Any] = {}
+
+
 # ``judge.md`` frontmatter has candidates laid out as either compact YAML::
 #     - {candidate_id: C001, verdict: admit, factor_name: amount_cv_10}
 # or expanded::
@@ -164,7 +170,90 @@ def _suggest_action(
     return "re-judge", flags
 
 
-def collect_reserves(paths: StoragePaths) -> list[ReserveRow]:
+def _fresh_redundancy(
+    paths: StoragePaths, batch_id: str, cid: str, cand_entry: dict[str, Any]
+) -> tuple[float | None, str | None, bool, dict[str, float]] | None:
+    """Recompute max_lib_corr + nearest_factor_id against the CURRENT library.
+
+    Needed because historical ``result.yaml`` was written before Python
+    factors entered ``library_signals`` (2026-04-20 fix) — the stored
+    ``uniqueness.max_lib_corr`` may massively under-report true overlap.
+    Returns ``None`` when the compute pipeline can't supply a fresh read
+    (e.g. DSL signal not on disk, Python path missing). Cached via the
+    module-level ``_LIB_CACHE``.
+    """
+    if "lib" not in _LIB_CACHE:
+        from research.compute.data_bridge import (
+            init_qlib, load_library_signals, load_market_data,
+        )
+        init_qlib()
+        market = load_market_data(
+            start="2015-01-01", end="2023-12-31",
+            cache_path=paths.market_daily_cache,
+            decay_horizons=[1, 3, 5, 10, 20],
+        )
+        _LIB_CACHE["market"] = market
+        _LIB_CACHE["lib"] = load_library_signals(
+            paths, start="2015-01-01", end="2023-12-31", market_df=market,
+        )
+
+    market = _LIB_CACHE["market"]
+    lib_all = _LIB_CACHE["lib"]
+    # Drop retired members from the comparison set
+    active_lib: dict[str, Any] = {}
+    for fid, sig in lib_all.items():
+        fyaml = paths.factors_dir / f"{fid}.yaml"
+        if fyaml.exists():
+            meta = load_yaml(fyaml) or {}
+            if meta.get("status") == "retired":
+                continue
+        active_lib[fid] = sig
+
+    from research.compute.vectorized_redundancy import compute_pairwise_redundancy
+    source_type = cand_entry.get("source_type", "dsl")
+    expression = cand_entry.get("expression")
+
+    if source_type == "python":
+        from research.compute.python_runner import (
+            load_python_candidate, run_python_factor,
+        )
+        # expression for python candidates is a repo-relative path like
+        # ``storage/vault/batches/batch_013/python_candidates/C002.py`` —
+        # use it directly; paths.root would double-prefix ``storage/``.
+        if not expression:
+            return None
+        py_path = Path(expression)
+        if not py_path.exists():
+            # Try relative to paths.root.parent as fallback (tests may pass a
+            # non-cwd storage root)
+            py_path = paths.root.parent / expression
+            if not py_path.exists():
+                return None
+        loaded = load_python_candidate(py_path)
+        series = run_python_factor(loaded, market)
+    else:
+        # DSL: reuse library loader's cache pathway
+        from research.compute.data_bridge import eval_dsl_batch, CACHE_FULL_START, CACHE_FULL_END
+        full_series_map = eval_dsl_batch(
+            {cid: expression}, start=CACHE_FULL_START, end=CACHE_FULL_END,
+        )
+        series = full_series_map.get(cid)
+        if series is None:
+            return None
+
+    red = compute_pairwise_redundancy(series, active_lib)
+    return (
+        red.get("max_lib_corr"),
+        red.get("nearest_factor_id"),
+        bool(red.get("is_near_duplicate")),
+        dict(red.get("all_correlations") or {}),
+    )
+
+
+def collect_reserves(
+    paths: StoragePaths,
+    refresh_uniqueness: bool = False,
+) -> list[ReserveRow]:
     """Scan all batches for reserve candidates and re-evaluate each."""
     cfg = load_yaml(paths.config_file) or {}
     thresholds = cfg.get("thresholds") or {}
@@ -211,12 +300,40 @@ def collect_reserves(paths: StoragePaths) -> list[ReserveRow]:
             asr = barra.get("alpha_survival_ratio")
             alpha_tier = _classify_alpha_surv(asr, alpha_surv_min)
 
+            max_corr = uniq.get("max_lib_corr")
+            nearest = uniq.get("nearest_factor_id")
+            incr_ic = uniq.get("incremental_ic")
+            fresh_flag = ""
+
+            if refresh_uniqueness:
+                fresh = _fresh_redundancy(paths, batch_dir.name, cid, cand)
+                if fresh is not None:
+                    fresh_corr, fresh_near, fresh_is_dup, _ = fresh
+                    if fresh_corr is not None and (
+                        max_corr is None or abs(fresh_corr - max_corr) > 0.05
+                    ):
+                        fresh_flag = (
+                            f"uniqueness_drift: stored {max_corr} @ {nearest} → "
+                            f"current {fresh_corr:.3f} @ {fresh_near}"
+                        )
+                        max_corr = fresh_corr
+                        nearest = fresh_near
+                        if fresh_is_dup:
+                            # Near-duplicate under current library — this is a
+                            # hard-fail veto, not a CP05 soft judgment.
+                            new_passed = False
+                            new_reasons.append(
+                                f"near_duplicate (recomputed): |corr|={fresh_corr:.3f} with {fresh_near} (>0.9)"
+                            )
+
             action, flags = _suggest_action(
                 new_passed=new_passed,
                 alpha_tier=alpha_tier,
                 mono_oos=q_val.get("monotonicity"),
                 ic_oos=val_ic.get("ic_mean"),
             )
+            if fresh_flag:
+                flags.append(fresh_flag)
 
             rows.append(
                 ReserveRow(
@@ -234,8 +351,8 @@ def collect_reserves(paths: StoragePaths) -> list[ReserveRow]:
                     alpha_survival_ratio=asr,
                     alpha_surv_min_threshold=alpha_surv_min,
                     alpha_survival_tier=alpha_tier,
-                    max_lib_corr=uniq.get("max_lib_corr"),
-                    incremental_ic=uniq.get("incremental_ic"),
+                    max_lib_corr=max_corr,
+                    incremental_ic=incr_ic,
                     mono_oos=q_val.get("monotonicity"),
                     sign_consistency=split.get("sign_consistency"),
                     suggested_action=action,
@@ -335,7 +452,7 @@ def render_report(rows: list[ReserveRow]) -> str:
 def _run_audit_reserves(args: argparse.Namespace) -> None:
     storage_root = Path(getattr(args, "storage_root", "storage"))
     paths = StoragePaths(storage_root)
-    rows = collect_reserves(paths)
+    rows = collect_reserves(paths, refresh_uniqueness=args.refresh_uniqueness)
     report = render_report(rows)
 
     if args.dry_run:
@@ -362,5 +479,15 @@ def register_audit_reserves(audit_sub: argparse._SubParsersAction) -> None:
         "--dry-run",
         action="store_true",
         help="Print report to stdout instead of writing to storage/vault/_meta/",
+    )
+    p.add_argument(
+        "--refresh-uniqueness",
+        action="store_true",
+        help=(
+            "Recompute max_lib_corr against the CURRENT library (needs Qlib + "
+            "market_daily cache). Catches drift from library changes or the "
+            "2026-04-20 Python-library fix — without this flag the audit "
+            "reads the stored (potentially stale) uniqueness block."
+        ),
     )
     p.set_defaults(func=_run_audit_reserves)
