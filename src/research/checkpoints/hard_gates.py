@@ -33,6 +33,12 @@ from typing import Any
 DEFAULT_MIN_COVERAGE = 0.80
 DEFAULT_MIN_OOS_DECAY = 0.20
 DEFAULT_MIN_IC_OOS = 0.008
+# Only fail mono_sign_flip if both sides are genuinely monotonic. Prior
+# behaviour rejected train=+0.1 / val=-0.1 as a "flip" — statistically
+# meaningless noise that wiped out 5+ candidates per OHLCV batch
+# (batches 010/011 post-mortem, 2026-04-20). We now require
+# min(|train|, |val|) >= this floor in addition to the sign mismatch.
+DEFAULT_MONO_FLIP_MIN_MAGNITUDE = 0.5
 DEFAULT_FORBIDDEN_FIELDS: frozenset[str] = frozenset({"$vwap"})
 DEFAULT_FORBIDDEN_OPERATORS: frozenset[str] = frozenset({"Neg", "SMA"})
 
@@ -44,6 +50,7 @@ class HardGatesConfig:
     min_coverage: float = DEFAULT_MIN_COVERAGE
     min_oos_decay: float = DEFAULT_MIN_OOS_DECAY
     min_ic_oos: float = DEFAULT_MIN_IC_OOS
+    mono_flip_min_magnitude: float = DEFAULT_MONO_FLIP_MIN_MAGNITUDE
     forbidden_fields: frozenset[str] = DEFAULT_FORBIDDEN_FIELDS
     forbidden_operators: frozenset[str] = DEFAULT_FORBIDDEN_OPERATORS
 
@@ -54,6 +61,9 @@ class HardGatesConfig:
             min_coverage=float(cfg.get("min_coverage", cls.min_coverage)),
             min_oos_decay=float(cfg.get("min_oos_decay", cls.min_oos_decay)),
             min_ic_oos=float(cfg.get("min_ic_oos", cls.min_ic_oos)),
+            mono_flip_min_magnitude=float(
+                cfg.get("mono_flip_min_magnitude", cls.mono_flip_min_magnitude)
+            ),
             forbidden_fields=frozenset(
                 cfg.get("forbidden_fields", DEFAULT_FORBIDDEN_FIELDS)
             ),
@@ -165,8 +175,18 @@ def _check_oos_decay(
     return None
 
 
-def _check_mono_flip(candidate: dict[str, Any]) -> str | None:
-    """Reject if IS and OOS monotonicity have opposite signs."""
+def _check_mono_flip(
+    candidate: dict[str, Any],
+    min_magnitude: float = DEFAULT_MONO_FLIP_MIN_MAGNITUDE,
+) -> str | None:
+    """Reject if IS and OOS monotonicity have opposite signs AND both are strong.
+
+    A shallow flip (train=+0.1 / val=-0.1) is statistical noise in the
+    quintile rank-correlation, not a real regime change — rejecting those
+    wiped out 5+ OHLCV candidates per batch with no signal-quality
+    justification (batches 010/011 post-mortem). We now require
+    ``min(|train|, |val|) >= min_magnitude`` for the flip to count.
+    """
     q = candidate.get("quintile") or {}
     mono_is = (q.get("train") or {}).get("monotonicity")
     mono_oos = (q.get("validation") or {}).get("monotonicity")
@@ -176,6 +196,7 @@ def _check_mono_flip(candidate: dict[str, Any]) -> str | None:
         and mono_is != 0
         and mono_oos != 0
         and mono_is * mono_oos < 0
+        and min(abs(mono_is), abs(mono_oos)) >= min_magnitude
     ):
         return f"mono_sign_flip: IS={mono_is:.2f} OOS={mono_oos:.2f}"
     return None
@@ -305,7 +326,7 @@ def evaluate_hard_gates(
             if decay is not None and decay < cfg.min_oos_decay:
                 reasons.append(f"oos_decay_too_low: {decay:.3f} < {cfg.min_oos_decay}")
 
-            # mono_flip
+            # mono_flip (magnitude-gated; see _check_mono_flip)
             q = c.get("quintile") or {}
             m_is = (q.get("train") or {}).get("monotonicity")
             m_oos = (q.get("validation") or {}).get("monotonicity")
@@ -315,14 +336,19 @@ def evaluate_hard_gates(
                 and m_is != 0
                 and m_oos != 0
                 and m_is * m_oos < 0
+                and min(abs(m_is), abs(m_oos)) >= cfg.mono_flip_min_magnitude
             )
             gate_results["mono_flip"] = {
                 "passed": mono_pass,
                 "train": m_is,
                 "validation": m_oos,
+                "min_magnitude": cfg.mono_flip_min_magnitude,
             }
             if not mono_pass:
-                reasons.append(f"mono_sign_flip: IS={m_is:.2f} OOS={m_oos:.2f}")
+                reasons.append(
+                    f"mono_sign_flip: IS={m_is:.2f} OOS={m_oos:.2f} "
+                    f"(both |·|≥{cfg.mono_flip_min_magnitude})"
+                )
 
             # near_duplicate
             uniq = c.get("uniqueness") or {}

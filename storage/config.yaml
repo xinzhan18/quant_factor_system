@@ -34,13 +34,27 @@ thresholds:
     min_coverage: 0.80
     min_oos_decay: 0.20        # OOS IC / IS IC ratio — below = total signal collapse
     min_ic_oos: 0.008          # |IC_OOS| minimum — below = noise
+    mono_flip_min_magnitude: 0.5  # 2026-04-20: only hard-fail mono_sign_flip when both |train|,|val| ≥ 0.5; shallow flips (±0.1~0.3) are noise, not regime change (batches 010/011 post-mortem)
   # CP03 Statistical Strength
   icir_strong: 0.30
   icir_weak: 0.15
   # CP04 Risk Cleanness
   style_r2_acceptable: 0.08
   style_r2_poor: 0.12
-  alpha_surv_min: 0.40          # relaxed 2026-04-19: prior 0.60 was over-rejecting positive/complementary signals (e.g. C005_b5 positive IC + mono=+1.0 + cum_dd=-2% + orthogonal to F001 被错杀)
+  # alpha_surv_min is direction-aware: different direction families have
+  # structurally different tolerance for Barra-style absorption.
+  # - barra_residual_alpha: residual IS the alpha signal → survival ≥ 1.0
+  #   (Barra_residual_IC ≥ raw_IC is a tautological admission criterion)
+  # - value_liquidity / amount_volatility: direction hypothesis is that
+  #   value/liquidity/turnover crossovers carry partial style exposure
+  #   AND independent alpha; 0.25–0.30 matches empirical regime
+  # - default 0.40: generic factor, must retain majority of alpha after
+  #   risk-model strip (relaxed 2026-04-19 from 0.60)
+  alpha_surv_min:
+    default: 0.40
+    barra_residual_alpha: 1.00
+    amount_volatility_signal: 0.25
+    value_liquidity_interaction: 0.30
   # CP05 Redundancy
   max_lib_corr_low: 0.30
   max_lib_corr_high: 0.70

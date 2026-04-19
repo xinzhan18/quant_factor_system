@@ -192,13 +192,18 @@ metrics:
 
 ### CP04 Risk Cleanness —— 3 指标（good / acceptable / borderline / poor）
 
-字段：`metrics.cp04.{style_r_squared, alpha_survival_ratio, extreme_ratio}`
+字段：`metrics.cp04.{style_r_squared, alpha_survival_ratio, alpha_surv_min_threshold, extreme_ratio}`
 
 | 指标 | clean | borderline | poor |
 |---|---|---|---|
 | `style_r_squared` | < 0.12 | 0.12 – 0.25 | > 0.25 |
-| `alpha_survival_ratio` | > 0.50 | 0.30 – 0.50 | < 0.30 |
+| `alpha_survival_ratio` | > `threshold + 0.10` | `[threshold, threshold+0.10]` | < `threshold` |
 | `extreme_ratio` | < 0.01 | 0.01 – 0.03 | > 0.03 |
+
+**alpha_survival_ratio 阈值是方向相关的**：读 `metrics.cp04.alpha_surv_min_threshold` 作为 `threshold`。默认 0.40，方向特化（见 `config.yaml.thresholds.alpha_surv_min`）：
+- `barra_residual_alpha`: 1.00（残差方向 hypothesis 本身要求 ≥ 1.0）
+- `amount_volatility_signal`: 0.25（成交额信号天然部分 style-absorbed）
+- `value_liquidity_interaction`: 0.30（pb × amount 交互天然部分 style-absorbed）
 
 | 档位 | 标准 |
 |---|---|

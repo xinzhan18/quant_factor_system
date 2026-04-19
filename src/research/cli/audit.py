@@ -101,8 +101,23 @@ def register_audit_subcommand(subparsers: argparse._SubParsersAction) -> None:
     )
     mt.set_defaults(func=_run_mt_budget)
 
+    from research.cli.audit_reserves import register_audit_reserves
+    register_audit_reserves(audit_sub)
+
 
 def _run_mt_budget(args: argparse.Namespace) -> None:
     storage_root = Path(getattr(args, "storage_root", "storage"))
     paths = StoragePaths(storage_root)
     print(format_mt_budget_report(paths, direction=args.direction))
+
+
+def dispatch_audit(args: argparse.Namespace) -> None:
+    """Route ``research audit <sub>`` to the handler registered on the sub-parser."""
+    func = getattr(args, "func", None)
+    if func is None:
+        print("research audit: no subcommand given", file=sys.stderr)
+        raise SystemExit(2)
+    func(args)
+
+
+import sys  # noqa: E402 — keep imports local to dispatcher to avoid top-level clutter

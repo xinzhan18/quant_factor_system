@@ -150,7 +150,39 @@ def _bucket_from_value(v: float | None) -> str | None:
     return "high"
 
 
-def _extract_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
+def resolve_alpha_surv_min(
+    direction: str,
+    thresholds: dict[str, Any] | None,
+    default: float = 0.40,
+) -> float:
+    """Resolve the direction-aware ``alpha_surv_min`` floor.
+
+    ``config.yaml.thresholds.alpha_surv_min`` may be either a scalar
+    (legacy) or a dict ``{default, <direction>: <float>, ...}`` where
+    specific directions get tuned floors. Example::
+
+        alpha_surv_min:
+          default: 0.40
+          barra_residual_alpha: 1.00
+          amount_volatility_signal: 0.25
+    """
+    if not thresholds:
+        return default
+    raw = thresholds.get("alpha_surv_min", default)
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if isinstance(raw, dict):
+        if direction in raw:
+            return float(raw[direction])
+        return float(raw.get("default", default))
+    return default
+
+
+def _extract_metrics(
+    candidate: dict[str, Any],
+    *,
+    alpha_surv_min: float | None = None,
+) -> dict[str, Any]:
     """Flatten the CP03-CP06 + feasibility metrics out of one result.yaml candidate.
 
     Goal: subagent has **all** judge-relevant numbers here so it never opens
@@ -233,6 +265,7 @@ def _extract_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
             # core rubric
             "style_r_squared": barra.get("style_r_squared"),
             "alpha_survival_ratio": barra.get("alpha_survival_ratio"),
+            "alpha_surv_min_threshold": alpha_surv_min,
             "extreme_ratio": distribution.get("extreme_ratio"),
             # body detail
             "barra_residual_ic": barra.get("barra_residual_ic"),
@@ -323,6 +356,7 @@ def build_hints(
     hard_gates_config: HardGatesConfig | None = None,
     mt_budget_config: MtBudgetConfig | None = None,
     factors_dir: Path | None = None,
+    thresholds: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the ``_hints.yaml`` dict for one batch.
 
@@ -352,6 +386,7 @@ def build_hints(
     """
     hg_cfg = hard_gates_config or HardGatesConfig()
     mt_cfg = mt_budget_config or MtBudgetConfig()
+    alpha_surv_min = resolve_alpha_surv_min(direction, thresholds)
 
     gates = evaluate_hard_gates(result, hg_cfg)
     gate_by_id = {g.candidate_id: g for g in gates}
@@ -399,7 +434,7 @@ def build_hints(
 
         # Flattened rubric metrics — always emitted (even on compute_error,
         # the CP03-CP06 blocks will be all-null, making the failure visible).
-        metrics = _extract_metrics(cand)
+        metrics = _extract_metrics(cand, alpha_surv_min=alpha_surv_min)
         nearest_id = metrics["cp05"].get("nearest_factor_id")
         metrics["cp05"]["nearest_factor_expression"] = _lookup_nearest_expression(
             nearest_id, factors_dir
