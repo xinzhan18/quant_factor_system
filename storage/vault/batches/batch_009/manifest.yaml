@@ -1,0 +1,65 @@
+batch_id: batch_009
+round: 8
+direction: value_liquidity_interaction
+direction_md_ref: vault/directions/value_liquidity_interaction.md
+batch_goal: str_1m 突破验证：self-norm rate + cross-funda rank-diff + amount-rate 交互，6
+  候选
+active_threads_referenced:
+- T001
+- T003
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T12:42:52Z'
+frozen_at: '2026-04-19T12:42:52Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Div(Delta($pe_ratio, 20), $pe_ratio), Mean(Div(Delta($pe_ratio,
+    20), $pe_ratio), 60))
+  canonical: Div(Div(Delta($pe_ratio,20),$pe_ratio),Mean(Div(Delta($pe_ratio,20),$pe_ratio),60))
+  rationale: 'T003 PE rate self-normalized by 60d mean: 相对自身历史是否极端？捕捉估值位移偏离；与 C004
+    PE_rate 不同（同量纲归一化 vs 独立量纲）'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank($pe_ratio), CsRank($pb_ratio))
+  canonical: Sub(CsRank($pe_ratio),CsRank($pb_ratio))
+  rationale: 'T001 cross-funda rank-diff: PE 与 PB rank 差——相对低估 vs 绝对低估的区分；pure fundamental
+    vs fundamental 双元；str_1m anchor'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Div(Delta($pe_ratio, 20), $pe_ratio)), CsRank(Div(Delta($pb_ratio,
+    20), $pb_ratio)))
+  canonical: Sub(CsRank(Div(Delta($pe_ratio,20),$pe_ratio)),CsRank(Div(Delta($pb_ratio,20),$pb_ratio)))
+  rationale: 'T006 PE vs PB rate-of-change rank-diff: 估值变化速度差异；与 C002 同族但捕捉动态（rate）而非
+    level；与 C005_b7(两rate除法)结构正交'
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Div(Delta($pe_ratio, 20), $pe_ratio), Add(Mean(Div(Delta($turnover_rate,
+    20), $turnover_rate), 20), 1e-8))
+  canonical: Div(Div(Delta($pe_ratio,20),$pe_ratio),Add(1e-8,Mean(Div(Delta($turnover_rate,20),$turnover_rate),20)))
+  rationale: 'T003 PE rate ÷ turnover rate-of-change: 估值位移相对流动性位移；与 C005_b7(PE_rate/turnover_rate)结构相似但
+    self-normalize PE；捕获相对弹性'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Add(Div(Delta($pe_ratio, 20), $pe_ratio), Div(Delta($pb_ratio, 20),
+    $pb_ratio)), 2)
+  canonical: Div(Add(Div(Delta($pb_ratio,20),$pb_ratio),Div(Delta($pe_ratio,20),$pe_ratio)),2)
+  rationale: 'T006 PE+PB blended rate equal-weight: C001_b7 三合一简化版(去掉 PS)；两个 rate
+    等权平均消除个别噪声；self-normalize 结构'
+- candidate_id: C006
+  source_type: dsl
+  expression: Div(Div(Delta($pb_ratio, 20), $pb_ratio), Mean(Div(Delta($turnover_rate,
+    20), $turnover_rate), 20))
+  canonical: Div(Div(Delta($pb_ratio,20),$pb_ratio),Mean(Div(Delta($turnover_rate,20),$turnover_rate),20))
+  rationale: 'T003 PB rate ÷ turnover rate-of-change: PB 变化相对流动性变化；PB 比 PE 更接近 book_value（基本面）与市场的关系；self-norm
+    避免分母主导'
+- candidate_id: C007
+  source_type: dsl
+  expression: Sub(CsRank($turnover_rate), CsRank($pe_ratio))
+  canonical: Sub(CsRank($turnover_rate),CsRank($pe_ratio))
+  rationale: 'T001 turnover rank vs PE rank 反向结构: 高换手 × 低估值 vs 低换手 × 高估值 的方向分离；与 C002(PE-PB)
+    和 C003(rate差)构成三位一体 funda-liquidity 坐标'

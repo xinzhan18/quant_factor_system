@@ -1,0 +1,51 @@
+batch_id: batch_008
+round: 7
+direction: amount_volatility_signal
+direction_md_ref: vault/directions/amount_volatility_signal.md
+batch_goal: 验证 vol_20d 结构性瓶颈三条逃脱路径：C005 40d horizon 扩展、amount×turnover_rate 跨字段组合、新机制
+  amount acceleration
+active_threads_referenced:
+- T002
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T12:22:17Z'
+frozen_at: '2026-04-19T12:22:17Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Corr($amount, Sign(Delta($close, 1)), 40)
+  canonical: Corr($amount,Sign(Delta($close,1)),40)
+  rationale: T004 C005 40d horizon 扩展：sign-only Corr 20d ls_t=0.14(PnL 坍塌) 但机制正交(max_corr=0.07@F001)，40d
+    减少噪声 + 降低换手，可能重建 L/S
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Std($amount, 20), Add(Mean($turnover_rate, 20), 1e-8))
+  canonical: Div(Std($amount,20),Add(1e-8,Mean($turnover_rate,20)))
+  rationale: Turnover-adjusted amount 波动率：amount 波动率用换手率标准化，分母是 turnover 水平而非 price
+    或 volume，打破纯 amount 统计量的 vol_20d 共线性
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Corr($amount, $volume, 20), Corr($amount, $volume, 60))
+  canonical: Div(Corr($amount,$volume,20),Corr($amount,$volume,60))
+  rationale: Amount-Volume relationship 相对变化：短期(20d)与长期(60d)的相关性比值，捕捉资金流与持仓量的关系漂移，机制独立于
+    CV 绝对水平
+- candidate_id: C004
+  source_type: dsl
+  expression: Delta(Mean($amount, 20), 5)
+  canonical: Delta(Mean($amount,20),5)
+  rationale: Amount momentum（amount 的一阶导）：20d 均值的 5d 变化，捕捉资金流入/流出加速度，机制不同于 CV/分位数/相关性的静态统计量
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Std($amount, 20), Mean($turnover_rate, 20))
+  canonical: Div(Std($amount,20),Mean($turnover_rate,20))
+  rationale: Amount 波动率 ÷ turnover rate 水平：标准化 amount 波动率，消除换手率水平差异，等价于 CV(20)/turnover_rate，物理单位与
+    F001 正交
+- candidate_id: C006
+  source_type: dsl
+  expression: Skew($amount, 20)
+  canonical: Skew($amount,20)
+  rationale: Amount 20d 偏度（重测）：T002 早期偏度 ic=-0.003(太弱)但 quantile 路径已探明；偏度与分位数是不同统计量，偏度捕捉整体分布偏斜方向
