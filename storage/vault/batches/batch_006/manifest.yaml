@@ -1,0 +1,60 @@
+batch_id: batch_006
+round: 5
+direction: value_liquidity_interaction
+direction_md_ref: vault/directions/value_liquidity_interaction.md
+batch_goal: 'Continue value_liquidity_interaction after batch_005 twin positive findings.
+  (T006) Test generality of C004''s self-normalized rate structure — PB / PS rate
+  variants. (T001) Fix C005''s size-proxy issue by replacing Mean($amount) denom with
+  Mean($turnover_rate). (T003) Upgrade: PE rate decoupled from attention level. Goal:
+  ≥1 candidate admit (alpha_survival>0.60 + ls_t>2) or elevate C004/C005 via consistent
+  cross-variant evidence.'
+active_threads_referenced:
+- T001
+- T003
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T05:49:48Z'
+frozen_at: '2026-04-19T05:49:48Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Delta($pb_ratio, 20), $pb_ratio)
+  canonical: Div(Delta($pb_ratio,20),$pb_ratio)
+  rationale: 'T006 generalization of C004 to PB: tests whether self-normalized fundamental
+    change rate consistently escapes Barra liquidity ceiling across valuation metrics.
+    If alpha_survival>0.60 for PB rate too, T006 hypothesis upgraded; if PE-specific,
+    narrowed to earnings-momentum mechanism.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Delta($ps_ratio, 20), $ps_ratio)
+  canonical: Div(Delta($ps_ratio,20),$ps_ratio)
+  rationale: 'T006 extension to PS (revenue-based): complements C001 PB (book-based)
+    and C004 PE (earnings-based). Triangulates whether rate signal attaches to specific
+    accounting metric or to general fundamental update dynamics.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div($pb_ratio, Mean($turnover_rate, 20))
+  canonical: Div($pb_ratio,Mean($turnover_rate,20))
+  rationale: 'T001 C005-b5 fix: replaces $amount denom (size proxy) with $turnover_rate
+    (already normalized by shares). If positive IC + mono>0 persists AND alpha_survival>0.60,
+    confirms底层 value×illiquidity edge is real; if signal drops, confirms C005 was
+    size/vol artifact.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Div($pe_ratio, Mean($turnover_rate, 20))
+  canonical: Div($pe_ratio,Mean($turnover_rate,20))
+  rationale: 'T001 PE variant of C003: high PE + low attention = ''expensive but neglected''
+    signal; complements C003 PB variant. Pair with C003 to test whether ''value/attention''
+    ratio structure works across both PE and PB metrics.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(Div(Delta($pe_ratio, 20), $pe_ratio), Mean($turnover_rate, 20))
+  canonical: Mul(Div(Delta($pe_ratio,20),$pe_ratio),Mean($turnover_rate,20))
+  rationale: 'T003 upgrade: C004 (PE rate, alpha_surv=0.92) × attention level — tests
+    whether attention modulates the fundamental-rate signal. High PE rate × high attention
+    = rapid earnings change being priced in; high PE rate × low attention = undiscovered.
+    Multiplicative but with a rate (not level) primary term.'

@@ -1,0 +1,52 @@
+batch_id: batch_007
+round: 6
+direction: value_liquidity_interaction
+direction_md_ref: vault/directions/value_liquidity_interaction.md
+batch_goal: 'batch_007 方案 A+B: 合成 3-fundamental rate + 秩差结构，DSL 内验证是否能把 T006 rank-order
+  优势转化为 PnL (ls_t>2)。若本批仍零 admit 且 ls_t 无显著改善，方向将在 batch_008 切换到 Python 逃生口 Barra
+  residual (R8)。'
+active_threads_referenced:
+- T001
+- T003
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T06:07:04Z'
+frozen_at: '2026-04-19T06:07:04Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Add(Add(Div(Delta($pe_ratio, 20), $pe_ratio), Div(Delta($pb_ratio,
+    20), $pb_ratio)), Div(Delta($ps_ratio, 20), $ps_ratio)), 3)
+  canonical: Div(Add(Add(Div(Delta($pb_ratio,20),$pb_ratio),Div(Delta($pe_ratio,20),$pe_ratio)),Div(Delta($ps_ratio,20),$ps_ratio)),3)
+  rationale: 'T006 方案 A 合成: 三基本面 rate 等权平均。平滑各单 rate 噪声，期望合成版 ls_t 越过 2（三候选独立 ls_t
+    都在 -1.2~-1.5，合成若产生信噪比增益可突破显著阈值）。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Div(Delta($pe_ratio, 20), $pe_ratio)), CsRank(Mean($turnover_rate,
+    20)))
+  canonical: Sub(CsRank(Div(Delta($pe_ratio,20),$pe_ratio)),CsRank(Mean($turnover_rate,20)))
+  rationale: 'T003 方案 B 秩差: PE rate rank - turnover level rank。秩差消除量纲差异，直接表达''基本面变化
+    vs 市场关注度''跨截面差异。预期跳出 Barra 流动性风格（rank 做差在 Barra 空间是线性正交化的近似）。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank($pb_ratio), CsRank(Mean($turnover_rate, 20)))
+  canonical: Sub(CsRank($pb_ratio),CsRank(Mean($turnover_rate,20)))
+  rationale: 'T001 方案 B 秩差: PB rank - turnover rank。直接对 C005_b5 的 Div 结构做 rank-diff
+    等价实现；如果 positive edge 真实且与 vol_20d 天然共存，秩差在 Barra 空间会降暴露而 IC 保留。'
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Delta($pe_ratio, 20), Mean($pe_ratio, 60))
+  canonical: Div(Delta($pe_ratio,20),Mean($pe_ratio,60))
+  rationale: 'T006 60d 归一化变体: 用 60d MA PE 代替当前 PE 做分母，避免 $pe_ratio 近零时分母爆冲（C004_b5
+    extreme_ratio=0.014 borderline），同时测更长时序尺度的归一化是否改善 PnL 稳定性。'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Div(Delta($pe_ratio, 20), $pe_ratio), Div(Delta($turnover_rate,
+    20), $turnover_rate))
+  canonical: Div(Div(Delta($pe_ratio,20),$pe_ratio),Div(Delta($turnover_rate,20),$turnover_rate))
+  rationale: 'T003 方案 B 两 rate 除法: PE rate / turnover rate — 两自归一化速率相除，避免 C005_b6
+    乘法失败。''基本面变化相对 attention 变化'' 的比值，量纲各自已归一，理论上保留两 rate 的 Barra 独立性。'

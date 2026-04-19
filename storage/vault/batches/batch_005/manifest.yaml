@@ -1,0 +1,58 @@
+batch_id: batch_005
+round: 4
+direction: value_liquidity_interaction
+direction_md_ref: vault/directions/value_liquidity_interaction.md
+batch_goal: 'Open third direction value_liquidity_interaction introducing fundamental
+  fields ($pe/$pb/$ps) × liquidity ($turnover_rate/$amount/Std-of-close) interactions
+  to escape vol_20d/turnover_20d Barra ceiling established in prior 2 directions.
+  Goal: at least 1 candidate with dominant_style ∈ {ep_ratio, book_to_price} + alpha_survival
+  > 0.70. Test: value×attention (T001/T005), value×stress (T004), fundamental update
+  rate (T003), PB/liquidity (T001 variant).'
+active_threads_referenced:
+- T001
+- T003
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T05:30:08Z'
+frozen_at: '2026-04-19T05:30:08Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mul($pe_ratio, Mean($turnover_rate, 20))
+  canonical: Mul($pe_ratio,Mean($turnover_rate,20))
+  rationale: 'T001 value×attention: high PE (expensive) × high turnover = hype/overvaluation
+    signal (expect negative alpha), low PE × low turnover = deep value (expect positive
+    alpha). Direct interaction of two Barra-distinct fields.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mul(Div(1, $pe_ratio), Mean($turnover_rate, 20))
+  canonical: Mul(Div(1,$pe_ratio),Mean($turnover_rate,20))
+  rationale: 'T005 EP×attention: earnings yield (robust to PE denominator volatility)
+    × turnover tests whether market attention confirms cheap valuations (''value realization''
+    vs ''value trap'').'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mul($pb_ratio, Std($close, 20))
+  canonical: Mul($pb_ratio,Std($close,20))
+  rationale: 'T004 PB×stress: high PB × high volatility = ''unstable expensive'' (late-stage
+    momentum crowding), low PB × low volatility = ''stable cheap'' (value anchor).
+    Cross-axis interaction test.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Delta($pe_ratio, 20), $pe_ratio)
+  canonical: Div(Delta($pe_ratio,20),$pe_ratio)
+  rationale: 'T003 PE change rate (self-normalized): 20d PE delta / current PE measures
+    fundamental update rate without price-change coupling. Rapid PE compression (from
+    earnings growth) ahead of price response = value-discovery signal.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div($pb_ratio, Mean($amount, 20))
+  canonical: Div($pb_ratio,Mean($amount,20))
+  rationale: 'T001 PB/liquidity: price-to-book divided by 20d mean amount — tests
+    whether cheap+illiquid constitutes ''distressed value'' or ''neglected value'';
+    inverse liquidity scaling differs from C001''s direct turnover interaction.'

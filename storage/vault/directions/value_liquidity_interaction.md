@@ -41,7 +41,7 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 
 ## Threads
 
-### T001: Value × Liquidity 交互 [◉ ACTIVE, DSL 出路仅剩秩差/Python residual]
+### T001: Value × Liquidity 交互 [◉ ACTIVE, DSL 边界已到，Python residual 待启]
 **Question**: PE/PB 分位 × turnover 水平的交互是否产生独立于流动性因子的价值 alpha？价值实现 vs 价值陷阱能否在横截面上区分？
 **Evidence trail**:
 - [[batches/batch_005/candidates/C001|batch_005 C001]]: Mul($pe,Mean(tr,20)) ICIR_OOS=-0.228 alpha_surv=0.26 dom=vol_20d → **reject (乘法失败)**
@@ -51,6 +51,8 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 
 **Partial Answer**: 乘法结构 (Mul) 全部被量纲主导方吞噬；除法结构 `Div(fundamental, smoothed_liquidity)` 与 vol_20d **天然共存**（非分母代理问题）——C003 诊断实验证伪"分母去市值"路径。但 C005_b5/C003 positive IC 真实存在 + cum_dd<-3%（全库最浅）证明底层 value×illiquidity edge 真实。DSL 出路剩秩差结构或 Python Barra residual。
 **Next probes**: `Sub(CsRank($pb), CsRank(Mean($turnover_rate, 20)))` 秩差；Python 逃生口做 Barra residual。
+
+**batch_007 追加**：C003 秩差 `Sub(CsRank($pb), CsRank(Mean($turnover_rate, 20)))` 已跑：alpha_survival 从 0.28 拉到 **0.71**（2.5× 改善），但 raw IC 从 0.032 削到 0.011（1/3），ls_t=0.33 近零。**秩差消 Barra 但大幅削弱 signal 强度**——Barra 吞噬与 raw IC 的定量 trade-off。dom=vol_20d 仍在。→ **reserve**。Python residual 是唯一未探路径。
 
 ### T002: Size × Liquidity 反转 [◉ ACTIVE]
 **Question**: 小市值 × 高流动性 vs 小市值 × 低流动性 在 A 股中是否构成反转信号？
@@ -65,6 +67,12 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 
 **Partial Answer**: PE 自归一化变化率**成功跳出流动性风格天花板**（方向首次 dominant=str_1m + alpha_survival 超 0.70）。但 ls_t=-1.22 未达 PnL 显著。升级尝试 (C005_b6) 用 level 乘法被吞 — **rate × level 乘法彻底摧毁 rate 独立性**。
 **Next probes**: 秩差 `Sub(CsRank(PE_rate), CsRank(Mean(turnover)))` 或两 rate 除法 `Div(PE_rate, Div(Delta(Mean(tr,10),10), Mean(tr,10)))`；**禁**乘法升级。
+
+**batch_007 追加**：
+- C002 `Sub(CsRank(PE_rate), CsRank(Mean(turnover)))` hard_gate fail（sign_flip IS→OOS 反号 + oos_decay=-5.95）— 非对称 rank-diff（rate vs level）IS 信号归零 OOS regime shift。
+- C005 `Div(PE_rate, turnover_rate)` **首个 ls_t>2 = -2.92** + ICIR=-0.284 + mono=-0.9 + 9 年全负零翻转（**方向里程碑**），但 alpha_survival=**0.097** 极端 poor（C004_b6 悖论第 2 次复现）→ **reject**。
+- 两 rate 除法是 DSL 空间**真正打出 ls_t>2 的结构**，但被 Barra 完全吃掉残差——**"静态正交 ≠ 动态正交"** 几何悖论：因子值 cross-sectional ⊥ Barra-basis (style_r²=0.016)，但 IC 生成的 L/S weights 落在 Barra span 内 (alpha_survival=0.097)。
+- T003 DSL 路径事实上封闭；复活需 Python Barra residual。
 
 ### T004: PB × 波动率交互 [✗ DISPROVEN batch_005]
 **Question**: 低 PB（便宜）× 低波动率是否是"稳定的便宜"（价值），低 PB × 高波动率是否是"不稳定的便宜"（困境）？
@@ -88,7 +96,10 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 - [[batches/batch_006/candidates/C002|batch_006 C002]]: Div(Delta($ps,20), $ps) **alpha_surv=0.72** dom=str_1m ls_t=-1.47 → **reserve** (PS rate)
 
 **Answer**: **三点通用性确立** — PE/PB/PS 自归一化速率形态高度一致（alpha_survival 0.92/0.79/0.72，dom=str_1m，ls_t -1.2 到 -1.5）。"基本面字段自归一化变化率跳出 vol_20d 天花板" 在 rank-order 层是**跨 valuation 指标普适机制**。但 ls_t 全部弱 <2 → L/S PnL 层未兑现。
-**Next probes**: 合成 `Div(Add(Add(PE_rate, PB_rate), PS_rate), 3)` 三基本面平均 rate + str_1m 正交化（Python 逃生口）。
+**batch_007 合成尝试**：
+- C001 `Div(Add(Add(PE_rate, PB_rate), PS_rate), 3)` alpha_surv=0.86 dom=str_1m 保持 + 三点通用性再验证，但 ls_t=-1.27 未改善（PE/PB/PS 中位）→ **reserve**。**DSL 等权合成不产生信噪比增益**（Q5 一桨驱动是方向机制层的单边结构）。
+- C004 `Div(Delta($pe,20), Mean($pe,60))` 60d-norm 变体 alpha_surv=0.86 dom=str_1m ls_t=-1.21 ≈ C004_b5 → **reserve**。分母工程已触底。
+**Next probes**: Python 逃生口做 str_1m 加权 residual 合成（方案 D / R8 trigger）。
 
 ## Known Failures
 
@@ -98,6 +109,8 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 - **C005_b5** `Div($pb_ratio, Mean($amount, 20))` — 尽管 IC=+0.032 positive + mono=+1.0 + cum_dd=-2%，但 alpha_survival=0.30 + dom=vol_20d 双触 dealbreaker；**$amount 分母退化为 size×vol 毛代理**，保留为正面 direction narrative 证据
 - **C004_b6** `Div($pe_ratio, Mean($turnover_rate, 20))` — alpha_survival=0.0009 极端记录 + ls_t=+0.20；低 style_r² (0.08) + 极低 alpha_survival 悖论 — 因子 IC 完全在 Barra 子空间内运动，"低 style_r² ≠ barra-clean" 教训标本
 - **C005_b6** `Mul(Div(Delta($pe_ratio, 20), $pe_ratio), Mean($turnover_rate, 20))` — rate × level 乘法结构彻底摧毁 rate 独立性；alpha_survival 从 C004_b5 的 0.92 崩塌到 0.29；乘法结构第 5 次跨候选证伪
+- **C002_b7** `Sub(CsRank(Div(Delta($pe_ratio, 20), $pe_ratio)), CsRank(Mean($turnover_rate, 20)))` — 非对称 rank-diff (rate vs level) hard_gate sign_flip IS→OOS 反号 + oos_decay=-5.95；rank-diff 两侧必须同级量纲
+- **C005_b7** `Div(Div(Delta($pe_ratio, 20), $pe_ratio), Div(Delta($turnover_rate, 20), $turnover_rate))` — **首个 ls_t>2 (-2.92) + 9 年全负零翻转 + mono=-0.9 + cum_dd=-19** 但 alpha_survival=**0.097** 极端 poor + style_r²=0.016（C004_b6 悖论第 2 次复现）；"**静态正交 ≠ 动态正交**" — 因子值 ⊥ Barra basis 但 IC weights ∈ span(Barra)
 
 ## Related
 - [[lessons#Structural Constraints]]  （市值代理红线 / 向量化约束）
@@ -159,3 +172,37 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 - **方案 D（R8 触发）**: Python 逃生口做 C004_b5 + C001 + C002 + C003 合成 Barra residual — 这是方向可兑现的唯一路径
 
 **建议 batch_007 优先 方案 A + 方案 B 各 2-3 候选**（DSL 内可验证合成/秩差是否把 ls_t 推过 2），若失败 batch_008 转 方案 D。
+
+### 2026-04-19 [[batches/batch_007/judge|batch_007]]
+**admit=0 · reserve=3 (C001 合成, C003 rank-diff PB, C004 60d-norm) · reject=2 (C002 hard_gate, C005 alpha_survival 极端悖论)**。
+
+**三项里程碑发现**（信息密度最高一批）：
+1. **C005 首个 ls_t>2**：`Div(PE_rate, turnover_rate)` ls_t=**-2.92** + ICIR=-0.284 + mono=-0.9 + 9 年全负零翻转。**方向 15 候选首次跨过 PnL 显著阈值**。
+2. **"静态正交 ≠ 动态正交"悖论确立**（C004_b6 + C005_b7）：style_r² 极低 (0.016) + alpha_survival 极低 (0.097)。几何含义：因子值 ⊥ Barra basis，但 IC 生成的 L/S weights 落在 Barra span 内。
+3. **Rank-diff (C003) 定量权衡**：alpha_survival 0.28→**0.71**（2.5× 改善），但 raw IC 0.032→0.011（1/3 削弱）。**Barra 吞噬消除必须付出 raw signal 削弱的代价**。
+
+**方向决策：DSL 空间完全探尽**。6 种结构化尝试（乘法 / 除法 / 合成 / 秩差 / 分母工程 / 两 rate 除法）全部触天花板。R8 Python 逃生口触发条件完成。
+
+**Thread 进展**：
+- T001: ACTIVE（DSL 边界已到，Python residual 待启）
+- T003: ACTIVE（首个 ls_t>2 + 悖论；DSL 事实封闭）
+- T006: ACTIVE（合成 PnL 天花板，rank-order 层完成）
+
+**下轮决策（batch_008，必须方案 D / R8 触发）**：
+1. Python 逃生口实现 `python_factors/value_rate_residual.py`
+2. 对 C004_b5 / C001_b7 / C005_b7 做 Barra residual (vol_20d / turnover_20d / str_1m 三风格)
+3. 若残差版 ls_t>2 + alpha_survival>0.6 保留 → 方向首个 admit
+4. 若残差版 ls_t 仍弱 → 方向 saturated，开辟第 4 方向（如 momentum × fundamental）
+
+**跨方向总览（累计 6 batches / 3 directions / 38 候选 / 1 admit）**：
+- amount_volatility_signal: productive, 3 batches, 1 admit (F001), 6 reserve
+- turnover_structural_signal: saturated, 1 batch, 1 reserve
+- value_liquidity_interaction: exploring, 3 batches, 8 reserve, 里程碑最密集
+
+**Phase 5 consolidation 触发进度**：rounds_since_last=7（<10 阈值）；lessons.md 79 行（<400）；directions 各 <500 行；active ≥ 20 (当前 2，含 value)。**暂不触发 consolidation**；batch_008 后会到 8，仍不触发。
+
+**元洞察入 lessons.md 候选（Phase 5）**：
+- "DSL 空间对 vol_20d 天花板物理极限" — 需要物理残差才能推进
+- "静态正交 ≠ 动态正交" 悖论 — style_r² 不是 Barra-clean 硬判据
+- "Barra 吞噬与 raw IC 定量 trade-off" — rank-diff 以 signal 换 cleanliness 1:2.5
+- "方向首批 hypothesis 证伪率"是方向级最高效信号

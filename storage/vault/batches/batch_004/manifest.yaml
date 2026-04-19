@@ -1,0 +1,58 @@
+batch_id: batch_004
+round: 3
+direction: turnover_structural_signal
+direction_md_ref: vault/directions/turnover_structural_signal.md
+batch_goal: 'Open new direction turnover_structural_signal to escape amount_volatility_signal''s
+  vol_20d ceiling. Test 5 orthogonal turnover-rate二阶结构 families: persistence (AutoCorr),
+  acceleration (short/long ratio), CV (structural analog of F001), signed turnover
+  mean (avoiding Qlib Corr+Delta broadcast issue), CS-rank stability. Goal: at least
+  1 candidate with max_corr<0.3@F001 + alpha_survival>0.7 + dominant_style≠vol_20d.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-18T18:31:54Z'
+frozen_at: '2026-04-18T18:31:54Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Std($turnover_rate, 10), Mean($turnover_rate, 10))
+  canonical: Div(Std($turnover_rate,10),Mean($turnover_rate,10))
+  rationale: 'T003 turnover CV: structural analog of F001 with built-in scale normalization.
+    Tests whether CV mechanism persists on an already-normalized field and whether
+    style coupling shifts.'
+- candidate_id: C002
+  source_type: dsl
+  expression: TsAutoCorr($turnover_rate, 20)
+  canonical: TsAutoCorr($turnover_rate,20)
+  rationale: 'T001 turnover persistence: AutoCorr-lag1 over 20d. Tests high-persistence
+    (stable institutional attention) vs event-driven; different dimension from turnover_20d
+    level style.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Mean($turnover_rate, 5), Mean($turnover_rate, 20))
+  canonical: Div(Mean($turnover_rate,5),Mean($turnover_rate,20))
+  rationale: 'T002 turnover acceleration: short/long mean ratio isolates attention-growth
+    rate from level. Scale-invariant by construction; tests contrarian-vs-momentum
+    on attention-change.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Mul(Sign(Delta($close, 1)), $turnover_rate), 20)
+  canonical: Mean(Mul($turnover_rate,Sign(Delta($close,1))),20)
+  rationale: 'T004 signed turnover mean: replaces Corr+Delta (broke Qlib broadcast)
+    with direct signed-turnover aggregation. Up-day turnover vs down-day turnover
+    averaged over 20d — tests directional coupling without the Corr operator path.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Std(CsRank($turnover_rate), 20)
+  canonical: Std(CsRank($turnover_rate),20)
+  rationale: 'T005 turnover CS-rank stability: std of cross-sectional turnover rank
+    over 20d. High value = unstable peer-ranking → event-driven; pure ordering signal,
+    should have minimal Barra style overlap.'

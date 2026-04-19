@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-19T06:06:00Z
-round: 5
+generated_at: 2026-04-19T06:07:04Z
+round: 6
 total_active_directions: 3
 total_factors_admitted: 1
-last_batch: batch_005
+last_batch: batch_006
 last_consolidation_round: null
 ---
 
@@ -55,7 +55,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 1 |
-| Current round | 5 |
+| Current round | 6 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
