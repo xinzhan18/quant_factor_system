@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-19T12:41:09Z
-round: 7
+generated_at: 2026-04-19T13:07:56Z
+round: 8
 total_active_directions: 3
 total_factors_admitted: 2
-last_batch: batch_007
+last_batch: batch_008
 last_consolidation_round: null
 ---
 
@@ -21,11 +21,12 @@ last_consolidation_round: null
 首批 [[batches/batch_004/judge|batch_004]] 即触发 saturated：5 候选 5/5 `dominant_style=vol_20d`，"换手率脱离 vol_20d 风格空间"hypothesis 证伪。仅 C003 加速度 (alpha_survival=1.085) 突破 dealbreaker reserve，四 thread 全部证伪。C001 turnover CV 与 F001 相关 0.955 → shares 短窗近常数 CV 结构等价。
 
 ### [[directions/value_liquidity_interaction|价值 × 流动性交互]] `productive` `high`
-累计 3 batches，15 候选 → **1 admit (F002)** / 7 reserve / 7 reject。**2026-04-19 追溯升级**：C005_b5 `Div($pb, Mean($amount, 20))` 原判 reject（alpha_survival=0.30 触旧 0.60 硬闸），rubric / config 放宽后重审为 **F002 admit** — max_corr@F001=0.029 正交 + incremental_ic=+0.027 + mono=+1.0 + ls_t=+4.68 + 9 年全正 + cum_dd=-2.17 全库最浅 + 方向互补（F001 负号 / F002 正号）。其他发现：C004_b5 PE rate alpha_survival=0.92 dom=str_1m + T006 PE/PB/PS rate 三点通用性 + C005_b7 首个 ls_t>2；"静态正交 ≠ 动态正交" 悖论 — 指向下批 Python residual R8。
+累计 5 batches，22 候选 → **1 admit (F002)** / 10 reserve / 11 reject。[[batches/batch_009/judge|batch_009]] self-norm rate×turnover 路径全灭(4/4 sign_flip)；C005 **dom=str_1m breakthrough**（方向首次非 vol_20d）但 incr_ic=-0.033(库 reducer) reject；C007 ls_t=-2.43(最强 PnL) 但 vol_20d=18.8 极端。**DSL 空间实质穷尽**，下批必须 Python Barra residual。
 
 ## 最近 Batch
 
 - **[RETROACTIVE 2026-04-19]** [[batches/batch_005/judge|batch_005]] C005 reject → **admit F002 `pb_amount_ratio_20`**。触发：config `alpha_surv_min` 0.60→0.40；rubric CP04 档位放宽；direction-level 自设硬规则（alpha_survival<0.60 一律 reject + dom=vol_20d 一律 reject）已删除。
+- [[batches/batch_009/judge|batch_009]] (value_liquidity_interaction): 7 候选 → admit=0 / reserve=2 / reject=5。**self-norm rate×turnover 4/4 全灭**；C005 dom=str_1m breakthrough(历史首次) 但 incr_ic=-0.033(库 reducer) reject；C007 ls_t=-2.43(PnL 最强) vol_20d=18.8 极端。**DSL 空间穷尽**，唯一出口：Python Barra residual。
 - [[batches/batch_008/judge|batch_008]] (amount_volatility_signal): 6 候选 → admit=0 / reserve=4 / reject=2。**第 4 次 vol_20d 瓶颈确认**：C003 最强 rank-order(mono=-1.0, max_corr=0.07@F001) 但 alpha_surv=0.24 触 CP04 poor；C002/C005 near-dup(style_r²=0.78)。DSL 封闭，**唯一逃生口：Python Barra residual**。
 - [[batches/batch_007/judge|batch_007]] (value_liquidity_interaction): 5 候选 → admit=0 / reserve=3 / reject=2。core finding: **C005 首个 ls_t>2 PnL 显著** (-2.92) 但 "静态-动态正交悖论" 第 2 次复现 (alpha_surv=0.097)；**DSL 空间完全探尽**，下批必须 R8 Python Barra residual。
 - [[batches/batch_006/judge|batch_006]] (value_liquidity_interaction): 5 候选 → admit=0 / reserve=3 / reject=2。core finding: **T006 PE/PB/PS 自归一化速率三点通用性确立**（alpha_survival 0.92/0.79/0.72 全 dom=str_1m）但 ls_t 全弱<2；T001 "分母去市值" 路径证伪；C004_b6 极端悖论。
@@ -54,12 +55,12 @@ last_consolidation_round: null
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
-| value_liquidity_interaction | productive | high | 4 | 1 | 1 | batch_005 |
+| value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 
 | Metric | Value |
 |---|---|
 | Total factors admitted | 2 |
-| Current round | 7 |
+| Current round | 8 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
