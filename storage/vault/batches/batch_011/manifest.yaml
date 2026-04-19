@@ -1,0 +1,57 @@
+batch_id: batch_011
+round: 10
+direction: intraday_price_formation
+direction_md_ref: vault/directions/intraday_price_formation.md
+batch_goal: 'Follow-up on F003 overnight_gap: test extended windows (Ref2-5 + MeanHigh2-10)
+  and EMA trend signals; avoid body-ratio mono_sign_flip patterns from batch_010'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-19T13:39:14Z'
+frozen_at: '2026-04-19T13:39:14Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Sub($open, Ref($close, 2)), Mean($high, 2))
+  canonical: Div(Sub($open,Ref($close,2)),Mean($high,2))
+  rationale: 'T001: overnight gap with 2-day lookback (F003 uses 1-day)'
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Sub($open, Ref($close, 3)), Mean($high, 3))
+  canonical: Div(Sub($open,Ref($close,3)),Mean($high,3))
+  rationale: 'T001: overnight gap with 3-day lookback'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Sub($open, Ref($close, 5)), Mean($high, 5))
+  canonical: Div(Sub($open,Ref($close,5)),Mean($high,5))
+  rationale: 'T001: overnight gap with 5-day lookback — weekly signal'
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Sub($open, Ref($close, 2)), Mean($high, 10))
+  canonical: Div(Sub($open,Ref($close,2)),Mean($high,10))
+  rationale: 'T001: gap 2-day with wider 10d high anchor'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Sub($open, Ref($close, 1)), Mean($high, 5))
+  canonical: Div(Sub($open,Ref($close,1)),Mean($high,5))
+  rationale: 'T001: F003 mechanism with extended high window (gap=1, high=5)'
+- candidate_id: C006
+  source_type: dsl
+  expression: Div(Sub($open, Ref($close, 1)), EMA($high, 5))
+  canonical: Div(Sub($open,Ref($close,1)),EMA($high,5))
+  rationale: 'T001: F003 variant replacing Mean with EMA for smoothing'
+- candidate_id: C007
+  source_type: dsl
+  expression: EMA($close, 5)
+  canonical: EMA($close,5)
+  rationale: 'T002: pure EMA trend signal — no body/ratio, avoids mono_sign_flip'
+- candidate_id: C008
+  source_type: dsl
+  expression: Div(Sub($close, EMA($close, 10)), EMA($close, 10))
+  canonical: Div(Sub($close,EMA($close,10)),EMA($close,10))
+  rationale: 'T002: EMA deviation ratio — normalized trend signal'
