@@ -1,0 +1,415 @@
+---
+factor_id: F006
+direction: ohlc_temporal_aggregation
+admitted_in_batch: batch_017
+---
+
+# Report Packet — F006
+
+## Factor YAML Summary
+
+```yaml
+name: upper_shadow_persistence_5d
+expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 5)
+source_type: dsl
+family_tag: ohlc_temporal_aggregation
+validation_metrics:
+  ic_mean: 0.02347249869491471
+  ic_ir: 0.1922356028147679
+  ic_win_rate: 0.5743801652892562
+  monotonicity: 0.8999999999999998
+  long_short_mean: 0.0010494462173881417
+risk_metrics:
+  style_r_squared: 0.13578798230056444
+  alpha_survival_ratio: 1.5081
+```
+
+## Judge Synthesis
+
+---
+candidate_id: C005
+batch_id: batch_017
+direction: ohlc_temporal_aggregation
+expression: "Mean(Div(Sub($high, $close), Sub($high, $low)), 5)"
+verdict: admit
+thread_id: T003
+factor_id: F006
+factor_name: upper_shadow_persistence_5d
+key_metrics_short: "IC_oos=0.0235 ICIR_oos=0.192 ls_t=3.20 incr_ic=0.031"
+reject_reason_short: null
+---
+
+# C005 — Mean(Div(Sub($high, $close), Sub($high, $low)), 5)
+
+> [!success]+ Verdict: **ADMIT** · thread [[directions/ohlc_temporal_aggregation#T003|T003]]
+> **档位**: CP01 ✓ · CP02 `aligned` · CP03 `borderline` · CP04 `acceptable` · CP05 `low` · CP06 `mixed`
+> **OOS**: IC=**==0.0235==** · ICIR=**==0.192==** · ls_t=**==3.20==** · style_r²=**==0.136==** · alpha_surv=**==1.508==** · max_corr=**==0.069==** · incr_ic=**==0.031==** · mt_bucket=`medium`
+> **机制一句话**: 5 日平均 upper-shadow ratio = (high-close)/(high-low)；持续在日内高点下方收盘 → sustained selling pressure → 短期 forward predictive。
+
+> [!info] Parent: [[batches/batch_017/judge|batch_017 judge]] · Direction: [[directions/ohlc_temporal_aggregation]] · Nearest: [[factors/F003]]
+
+## 表达式解读
+
+`Div(Sub($high, $close), Sub($high, $low))` = 单日 **upper-shadow ratio**：
+- 分子 `high - close` = 上影线长度（最高价与收盘价差）
+- 分母 `high - low` = 当日 total range（最高价与最低价差）
+- 比值 ∈ [0,1]：=0 表示收盘贴 high（当日最强）；=1 表示收盘贴 low（当日最弱）；典型候选 K 线形态中越大代表 intraday 抛压越强
+
+`Mean(..., 5)` 则把 5 日 upper-shadow ratio 作平均：**持续性**信号。单日 upper shadow 是 noisy 的盘中 fluctuation，5 日累加后反映**持续性卖压结构**——连续数日都未能收在 high 附近 = sustained overhead supply。
+
+IC 符号为正：高 upper-shadow-5d → 高 future return（≈短期反转）；低 upper-shadow-5d（持续贴 high 收盘）→ 低 future return。经济含义对应"已被持续强势股（贴 high 收盘者）边际衰竭"或"已被持续挫折抛压股短期反弹"——均落在 **短期均值回归** 框架。
+
+## CP01 Hard Gates ✓
+
+8 项 gate 全过：
+- ✓ compute_error
+- ✓ forbidden
+- ✓ coverage: 0.9582 ≥ 0.80
+- ✓ sign_flip: train_ic=+0.0321 / val_ic=+0.0235（同号正）
+- ✓ ic_oos_min: |0.0235| ≥ 0.008
+- ✓ oos_decay: 0.7303 ≥ 0.20
+- ✓ mono_flip: train=+0.90 / val=+0.90（同号，|x|≥0.5）
+- ✓ near_duplicate: max_corr=0.0694 < 0.90（nearest F003）
+
+## CP02 Mechanism Alignment · `aligned`
+
+**1. 机制是什么**：5 日平均 upper-shadow ratio 度量**持续性的 intraday 卖压结构**。单日 (high-close)/(high-low) 大 = 当日收盘远离 high；连续 5 日大 = 一段时间内市场反复把价格从日内高点打下来，反映 sustained overhead supply / distribution。符号正（IC_oos=+0.0235）= 持续高 upper-shadow 股票未来收益更高，属短期反转。
+
+**2. 与 hypothesis 一致性**：[[directions/ohlc_temporal_aggregation#Hypothesis]] 假设单日 OHLC 被 microstructure noise 淹没，但多日 smoothed/aggregated 版本能 reveal persistent intraday flow patterns。T003 thread 明确问"5d mean(close/high) 测度 intraday close strength；持续 close 接近 high 是 sustained demand，是否 forward-predictive"——本候选是 T003 **对偶形式**（upper shadow = high - close 的 range-normalized 版，与 close/high 强度反向），恰落在 T003 核心问题上。正号 IC 等价于 close/high 低（= close 远离 high）→ 正 forward return，是典型**反转 edge**，与 hypothesis 第 3 条"Trend-following 反向：高 mean body → 已 stretched → 短期反转"机制同构。
+
+**3. 为什么持续**：upper-shadow 反映 sell-side 订单流的持续性，与 Barra short-term reversal (str_1m) 不同——后者测过去收益；前者测过去**收盘位置相对 range 的结构**，分解到 intraday 日内层级。这类 edge 在 A 股持续性来源：散户主导 + 当日涨停/振幅管制造成的系统性 intraday 卖压特征长期存在。
+
+**4. 失效场景**：
+- 涨停板：分母 (high-low) 可能极小甚至 0，5 日连涨停会让信号 denominator-degenerate（coverage 0.9582 体现此已被部分过滤）
+- 低波动窗：intraday range 收缩时 ratio 分辨率下降
+- 强势 momentum regime：持续贴 high 收盘股若进入 earnings cycle，反转机制可能被 earnings drift 淹没
+
+**5. 与近邻差异**：[[factors/F003]] (overnight_gap_normalized, `Div(Sub($open, Ref($close, 1)), Mean($high, 1))`) 捕捉**隔夜跳空**——昨收到今开的 overnight return。本候选捕捉**盘中持续性卖压**——开盘到收盘的 intraday 收盘位置结构，时段正交（overnight vs intraday）、统计正交（max_corr=0.069）。F003 IC=+0.023 / C005 IC=+0.0235 同号巧合，但机制完全不同：F003 的 edge 来自 overnight news processing，C005 来自 intraday flow 惯性。
+
+→ **aligned**
+
+## CP03 Statistical Strength · `borderline`
+
+| 指标 | IS | OOS | 档位 | 阈值 |
+|---|---|---|---|---|
+| IC | 0.0321 | **==0.0235==** | strong | \|x\|>0.015 |
+| ICIR | 0.290 | **==0.192==** | moderate | 0.15–0.30 |
+| ls_t | 0.88 | **==3.20==** | strong | \|x\|>3 |
+| decay (oos/is) | — | 0.73 | mixed | >0.8 stable |
+
+**档位判定**：IC strong + ICIR moderate + ls_t strong → "至少一项 strong 其余 moderate" → **borderline**（若 ICIR 能再高 0.11 到 >0.30 即可升 strong，当前确处临界）。
+
+**Rank-order 验证**：monotonicity_oos = +0.90（|x|≥0.8 → 强单调）。Q1..Q5 OOS 梯度：q1=-0.000784, q2=-0.0000803, q3=+0.000173, q4=+0.000310, q5=+0.000271 → 单调上升（Q5 略低于 Q4 但仍显著正），非"一桨驱动"。ls_mean_oos=+0.00105 由 q5-q1=+0.00106 稳健解释，ls_tstat=3.20 有实体 rank-order 支撑。
+
+**IS/OOS 对比**：IC 从 0.0321 → 0.0235（decay=0.73，OOS 保留 73%）。但 **ls 指标反向增强**：ls_sharpe 从 IS=0.337 升到 OOS=2.304，ls_tstat 从 0.88 升到 3.20——说明 OOS 阶段 long-short spread 更稳定、波动更有序，**并非常见的样本外衰减型因子**。IC ic_win_rate 从 IS=0.648 到 OOS=0.574 略降（仍 >50%）。综合 decay mixed 但 rank-order 和 ls 稳健性 **加分**，未触发 rubric "强 t 但不单调 = 尾部驱动" 警告。
+
+**样本量**：n_days_is=1705, n_days_oos=484（远 >200，统计显著性充足）。
+
+**MT 调整**：`mt_bucket = medium`（原始分 0.4351，family=0.710 主导；direction=0.0 首批贡献；exposure=0.4）；`search_adjusted`: raw=0.8884 → adjusted=0.6951（bucket=medium）。Medium 档允许原档保留——经 search adjustment 后综合分仍在容忍阈值内，borderline 档位符合 MT budget 约束。
+
+→ **borderline**
+
+## CP04 Risk Cleanness · `acceptable`
+
+| 指标 | 值 | 档位 | 阈值 |
+|---|---|---|---|
+| style_r_squared | **==0.1358==** | borderline | clean<0.12 / bord 0.12-0.25 |
+| alpha_survival | **==1.508==** | clean | clean>0.50 (=0.40+0.10) |
+| extreme_ratio | 0.0064 | clean | <0.01 |
+| barra_residual_ic | +0.0354 | — | — |
+| barra_residual_icir | +0.488 | — | — |
+| dominant_style | `vol_20d` | — | — |
+
+**Alpha killer**（按 `style_exposures`，z-score 口径；rubric 要求的 leave-one-out style_contributions 未导出，按 z-stat 前 2-3 大暴露作代理）：
+- `vol_20d`: z=**==14.61==**（头号吞噬者，与全方向系统性一致）
+- `str_1m`: z=**==2.89==**（短期反转；与本因子机制同属反转家族，合理共振）
+- `turnover_20d`: z=1.25（次要）
+
+总体：raw IC=0.0235 → barra_residual_ic=+0.0354（**residual 反而略强于 raw**，survival_ratio=1.508）。这是一个**关键信号**：alpha 不被 vol_20d 吞噬，反而在 residual 空间放大——说明本因子与 vol_20d 在 cross-section 上**近似正交**，vol_20d 的暴露只是 noise / 小幅反号贡献，剥掉后 residual 保留清洁 alpha。下轮若做 orthogonalize，对 `vol_20d` 做中性化主要是消除 style 暴露披露，对 IC 贡献可能中性偏正。
+
+**档位判定**：style_r² borderline（0.1358 轻微越过 0.12 下界）；alpha_surv clean（1.508 >> 0.50）；extreme_ratio clean（0.0064 < 0.01）。一项 borderline 两项 clean → **acceptable**。
+
+**反思**：本候选是首批体现"Barra-absorbed 载体"反例的——dominant_style=vol_20d 的因子大多会被 vol_20d 吞噬成 survival<0.50，但 C005 因为机制（intraday upper-shadow structure）本身 orthogonal 于 realized vol，survival 反而 >1.0，属风格空间**独立载体**。
+
+→ **acceptable**
+
+## CP05 Redundancy · `low`
+
+- `max_lib_corr` = **==0.0694==** → low 档（<0.30）
+- `is_near_duplicate` = false（硬闸未触发）
+- nearest = [[factors/F003]]（`Div(Sub($open, Ref($close, 1)), Mean($high, 1))`, overnight gap 机制）
+- `incremental_ic` = **==0.0305==**（远 >0.005，**强库增值**）
+- 全库相关一览：F001=-0.036, F002=-0.063, F003=+0.069, F004=+0.001, F005=+0.001 — **均 |x|<0.08**，本候选几乎与 5 因子库完全正交
+
+→ **low**。admit 增值：incremental_ic=0.031 是**库增值最强的候选之一**——当前 5 因子库主要覆盖 amount volatility (F001), pb/amount interaction (F002), overnight gap (F003)，缺乏 **intraday persistent flow structure** 维度；C005 开辟新机制维度，与 F003 (overnight) 时段正交且 corr 仅 0.069，清晰扩展库的信号空间。
+
+## CP06 Validation Stability · `mixed`
+
+| 指标 | 值 | 档位 |
+|---|---|---|
+| sign_consistency | **==1.0==** | stable |
+| train_validation_decay | **==0.7303==** | mixed (0.5-0.8) |
+
+**时序稳健**：
+- `ic_autocorr_lag1` = **+0.044**（|x| < 0.15 → IC 日独立，ICIR 置信高，未被 momentum-like autocorr 放大）
+- `cum_ic_max_drawdown` = **==-3.46==**（**极浅**，库中最浅之一——对比 C001=-105.7, C002=-82.2, C003=-77.1, C004=-6.98；C005 仅 -3.46，累计 IC 几乎单调上升）
+- `worst_quarter_ic` = -0.006 / `best_quarter_ic` = +0.064（worst 几乎贴零，同号 failure 极轻微；|best|/|worst| = 10.8 代表稳定正向）
+- `ic_by_year`：2015=+0.025, 2016=+0.036, 2017=+0.033, 2018=+0.046, 2019=+0.044, 2020=+0.017, 2021=+0.024, 2022=+0.027, 2023=+0.020 — **9 年全正**，无衰减但 2020+ 略有 level shift（从 0.04 降到 0.02）表明 edge 仍在但幅度温和
+- `split_ic_means` = [0.010, 0.044, 0.013, 0.026]，`split_dispersion` = 0.572（边缘健康，<0.6；4 split 全正同号）
+
+**档位判定**：sign stable + decay mixed → **mixed**。辅助项全健康（cum_ic_mdd 超浅、ic_by_year 全正同号、ic_autocorr 独立、worst_quarter 几乎贴零），不再下调档位。
+
+**reflection**：decay=0.73 主要由 IS 基准高（0.032）带来的相对衰减，**不是 OOS 样本不稳定**——证据是 ls_tstat 从 IS=0.88 强烈升至 OOS=3.20，OOS 稳定性其实显著优于 IS。将 decay=0.73 判 mixed 是 rubric 机械标尺，在本因子语境下是"IS 基准偏保守而 OOS 表现超预期"的体现。
+
+→ **mixed**
+
+---
+
+## 错杀侦测（subagent 主动过）
+
+rubric 提供的"错杀侦测 flag"逐条核对（用于防过度 reject，本候选 verdict=admit，仅作自检）：
+- max_lib_corr < 0.30 ✓（0.069）
+- incremental_ic > 0.010 ✓（0.031）
+- monotonicity_oos |x| ≥ 0.80 ✓（0.90）
+- sign_consistency = 1.0 ✓
+- cum_ic_max_drawdown 比库中位数更浅 ✓（-3.46 vs 库中位数远深）
+- nearest IC 符号：F003=+0.023 与 C005=+0.0235 **同号**（此条是**符号互补**检查——同号本应扣分，但在 empty/small library 且机制正交的前提下可放宽；此处 max_corr=0.069 且时段正交，实质是独立载体而非符号重复）
+
+结论：无"潜在错杀"旗标——verdict=admit 方向正确、无矛盾。
+
+---
+
+> [!success]+ Verdict: ADMIT
+> **核心理由**：
+> 1. **机制清晰**，命中 T003 thread 核心问题（intraday close-position 持续性信号）且与 hypothesis 一致；
+> 2. **统计强度 borderline 但稳健**——IC strong (0.0235) + ls_t strong (3.20) + monotonicity_oos=0.90 + 全样本量充足；OOS ls 指标反而强于 IS，非典型衰减型；
+> 3. **风险 acceptable**——style_r² 轻微 borderline，但 alpha_survival=1.508 清洁放大 (residual > raw)，barra_residual_icir=0.488 证明是风格空间独立载体；
+> 4. **库增值显著**——max_corr=0.069 + incremental_ic=0.031，开辟"intraday persistent flow structure"新维度，与现有 F001-F005 机制完全正交；
+> 5. **时序稳定**——sign_consistency=1.0，cum_ic_mdd=-3.46（库中最浅），ic_by_year 9 年全正。
+>
+> **风险旗标**：
+> - CP03 档位 `borderline`：ICIR_oos=0.192 属 moderate (<0.30)，为主要降档点；ls_tstat=3.20 和 mono=0.90 提供支撑。MT bucket=medium 允许保留该档。
+> - CP04 style_r²=0.136 轻微 borderline：dominant_style=vol_20d，z-stat=14.6。但 alpha_survival=1.508 证明 alpha 不被 vol_20d 吞噬，是载体正交而非共线——属"已知风险已被证伪"类别。
+> - CP06 档位 `mixed`：train_validation_decay=0.73（mixed 档 0.5-0.8）。但 OOS ls_tstat 反向增强 (0.88→3.20)，ic_by_year 9 年全正，cum_ic_mdd=-3.46 极浅——mixed 档位是 rubric 机械判定，实质稳定性优于档位。
+> - 隔离的"同号近邻"提示：F003 IC 同号 (+0.023 vs +0.0235)，但机制完全正交（intraday vs overnight），max_corr=0.069，非符号重复。
+>
+> F{id} 由 Phase 4 分配，本文件 frontmatter `factor_id: null`。
+
+## Detailed Metrics
+
+All numeric fields from Phase 2 / Phase 3 for this candidate. Tables in the report should cite these directly — do not mark fields as `—` if they appear below.
+
+```yaml
+metrics:
+  cp03:
+    ic_oos: 0.02347249869491471
+    icir_oos: 0.1922356028147679
+    ls_tstat_oos: 3.1963
+    ic_is: 0.032140536526649534
+    icir_is: 0.2902524667164636
+    ic_std_is: 0.11073303489973912
+    ic_std_oos: 0.12210276531102338
+    n_days_is: 1705
+    n_days_oos: 484
+    ic_win_rate_is: 0.6475073313782991
+    ic_win_rate_oos: 0.5743801652892562
+    monotonicity_is: 0.8999999999999998
+    monotonicity_oos: 0.8999999999999998
+    quintile_returns_is:
+      q1: 0.0003489046066533774
+      q2: 0.00037909846287220716
+      q3: 0.0006164751830510795
+      q4: 0.0006559837493114173
+      q5: 0.0006250081933103502
+    quintile_returns_oos:
+      q1: -0.0007840284379199147
+      q2: -8.025572606129572e-05
+      q3: 0.00017258866864722222
+      q4: 0.00030991120729595423
+      q5: 0.0002714924339670688
+    ls_mean_is: 0.00018087766492395194
+    ls_mean_oos: 0.0010494462173881417
+    ls_sharpe_oos: 2.304
+    ls_sortino_oos: 3.8336
+    ls_calmar_oos: 2.1312
+    ls_max_dd_oos: -0.1241
+    ls_sharpe_is: 0.3374
+    ls_tstat_is: 0.8778
+    ls_max_dd_is: -0.4888
+    ic_by_horizon:
+      1:
+        ic_is: 0.032140536526649534
+        icir_is: 0.2902524667164636
+        win_rate_is: 0.6475073313782991
+        ic_oos: 0.02347249869491471
+        icir_oos: 0.1922356028147679
+        win_rate_oos: 0.5743801652892562
+      3:
+        ic_is: 0.026688705325199798
+        icir_is: 0.2540535461823747
+        win_rate_is: 0.5964809384164222
+        ic_oos: 0.015124936157670217
+        icir_oos: 0.13419658923889333
+        win_rate_oos: 0.5785123966942148
+      5:
+        ic_is: 0.020957120031146408
+        icir_is: 0.2068688041197106
+        win_rate_is: 0.5665689149560117
+        ic_oos: 0.012529070164187653
+        icir_oos: 0.11306713309136406
+        win_rate_oos: 0.5578512396694215
+      10:
+        ic_is: 0.012826279715665934
+        icir_is: 0.1296281925969076
+        win_rate_is: 0.5260997067448681
+        ic_oos: 0.013169790678061063
+        icir_oos: 0.1171608617954391
+        win_rate_oos: 0.5165289256198347
+      20:
+        ic_is: 0.013963025287127874
+        icir_is: 0.14556544456096177
+        win_rate_is: 0.5284457478005865
+        ic_oos: 0.013924264168901742
+        icir_oos: 0.12133368984084165
+        win_rate_oos: 0.5454545454545454
+  cp04:
+    style_r_squared: 0.13578798230056444
+    alpha_survival_ratio: 1.5081
+    alpha_surv_min_threshold: 0.4
+    extreme_ratio: 0.006443
+    barra_residual_ic: 0.035398
+    barra_residual_icir: 0.487557
+    dominant_style_exposure: vol_20d
+    style_crowding_risk: medium
+    style_exposures:
+      log_circ_cap: 0.10618177190461507
+      book_to_price: 0.2660740302151545
+      mom_12_1: 0.18192219555471817
+      str_1m: 2.890665063850016
+      vol_20d: 14.613509457083373
+      turnover_20d: 1.2516682810070214
+      ep_ratio: 0.4124771033480513
+    distribution_skew: -0.2501
+    distribution_kurt: 0.7617
+    distribution_zero_ratio: 0.0
+  cp05:
+    max_lib_corr: 0.0694
+    is_near_duplicate: false
+    incremental_ic: 0.030522
+    nearest_factor_id: F003
+    nearest_factor_expression: Div(Sub($open, Ref($close, 1)), Mean($high, 1))
+    all_correlations:
+      F001: -0.0357682921735732
+      F002: -0.06271093411310341
+      F003: 0.069355144955541
+      F004: 0.0013246156963194614
+      F005: 0.0013246156963194614
+    exceeds_threshold: false
+  cp06:
+    sign_consistency: 1.0
+    train_validation_decay: 0.7303
+    sign_consistent: true
+    ic_by_year:
+      2015: 0.024510918316797248
+      2016: 0.036360149521691025
+      2017: 0.032857102591382505
+      2018: 0.04551201113959528
+      2019: 0.04403342018295829
+      2020: 0.017440032719277434
+      2021: 0.024232263418523015
+      2022: 0.027178034534695687
+      2023: 0.019766962855133737
+    worst_quarter_ic: -0.005949
+    best_quarter_ic: 0.064457
+    ic_autocorr_lag1: 0.044
+    cum_ic_max_drawdown: -3.45506
+    split_ic_means:
+    - 0.010066031833133976
+    - 0.0442900372362574
+    - 0.013428529192820768
+    - 0.026105396517446703
+    split_dispersion: 0.5719
+    n_splits: 4
+  feasibility:
+    turnover_mean: 1.4262356317066849
+    liquidity_coverage: 0.7207930804255275
+    tail_concentration: 0.007228440397301761
+    small_cap_concentration: 0.29466348450975777
+    signal_half_life: 3.0
+    signal_autocorr_lag1: 0.7789
+    rebalance_stress:
+      value: 0.01430293871607855
+      rebalance_stress_bucket: medium
+    ic_half_life_days: 8.0051
+mt_budget:
+  score: 0.4351
+  bucket: medium
+  terms:
+    family: 0.7102305367021408
+    direction: 0.0
+    exposure: 0.4
+  search_adjusted:
+    raw: 0.8884
+    adjusted: 0.6951
+    bucket: medium
+hard_gate:
+  passed: true
+  reasons: []
+  gate_results:
+    compute_error:
+      passed: true
+    forbidden:
+      passed: true
+    coverage:
+      passed: true
+      value: 0.9582
+      threshold: 0.8
+    sign_flip:
+      passed: true
+      train_ic: 0.032140536526649534
+      val_ic: 0.02347249869491471
+    ic_oos_min:
+      passed: true
+      value: 0.02347249869491471
+      threshold: 0.008
+    oos_decay:
+      passed: true
+      value: 0.7303
+      threshold: 0.2
+    mono_flip:
+      passed: true
+      train: 0.8999999999999998
+      validation: 0.8999999999999998
+      min_magnitude: 0.5
+    near_duplicate:
+      passed: true
+      max_corr: 0.0694
+      nearest: F003
+coverage: 0.9582
+expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 5)
+```
+
+## Available Charts
+
+The following PNG charts exist in `vault/factors/F006/` and may be embedded via `![[F006/<name>.png]]`. **Do not embed any chart name that is not on this list** — the file would not exist.
+
+- `ic_timeseries`
+- `rolling_ic`
+- `ic_distribution`
+- `monthly_heatmap`
+- `quintile_bar`
+- `cumulative_returns`
+- `annual_group_returns`
+- `style_exposure_bar`
+- `alpha_waterfall`
+- `stability_panel`
+- `ic_decay`
+- `factor_distribution`
+- `coverage`
+- `correlation_bar`
+- `radar`
+
+## Instructions
+
+Write a deep analytical report on `F006`. Cover the economic mechanism, the validation evidence, the risk cleanness, and the library positioning. Use only the information in this packet — do not open other files, call Qlib, or reach the DB. Embed only charts listed in the **Available Charts** section (skip any section whose chart is unavailable). Output path: `vault/factors/F006.md`.
+

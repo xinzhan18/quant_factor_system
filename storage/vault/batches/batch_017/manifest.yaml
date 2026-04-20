@@ -1,0 +1,48 @@
+batch_id: batch_017
+round: 16
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: 首批 5 DSL 候选探索多日 OHLC 聚合 patterns. 单日 body/shadow 已在 intraday_price_formation
+  全 mono_sign_flip——本批测试 smoothed (5d/20d mean) 版本是否 reveal persistent intraday flow。同时测
+  close-strength (close/high) 和 sign-frequency 路径。目标 ≥1 admit；首批失败则方向 dead。
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T18:19:12Z'
+frozen_at: '2026-04-20T18:19:12Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($close, $open), $close), 5)
+  canonical: Mean(Div(Sub($close,$open),$close),5)
+  rationale: 'T001: 5d mean of signed body ratio (close-open)/close. Tests if smoothing
+    removes single-day noise.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub($close, $open), $close), 20)
+  canonical: Mean(Div(Sub($close,$open),$close),20)
+  rationale: 'T001: 20d mean of signed body. Longer aggregation tests trend persistence.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Sign(Sub($close, $open)), 5)
+  canonical: Mean(Sign(Sub($close,$open)),5)
+  rationale: 'T002: 5d mean of sign(close-open) = bullish bar frequency. Discrete
+    signal less affected by magnitude noise.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Div($close, $high), 5)
+  canonical: Mean(Div($close,$high),5)
+  rationale: 'T003: 5d mean of close/high — sustained demand signal (high values =
+    consistent close near day high).'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 5)
+  canonical: Mean(Div(Sub($high,$close),Sub($high,$low)),5)
+  rationale: 'T003 inverse: 5d mean of upper-shadow ratio (high-close)/(high-low).
+    High values = consistent selling pressure near top.'
