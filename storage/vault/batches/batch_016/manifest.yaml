@@ -1,0 +1,51 @@
+batch_id: batch_016
+round: 15
+direction: return_distribution_signals
+direction_md_ref: vault/directions/return_distribution_signals.md
+batch_goal: '首批 5 DSL 候选探索 return 分布高阶矩 (skew/kurt/qrange) on $close-derived 1d returns，窗口
+  20/60d。Hypothesis: 三/四阶矩在 Barra 7-style 之外构成新 cross-sectional 维度，绕过 barra_residual_alpha
+  的 vol_20d 饱和。目标 ≥1 admit。'
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T17:58:08Z'
+frozen_at: '2026-04-20T17:58:08Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsSkew(Div(Delta($close, 1), Ref($close, 1)), 20)
+  canonical: TsSkew(Div(Delta($close,1),Ref($close,1)),20)
+  rationale: 'T001 baseline: 20d realized skewness of 1d returns. Lottery-preference
+    anomaly predicts negative IC (high skew → underperform).'
+- candidate_id: C002
+  source_type: dsl
+  expression: TsSkew(Div(Delta($close, 1), Ref($close, 1)), 60)
+  canonical: TsSkew(Div(Delta($close,1),Ref($close,1)),60)
+  rationale: 'T001 longer window: 60d realized skewness. Tests stability of skew-anomaly
+    across horizons.'
+- candidate_id: C003
+  source_type: dsl
+  expression: TsKurt(Div(Delta($close, 1), Ref($close, 1)), 20)
+  canonical: TsKurt(Div(Delta($close,1),Ref($close,1)),20)
+  rationale: 'T002 baseline: 20d realized kurtosis (fat tail signal). Sign ambiguous
+    a priori — risk premium or anomaly.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(Quantile(Div(Delta($close, 1), Ref($close, 1)), 20, 0.9), Quantile(Div(Delta($close,
+    1), Ref($close, 1)), 20, 0.1))
+  canonical: Sub(Quantile(Div(Delta($close,1),Ref($close,1)),20,0.9),Quantile(Div(Delta($close,1),Ref($close,1)),20,0.1))
+  rationale: 'T003: 20d Q90-Q10 of returns as robust volatility proxy. Tests if quantile
+    range carries info beyond std (vol_20d).'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(TsSkew(Div(Delta($close, 1), Ref($close, 1)), 20), Std(Div(Delta($close,
+    1), Ref($close, 1)), 20))
+  canonical: Mul(Std(Div(Delta($close,1),Ref($close,1)),20),TsSkew(Div(Delta($close,1),Ref($close,1)),20))
+  rationale: 'T001+T002 interaction: skew × vol — captures co-skewness (skew weighted
+    by total risk magnitude). Standard equity premium signal.'
