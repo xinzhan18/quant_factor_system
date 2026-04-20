@@ -1,0 +1,21 @@
+factor_id: F009
+name: overnight_intraday_spread_5d
+family_tag: overnight_intraday_split
+source_type: dsl
+admitted_at: '2026-04-20T22:21:35Z'
+admitted_in_batch: batch_025
+status: active
+diagnostics_ref: cache/batch_diagnostics/batch_025/C001
+direction: overnight_intraday_split
+expression: Mean(Sub(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close,
+  $open), $open)), 5)
+canonical: Mean(Sub(Div(Sub($open,Ref($close,1)),Ref($close,1)),Div(Sub($close,$open),$open)),5)
+validation_metrics:
+  ic_mean: 0.04728489487665639
+  ic_ir: 0.4075200526200221
+  ic_win_rate: 0.6508264462809917
+  monotonicity: 0.9999999999999999
+  long_short_mean: 0.0017461215340953767
+risk_metrics:
+  style_r_squared: 0.14027813486883922
+  alpha_survival_ratio: 0.9254

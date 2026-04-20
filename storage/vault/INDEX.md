@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T22:11:14Z
-round: 23
-total_active_directions: 7
-total_factors_admitted: 8
-last_batch: batch_023
+generated_at: 2026-04-20T22:23:18Z
+round: 24
+total_active_directions: 8
+total_factors_admitted: 10
+last_batch: batch_024
 last_consolidation_round: null
 ---
 
@@ -72,6 +72,8 @@ last_consolidation_round: null
 - [[factors/F006|upper_shadow_persistence_5d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.192, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 5)`
 - [[factors/F007|open_position_persistence_5d]] `B` · ohlc_temporal_aggregation · ICIR_oos=0.336, Mono=0.90 · `Mean(Div(Sub($open, $low), Sub($high, $low)), 5)`
 - [[factors/F008|upper_shadow_persistence_3d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.233, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 3)`
+- [[factors/F009|overnight_intraday_spread_5d]] · overnight_intraday_split · ICIR_oos=0.408, Mono=1.00 · `Mean(Sub(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close, $open), $open)), 5)`
+- [[factors/F010|overnight_return_persistence_5d]] · overnight_intraday_split · ICIR_oos=0.396, Mono=1.00 · `Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 5)`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -88,6 +90,7 @@ last_consolidation_round: null
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | liquidity_acceleration | exploring | medium | 1 | 0 | 2 | batch_023 |
 | ohlc_temporal_aggregation | saturated | medium | 5 | 3 | 1 | batch_021 |
+| overnight_intraday_split | productive | high | 1 | 2 | 1 | batch_025 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
@@ -95,8 +98,8 @@ last_consolidation_round: null
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 8 |
-| Current round | 23 |
+| Total factors admitted | 10 |
+| Current round | 24 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
