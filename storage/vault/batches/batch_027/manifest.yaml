@@ -1,0 +1,31 @@
+batch_id: batch_027
+round: 26
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 'Round 3: intraday return 5d/3d mean mirror of F010/F011 overnight。测 intraday
+  段是否与 overnight 段正交、产独立 alpha；若 admit，overnight+intraday 两段同时入库形成完整分解。'
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T22:36:04Z'
+frozen_at: '2026-04-20T22:36:04Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($close, $open), $open), 5)
+  canonical: Mean(Div(Sub($close,$open),$open),5)
+  rationale: 5d intraday return mean — F010 overnight 对应 intraday 镜像
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub($close, $open), $open), 3)
+  canonical: Mean(Div(Sub($close,$open),$open),3)
+  rationale: 3d intraday return mean — F011 overnight 对应 intraday 镜像
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($close, $open), $open), Log($volume)), 5)
+  canonical: Mean(Mul(Div(Sub($close,$open),$open),Log($volume)),5)
+  rationale: 5d mean(intraday × log volume) — volume-weighted intraday
