@@ -1,0 +1,34 @@
+batch_id: batch_026
+round: 25
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 'Round 2: F010 3d/10d overnight ablation (验 window sweet spot) + overnight
+  × intraday 5d product。F009/F010 刚 admit，探索 window variants 和 cross-product 变体。'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T22:25:13Z'
+frozen_at: '2026-04-20T22:25:13Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 3)
+  canonical: Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),3)
+  rationale: 'T001 ablation: 3d overnight mean — F010 window variant (与 F008 对 F006
+    的 3d ablation 同源 pattern)。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 10)
+  canonical: Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),10)
+  rationale: 'T001 ablation: 10d overnight mean — 测 sweet spot 上界。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close,
+    $open), $open)), 5)
+  canonical: Mean(Mul(Div(Sub($close,$open),$open),Div(Sub($open,Ref($close,1)),Ref($close,1))),5)
+  rationale: 'T002: 5d mean(overnight × intraday) product — 两段同向 vs 反向 signal。'
