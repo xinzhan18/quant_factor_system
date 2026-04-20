@@ -1,0 +1,40 @@
+batch_id: batch_019
+round: 18
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: Round 3：探索 5d OHLC aggregation 剩余维度——range 演化、流动性调整 range、volume-weighted
+  body、强势 follow-through count。F006/F007 已覆盖 close/open 端；本批测 range/volume 维度是否独立。
+active_threads_referenced:
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T18:59:17Z'
+frozen_at: '2026-04-20T18:59:17Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($high, $low), Ref(Sub($high, $low), 1)), 5)
+  canonical: Mean(Div(Sub($high,$low),Ref(Sub($high,$low),1)),5)
+  rationale: 5d mean range expansion ratio (today's range / yesterday's range). 持续扩张
+    = sustained vol regime change → forward-predictive？
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub($high, $low), $amount), 5)
+  canonical: Mean(Div(Sub($high,$low),$amount),5)
+  rationale: 5d mean illiquidity-adjusted range. 同样 range 但成交额小 = 非流动性 → 价格可能扭曲。
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($close, $open), $close), Log($volume)), 5)
+  canonical: Mean(Mul(Div(Sub($close,$open),$close),Log($volume)),5)
+  rationale: 5d mean signed-body × log(volume) = volume-weighted intraday direction.
+    大成交伴随的方向比小成交更 informative。
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Gt(Div(Sub($close, $low), Sub($high, $low)), 0.9), 5)
+  canonical: Mean(Gt(Div(Sub($close,$low),Sub($high,$low)),0.9),5)
+  rationale: 5d count of 'close near high' days (>90% of range). discrete follow-through
+    频率信号。
