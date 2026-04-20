@@ -2,17 +2,20 @@
 direction_tag: ohlc_temporal_aggregation
 status: productive
 priority: high
-rounds: 3
-admits: 2
-last_batch: batch_019
-last_admits: []
-last_goal: Round 3：探索 5d OHLC aggregation 剩余维度——range 演化、流动性调整 range、volume-weighted
-  body、强势 follow-through count。F006/F007 已覆盖 close/open 端；本批测 range/volume 维度是否独立。
-last_activity: '2026-04-20T19:11:46Z'
+rounds: 4
+admits: 3
+last_batch: batch_020
+last_admits:
+- F008
+last_goal: Round 4：window ablation (3d/10d upper-shadow 验 5d sweet spot) + 跨日 patterns
+  (engulfing-like body sign agreement / gap-up frequency) + Donchian channel position
+  (close in 20d high-low range)。若 0 admit → direction saturated。
+last_activity: '2026-04-20T19:35:32Z'
 created_batch: batch_017
 members:
 - F006
 - F007
+- F008
 retired_members: []
 merged_into: null
 ---
@@ -56,7 +59,9 @@ Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mon
 - [[batches/batch_018/candidates/C003|batch_018 C003]]: Mean((open-low)/range, 5) → ic=+0.037 ls_t=3.22 mono=+0.90 alpha_surv=0.637 incr_ic=+0.023 cum_dd=-1.5 → **admit → open_position_persistence_5d (F007)**
 - [[batches/batch_018/candidates/C004|batch_018 C004]]: Mean(signed_range, 5) → max_corr=0.544@F006 + incr_ic=-0.039 + cum_dd=-103 → reject
 - [[batches/batch_018/candidates/C005|batch_018 C005]]: Mean(|gap|/range, 5) → alpha_surv=0.164 catastrophic → reject
-**Conclusion**: OHLC 5d aggregation 至少 2 个独立维度——close 端 (F006 upper-shadow) + open 端 (F007 open-position)，max_corr=0.276 完全机制正交。Magnitude-only paths 全部 fail（C002/C005 alpha-surv catastrophic）。Algebraic mirrors (C001) trigger near_dup hard_gate。**OHLC 信号预测力来自方向性比值不是 magnitude**。
+- [[batches/batch_020/candidates/C001|batch_020 C001]]: Mean(upper-shadow, 3) → ic=+0.029 ls_t=2.91 mono=+0.90 alpha_surv=1.268 incr_ic=+0.022 max_corr=0.758@F006 → **admit → upper_shadow_persistence_3d (F008)** (high-corr admit 先例)
+- [[batches/batch_020/candidates/C002|batch_020 C002]]: Mean(upper-shadow, 10) → mono_sign_flip IS=-0.60 OOS=+0.90 → reject (10d 跨 phase 反转，确认 5d sweet spot 上界)
+**Conclusion**: OHLC aggregation 至少 3 个独立 admit——close 端 5d (F006) + open 端 5d (F007) + close 端 3d phase variant (F008)。Window range [3d, 5d] 有效，10d 反转。Magnitude-only paths 全部 fail。Algebraic mirrors trigger near_dup。**OHLC 信号预测力来自方向性比值不是 magnitude；window 在 3d-5d 之间稳定**。
 
 ## Known Failures
 - C001 (batch_017): 5d signed body — incr_ic=-0.050 库 reducer + cum_dd=-105 整库最深

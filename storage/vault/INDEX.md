@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T19:11:46Z
-round: 18
+generated_at: 2026-04-20T19:35:32Z
+round: 19
 total_active_directions: 6
-total_factors_admitted: 7
-last_batch: batch_018
+total_factors_admitted: 8
+last_batch: batch_019
 last_consolidation_round: null
 ---
 
@@ -68,6 +68,7 @@ last_consolidation_round: null
 - [[factors/F004|barra_residual_return]] `B` · barra_residual_alpha · ICIR_oos=0.293, Mono=1.00
 - [[factors/F006|upper_shadow_persistence_5d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.192, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 5)`
 - [[factors/F007|open_position_persistence_5d]] `B` · ohlc_temporal_aggregation · ICIR_oos=0.336, Mono=0.90 · `Mean(Div(Sub($open, $low), Sub($high, $low)), 5)`
+- [[factors/F008|upper_shadow_persistence_3d]] · ohlc_temporal_aggregation · ICIR_oos=0.233, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 3)`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -81,15 +82,15 @@ last_consolidation_round: null
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
 | barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
-| ohlc_temporal_aggregation | productive | high | 3 | 2 | 1 | batch_019 |
+| ohlc_temporal_aggregation | productive | high | 4 | 3 | 1 | batch_020 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 7 |
-| Current round | 18 |
+| Total factors admitted | 8 |
+| Current round | 19 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
