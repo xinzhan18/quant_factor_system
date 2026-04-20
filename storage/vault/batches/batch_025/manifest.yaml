@@ -1,0 +1,38 @@
+batch_id: batch_025
+round: 24
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 首批 3 DSL 测 overnight vs intraday return 分解。overnight = (open-Ref(close,1))/Ref(close,1)；intraday
+  = (close-open)/open。测 spread / ratio / 5d corr。
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T22:12:38Z'
+frozen_at: '2026-04-20T22:12:38Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Sub(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close,
+    $open), $open)), 5)
+  canonical: Mean(Sub(Div(Sub($open,Ref($close,1)),Ref($close,1)),Div(Sub($close,$open),$open)),5)
+  rationale: 'T001: 5d mean(overnight return - intraday return) spread. 正值=overnight
+    强 intraday 弱；负值反之。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 5)
+  canonical: Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)
+  rationale: baseline pure overnight return 5d mean. 与 F003 (overnight gap normalized
+    by high) 比较。
+- candidate_id: C003
+  source_type: dsl
+  expression: Corr(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close,
+    $open), $open), 20)
+  canonical: Corr(Div(Sub($open,Ref($close,1)),Ref($close,1)),Div(Sub($close,$open),$open),20)
+  rationale: 'T003: 20d correlation between overnight and intraday returns. 正 corr=趋势延续；负
+    corr=日内反转隔夜 pattern。'
