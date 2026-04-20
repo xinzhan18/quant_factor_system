@@ -2,19 +2,19 @@
 direction_tag: overnight_intraday_split
 status: productive
 priority: high
-rounds: 1
-admits: 2
-last_batch: batch_025
+rounds: 2
+admits: 3
+last_batch: batch_026
 last_admits:
-- F009
-- F010
-last_goal: 首批 3 DSL 测 overnight vs intraday return 分解。overnight = (open-Ref(close,1))/Ref(close,1)；intraday
-  = (close-open)/open。测 spread / ratio / 5d corr。
-last_activity: '2026-04-20T22:23:18Z'
+- F011
+last_goal: 'Round 2: F010 3d/10d overnight ablation (验 window sweet spot) + overnight
+  × intraday 5d product。F009/F010 刚 admit，探索 window variants 和 cross-product 变体。'
+last_activity: '2026-04-20T22:34:25Z'
 created_batch: batch_025
 members:
 - F009
 - F010
+- F011
 retired_members: []
 merged_into: null
 ---

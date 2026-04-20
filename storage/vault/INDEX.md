@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T22:23:18Z
-round: 24
+generated_at: 2026-04-20T22:34:25Z
+round: 25
 total_active_directions: 8
-total_factors_admitted: 10
-last_batch: batch_024
+total_factors_admitted: 11
+last_batch: batch_025
 last_consolidation_round: null
 ---
 
@@ -38,8 +38,8 @@ last_consolidation_round: null
 ### [[directions/fundamental_momentum|基本面变化率]] `dead` `low` 🆕
 首批 [[batches/batch_022/judge|batch_022]] 即 dead：4 候选 PE/PB/PS rate 全 weak (ls_t -1.22 to -1.81<2) + r² poor (0.31-0.81) + 全 library reducer。**fundamental rate hypothesis 直接证伪**。
 
-### [[directions/overnight_intraday_split|隔夜/日内分解]] `productive` `high` 🆕
-首批 [[batches/batch_025/judge|batch_025]] **DOUBLE ADMIT**：F009 overnight_intraday_spread_5d (ic=+0.047 ls_t=5.18 incr=+0.044) + F010 overnight_return_persistence_5d (**ls_t=7.50 整库最强** incr=+0.019)；C003 corr sign_flip reject。admit 率 67%。**overnight 段独立 cross-section 维度**——机构 pre-market 决策 + 隔夜信息集中释放。
+### [[directions/overnight_intraday_split|隔夜/日内分解]] `productive` `medium` 🆕
+2 batches，6 候选 → **3 admit** (F009/F010/F011) + 1 reserve + 2 reject。admit 率 50%。[[batches/batch_026/judge|batch_026]] F011 3d overnight_return_persistence admit (ls_t=7.98 整库第 2 强)；C002 10d reserve 库 bloat；C003 product form 破坏 mono。overnight 家族已占库 4 slot 达到 bloat 上限，priority 降至 medium。
 
 ## 最近 Batch
 
@@ -75,8 +75,9 @@ last_consolidation_round: null
 - [[factors/F006|upper_shadow_persistence_5d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.192, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 5)`
 - [[factors/F007|open_position_persistence_5d]] `B` · ohlc_temporal_aggregation · ICIR_oos=0.336, Mono=0.90 · `Mean(Div(Sub($open, $low), Sub($high, $low)), 5)`
 - [[factors/F008|upper_shadow_persistence_3d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.233, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 3)`
-- [[factors/F009|overnight_intraday_spread_5d]] · overnight_intraday_split · ICIR_oos=0.408, Mono=1.00 · `Mean(Sub(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close, $open), $open)), 5)`
+- [[factors/F009|overnight_intraday_spread_5d]] `B` · overnight_intraday_split · ICIR_oos=0.408, Mono=1.00 · `Mean(Sub(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close, $open), $open)), 5)`
 - [[factors/F010|overnight_return_persistence_5d]] · overnight_intraday_split · ICIR_oos=0.396, Mono=1.00 · `Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 5)`
+- [[factors/F011|overnight_return_persistence_3d]] · overnight_intraday_split · ICIR_oos=0.422, Mono=1.00 · `Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 3)`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -93,7 +94,7 @@ last_consolidation_round: null
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | liquidity_acceleration | exploring | medium | 1 | 0 | 2 | batch_023 |
 | ohlc_temporal_aggregation | saturated | medium | 5 | 3 | 1 | batch_021 |
-| overnight_intraday_split | productive | high | 1 | 2 | 1 | batch_025 |
+| overnight_intraday_split | productive | high | 2 | 3 | 1 | batch_026 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
@@ -101,8 +102,8 @@ last_consolidation_round: null
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 10 |
-| Current round | 24 |
+| Total factors admitted | 11 |
+| Current round | 25 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
