@@ -1,0 +1,20 @@
+factor_id: F007
+name: open_position_persistence_5d
+family_tag: ohlc_temporal_aggregation
+source_type: dsl
+admitted_at: '2026-04-20T18:57:04Z'
+admitted_in_batch: batch_018
+status: active
+diagnostics_ref: cache/batch_diagnostics/batch_018/C003
+direction: ohlc_temporal_aggregation
+expression: Mean(Div(Sub($open, $low), Sub($high, $low)), 5)
+canonical: Mean(Div(Sub($open,$low),Sub($high,$low)),5)
+validation_metrics:
+  ic_mean: 0.03651552961033129
+  ic_ir: 0.33604260219695026
+  ic_win_rate: 0.6198347107438017
+  monotonicity: 0.8999999999999998
+  long_short_mean: 0.0009973597329654461
+risk_metrics:
+  style_r_squared: 0.11854232573506751
+  alpha_survival_ratio: 0.6366

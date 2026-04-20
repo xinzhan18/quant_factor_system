@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T18:40:56Z
-round: 16
+generated_at: 2026-04-20T18:58:15Z
+round: 17
 total_active_directions: 6
-total_factors_admitted: 6
-last_batch: batch_016
+total_factors_admitted: 7
+last_batch: batch_017
 last_consolidation_round: null
 ---
 
@@ -33,10 +33,11 @@ last_consolidation_round: null
 首批 [[batches/batch_016/judge|batch_016]] 即 dead：5 候选全 reject (skew 20d/60d/×vol + kurt 20d + Q90-Q10)。**核心证伪**：higher-order moments (skew/kurt/Q-range) 在 cross-section 都 collapse 到 vol_20d——alpha_surv 0.008-0.177 远低 threshold。C004 mono=-0.9 ls_t=-2.28 看似强但 alpha_surv=0.008 暴露其本质 ≡ vol_20d monotone 变换。
 
 ### [[directions/ohlc_temporal_aggregation|多日 OHLC 聚合]] `productive` `high` 🆕
-首批 [[batches/batch_017/judge|batch_017]] 即 admit：**C005 → upper_shadow_persistence_5d (Mean(upper-shadow ratio, 5))**。alpha_surv=1.508 + incr_ic=+0.031 + cum_dd=-3.5（库内最浅）+ 9 年 IC 全正。C003 reserve (sign-frequency 镜像)；C001/C002/C004 reject。**4 轮 0-admit 之后的关键突破**——5d 窗口是 OHLC 信号 sweet spot；alpha_survival 是新关键判别量（区分"独立载体"vs "vol_20d 衍生"）。
+连续 2 batches 各 1 admit：[[batches/batch_017/judge|batch_017]] **F006 upper_shadow_persistence_5d** + [[batches/batch_018/judge|batch_018]] **F007 open_position_persistence_5d**。两者机制完全正交（max_corr=0.276）：F006 测收盘抛压，F007 测开盘买盘——OHLC 5d aggregation 在双端独立载 alpha。**4 轮 0-admit 之后的关键突破**——5d 窗口是 OHLC 信号 sweet spot；alpha_survival 是新关键判别量；magnitude-only 路径全 fail，只有 directional ratios 携带 alpha。
 
 ## 最近 Batch
 
+- [[batches/batch_018/judge|batch_018]] (ohlc_temporal_aggregation): 5 候选 → admit=1 (C003 open_position_persistence_5d) / reserve=0 / reject=4。**方向连续两批 admit**——open-position max_corr=0.276@F006 完全机制正交；C001 lower-shadow corr=1.000@F006 algebraic mirror trap；C002 magnitude-only 失败。
 - [[batches/batch_017/judge|batch_017]] (ohlc_temporal_aggregation): 5 候选 → admit=1 (C005 upper_shadow_persistence_5d) / reserve=1 (C003 sign-frequency) / reject=3。**4 轮以来首 admit**——5d upper-shadow alpha_surv=1.508 + incr_ic=+0.031 + cum_dd=-3.5 库内最浅。
 - [[batches/batch_016/judge|batch_016]] (return_distribution_signals): 5 候选 → admit=0 / reserve=0 / reject=5。**核心**：skew/kurt/Q-range 三类首批全部 collapse 到 vol_20d (alpha_surv 0.008-0.177)，方向首批即 dead。
 - [[batches/batch_015/judge|batch_015]] (barra_residual_alpha): 5 候选 → admit=0 / reserve=0 / reject=5（全 hard_gate）。**核心**：5 个 method-switch 4/4 collapse 到 F004（Huber/hetero/winsor/vol×turn corr 0.91-0.997）。方向 saturated。
@@ -65,7 +66,8 @@ last_consolidation_round: null
 - [[factors/F002|pb_amount_ratio_20]] `A` · value_liquidity_interaction · ICIR_oos=0.263, Mono=1.00 · `Div($pb_ratio, Mean($amount, 20))`
 - [[factors/F003|overnight_gap_normalized]] `B` · intraday_price_formation · ICIR_oos=0.379, Mono=1.00 · `Div(Sub($open, Ref($close, 1)), Mean($high, 1))`
 - [[factors/F004|barra_residual_return]] `B` · barra_residual_alpha · ICIR_oos=0.293, Mono=1.00
-- [[factors/F006|upper_shadow_persistence_5d]] · ohlc_temporal_aggregation · ICIR_oos=0.192, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 5)`
+- [[factors/F006|upper_shadow_persistence_5d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.192, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 5)`
+- [[factors/F007|open_position_persistence_5d]] · ohlc_temporal_aggregation · ICIR_oos=0.336, Mono=0.90 · `Mean(Div(Sub($open, $low), Sub($high, $low)), 5)`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -79,15 +81,15 @@ last_consolidation_round: null
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
 | barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
-| ohlc_temporal_aggregation | productive | high | 1 | 1 | 1 | batch_017 |
+| ohlc_temporal_aggregation | productive | high | 2 | 2 | 1 | batch_018 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 6 |
-| Current round | 16 |
+| Total factors admitted | 7 |
+| Current round | 17 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
