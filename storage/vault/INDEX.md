@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T22:44:43Z
-round: 26
-total_active_directions: 8
+generated_at: 2026-04-20T22:55:53Z
+round: 27
+total_active_directions: 9
 total_factors_admitted: 11
-last_batch: batch_026
+last_batch: batch_027
 last_consolidation_round: null
 ---
 
@@ -89,6 +89,7 @@ last_consolidation_round: null
 | Direction | Status | Priority | Rounds | Admits | Threads | Last batch |
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
+| asymmetric_momentum | exploring | medium | 1 | 0 | 2 | batch_028 |
 | barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
 | fundamental_momentum | dead | low | 1 | 0 | 0 | batch_022 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
@@ -103,7 +104,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 11 |
-| Current round | 26 |
+| Current round | 27 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
