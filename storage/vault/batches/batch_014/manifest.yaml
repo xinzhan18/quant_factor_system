@@ -1,0 +1,50 @@
+batch_id: batch_014
+round: 13
+direction: barra_residual_alpha
+direction_md_ref: vault/directions/barra_residual_alpha.md
+batch_goal: 'Round 3 of barra_residual_alpha: explore style-subset variations (size-only,
+  momentum-only strip), horizon variation (5d-fwd cumulative), vol-20d-keep smoothed
+  extension of batch_013/C002 reserve, pure vol_20d baseline, and residual × volume-sign
+  interaction. Tests probes #1-#3 from direction.md Next probes.'
+active_threads_referenced:
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T17:14:24Z'
+frozen_at: '2026-04-20T17:14:24Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_014/python_candidates/C001.py
+  rationale: 'Probe #2 baseline: pure vol_20d Barra style as factor (no residualization).
+    Tests whether the alpha is the residual or the style itself. Compare IC vs F004.'
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_014/python_candidates/C002.py
+  rationale: 'Probe #1 extension of batch_013/C002 reserve: vol-20d-keep residual
+    smoothed with 3d EMA. Variance reduction may lift ICIR while preserving the keep-vol-20d
+    structure.'
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_014/python_candidates/C003.py
+  rationale: 'Horizon variation: 5d cumulative forward return then strip Barra (vs
+    F004''s 1d). Tests if longer horizon residual retains alpha.'
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_014/python_candidates/C004.py
+  rationale: 'Style subset: strip ONLY momentum cluster (str_1m + mom_12_1), keep
+    size/value/liquidity/vol. Hypothesis: momentum is the dominant predictable cluster.'
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_014/python_candidates/C005.py
+  rationale: 'Style subset opposite of C004: strip all EXCEPT log_circ_cap. Tests
+    if size-only residualization is the right axis (small-cap effect dominant in A-share).'
+- candidate_id: C006
+  source_type: python
+  path: storage/vault/batches/batch_014/python_candidates/C006.py
+  rationale: 'New mechanism: Barra residual × Sign(Δvolume_5d) — modulate residual
+    signal by recent volume direction. Idiosyncratic alpha amplified by attention
+    (volume) confirmation.'
