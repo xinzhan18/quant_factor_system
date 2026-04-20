@@ -1,0 +1,38 @@
+batch_id: batch_028
+round: 27
+direction: asymmetric_momentum
+direction_md_ref: vault/directions/asymmetric_momentum.md
+batch_goal: '首批 3 候选测 up/down return 分解: 5d mean down-only, 5d mean up-only, 两者比值。测是否携独立
+  alpha。'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T22:46:54Z'
+frozen_at: '2026-04-20T22:46:54Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(If(Lt(Div(Sub($close, Ref($close, 1)), Ref($close, 1)), 0), Div(Sub($close,
+    Ref($close, 1)), Ref($close, 1)), 0), 5)
+  canonical: Mean(If(Lt(Div(Sub($close,Ref($close,1)),Ref($close,1)),0),Div(Sub($close,Ref($close,1)),Ref($close,1)),0),5)
+  rationale: 'T001: 5d mean of down-only daily returns (negative returns kept, else
+    0)'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(If(Gt(Div(Sub($close, Ref($close, 1)), Ref($close, 1)), 0), Div(Sub($close,
+    Ref($close, 1)), Ref($close, 1)), 0), 5)
+  canonical: Mean(If(Gt(Div(Sub($close,Ref($close,1)),Ref($close,1)),0),Div(Sub($close,Ref($close,1)),Ref($close,1)),0),5)
+  rationale: 'T002: 5d mean of up-only daily returns'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Abs(Mean(If(Lt(Div(Sub($close, Ref($close, 1)), Ref($close, 1)),
+    0), Div(Sub($close, Ref($close, 1)), Ref($close, 1)), 0), 5)), Add(Mean(If(Gt(Div(Sub($close,
+    Ref($close, 1)), Ref($close, 1)), 0), Div(Sub($close, Ref($close, 1)), Ref($close,
+    1)), 0), 5), 1e-8))
+  canonical: Div(Abs(Mean(If(Lt(Div(Sub($close,Ref($close,1)),Ref($close,1)),0),Div(Sub($close,Ref($close,1)),Ref($close,1)),0),5)),Add(1e-8,Mean(If(Gt(Div(Sub($close,Ref($close,1)),Ref($close,1)),0),Div(Sub($close,Ref($close,1)),Ref($close,1)),0),5)))
+  rationale: 'T001+T002: abs(down) / up ratio — asymmetry ratio, 高值=下行主导'
