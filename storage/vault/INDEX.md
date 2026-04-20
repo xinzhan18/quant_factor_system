@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T22:55:53Z
-round: 27
-total_active_directions: 9
+generated_at: 2026-04-20T23:06:14Z
+round: 28
+total_active_directions: 10
 total_factors_admitted: 11
-last_batch: batch_027
+last_batch: batch_028
 last_consolidation_round: null
 ---
 
@@ -97,6 +97,7 @@ last_consolidation_round: null
 | ohlc_temporal_aggregation | saturated | medium | 5 | 3 | 1 | batch_021 |
 | overnight_intraday_split | productive | high | 3 | 3 | 1 | batch_027 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
+| return_momentum_acceleration | exploring | medium | 1 | 0 | 1 | batch_029 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 | vol_shock_signals | dead | low | 1 | 0 | 0 | batch_024 |
@@ -104,7 +105,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 11 |
-| Current round | 27 |
+| Current round | 28 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
