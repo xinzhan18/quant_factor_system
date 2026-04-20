@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T19:49:02Z
-round: 20
+generated_at: 2026-04-20T20:09:07Z
+round: 21
 total_active_directions: 6
 total_factors_admitted: 8
-last_batch: batch_020
+last_batch: batch_021
 last_consolidation_round: null
 ---
 
@@ -34,6 +34,9 @@ last_consolidation_round: null
 
 ### [[directions/ohlc_temporal_aggregation|多日 OHLC 聚合]] `saturated` `medium` 🆕
 5 batches，21 候选 → 3 admit (F006/F007/F008) + 2 reserve + 16 reject。[[batches/batch_021/judge|batch_021]] **方向 saturated**：F007 3d ablation mono_sign_flip 反转（open-position 是 5d-only signal）；7d upper-shadow alpha_surv=1.685 但 corr=0.834@F006 转 reserve（库 bloat）；turnover-weighted body 是 F007 noisy 版本。**信号家族 multi-window 不对称**：upper-shadow [3d,7d] 都稳，open-position 仅 5d。admit 率 14% (3/21)。
+
+### [[directions/fundamental_momentum|基本面变化率]] `dead` `low` 🆕
+首批 [[batches/batch_022/judge|batch_022]] 即 dead：4 候选 PE/PB/PS rate 全 weak (ls_t -1.22 to -1.81<2) + r² poor (0.31-0.81) + 全 library reducer。**fundamental rate hypothesis 直接证伪**——A 股 reaction 快于 20d capture window；与 F002 (PB/amount 绝对水平) 形成对照（绝对水平可用，变化率不行）。
 
 ## 最近 Batch
 
@@ -81,6 +84,7 @@ last_consolidation_round: null
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
 | barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
+| fundamental_momentum | dead | low | 1 | 0 | 0 | batch_022 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | ohlc_temporal_aggregation | saturated | medium | 5 | 3 | 1 | batch_021 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
@@ -90,7 +94,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 8 |
-| Current round | 20 |
+| Current round | 21 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
