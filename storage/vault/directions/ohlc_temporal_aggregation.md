@@ -1,16 +1,15 @@
 ---
 direction_tag: ohlc_temporal_aggregation
-status: productive
-priority: high
-rounds: 4
+status: saturated
+priority: medium
+rounds: 5
 admits: 3
-last_batch: batch_020
-last_admits:
-- F008
-last_goal: Round 4：window ablation (3d/10d upper-shadow 验 5d sweet spot) + 跨日 patterns
-  (engulfing-like body sign agreement / gap-up frequency) + Donchian channel position
-  (close in 20d high-low range)。若 0 admit → direction saturated。
-last_activity: '2026-04-20T19:35:32Z'
+last_batch: batch_021
+last_admits: []
+last_goal: Round 5：F007 3d ablation (open-position 短期 phase variant)、7d upper-shadow
+  (5d 与 10d 之间的 sweet spot 边界)、turnover-weighted body sign (与 F006/F007 不同的加权机制)。3
+  候选探完剩余维度，目标 admit 1+ 或确认饱和。
+last_activity: '2026-04-20T19:49:02Z'
 created_batch: batch_017
 members:
 - F006
@@ -61,7 +60,10 @@ Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mon
 - [[batches/batch_018/candidates/C005|batch_018 C005]]: Mean(|gap|/range, 5) → alpha_surv=0.164 catastrophic → reject
 - [[batches/batch_020/candidates/C001|batch_020 C001]]: Mean(upper-shadow, 3) → ic=+0.029 ls_t=2.91 mono=+0.90 alpha_surv=1.268 incr_ic=+0.022 max_corr=0.758@F006 → **admit → upper_shadow_persistence_3d (F008)** (high-corr admit 先例)
 - [[batches/batch_020/candidates/C002|batch_020 C002]]: Mean(upper-shadow, 10) → mono_sign_flip IS=-0.60 OOS=+0.90 → reject (10d 跨 phase 反转，确认 5d sweet spot 上界)
-**Conclusion**: OHLC aggregation 至少 3 个独立 admit——close 端 5d (F006) + open 端 5d (F007) + close 端 3d phase variant (F008)。Window range [3d, 5d] 有效，10d 反转。Magnitude-only paths 全部 fail。Algebraic mirrors trigger near_dup。**OHLC 信号预测力来自方向性比值不是 magnitude；window 在 3d-5d 之间稳定**。
+- [[batches/batch_021/candidates/C001|batch_021 C001]]: Mean(open-position, 3) → mono_sign_flip IS=-1.00 OOS=+0.90 → reject (open-position 在 3d 完全反转 — F007 是 5d-only stable signal，与 upper-shadow multi-window 不对称)
+- [[batches/batch_021/candidates/C002|batch_021 C002]]: Mean(upper-shadow, 7) → ic=+0.017 ls_t=2.33 mono=+0.90 alpha_surv=1.685 corr=0.834@F006 incr=+0.014 → **reserve** (rubric 形式允许 admit 但库 bloat 风险，7d 与 F006 5d + F008 3d 形成 3-window upper-shadow family 占库 30%)
+- [[batches/batch_021/candidates/C003|batch_021 C003]]: turnover-weighted body sign 5d → corr=0.579@F007 + incr=-0.032 + mono=-0.30 → reject
+**Conclusion**: OHLC aggregation 至少 3 个独立 admit——close 端 5d (F006) + open 端 5d (F007) + close 端 3d phase variant (F008)。Window range：upper-shadow 在 [3d, 7d] 都稳；open-position 仅 5d-only（**信号家族 multi-window 不对称**）；10d 反转。Magnitude-only / discrete count / turnover-weighting / Donchian 全部 fail。**方向 saturated** — admit 率从 25%→14%，剩余探索 ROI 低。
 
 ## Known Failures
 - C001 (batch_017): 5d signed body — incr_ic=-0.050 库 reducer + cum_dd=-105 整库最深
@@ -71,6 +73,8 @@ Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mon
 - C002 (batch_018): 5d body magnitude — ic=0.0067<0.008 (magnitude-only no signal)
 - C004 (batch_018): 5d signed range — corr=0.544@F006 + incr_ic=-0.039 + cum_dd=-103
 - C005 (batch_018): 5d gap-magnitude/range — alpha_surv=0.164 catastrophic (third vol-derived pattern)
+- C001 (batch_021): 3d open-position — mono_sign_flip IS=-1.00 OOS=+0.90 (open-position is 5d-only stable signal)
+- C003 (batch_021): turnover-weighted body sign 5d — corr=0.579@F007 + incr=-0.032 + mono=-0.30 (turnover ≠ new axis)
 - C001 (batch_019): 5d range expansion ratio — mono=-0.30 + ls_t=-0.89 (rank 噪声)
 - C002 (batch_019): 5d range/amount — corr=0.746@F002 + r²=0.348 (amount-dominated cluster)
 - C003 (batch_019): 5d volume-weighted body — corr=0.721@F007 (F007 mirror)
@@ -140,3 +144,12 @@ Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mon
 1. 跨日 pattern：3d 内 high 上升 + 5d body sign 一致性 (engulfing-like)
 2. window ablation：3d/10d upper-shadow 验证 5d 是 sweet spot
 3. 若 batch_020 仍 0 admit → status `productive → saturated`
+
+### 2026-04-21 [[batches/batch_021/judge|batch_021]]
+**admit=0 / reserve=1 / reject=2 — direction status: productive → saturated**
+
+- C001 reject: 3d open-position F007 ablation hard_gate mono_sign_flip IS=-1.00 OOS=+0.90。F007 是 5d-only stable signal。
+- C002 reserve: 7d upper-shadow alpha_surv=1.685 极 clean 但 corr=0.834@F006 high → 库 bloat。
+- C003 reject: turnover-weighted body sign 5d → corr=0.579@F007 + incr_ic=-0.032 + mono=-0.30。turnover ≠ 新 axis。
+
+Direction status `productive → saturated`。累计 admit 率 14% (3/21)。下批触发 Phase 5 consolidation，再开新方向。
