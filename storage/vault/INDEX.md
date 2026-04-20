@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T17:55:33Z
-round: 14
+generated_at: 2026-04-20T18:14:42Z
+round: 15
 total_active_directions: 5
 total_factors_admitted: 5
-last_batch: batch_014
+last_batch: batch_015
 last_consolidation_round: null
 ---
 
@@ -29,8 +29,12 @@ last_consolidation_round: null
 ### [[directions/barra_residual_alpha|Barra Residual Alpha]] `saturated` `low`
 累计 4 batches，21 候选 → **2 admit (F004)** / 3 reserve / 16 reject。[[batches/batch_015/judge|batch_015]] **方向 saturated**：5 个 method-switch 候选 4/4 全部 collapse 到 F004（Huber=0.907 / hetero-norm=0.927 / winsor=0.941 / vol×turn=0.997）+ 1 compute_error。**实验性建立 F004 不动点定理**：F004 是该 7-style basis × OLS-family 上的几何不变量。复活路径：加非 Barra basis / 非参数残差化 / 与库其他因子非线性 ensemble。
 
+### [[directions/return_distribution_signals|收益分布信号]] `dead` `low` 🆕
+首批 [[batches/batch_016/judge|batch_016]] 即 dead：5 候选全 reject (skew 20d/60d/×vol + kurt 20d + Q90-Q10)。**核心证伪**：higher-order moments (skew/kurt/Q-range) 在 cross-section 都 collapse 到 vol_20d——alpha_surv 0.008-0.177 远低 threshold。C004 mono=-0.9 ls_t=-2.28 看似强但 alpha_surv=0.008 暴露其本质 ≡ vol_20d monotone 变换。
+
 ## 最近 Batch
 
+- [[batches/batch_016/judge|batch_016]] (return_distribution_signals): 5 候选 → admit=0 / reserve=0 / reject=5。**核心**：skew/kurt/Q-range 三类首批全部 collapse 到 vol_20d (alpha_surv 0.008-0.177)，方向首批即 dead。
 - [[batches/batch_015/judge|batch_015]] (barra_residual_alpha): 5 候选 → admit=0 / reserve=0 / reject=5（全 hard_gate）。**核心**：5 个 method-switch 4/4 collapse 到 F004（Huber/hetero/winsor/vol×turn corr 0.91-0.997）。方向 saturated。
 - [[batches/batch_014/judge|batch_014]] (barra_residual_alpha): 6 候选 → admit=0 / reserve=1 (C001) / reject=5。**核心**：C002+C005 corr 0.987/0.906 with F004 → vol_20d 唯一主导残差空间；**C003 lookahead 系统盲区**（5d 累计前向收益作为 t 时刻因子值，hard_gate 全过但 ic_oos=0.386 / ls_max_dd=0 是构造 artifact）；新建 T003 thread 跟踪。
 - [[batches/batch_013/judge|batch_013]] (barra_residual_alpha): 5 候选 → admit=1 / reserve=1 / reject=3。**C001 admit** (barra_residual_alpha_60d, ICIR=0.293 ls_t=7.34)；**C002 reserve** (vol-20d-only residual, ICIR=0.243 alpha_surv=1.62)；C003/C004/C005 reject (sign_flip/redundant/compute_error)。
@@ -70,13 +74,14 @@ last_consolidation_round: null
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
 | barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
+| return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 
 | Metric | Value |
 |---|---|
 | Total factors admitted | 5 |
-| Current round | 14 |
+| Current round | 15 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
