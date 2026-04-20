@@ -1,0 +1,48 @@
+batch_id: batch_018
+round: 17
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: Round 2 of ohlc_temporal_aggregation：在 F006 (upper_shadow_persistence_5d)
+  admit 之后 deepen 5d 窗口探索。测 lower-shadow 镜像、body 大小、open 位置、signed range、overnight
+  gap to intraday range——目标 ≥1 admit + 5d 窗口饱和度图谱。
+active_threads_referenced:
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T18:42:13Z'
+frozen_at: '2026-04-20T18:42:13Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($close, $low), Sub($high, $low)), 5)
+  canonical: Mean(Div(Sub($close,$low),Sub($high,$low)),5)
+  rationale: T003 镜像：5d mean lower-shadow ratio (close-low)/(high-low)。F006 mirror
+    — 持续 close near low → 持续买盘进场 → 反转下跌？
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Abs(Sub($close, $open)), Sub($high, $low)), 5)
+  canonical: Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),5)
+  rationale: T003 magnitude 路径：5d mean intraday body magnitude (|close-open|/(high-low))。无符号——测度日内
+    conviction。
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Div(Sub($open, $low), Sub($high, $low)), 5)
+  canonical: Mean(Div(Sub($open,$low),Sub($high,$low)),5)
+  rationale: T003 开盘位置：5d mean (open-low)/(high-low)。高值=持续高开，低值=持续低开——open 位置预测属于
+    microstructure 新维度。
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Mul(Sign(Sub($close, $open)), Div(Sub($high, $low), $close)), 5)
+  canonical: Mean(Mul(Div(Sub($high,$low),$close),Sign(Sub($close,$open))),5)
+  rationale: T002+T003 交互：5d mean signed range = body_sign × range/close。bullish bar
+    累计 range 与 bearish bar 累计 range 的差。
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Div(Abs(Sub($open, Ref($close, 1))), Sub($high, $low)), 5)
+  canonical: Mean(Div(Abs(Sub($open,Ref($close,1))),Sub($high,$low)),5)
+  rationale: 新机制：5d mean overnight-gap to intraday-range ratio。测度隔夜信息比白天 trading 重要程度。与
+    F003 (overnight gap) 机制不同（F003 是带符号水平，本候选是无符号比值）。
