@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T18:58:15Z
-round: 17
+generated_at: 2026-04-20T19:11:46Z
+round: 18
 total_active_directions: 6
 total_factors_admitted: 7
-last_batch: batch_017
+last_batch: batch_018
 last_consolidation_round: null
 ---
 
@@ -33,7 +33,7 @@ last_consolidation_round: null
 首批 [[batches/batch_016/judge|batch_016]] 即 dead：5 候选全 reject (skew 20d/60d/×vol + kurt 20d + Q90-Q10)。**核心证伪**：higher-order moments (skew/kurt/Q-range) 在 cross-section 都 collapse 到 vol_20d——alpha_surv 0.008-0.177 远低 threshold。C004 mono=-0.9 ls_t=-2.28 看似强但 alpha_surv=0.008 暴露其本质 ≡ vol_20d monotone 变换。
 
 ### [[directions/ohlc_temporal_aggregation|多日 OHLC 聚合]] `productive` `high` 🆕
-连续 2 batches 各 1 admit：[[batches/batch_017/judge|batch_017]] **F006 upper_shadow_persistence_5d** + [[batches/batch_018/judge|batch_018]] **F007 open_position_persistence_5d**。两者机制完全正交（max_corr=0.276）：F006 测收盘抛压，F007 测开盘买盘——OHLC 5d aggregation 在双端独立载 alpha。**4 轮 0-admit 之后的关键突破**——5d 窗口是 OHLC 信号 sweet spot；alpha_survival 是新关键判别量；magnitude-only 路径全 fail，只有 directional ratios 携带 alpha。
+3 batches，13 候选 → 2 admit (F006 batch_017 + F007 batch_018) + 1 reserve + 10 reject。[[batches/batch_019/judge|batch_019]] 第 3 轮 0 admit + 4 候选与 F002/F007 高 corr → **5d directional ratio 空间被 F006/F007 饱和**。两 admit 机制完全正交（F006 测收盘抛压 + F007 测开盘买盘，max_corr=0.276）。下批 batch_020 测跨日 pattern 与 window ablation；若再 0 admit 转 saturated。
 
 ## 最近 Batch
 
@@ -67,7 +67,7 @@ last_consolidation_round: null
 - [[factors/F003|overnight_gap_normalized]] `B` · intraday_price_formation · ICIR_oos=0.379, Mono=1.00 · `Div(Sub($open, Ref($close, 1)), Mean($high, 1))`
 - [[factors/F004|barra_residual_return]] `B` · barra_residual_alpha · ICIR_oos=0.293, Mono=1.00
 - [[factors/F006|upper_shadow_persistence_5d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.192, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 5)`
-- [[factors/F007|open_position_persistence_5d]] · ohlc_temporal_aggregation · ICIR_oos=0.336, Mono=0.90 · `Mean(Div(Sub($open, $low), Sub($high, $low)), 5)`
+- [[factors/F007|open_position_persistence_5d]] `B` · ohlc_temporal_aggregation · ICIR_oos=0.336, Mono=0.90 · `Mean(Div(Sub($open, $low), Sub($high, $low)), 5)`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -81,7 +81,7 @@ last_consolidation_round: null
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
 | barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
-| ohlc_temporal_aggregation | productive | high | 2 | 2 | 1 | batch_018 |
+| ohlc_temporal_aggregation | productive | high | 3 | 2 | 1 | batch_019 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
@@ -89,7 +89,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 7 |
-| Current round | 17 |
+| Current round | 18 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->

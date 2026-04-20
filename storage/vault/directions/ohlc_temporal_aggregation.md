@@ -2,15 +2,13 @@
 direction_tag: ohlc_temporal_aggregation
 status: productive
 priority: high
-rounds: 2
+rounds: 3
 admits: 2
-last_batch: batch_018
-last_admits:
-- F007
-last_goal: Round 2 of ohlc_temporal_aggregation：在 F006 (upper_shadow_persistence_5d)
-  admit 之后 deepen 5d 窗口探索。测 lower-shadow 镜像、body 大小、open 位置、signed range、overnight
-  gap to intraday range——目标 ≥1 admit + 5d 窗口饱和度图谱。
-last_activity: '2026-04-20T18:58:15Z'
+last_batch: batch_019
+last_admits: []
+last_goal: Round 3：探索 5d OHLC aggregation 剩余维度——range 演化、流动性调整 range、volume-weighted
+  body、强势 follow-through count。F006/F007 已覆盖 close/open 端；本批测 range/volume 维度是否独立。
+last_activity: '2026-04-20T19:11:46Z'
 created_batch: batch_017
 members:
 - F006
@@ -68,6 +66,10 @@ Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mon
 - C002 (batch_018): 5d body magnitude — ic=0.0067<0.008 (magnitude-only no signal)
 - C004 (batch_018): 5d signed range — corr=0.544@F006 + incr_ic=-0.039 + cum_dd=-103
 - C005 (batch_018): 5d gap-magnitude/range — alpha_surv=0.164 catastrophic (third vol-derived pattern)
+- C001 (batch_019): 5d range expansion ratio — mono=-0.30 + ls_t=-0.89 (rank 噪声)
+- C002 (batch_019): 5d range/amount — corr=0.746@F002 + r²=0.348 (amount-dominated cluster)
+- C003 (batch_019): 5d volume-weighted body — corr=0.721@F007 (F007 mirror)
+- C004 (batch_019): 5d count close-near-high — hard_gate sign_flip (discretization failure)
 
 ## Related
 - [[lessons#Structural Constraints]]
@@ -112,3 +114,24 @@ Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mon
 **下一步（batch_019）**：
 1. 第三轮 ohlc_temporal_aggregation：探索剩余维度 (close-vs-midpoint, body asymmetry, 3d/10d ablation)
 2. 若 0 admit → 方向接近 saturated；若再 1 admit → 5d OHLC 至少 3 维独立
+
+### 2026-04-21 [[batches/batch_019/judge|batch_019]]
+**admit=0 / reserve=0 / reject=4 — 方向第 3 轮 0 admit 接近 saturated**
+
+- C001 (range expansion): mono=-0.30 + ls_t=-0.89 → rank 失败
+- C002 (range/amount): max_corr=0.746@F002 + r²=0.348 → 落入 F002 cluster
+- C003 (volume × body): max_corr=0.721@F007 → F007 mirror
+- C004 (discrete count): hard_gate sign_flip → 离散化丢失 magnitude
+
+**饱和判断**：方向 admit 率 22% (2/9 candidates)，但本批 4/4 reject + 库 corr 与新 admits 重叠 → **5d directional ratio 空间被 F006/F007 饱和**。
+
+**Known Failures 追加**:
+- C001 (batch_019): 5d range expansion — mono=-0.30 + ls_t=-0.89 (range 演化噪声)
+- C002 (batch_019): 5d range/amount — corr=0.746@F002 (落入 amount-dominated cluster)
+- C003 (batch_019): 5d volume-weighted body — corr=0.721@F007 (F007 mirror)
+- C004 (batch_019): 5d count of close-near-high — hard_gate sign_flip (离散化失败)
+
+**下一步（batch_020）**：
+1. 跨日 pattern：3d 内 high 上升 + 5d body sign 一致性 (engulfing-like)
+2. window ablation：3d/10d upper-shadow 验证 5d 是 sweet spot
+3. 若 batch_020 仍 0 admit → status `productive → saturated`
