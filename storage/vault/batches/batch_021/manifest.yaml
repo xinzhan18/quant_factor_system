@@ -1,0 +1,36 @@
+batch_id: batch_021
+round: 20
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: Round 5：F007 3d ablation (open-position 短期 phase variant)、7d upper-shadow
+  (5d 与 10d 之间的 sweet spot 边界)、turnover-weighted body sign (与 F006/F007 不同的加权机制)。3
+  候选探完剩余维度，目标 admit 1+ 或确认饱和。
+active_threads_referenced:
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T19:36:52Z'
+frozen_at: '2026-04-20T19:36:52Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($open, $low), Sub($high, $low)), 3)
+  canonical: Mean(Div(Sub($open,$low),Sub($high,$low)),3)
+  rationale: 'T003: F007 3d ablation (open-position 3d window)。F008 (3d upper-shadow)
+    已 admit，预期 3d open-position 也是有效 phase variant。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 7)
+  canonical: Mean(Div(Sub($high,$close),Sub($high,$low)),7)
+  rationale: 'T003: 7d upper-shadow window — 介于 5d (F006) 和 10d (sign_flip) 之间，确认
+    phase ceiling。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Sign(Sub($close, $open)), $turnover_rate), 5)
+  canonical: Mean(Mul($turnover_rate,Sign(Sub($close,$open))),5)
+  rationale: 'T002: turnover-weighted body sign — 高 turnover 的 bullish bar 更 informative，与
+    F006/F007 unsigned ratio 形式不同。'
