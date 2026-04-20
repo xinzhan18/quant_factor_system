@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T22:00:10Z
-round: 22
+generated_at: 2026-04-20T22:11:14Z
+round: 23
 total_active_directions: 7
 total_factors_admitted: 8
-last_batch: batch_022
+last_batch: batch_023
 last_consolidation_round: null
 ---
 
@@ -91,11 +91,12 @@ last_consolidation_round: null
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
+| vol_shock_signals | dead | low | 1 | 0 | 0 | batch_024 |
 
 | Metric | Value |
 |---|---|
 | Total factors admitted | 8 |
-| Current round | 22 |
+| Current round | 23 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
