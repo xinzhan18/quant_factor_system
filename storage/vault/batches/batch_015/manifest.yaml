@@ -1,0 +1,44 @@
+batch_id: batch_015
+round: 14
+direction: barra_residual_alpha
+direction_md_ref: vault/directions/barra_residual_alpha.md
+batch_goal: 'Round 4 of barra_residual_alpha: change residualization METHOD (not subset)
+  per batch_014 finding that vol_20d dominates the 7-style basis. Test 5 alternatives
+  — Huber regression, OLS+intraday-vol style, heteroscedastic-aware z-normalization,
+  winsorized-input OLS, and vol×turnover interaction style. Goal: produce a residual
+  sufficiently distinct from F004 (corr<0.7) while retaining IC>=0.015.'
+active_threads_referenced:
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T17:42:29Z'
+frozen_at: '2026-04-20T17:42:29Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_015/python_candidates/C001.py
+  rationale: Huber IRLS residual — robust to extreme return outliers; M=1.345σ. Tests
+    if OLS over-fits style coefficients to outlier days.
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_015/python_candidates/C002.py
+  rationale: OLS + 5d (high-low)/close as 8th style. Tests if 7-style basis missing
+    intraday vol dimension.
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_015/python_candidates/C003.py
+  rationale: 'Heteroscedastic-aware: F004 residual / rolling 20d std per symbol. Z-score-like
+    normalization for vol regime invariance.'
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_015/python_candidates/C004.py
+  rationale: Winsorize returns at ±5 MAD per date before OLS. Lighter than Huber;
+    preserves scaling, removes outlier influence on β fit.
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_015/python_candidates/C005.py
+  rationale: Add vol_20d × turnover_20d interaction as 8th style. Disentangles high-vol+illiquid
+    vs high-vol+liquid clusters that vol_20d alone collapses.
