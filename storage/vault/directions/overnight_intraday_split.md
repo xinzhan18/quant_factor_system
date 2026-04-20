@@ -2,14 +2,13 @@
 direction_tag: overnight_intraday_split
 status: productive
 priority: high
-rounds: 2
+rounds: 3
 admits: 3
-last_batch: batch_026
-last_admits:
-- F011
-last_goal: 'Round 2: F010 3d/10d overnight ablation (验 window sweet spot) + overnight
-  × intraday 5d product。F009/F010 刚 admit，探索 window variants 和 cross-product 变体。'
-last_activity: '2026-04-20T22:34:25Z'
+last_batch: batch_027
+last_admits: []
+last_goal: 'Round 3: intraday return 5d/3d mean mirror of F010/F011 overnight。测 intraday
+  段是否与 overnight 段正交、产独立 alpha；若 admit，overnight+intraday 两段同时入库形成完整分解。'
+last_activity: '2026-04-20T22:44:43Z'
 created_batch: batch_025
 members:
 - F009
@@ -62,3 +61,13 @@ F003 已覆盖 overnight gap magnitude；F007 open-position 部分关联；但**
 **核心发现**：overnight 段携带独立于 intraday 的 persistent signal；aggregation 形式有效，correlation 形式不稳。ls_t=7.50 (C002) 打破整库记录。
 
 **下一步 batch_026**：3d/10d overnight aggregation window ablation + overnight × intraday 乘积 + overnight 符号频率。
+
+### 2026-04-21 [[batches/batch_027/judge|batch_027]]
+**admit=0 / reserve=0 / reject=3 — direction status: productive → saturated**
+
+- Intraday 镜像 3/3 reject: 5d/3d intraday corr 0.65-0.89 @F009 + volume-weighted 同样冗余
+- **F009 = overnight - intraday 数学结构已吸收 intraday 分量**——pure intraday 是 overnight - F009 的线性组合，无独立信息
+- Direction status `productive → saturated`，overnight 家族 4 slot 达 bloat 上限
+
+**Known Failures 追加**:
+- C001/C002/C003 (batch_027): 5d/3d/volume-weighted intraday — corr 0.65-0.89 @F009 + incr_ic 全负 (intraday 非独立于 F009 spread)

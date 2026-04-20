@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T22:34:25Z
-round: 25
+generated_at: 2026-04-20T22:44:43Z
+round: 26
 total_active_directions: 8
 total_factors_admitted: 11
-last_batch: batch_025
+last_batch: batch_026
 last_consolidation_round: null
 ---
 
@@ -76,8 +76,8 @@ last_consolidation_round: null
 - [[factors/F007|open_position_persistence_5d]] `B` · ohlc_temporal_aggregation · ICIR_oos=0.336, Mono=0.90 · `Mean(Div(Sub($open, $low), Sub($high, $low)), 5)`
 - [[factors/F008|upper_shadow_persistence_3d]] `C` · ohlc_temporal_aggregation · ICIR_oos=0.233, Mono=0.90 · `Mean(Div(Sub($high, $close), Sub($high, $low)), 3)`
 - [[factors/F009|overnight_intraday_spread_5d]] `B` · overnight_intraday_split · ICIR_oos=0.408, Mono=1.00 · `Mean(Sub(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close, $open), $open)), 5)`
-- [[factors/F010|overnight_return_persistence_5d]] · overnight_intraday_split · ICIR_oos=0.396, Mono=1.00 · `Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 5)`
-- [[factors/F011|overnight_return_persistence_3d]] · overnight_intraday_split · ICIR_oos=0.422, Mono=1.00 · `Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 3)`
+- [[factors/F010|overnight_return_persistence_5d]] `A` · overnight_intraday_split · ICIR_oos=0.396, Mono=1.00 · `Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 5)`
+- [[factors/F011|overnight_return_persistence_3d]] `B` · overnight_intraday_split · ICIR_oos=0.422, Mono=1.00 · `Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 3)`
 <!-- END FACTOR-LIBRARY -->
 
 ---
@@ -94,7 +94,7 @@ last_consolidation_round: null
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | liquidity_acceleration | exploring | medium | 1 | 0 | 2 | batch_023 |
 | ohlc_temporal_aggregation | saturated | medium | 5 | 3 | 1 | batch_021 |
-| overnight_intraday_split | productive | high | 2 | 3 | 1 | batch_026 |
+| overnight_intraday_split | productive | high | 3 | 3 | 1 | batch_027 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
@@ -103,7 +103,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 11 |
-| Current round | 25 |
+| Current round | 26 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
