@@ -1,16 +1,17 @@
 ---
 direction_tag: barra_residual_alpha
-status: productive
-priority: high
-rounds: 5
+status: saturated
+priority: low
+rounds: 6
 admits: 1
-last_batch: batch_014
+last_batch: batch_015
 last_admits: []
-last_goal: 'Round 3 of barra_residual_alpha: explore style-subset variations (size-only,
-  momentum-only strip), horizon variation (5d-fwd cumulative), vol-20d-keep smoothed
-  extension of batch_013/C002 reserve, pure vol_20d baseline, and residual × volume-sign
-  interaction. Tests probes #1-#3 from direction.md Next probes.'
-last_activity: '2026-04-20T17:39:38Z'
+last_goal: 'Round 4 of barra_residual_alpha: change residualization METHOD (not subset)
+  per batch_014 finding that vol_20d dominates the 7-style basis. Test 5 alternatives
+  — Huber regression, OLS+intraday-vol style, heteroscedastic-aware z-normalization,
+  winsorized-input OLS, and vol×turnover interaction style. Goal: produce a residual
+  sufficiently distinct from F004 (corr<0.7) while retaining IC>=0.015.'
+last_activity: '2026-04-20T17:55:33Z'
 created_batch: batch_012
 members:
 - F004
@@ -41,7 +42,7 @@ All existing directions hit vol_20d/str_1m style coupling as structural bottlene
 - [[batches/batch_012/candidates/C003|batch_012 C003]]: Barra_residual_IC=0.033（与 C001 相当）但 style_r²=0.289 + vol_20d exposure=15.6 耦合严重 → **reserve**
 **Next probes**: 扩展 Barra residual + volume 交互候选
 
-### T002: 残差与其他因子正交性 [◉ ACTIVE]
+### T002: 残差与其他因子正交性 [✗ DISPROVEN batch_015]
 **Question**: Barra residual 与 F001/F002/F003 的增量 IC 是否 > 0？vol-20d-only residual 是否可行？
 **Evidence trail**:
 - [[batches/batch_012/candidates/C001|batch_012 C001]]: incremental_ic=0.032 max_corr=0.15（F002） → 正交
@@ -52,14 +53,19 @@ All existing directions hit vol_20d/str_1m style coupling as structural bottlene
 - [[batches/batch_014/candidates/C004|batch_014 C004]]: strip only momentum (str_1m+mom_12_1) → **reject hard_gate** (sign_flip + ic_oos_too_low)；momentum 簇带 regime 依赖，不可单独剥离
 - [[batches/batch_014/candidates/C005|batch_014 C005]]: strip 6 styles, keep log_circ_cap → **reject hard_gate** (corr=0.906 with F004)；log_circ_cap 在 7-style basis 中只贡献边际信息
 - [[batches/batch_014/candidates/C006|batch_014 C006]]: F004 residual × Sign(Δvolume_5d) → **reject hard_gate** (ic_oos=0.0071 < 0.008)；attention/volume-confirmation 在 daily 频率证伪
-**Next probes**: vol_20d 是残差空间唯一主导维度（C002+C005 双向证明）；改 residualization 方法（robust regression / kernel / 加新 styles）才能继续推进——调整 7-style basis 子集已穷尽
+- [[batches/batch_015/candidates/C001|batch_015 C001]]: Huber IRLS residual → **reject hard_gate** (corr=0.907 with F004)；鲁棒损失不动 cross-sectional 几何
+- [[batches/batch_015/candidates/C003|batch_015 C003]]: heteroscedastic-norm (F004 / rolling20d-std) → **reject hard_gate** (corr=0.927)；per-symbol time-series transform 不改 cross-section rank
+- [[batches/batch_015/candidates/C004|batch_015 C004]]: winsorized OLS (±5 MAD) → **reject hard_gate** (corr=0.941)；±5 MAD 截断 <2% 尾部 β fit 几乎不动
+- [[batches/batch_015/candidates/C005|batch_015 C005]]: OLS + vol×turn interaction style → **reject hard_gate** (corr=0.997)；collinear style pinv 自动消除
+**Final outcome (batch_015)**: **F004 是该 7-style basis × OLS-family 残差的几何不变量**——5 method variants 全部 collapse 到 corr ≥ 0.91。**T002 假设证伪**：换损失函数 / 标准化 / 加 interaction style 都不能产生独立残差。后续需跳出 7-style basis 或 OLS-family 框架才能继续。
 
 ### T003: Lookahead detection / construction safety [◉ ACTIVE] 🆕
 **Question**: hard_gate 是否充分检测 Python 候选的时序泄漏？AST 扫描应禁止哪些模式？
 **Evidence trail**:
 - [[batches/batch_014/candidates/C003|batch_014 C003]]: `close.shift(-HORIZON)/close - 1` 把 t+5 累计收益作为 t 时刻因子值；hard_gate 8 项全过但 ic_oos=0.386 / icir=4.63 / ls_t=83 / ls_max_dd=0 / win_rate=1.0 / sortino=inf 是构造性 leak artifact
 - 系统盲区：Barra residualize 只剥截面风格不防时序 leak；hard_gate 当前无 negative-shift 检测、无"too good to be true"哨兵
-**Next probes**: 短期—主 agent 对 \|ic_oos\|>0.10 候选 manual review；长期—hard_gate 增 AST 扫描禁 `shift(-k)` in factor value path + 哨兵指标（ls_max_dd=0 / win_rate=1.0 / sortino=inf 任一触发→suspicion queue）
+- [[batches/batch_015/candidates/C002|batch_015 C002]]: Python 候选 REQUIRED_FIELDS=["$close","$high","$low"] 触发 `compute_error: market_df missing $high/$low`——data_bridge loader 默认只准备 close/volume/amount/market_cap，不尊重 REQUIRED_FIELDS 契约。系统级数据契约缺口。
+**Next probes**: 短期—主 agent 对 \|ic_oos\|>0.10 候选 manual review；中期—loader 扩默认列加 OHLC 全集 / phase1 freeze 时 validate REQUIRED_FIELDS ⊆ loader 列；长期—hard_gate 增 AST 扫描禁 `shift(-k)` in factor value path + 哨兵指标（ls_max_dd=0 / win_rate=1.0 / sortino=inf 任一触发→suspicion queue）
 
 ## Known Failures
 - C002 (batch_012): sign_flip + oos_decay 双杀（IS→OOS alpha 逆转）
@@ -128,6 +134,28 @@ Barra residual alpha 方向首批 0 admit。三大发现：
 1. batch_015 同方向但换残差化方法：robust regression（Huber/quantile）、加 intraday vol style
 2. 若 batch_015 仍 0 admit，方向 `productive → saturated`，开新方向（cross-field interaction / microstructure）
 3. 监控 admit 率：当前 4 batches/2 admits = 50%，若 batch_015 跌到 2/5=40% 触发 saturated 检讨
+
+### 2026-04-21 [[batches/batch_015/judge|batch_015]]
+**admit=0 / reserve=0 / reject=5**
+
+barra_residual_alpha 第二批 0 admit，**方向 saturated**：
+
+**实验性建立 F004 不动点定理**：5 个 method-switch 候选 4/4 全部 collapse 到 F004（Huber=0.907 / hetero=0.927 / winsor=0.941 / vol×turn=0.997）。F004 是该 7-style basis × OLS-family 上的几何不变量——任何在同框架内的方法变体都无法产生独立 alpha。
+
+**汇总 batch_014 + batch_015 saturation 证据链**：
+1. 调整 7-style 子集（C002/C005 batch_014）→ vol_20d 主导，子集变化无效
+2. 换 loss function（Huber/winsor batch_015）→ 几何不变
+3. 时序后处理（EMA/std batch_014/015）→ cross-section rank 不变
+4. 加 interaction style（vol×turn batch_015）→ collinear pinv 消除
+5. 加 forward horizon（batch_014 C003）→ lookahead leak 不可用
+
+**方向状态**：`productive → saturated`，`priority: high → low`。**复活路径**：(a) 加非 Barra style basis（行业 / GICS / microstructure factor model）；(b) nonparametric residualization（kernel ridge / NN）；(c) 与库其他因子的非线性 ensemble。
+
+**Thread 进展**：
+- T002 [✗ DISPROVEN batch_015]：method 变体证伪
+- T003 active：data 契约缺口新增（C002 case），系统短期需 loader 扩列
+
+**下一步**：batch_016 开新方向 **microstructure_signal** —— intraday H-L / open-close / 量价不对称等 daily-bar 内部结构信号。先解决 loader $high/$low 加载问题（直接修改或绕过）。
 
 ## Related
 - [[lessons#Structural Constraints]]  （Barra style coupling 教训）

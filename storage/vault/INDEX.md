@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T17:39:38Z
-round: 13
+generated_at: 2026-04-20T17:55:33Z
+round: 14
 total_active_directions: 5
 total_factors_admitted: 5
-last_batch: batch_013
+last_batch: batch_014
 last_consolidation_round: null
 ---
 
@@ -26,11 +26,12 @@ last_consolidation_round: null
 ### [[directions/value_liquidity_interaction|价值 × 流动性交互]] `productive` `high`
 累计 5 batches，22 候选 → **1 admit (F002)** / 10 reserve / 11 reject。[[batches/batch_009/judge|batch_009]] self-norm rate×turnover 路径全灭(4/4 sign_flip)；C005 **dom=str_1m breakthrough**（方向首次非 vol_20d）但 incr_ic=-0.033(库 reducer) reject；C007 ls_t=-2.43(最强 PnL) 但 vol_20d=18.8 极端。**DSL 空间实质穷尽**，下批必须 Python Barra residual。
 
-### [[directions/barra_residual_alpha|Barra Residual Alpha]] `productive` `high`
-累计 3 batches，16 候选 → **2 admit** / 3 reserve / 11 reject。[[batches/batch_014/judge|batch_014]] **首批 0 admit**：C002 vol-20d-keep / C005 size-only-keep 双向证明 **vol_20d 是残差空间几乎唯一主导维度**（corr 0.987 / 0.906 with F004），调 7-style 子集已穷尽；C003 暴露 hard_gate **lookahead 系统盲区**（5d 前向收益泄漏）；C001 reserve（纯 vol_20d 本体 \|IC\| 大但 style_r²=0.999）。下批必须改残差化方法（robust regression / kernel / 加新 styles）。
+### [[directions/barra_residual_alpha|Barra Residual Alpha]] `saturated` `low`
+累计 4 batches，21 候选 → **2 admit (F004)** / 3 reserve / 16 reject。[[batches/batch_015/judge|batch_015]] **方向 saturated**：5 个 method-switch 候选 4/4 全部 collapse 到 F004（Huber=0.907 / hetero-norm=0.927 / winsor=0.941 / vol×turn=0.997）+ 1 compute_error。**实验性建立 F004 不动点定理**：F004 是该 7-style basis × OLS-family 上的几何不变量。复活路径：加非 Barra basis / 非参数残差化 / 与库其他因子非线性 ensemble。
 
 ## 最近 Batch
 
+- [[batches/batch_015/judge|batch_015]] (barra_residual_alpha): 5 候选 → admit=0 / reserve=0 / reject=5（全 hard_gate）。**核心**：5 个 method-switch 4/4 collapse 到 F004（Huber/hetero/winsor/vol×turn corr 0.91-0.997）。方向 saturated。
 - [[batches/batch_014/judge|batch_014]] (barra_residual_alpha): 6 候选 → admit=0 / reserve=1 (C001) / reject=5。**核心**：C002+C005 corr 0.987/0.906 with F004 → vol_20d 唯一主导残差空间；**C003 lookahead 系统盲区**（5d 累计前向收益作为 t 时刻因子值，hard_gate 全过但 ic_oos=0.386 / ls_max_dd=0 是构造 artifact）；新建 T003 thread 跟踪。
 - [[batches/batch_013/judge|batch_013]] (barra_residual_alpha): 5 候选 → admit=1 / reserve=1 / reject=3。**C001 admit** (barra_residual_alpha_60d, ICIR=0.293 ls_t=7.34)；**C002 reserve** (vol-20d-only residual, ICIR=0.243 alpha_surv=1.62)；C003/C004/C005 reject (sign_flip/redundant/compute_error)。
 - [[batches/batch_012/judge|batch_012]] (barra_residual_alpha): 5 候选 → admit=1 / reserve=1 / reject=3。**Barra residual 假设验证成立**：C001 Barra_residual_IC=0.033 > raw IC=0.024 admit → F004；C003 reserve（style_r²=0.289 耦合）；C002/C004/C005 reject（IC 不足/sign_flip）。
@@ -67,7 +68,7 @@ last_consolidation_round: null
 | Direction | Status | Priority | Rounds | Admits | Threads | Last batch |
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
-| barra_residual_alpha | productive | high | 5 | 1 | 2 | batch_014 |
+| barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
@@ -75,7 +76,7 @@ last_consolidation_round: null
 | Metric | Value |
 |---|---|
 | Total factors admitted | 5 |
-| Current round | 13 |
+| Current round | 14 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->
