@@ -1,0 +1,49 @@
+batch_id: batch_020
+round: 19
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: Round 4：window ablation (3d/10d upper-shadow 验 5d sweet spot) + 跨日 patterns
+  (engulfing-like body sign agreement / gap-up frequency) + Donchian channel position
+  (close in 20d high-low range)。若 0 admit → direction saturated。
+active_threads_referenced:
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T19:12:39Z'
+frozen_at: '2026-04-20T19:12:39Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 3)
+  canonical: Mean(Div(Sub($high,$close),Sub($high,$low)),3)
+  rationale: 3d upper-shadow window ablation。预期 corr > 0.9 with F006 (5d) → near_dup
+    hard_gate fail，确认 5d 是 sweet spot；如不 hard_gate fail 则 3d 可能携带不同 phase 信息。
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 10)
+  canonical: Mean(Div(Sub($high,$close),Sub($high,$low)),10)
+  rationale: 10d upper-shadow ablation。longer window 可能捕 macro-flow，与 5d 不同 phase。
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Sign(Sub($close, $open)), Sign(Sub(Ref($close, 1), Ref($open,
+    1)))), 5)
+  canonical: Mean(Mul(Sign(Sub($close,$open)),Sign(Sub(Ref($close,1),Ref($open,1)))),5)
+  rationale: T002 跨日：5d mean of Sign(today body) × Sign(yesterday body) = body sign
+    agreement；正值=连续同向（engulfing/momentum），负值=alternating（mean-reversion）。
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Gt($high, Ref($close, 1)), 5)
+  canonical: Mean(Gt($high,Ref($close,1)),5)
+  rationale: 5d count of gap-up days (today high > yesterday close)。frequency-style
+    overnight signal，与 F003 (gap magnitude) 不同维度。
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Sub($close, TsMin($close, 20)), Sub(TsMax($close, 20), TsMin($close,
+    20)))
+  canonical: Div(Sub($close,TsMin($close,20)),Sub(TsMax($close,20),TsMin($close,20)))
+  rationale: Donchian channel position：close 在 20d 高低区间内的相对位置。新机制——基于 longer window
+    的相对强度，而非 5d intraday。
