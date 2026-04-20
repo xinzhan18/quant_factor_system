@@ -213,7 +213,7 @@ def load_market_data(
 
     required_cols = (
         {_returns_col(h) for h in decay_horizons}
-        | {"$amount", "$market_cap", "$close", "$volume"}
+        | {"$amount", "$market_cap", "$close", "$volume", "$open", "$high", "$low"}
     )
 
     if cache_path and cache_path.exists():
@@ -234,16 +234,16 @@ def load_market_data(
     from qlib.data import D
 
     inst_dict = D.instruments("all")
-    # One D.features call for all horizons + amount + market_cap + raw close/volume
+    # One D.features call for all horizons + amount + market_cap + raw OHLCV
     fields = (
         [f"Ref($close, -{h}) / $close - 1" for h in decay_horizons]
-        + ["$amount", "$market_cap", "$close", "$volume"]
+        + ["$amount", "$market_cap", "$close", "$volume", "$open", "$high", "$low"]
     )
     df = D.features(inst_dict, fields=fields, start_time=start, end_time=end)
     df = _qlib_to_time_symbol(df)
     df.columns = (
         [_returns_col(h) for h in decay_horizons]
-        + ["$amount", "$market_cap", "$close", "$volume"]
+        + ["$amount", "$market_cap", "$close", "$volume", "$open", "$high", "$low"]
     )
 
     if cache_path:
