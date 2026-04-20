@@ -1,0 +1,33 @@
+batch_id: batch_023
+round: 22
+direction: liquidity_acceleration
+direction_md_ref: vault/directions/liquidity_acceleration.md
+batch_goal: 首批 3 DSL 候选探索流动性变化率信号——amount 5d/20d 比值、turnover 5d delta、turnover 5d/60d
+  比值。与 F001 (amount CV) 测稳定性正交，本批测变化方向。
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-20T20:10:04Z'
+frozen_at: '2026-04-20T20:10:04Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Mean($amount, 5), Mean($amount, 60))
+  canonical: Div(Mean($amount,5),Mean($amount,60))
+  rationale: 'T001: 5d/60d amount 比值——短期流动性突增 vs 长期基线。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Sub(Mean($turnover_rate, 5), Mean($turnover_rate, 20)), Mean($turnover_rate,
+    20))
+  canonical: Div(Sub(Mean($turnover_rate,5),Mean($turnover_rate,20)),Mean($turnover_rate,20))
+  rationale: 'T002: turnover 5d-20d 加速度归一化。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Mean($turnover_rate, 5), Mean($turnover_rate, 60))
+  canonical: Div(Mean($turnover_rate,5),Mean($turnover_rate,60))
+  rationale: 'T002: turnover 5d/60d 比值——与 batch_004 C003 (5/20) 不同 horizon。'
