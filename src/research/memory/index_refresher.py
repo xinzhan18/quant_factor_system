@@ -88,10 +88,25 @@ def collect_direction_stats(directions_dir: str | Path) -> list[dict[str, Any]]:
 
 
 def count_admitted_factors(factors_dir: str | Path) -> int:
+    """Count active (non-retired) F*.yaml files.
+
+    Consistent with ``collect_admitted_factors`` which also skips
+    ``status: retired``. Without this filter the INDEX top-matter
+    counter disagrees with the factor-library bullet list.
+    """
     p = Path(factors_dir)
     if not p.exists():
         return 0
-    return sum(1 for f in p.glob("F*.yaml"))
+    total = 0
+    for f in p.glob("F*.yaml"):
+        try:
+            data = load_yaml(f)
+        except Exception:
+            continue
+        if isinstance(data, dict) and data.get("status") == "retired":
+            continue
+        total += 1
+    return total
 
 
 def _factor_id_key(path: Path) -> tuple[int, str]:
@@ -358,4 +373,10 @@ def refresh_index(
         new_text = text.rstrip() + "\n\n" + auto_text + "\n"
 
     index_path.write_text(new_text, encoding="utf-8")
+
+    # Regenerate the narrative sentinel blocks (最近 Batch + 活跃方向).
+    # Imported lazily so this module has no import-time dependency on the
+    # narrative module (simplifies unit-test boundaries).
+    from research.memory.index_narrative import refresh_narrative
+    refresh_narrative(paths)
     return index_path

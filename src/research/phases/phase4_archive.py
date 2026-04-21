@@ -51,7 +51,10 @@ from research.archive.report_packer import (
     extract_candidate_synthesis,
     write_report_packet,
 )
-from research.memory.direction_updater import update_direction_frontmatter
+from research.memory.direction_updater import (
+    sync_status_from_judge,
+    update_direction_frontmatter,
+)
 from research.memory.index_refresher import refresh_index
 from research.storage.paths import StoragePaths
 from research.storage.state import StateFile
@@ -423,6 +426,28 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
         goal=manifest.get("batch_goal"),
     )
 
+    # --- Reconcile status / threads from judge narrative (Bug 5/6) ---
+    # LLM writes the transition phrase in judge.md body but historically
+    # forgot to propagate it to frontmatter. Parse the narrative and apply
+    # allowed transitions here so the INDEX table + phase1 picker see the
+    # correct status on the next loop.
+    try:
+        judge_body_text = judge_path.read_text(encoding="utf-8")
+    except OSError:
+        judge_body_text = ""
+    direction_fm = sync_status_from_judge(
+        direction_path,
+        judge_body=judge_body_text,
+        batch_id=inputs.batch_id,
+    ) or direction_fm
+
+    # --- Finish batch BEFORE INDEX refresh ---
+    # ``finish_batch`` bumps ``round`` and advances ``last_batch`` to the
+    # batch that just archived. Doing this before ``refresh_index`` so the
+    # INDEX frontmatter reflects the post-completion state (otherwise the
+    # INDEX is permanently 1 round behind state.yaml).
+    state_file.finish_batch()
+
     # --- Refresh INDEX.md lower half ---
     current_state = state_file.read()
     index_path = refresh_index(
@@ -473,9 +498,6 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
         logger.info(
             "phase4: cleaned %d finished report packet(s)", len(cleaned_packets)
         )
-
-    # --- Finish batch (clears current_batch, increments round) ---
-    state_file.finish_batch()
 
     return Phase4Result(
         batch_id=inputs.batch_id,

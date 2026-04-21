@@ -108,12 +108,36 @@ def _good_judge_md(
         },
     }
     fm_text = yaml.dump(fm, sort_keys=False, allow_unicode=True)
-    body_lines = [f"# {batch_id} Judge Summary", ""]
+    body_lines = [
+        f"# {batch_id} Judge Summary",
+        "",
+        "## 候选一览",
+        "",
+        "| ID | Verdict | 档位 (CP2·3·4·5·6) | Key Metric | 反思 | Detail |",
+        "|---|---|---|---|---|---|",
+    ]
     for cid in ids:
+        v = verdicts.get(cid, "admit")
         body_lines.append(
-            f"- [[batches/{batch_id}/candidates/{cid}|{cid}]]: "
-            f"{verdicts.get(cid, 'admit')}"
+            f"| {cid} | {v} | 🟢·🟢·🟢·🟢·🟢 | ICIR=0.34 | fixture row | "
+            f"[[batches/{batch_id}/candidates/{cid}]] |"
         )
+    # Cross-candidate required when >1 candidate; include unconditionally
+    # so single-candidate batches remain template-complete.
+    body_lines += [
+        "",
+        "## 跨候选对比",
+        "",
+        "- fixture cross-candidate synthesis.",
+        "",
+        "## Thread 进展",
+        "",
+        "- T001: fixture thread progress.",
+        "",
+        "## 方向级反思",
+        "",
+        "fixture direction-level reflection.",
+    ]
     return f"---\n{fm_text.strip()}\n---\n\n" + "\n".join(body_lines) + "\n"
 
 
@@ -764,3 +788,88 @@ class TestMultiViolation:
             _run_audit(tmp_path, bdir, ["C001"])
         violations = exc_info.value.args[1]
         assert len(violations) >= 2
+
+
+# ---------------------------------------------------------------------------
+# c17-c19 — judge template discipline (Bug 7)
+# ---------------------------------------------------------------------------
+
+
+class TestCheck17ThreadProgressSection:
+    def test_missing_thread_progress_fails_multi_candidate(
+        self, tmp_path: Path
+    ) -> None:
+        bad_judge = _good_judge_md(candidate_ids=["C001", "C002"]).replace(
+            "## Thread 进展\n", "## Skipped\n"
+        )
+        bdir = _write_batch(
+            tmp_path, candidate_ids=["C001", "C002"], judge_md=bad_judge
+        )
+        with pytest.raises(JudgeAuditError, match="Thread 进展"):
+            _run_audit(tmp_path, bdir, ["C001", "C002"])
+
+    def test_single_candidate_exempt(self, tmp_path: Path) -> None:
+        # Build a judge with no Thread 进展 section AND only 1 candidate
+        judge = _good_judge_md(candidate_ids=["C001"]).replace(
+            "## Thread 进展\n\n- T001: fixture thread progress.\n", ""
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"], judge_md=judge)
+        # This must still fail c18 (no 跨候选 allowed here since 1 candidate,
+        # but c19 still applies for table columns). It should NOT fail c17.
+        try:
+            _run_audit(tmp_path, bdir, ["C001"])
+        except JudgeAuditError as exc:
+            errs = exc.args[1]
+            assert not any("Thread 进展" in v for v in errs)
+
+
+class TestCheck18CrossCandidateSection:
+    def test_missing_cross_candidate_fails_when_multi(self, tmp_path: Path) -> None:
+        bad = _good_judge_md(candidate_ids=["C001", "C002"]).replace(
+            "## 跨候选对比\n", "## Skipped\n"
+        )
+        bdir = _write_batch(
+            tmp_path, candidate_ids=["C001", "C002"], judge_md=bad
+        )
+        with pytest.raises(JudgeAuditError, match="跨候选对比"):
+            _run_audit(tmp_path, bdir, ["C001", "C002"])
+
+    def test_single_candidate_exempt(self, tmp_path: Path) -> None:
+        # Fixture already omits cross-candidate section if we strip it
+        judge = _good_judge_md(candidate_ids=["C001"]).replace(
+            "## 跨候选对比\n\n- fixture cross-candidate synthesis.\n", ""
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"], judge_md=judge)
+        try:
+            _run_audit(tmp_path, bdir, ["C001"])
+        except JudgeAuditError as exc:
+            errs = exc.args[1]
+            assert not any("跨候选对比" in v for v in errs)
+
+
+class TestCheck19CandidateTableColumns:
+    def test_missing_dangwei_column_fails(self, tmp_path: Path) -> None:
+        judge = _good_judge_md(candidate_ids=["C001"]).replace(
+            "| ID | Verdict | 档位 (CP2·3·4·5·6) | Key Metric | 反思 | Detail |",
+            "| ID | Verdict | Key | Detail |",
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"], judge_md=judge)
+        with pytest.raises(JudgeAuditError, match="档位"):
+            _run_audit(tmp_path, bdir, ["C001"])
+
+    def test_missing_fansi_column_fails(self, tmp_path: Path) -> None:
+        judge = _good_judge_md(candidate_ids=["C001"]).replace(
+            "| ID | Verdict | 档位 (CP2·3·4·5·6) | Key Metric | 反思 | Detail |",
+            "| ID | Verdict | 档位 | Key | Detail |",
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"], judge_md=judge)
+        with pytest.raises(JudgeAuditError, match="反思"):
+            _run_audit(tmp_path, bdir, ["C001"])
+
+    def test_missing_candidate_table_section_fails(self, tmp_path: Path) -> None:
+        judge = _good_judge_md(candidate_ids=["C001"]).replace(
+            "## 候选一览", "## Skipped"
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"], judge_md=judge)
+        with pytest.raises(JudgeAuditError, match="候选一览"):
+            _run_audit(tmp_path, bdir, ["C001"])

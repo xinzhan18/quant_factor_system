@@ -523,8 +523,95 @@ def _cmd_commit(args: argparse.Namespace) -> None:
 
 
 def _cmd_commit_report(args: argparse.Namespace) -> None:
-    print(f"commit-report: factor_id={args.factor_id}")
-    print("(Stub — called by report subagent on completion)")
+    """Commit the deep-report artefacts for a single factor.
+
+    Called by the ``/factor-report`` subagent after it has written:
+
+    * ``storage/vault/factors/F{id}.md`` — LLM-authored narrative
+    * ``storage/vault/factors/F{id}/*.png`` — chart PNGs from the
+      ``report.render`` pipeline
+    * ``storage/vault/factors/F{id}/report.json`` — scalar manifest
+
+    The phase4 ``[mine]`` commit intentionally does not stage these —
+    the subagent runs asynchronously and the artefacts typically don't
+    exist yet at phase4 commit time. Without this command they sit
+    untracked on disk, which is how F011 / F009 updates / F010 assets
+    all ended up outside git history.
+    """
+    from research.archive.commit import create_commit, stage_files
+    from research.storage.paths import StoragePaths
+    from research.storage.yaml_io import load_yaml
+
+    paths = StoragePaths()
+    fid = args.factor_id
+    repo_root = paths.root.resolve().parent
+
+    yaml_path = paths.factor_yaml_file(fid)
+    if not yaml_path.exists():
+        print(f"commit-report failed: {yaml_path} does not exist", file=sys.stderr)
+        sys.exit(1)
+
+    md_path = paths.factor_md_file(fid)
+    assets_dir = paths.factor_assets_dir(fid)
+    if not md_path.exists():
+        print(f"commit-report failed: {md_path} missing (report not written)",
+              file=sys.stderr)
+        sys.exit(1)
+
+    data = load_yaml(yaml_path) or {}
+    name = data.get("name", fid)
+
+    # Try to pull grade / score from the factor MD frontmatter — these come
+    # from the report builder, not the admission record.
+    grade: str | None = None
+    score: float | None = None
+    import re
+    mtext = md_path.read_text(encoding="utf-8")
+    m = re.match(r"\A---\s*\n(?P<fm>.*?)\n---\s*\n", mtext, re.DOTALL)
+    if m:
+        import yaml as _yaml
+        mdfm = _yaml.safe_load(m.group("fm")) or {}
+        g = mdfm.get("composite_grade")
+        if isinstance(g, str) and g.strip():
+            grade = g.strip()
+        s = mdfm.get("composite_score")
+        try:
+            score = float(s) if s is not None else None
+        except (TypeError, ValueError):
+            score = None
+
+    grade_bit = ""
+    if grade:
+        grade_bit = f" ({grade}"
+        if score is not None:
+            grade_bit += f"/{score:.1f}"
+        grade_bit += ")"
+    message = f"[report] {fid} {name} — deep report{grade_bit}"
+
+    files: list[Path] = [md_path]
+    if assets_dir.exists():
+        files.extend(sorted(assets_dir.glob("*.png")))
+        rj = assets_dir / "report.json"
+        if rj.exists():
+            files.append(rj)
+
+    try:
+        staged = stage_files(repo_root, files)
+    except Exception as exc:
+        print(f"commit-report failed to stage: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if not staged:
+        # Nothing to commit — report artefacts already match HEAD.
+        print(f"commit-report: {fid} — no changes to commit")
+        return
+
+    try:
+        result = create_commit(repo_root=repo_root, message=message, staged_files=staged)
+        print(f"Committed: {result.commit_hash[:8]} {message}")
+    except Exception as exc:
+        print(f"commit-report failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _cmd_cache(args: argparse.Namespace) -> None:

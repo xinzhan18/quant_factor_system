@@ -60,6 +60,17 @@ class TestCountAdmittedFactors:
         (paths.factors_dir / "notes.md").write_text("notes")
         assert count_admitted_factors(paths.factors_dir) == 2
 
+    def test_skips_retired(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        save_yaml(
+            paths.factors_dir / "F020.yaml", {"factor_id": "F020", "status": "active"}
+        )
+        save_yaml(
+            paths.factors_dir / "F021.yaml",
+            {"factor_id": "F021", "status": "retired", "retired_reason": "dup"},
+        )
+        assert count_admitted_factors(paths.factors_dir) == 1
+
 
 class TestRenderAutoSection:
     def test_empty_directions_placeholder(self) -> None:

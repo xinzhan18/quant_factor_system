@@ -129,11 +129,134 @@ def update_direction_frontmatter(
     # Auto-transition: first admit in an `exploring` direction → `productive`.
     # LLMs forget to flip this in the narrative log; the mechanical rule is
     # unambiguous enough that Python owns it. Any transition out of `exploring`
-    # past that point (exploring → dead / merged) remains LLM-driven.
+    # past that point (exploring → dead / merged) remains LLM-driven — *but*
+    # :func:`sync_status_from_judge` runs in phase4 too to catch the other
+    # cases the LLM forgets.
     if new_admits and fm.get("status") == "exploring":
         fm["status"] = "productive"
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_serialize(fm, body), encoding="utf-8")
 
+    return fm
+
+
+# ---------------------------------------------------------------------------
+# Bug 5/6 — judge-declared status + thread transitions
+# ---------------------------------------------------------------------------
+
+
+_STATUSES = {"exploring", "productive", "saturated", "dead", "merged", "archived"}
+# Accept both unquoted (`→ saturated`) and backtick-quoted (``status `productive
+# → saturated` ``) forms. LLMs produce both in judge.md narrative.
+_TRANSITION_PATTERN = re.compile(
+    r"(?:direction[^\n]{0,40})?`?\s*([a-z_]+)\s*→\s*([a-z_]+)\s*`?", re.IGNORECASE
+)
+_FIRST_BATCH_DEAD_PATTERN = re.compile(
+    r"direction\s+首批(?:\s*即)?\s*dead", re.IGNORECASE
+)
+_SATURATED_ONESIDED = re.compile(r"→\s*saturated\b")
+_DEAD_ONESIDED = re.compile(r"→\s*dead\b")
+
+# Only these direction-level transitions are mechanical-enough for Python
+# to apply unilaterally. Everything else (e.g. exploring → exploring with
+# a thread update) stays LLM-authored.
+_ALLOWED_TRANSITIONS: set[tuple[str, str]] = {
+    ("exploring", "productive"),
+    ("exploring", "saturated"),
+    ("exploring", "dead"),
+    ("productive", "saturated"),
+    ("productive", "dead"),
+    ("saturated", "dead"),
+}
+
+_ACTIVE_TOKEN = "[◉ ACTIVE]"
+
+
+def _parse_declared_status(judge_body: str) -> str | None:
+    r"""Return the target status the judge narrative declares, or ``None``.
+
+    Recognises three shapes:
+
+    * ``direction status `exploring → dead``` (fully-specified)
+    * ``direction 首批 dead`` / ``direction 首批即 dead`` (first-batch collapse)
+    * bare ``→ saturated`` / ``→ dead`` when there is no other transition
+      phrase (LLMs sometimes drop the lhs)
+    """
+    if _FIRST_BATCH_DEAD_PATTERN.search(judge_body):
+        return "dead"
+
+    for m in _TRANSITION_PATTERN.finditer(judge_body):
+        lhs, rhs = m.group(1).lower(), m.group(2).lower()
+        if lhs in _STATUSES and rhs in _STATUSES and (lhs, rhs) in _ALLOWED_TRANSITIONS:
+            return rhs
+
+    # Fallback for bare `→ saturated` / `→ dead` with no lhs
+    if _DEAD_ONESIDED.search(judge_body):
+        return "dead"
+    if _SATURATED_ONESIDED.search(judge_body):
+        return "saturated"
+
+    return None
+
+
+def _close_active_threads(body: str, batch_id: str) -> str:
+    """Replace ``[◉ ACTIVE]`` with ``[✗ DISPROVEN {batch_id}]`` everywhere.
+
+    Called when direction transitions to ``dead`` — any thread still flagged
+    active is stale-by-definition. Idempotent (no-op if no ACTIVE markers).
+    """
+    return body.replace(_ACTIVE_TOKEN, f"[✗ DISPROVEN {batch_id}]")
+
+
+def sync_status_from_judge(
+    direction_path: str | Path,
+    *,
+    judge_body: str,
+    batch_id: str,
+) -> dict[str, Any]:
+    """Read the judge narrative and reconcile direction frontmatter.
+
+    This runs **after** :func:`update_direction_frontmatter` in phase4 —
+    that function handles the ``exploring → productive`` auto-flip on
+    admit; this one handles ``→ saturated`` / ``→ dead`` declarations
+    the LLM writes in the judge narrative but forgets to propagate.
+
+    When the target is ``dead``, the direction body's ``[◉ ACTIVE]`` thread
+    markers are rewritten to ``[✗ DISPROVEN {batch_id}]`` — a dead direction
+    cannot have lingering active threads (Bug 6).
+
+    Returns the (possibly-patched) frontmatter dict. No-ops when:
+
+    * no allowed transition is parseable from the judge body
+    * the frontmatter status is already at or past the target
+    """
+    path = Path(direction_path)
+    fm, body = _parse_or_init(path)
+    if not fm:
+        return fm
+
+    target = _parse_declared_status(judge_body)
+    if target is None:
+        return fm
+
+    current = fm.get("status", "exploring")
+    if current == target:
+        # Still close stale ACTIVE threads even if status already matches —
+        # the LLM may have flipped status but forgotten the thread markers.
+        if target == "dead" and _ACTIVE_TOKEN in body:
+            body = _close_active_threads(body, batch_id)
+            path.write_text(_serialize(fm, body), encoding="utf-8")
+        return fm
+
+    if (current, target) not in _ALLOWED_TRANSITIONS:
+        return fm
+
+    fm["status"] = target
+    fm["last_activity"] = _now_iso()
+
+    if target == "dead":
+        body = _close_active_threads(body, batch_id)
+
+    path.write_text(_serialize(fm, body), encoding="utf-8")
     return fm

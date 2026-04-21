@@ -6,7 +6,10 @@ from pathlib import Path
 
 import yaml
 
-from research.memory.direction_updater import update_direction_frontmatter
+from research.memory.direction_updater import (
+    sync_status_from_judge,
+    update_direction_frontmatter,
+)
 
 
 def _read_fm(path: Path) -> dict:
@@ -107,3 +110,108 @@ class TestIncrementalUpdate:
         assert fm["rounds"] == 6
         assert fm["admits"] == 4
         assert fm["members"] == ["F020", "F021", "F022", "F023"]
+
+
+class TestSyncStatusFromJudge:
+    """Bug 5/6 — reconcile LLM judge narrative with frontmatter + threads."""
+
+    def _seed(self, path: Path, status: str, body: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f"---\ndirection_id: {path.stem}\nstatus: {status}\nrounds: 1\nadmits: 0\n---\n{body}",
+            encoding="utf-8",
+        )
+
+    def test_dead_transition_flips_status_and_closes_threads(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "asym.md"
+        self._seed(
+            path,
+            "exploring",
+            "\n## Threads\n### T001: foo [◉ ACTIVE]\n\n### T002: bar [◉ ACTIVE]\n",
+        )
+        judge = (
+            "## 方向级反思\n"
+            "direction status `exploring → dead` — 首批即 hard_gate。\n"
+        )
+        sync_status_from_judge(path, judge_body=judge, batch_id="batch_028")
+        fm = _read_fm(path)
+        body = path.read_text(encoding="utf-8")
+        assert fm["status"] == "dead"
+        assert "[◉ ACTIVE]" not in body
+        assert body.count("[✗ DISPROVEN batch_028]") == 2
+
+    def test_saturated_transition_keeps_threads(self, tmp_path: Path) -> None:
+        path = tmp_path / "ohlc.md"
+        self._seed(
+            path,
+            "productive",
+            "\n### T001: foo [◉ ACTIVE]\n",
+        )
+        judge = "Direction status `productive → saturated`. 信号家族穷尽。\n"
+        sync_status_from_judge(path, judge_body=judge, batch_id="batch_021")
+        fm = _read_fm(path)
+        body = path.read_text(encoding="utf-8")
+        assert fm["status"] == "saturated"
+        # Saturated does NOT auto-close threads (direction may reopen later)
+        assert "[◉ ACTIVE]" in body
+
+    def test_first_batch_dead_shortcut(self, tmp_path: Path) -> None:
+        path = tmp_path / "asym.md"
+        self._seed(
+            path,
+            "exploring",
+            "\n### T001: up-only [◉ ACTIVE]\n### T002: down-only [◉ ACTIVE]\n",
+        )
+        judge = "direction 首批 dead — 3/3 hard_gate sign_flip。\n"
+        sync_status_from_judge(path, judge_body=judge, batch_id="batch_028")
+        fm = _read_fm(path)
+        body = path.read_text(encoding="utf-8")
+        assert fm["status"] == "dead"
+        assert "[◉ ACTIVE]" not in body
+
+    def test_noop_when_no_transition_phrase(self, tmp_path: Path) -> None:
+        path = tmp_path / "amt.md"
+        self._seed(path, "productive", "\nSome narrative without transitions.\n")
+        sync_status_from_judge(
+            path, judge_body="候选 C001 admit. 下批继续。", batch_id="batch_002"
+        )
+        fm = _read_fm(path)
+        assert fm["status"] == "productive"  # unchanged
+
+    def test_disallowed_transition_ignored(self, tmp_path: Path) -> None:
+        """productive → exploring is not in the allowed set — Python should not apply it."""
+        path = tmp_path / "foo.md"
+        self._seed(path, "productive", "\n")
+        sync_status_from_judge(
+            path,
+            judge_body="direction status `productive → exploring`",
+            batch_id="batch_010",
+        )
+        fm = _read_fm(path)
+        assert fm["status"] == "productive"
+
+    def test_status_already_dead_still_closes_leftover_active_threads(
+        self, tmp_path: Path
+    ) -> None:
+        """When LLM flipped status to dead by hand but forgot the thread markers."""
+        path = tmp_path / "rm.md"
+        self._seed(path, "dead", "\n### T001: foo [◉ ACTIVE]\n")
+        sync_status_from_judge(
+            path,
+            judge_body="direction `exploring → dead` — rate form 失败。",
+            batch_id="batch_029",
+        )
+        body = path.read_text(encoding="utf-8")
+        assert "[◉ ACTIVE]" not in body
+        assert "[✗ DISPROVEN batch_029]" in body
+
+    def test_bare_arrow_saturated_recognised(self, tmp_path: Path) -> None:
+        path = tmp_path / "bar.md"
+        self._seed(path, "productive", "\n")
+        sync_status_from_judge(
+            path, judge_body="方向首次 → saturated。", batch_id="batch_015"
+        )
+        fm = _read_fm(path)
+        assert fm["status"] == "saturated"

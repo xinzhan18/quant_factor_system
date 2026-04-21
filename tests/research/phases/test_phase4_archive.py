@@ -159,11 +159,14 @@ class TestPhase4HappyPath:
         assert "F001" in text
         assert "F002" in text
 
-        # INDEX.md refreshed
+        # INDEX.md refreshed — reflects POST-finish_batch state so round
+        # matches state.yaml (not lagging by 1 like the old order did).
         assert result.index_path == paths.vault_index_file
         index_text = paths.vault_index_file.read_text(encoding="utf-8")
         assert "vol" in index_text
         assert "Total factors admitted | 2" in index_text
+        assert "round: 1" in index_text
+        assert "last_batch: batch_001" in index_text
 
         # State advanced: finish_batch clears current_batch and bumps round
         state = StateFile(paths.state_file).read()

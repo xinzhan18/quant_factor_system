@@ -542,6 +542,105 @@ def _c16_thread_id_resolves(
 
 
 # ---------------------------------------------------------------------------
+# c17-c19 — judge.md template discipline (Bug 7)
+#
+# `.claude/skills/factor-judge/skill.md` prescribes a 4-layer judge body:
+#
+#   ## 候选一览          (6-column table: ID·Verdict·档位·Key·反思·Detail)
+#   ## 跨候选对比        (cross-candidate synthesis — required when total > 1)
+#   ## Thread 进展       (per-thread ANSWERED / ACTIVE / DISPROVEN update)
+#   ## 方向级反思        (c14 already requires direction update; this is the judge
+#                        body section that frames it)
+#
+# Under the autonomous /factor-mine loop, LLM compliance eroded batch after
+# batch: by batch_023+ the judge.md dropped ``跨候选对比`` and ``Thread 进展``
+# entirely and compressed ``候选一览`` to 4 columns. These checks hard-stop
+# drift so the loop can't silently degrade the knowledge base.
+# ---------------------------------------------------------------------------
+
+
+_JUDGE_CAND_TABLE_EXPECTED_COLUMNS = ("档位", "反思")
+
+
+def _c17_judge_has_thread_progress_section(
+    judge: ParsedDoc, candidates: dict[str, ParsedDoc]
+) -> list[str]:
+    """judge.md body must have a ``## Thread 进展`` section (or equivalent).
+
+    Skipped when there is only a single candidate AND no thread_id diversity —
+    the template's ``Thread 进展`` section exists to sync multi-thread batches;
+    a single-thread/single-candidate batch is exempt.
+    """
+    # Exemption: all candidates belong to the same thread_id AND we have ≤1
+    # candidate — no useful thread synthesis possible.
+    thread_ids = {
+        doc.frontmatter.get("thread_id")
+        for doc in candidates.values()
+        if doc.frontmatter.get("thread_id")
+    }
+    if len(thread_ids) <= 1 and len(candidates) <= 1:
+        return []
+
+    body = judge.body
+    if _extract_h2_section(body, "Thread 进展") is None and _extract_h2_section(
+        body, "Thread Progress"
+    ) is None:
+        return [
+            "judge.md body missing '## Thread 进展' section "
+            "(required by factor-judge skill §judge.md Template)"
+        ]
+    return []
+
+
+def _c18_judge_has_cross_candidate_section(
+    judge: ParsedDoc, candidates: dict[str, ParsedDoc]
+) -> list[str]:
+    """judge.md body must have a ``## 跨候选对比`` section when total > 1."""
+    if len(candidates) <= 1:
+        return []
+    body = judge.body
+    if _extract_h2_section(body, "跨候选对比") is None and _extract_h2_section(
+        body, "Cross-Candidate"
+    ) is None:
+        return [
+            "judge.md body missing '## 跨候选对比' section "
+            "(required when batch has >1 candidate)"
+        ]
+    return []
+
+
+def _c19_judge_candidate_table_has_full_columns(judge: ParsedDoc) -> list[str]:
+    """The ``## 候选一览`` table header must include ``档位`` and ``反思`` columns.
+
+    Template prescribes: ``| ID | Verdict | 档位 (CP2·3·4·5·6) | Key Metric | 反思 | Detail |``.
+    Dropping ``档位`` loses the at-a-glance rubric tier colour; dropping ``反思``
+    loses the per-candidate one-line interpretation. Both are content-bearing,
+    not cosmetic.
+    """
+    errs: list[str] = []
+    section = _extract_h2_section(judge.body, "候选一览")
+    if section is None:
+        return ["judge.md body missing '## 候选一览' table section"]
+    # Find the table header row (first line starting with `|` inside section)
+    header: str | None = None
+    for line in section.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("|") and "|" in stripped[1:]:
+            header = stripped
+            break
+    if header is None:
+        errs.append("judge.md '## 候选一览' has no markdown table header")
+        return errs
+    for col in _JUDGE_CAND_TABLE_EXPECTED_COLUMNS:
+        if col not in header:
+            errs.append(
+                f"judge.md '## 候选一览' table missing required column {col!r} "
+                f"(header={header!r})"
+            )
+    return errs
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -630,6 +729,9 @@ def audit_batch_judge(
     violations += _c14_direction_md_updated(direction_doc, hints, candidates, batch_id)
     violations += _c15_index_md_references_batch(index_doc, direction, batch_id)
     violations += _c16_thread_id_resolves(direction_doc, candidates)
+    violations += _c17_judge_has_thread_progress_section(judge, candidates)
+    violations += _c18_judge_has_cross_candidate_section(judge, candidates)
+    violations += _c19_judge_candidate_table_has_full_columns(judge)
 
     parsed = ParsedBatch(judge=judge, candidates=candidates, violations=violations)
     if violations:
