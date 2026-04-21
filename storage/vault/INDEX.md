@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-20T23:06:14Z
-round: 28
-total_active_directions: 10
-total_factors_admitted: 11
-last_batch: batch_028
+generated_at: 2026-04-21T16:42:28Z
+round: 29
+total_active_directions: 8
+total_factors_admitted: 10
+last_batch: batch_029
 last_consolidation_round: null
 ---
 
@@ -14,54 +14,63 @@ last_consolidation_round: null
 
 ## 活跃方向
 
-### [[directions/intraday_price_formation|日内价格形成]] `saturated` `high`
-累计 2 batches，16 候选 → **1 admit (F003)** / 0 reserve / 15 reject。[[batches/batch_011/judge|batch_011]] **F003 扩展窗口全灭**：Ref2-5+MeanHigh2-10 全部 ic_oos_too_low 或 mono_sign_flip；C005/C006 near_duplicate F003（corr=0.999）。**方向 DSL 空间穷尽**，status → saturated；下一方向需 Python Barra residual。
+<!-- BEGIN NARRATIVE-DIRECTIONS -->
 
-### [[directions/amount_volatility_signal|成交额波动率信号]] `productive` `high`
-累计 4 batches，24 候选 → 1 admit / 10 reserve / 13 reject（admit 率 **4.2%**）。[[batches/batch_008/judge|batch_008]] **第 4 次确认 vol_20d 结构性瓶颈**：19/19 非 hard_gate 候选 100% dominant_style=vol_20d。C003 最强 rank-order(mono=-1.0, max_corr=0.07@F001) 但 alpha_surv=0.24 触 CP04 poor。**DSL 空间已物理封闭**，唯一逃生口：Python vol_20d Barra residual。
+### [[directions/amount_volatility_signal|amount_volatility_signal]] `productive` `high`
+累计 5 rounds · **1 admits** · last batch_008.
+**admit=0 · reserve=4 (C002 C003 C004 C005) · reject=2 (C001 C006)**。方向第 4 次确认 vol_20d 结构性瓶颈。
 
-### [[directions/turnover_structural_signal|换手率结构信号]] `saturated` `low`
-首批 [[batches/batch_004/judge|batch_004]] 即触发 saturated：5 候选 5/5 `dominant_style=vol_20d`，"换手率脱离 vol_20d 风格空间"hypothesis 证伪。仅 C003 加速度 (alpha_survival=1.085) 突破 dealbreaker reserve，四 thread 全部证伪。C001 turnover CV 与 F001 相关 0.955 → shares 短窗近常数 CV 结构等价。
+### [[directions/value_liquidity_interaction|value_liquidity_interaction]] `productive` `high`
+累计 6 rounds · **1 admits** · last batch_009.
+**admit=0 · reserve=2 (C003 C007) · reject=5 (C001 C002 C004 C005 C006)**。方向第 5 批零 admit。
 
-### [[directions/value_liquidity_interaction|价值 × 流动性交互]] `productive` `high`
-累计 5 batches，22 候选 → **1 admit (F002)** / 10 reserve / 11 reject。[[batches/batch_009/judge|batch_009]] self-norm rate×turnover 路径全灭(4/4 sign_flip)；C005 **dom=str_1m breakthrough**（方向首次非 vol_20d）但 incr_ic=-0.033(库 reducer) reject；C007 ls_t=-2.43(最强 PnL) 但 vol_20d=18.8 极端。**DSL 空间实质穷尽**，下批必须 Python Barra residual。
+### [[directions/liquidity_acceleration|liquidity_acceleration]] `exploring` `medium`
+累计 1 rounds · **0 admits** · last batch_023.
+**admit=0 / reserve=2 (C001 + C003) / reject=1 (C002)**
 
-### [[directions/barra_residual_alpha|Barra Residual Alpha]] `saturated` `low`
-累计 4 batches，21 候选 → **2 admit (F004)** / 3 reserve / 16 reject。[[batches/batch_015/judge|batch_015]] **方向 saturated**：5 个 method-switch 候选 4/4 全部 collapse 到 F004（Huber=0.907 / hetero-norm=0.927 / winsor=0.941 / vol×turn=0.997）+ 1 compute_error。**实验性建立 F004 不动点定理**：F004 是该 7-style basis × OLS-family 上的几何不变量。复活路径：加非 Barra basis / 非参数残差化 / 与库其他因子非线性 ensemble。
+### [[directions/intraday_price_formation|intraday_price_formation]] `saturated` `high`
+累计 4 rounds · **2 admits** · last batch_011.
+8 候选 → admit=0 / reserve=0 / reject=8。方向 status → saturated。
 
-### [[directions/return_distribution_signals|收益分布信号]] `dead` `low` 🆕
-首批 [[batches/batch_016/judge|batch_016]] 即 dead：5 候选全 reject (skew 20d/60d/×vol + kurt 20d + Q90-Q10)。**核心证伪**：higher-order moments (skew/kurt/Q-range) 在 cross-section 都 collapse 到 vol_20d——alpha_surv 0.008-0.177 远低 threshold。C004 mono=-0.9 ls_t=-2.28 看似强但 alpha_surv=0.008 暴露其本质 ≡ vol_20d monotone 变换。
+### [[directions/overnight_intraday_split|overnight_intraday_split]] `saturated` `high`
+累计 3 rounds · **3 admits** · last batch_027.
+**admit=0 / reserve=0 / reject=3 — direction status: productive → saturated**
 
-### [[directions/ohlc_temporal_aggregation|多日 OHLC 聚合]] `saturated` `medium` 🆕
-5 batches，21 候选 → 3 admit (F006/F007/F008) + 2 reserve + 16 reject。[[batches/batch_021/judge|batch_021]] **方向 saturated**：F007 3d ablation mono_sign_flip 反转（open-position 是 5d-only signal）；7d upper-shadow alpha_surv=1.685 但 corr=0.834@F006 转 reserve（库 bloat）；turnover-weighted body 是 F007 noisy 版本。**信号家族 multi-window 不对称**：upper-shadow [3d,7d] 都稳，open-position 仅 5d。admit 率 14% (3/21)。
+### [[directions/ohlc_temporal_aggregation|ohlc_temporal_aggregation]] `saturated` `medium`
+累计 5 rounds · **3 admits** · last batch_021.
+**admit=0 / reserve=1 / reject=2 — direction status: productive → saturated**
 
-### [[directions/fundamental_momentum|基本面变化率]] `dead` `low` 🆕
-首批 [[batches/batch_022/judge|batch_022]] 即 dead：4 候选 PE/PB/PS rate 全 weak (ls_t -1.22 to -1.81<2) + r² poor (0.31-0.81) + 全 library reducer。**fundamental rate hypothesis 直接证伪**。
+### [[directions/barra_residual_alpha|barra_residual_alpha]] `saturated` `low`
+累计 6 rounds · **1 admits** · last batch_015.
+**admit=0 / reserve=0 / reject=5**
 
-### [[directions/overnight_intraday_split|隔夜/日内分解]] `productive` `medium` 🆕
-2 batches，6 候选 → **3 admit** (F009/F010/F011) + 1 reserve + 2 reject。admit 率 50%。[[batches/batch_026/judge|batch_026]] F011 3d overnight_return_persistence admit (ls_t=7.98 整库第 2 强)；C002 10d reserve 库 bloat；C003 product form 破坏 mono。overnight 家族已占库 4 slot 达到 bloat 上限，priority 降至 medium。
+### [[directions/turnover_structural_signal|turnover_structural_signal]] `saturated` `low`
+累计 1 rounds · **0 admits** · last batch_004.
+**admit=0 · reserve=1 (C003 加速度) · reject=4** — **方向首批即触发 saturated**。status `exploring → saturated`；priority `high → low`。
+
+<!-- END NARRATIVE-DIRECTIONS -->
 
 ## 最近 Batch
 
-- [[batches/batch_018/judge|batch_018]] (ohlc_temporal_aggregation): 5 候选 → admit=1 (C003 open_position_persistence_5d) / reserve=0 / reject=4。**方向连续两批 admit**——open-position max_corr=0.276@F006 完全机制正交；C001 lower-shadow corr=1.000@F006 algebraic mirror trap；C002 magnitude-only 失败。
-- [[batches/batch_017/judge|batch_017]] (ohlc_temporal_aggregation): 5 候选 → admit=1 (C005 upper_shadow_persistence_5d) / reserve=1 (C003 sign-frequency) / reject=3。**4 轮以来首 admit**——5d upper-shadow alpha_surv=1.508 + incr_ic=+0.031 + cum_dd=-3.5 库内最浅。
-- [[batches/batch_016/judge|batch_016]] (return_distribution_signals): 5 候选 → admit=0 / reserve=0 / reject=5。**核心**：skew/kurt/Q-range 三类首批全部 collapse 到 vol_20d (alpha_surv 0.008-0.177)，方向首批即 dead。
-- [[batches/batch_015/judge|batch_015]] (barra_residual_alpha): 5 候选 → admit=0 / reserve=0 / reject=5（全 hard_gate）。**核心**：5 个 method-switch 4/4 collapse 到 F004（Huber/hetero/winsor/vol×turn corr 0.91-0.997）。方向 saturated。
-- [[batches/batch_014/judge|batch_014]] (barra_residual_alpha): 6 候选 → admit=0 / reserve=1 (C001) / reject=5。**核心**：C002+C005 corr 0.987/0.906 with F004 → vol_20d 唯一主导残差空间；**C003 lookahead 系统盲区**（5d 累计前向收益作为 t 时刻因子值，hard_gate 全过但 ic_oos=0.386 / ls_max_dd=0 是构造 artifact）；新建 T003 thread 跟踪。
-- [[batches/batch_013/judge|batch_013]] (barra_residual_alpha): 5 候选 → admit=1 / reserve=1 / reject=3。**C001 admit** (barra_residual_alpha_60d, ICIR=0.293 ls_t=7.34)；**C002 reserve** (vol-20d-only residual, ICIR=0.243 alpha_surv=1.62)；C003/C004/C005 reject (sign_flip/redundant/compute_error)。
-- [[batches/batch_012/judge|batch_012]] (barra_residual_alpha): 5 候选 → admit=1 / reserve=1 / reject=3。**Barra residual 假设验证成立**：C001 Barra_residual_IC=0.033 > raw IC=0.024 admit → F004；C003 reserve（style_r²=0.289 耦合）；C002/C004/C005 reject（IC 不足/sign_flip）。
-- [[batches/batch_011/judge|batch_011]] (intraday_price_formation): 8 候选 → admit=0 / reserve=0 / reject=8。**F003 扩展窗口全灭**：C001-C004 全部 ic_oos_too_low 或 mono_sign_flip；C005/C006 near_duplicate F003（corr=0.999）；C007 EMA($close,5) CP04 alpha_surv=0.085 证伪。方向 status → saturated。
-- [[batches/batch_010/judge|batch_010]] (intraday_price_formation): 8 候选 → admit=1 (F003 overnight_gap_normalized) / reserve=0 / reject=7。**首批 OHLCV-only 候选**：7/8 hard_gate 全部 mono_sign_flip 失效；C004 隔夜跳空/昨日波幅 ls_t=8.36 + 完美单调 + 9年 IC 全正，唯一 admit。
-- **[RETROACTIVE 2026-04-19]** [[batches/batch_005/judge|batch_005]] C005 reject → **admit F002 `pb_amount_ratio_20`**。触发：config `alpha_surv_min` 0.60→0.40；rubric CP04 档位放宽；direction-level 自设硬规则（alpha_survival<0.60 一律 reject + dom=vol_20d 一律 reject）已删除。
-- [[batches/batch_009/judge|batch_009]] (value_liquidity_interaction): 7 候选 → admit=0 / reserve=2 / reject=5。**self-norm rate×turnover 4/4 全灭**；C005 dom=str_1m breakthrough(历史首次) 但 incr_ic=-0.033(库 reducer) reject；C007 ls_t=-2.43(PnL 最强) vol_20d=18.8 极端。**DSL 空间穷尽**，唯一出口：Python Barra residual。
-- [[batches/batch_008/judge|batch_008]] (amount_volatility_signal): 6 候选 → admit=0 / reserve=4 / reject=2。**第 4 次 vol_20d 瓶颈确认**：C003 最强 rank-order(mono=-1.0, max_corr=0.07@F001) 但 alpha_surv=0.24 触 CP04 poor；C002/C005 near-dup(style_r²=0.78)。DSL 封闭，**唯一逃生口：Python Barra residual**。
-- [[batches/batch_007/judge|batch_007]] (value_liquidity_interaction): 5 候选 → admit=0 / reserve=3 / reject=2。core finding: **C005 首个 ls_t>2 PnL 显著** (-2.92) 但 "静态-动态正交悖论" 第 2 次复现 (alpha_surv=0.097)；**DSL 空间完全探尽**，下批必须 R8 Python Barra residual。
-- [[batches/batch_006/judge|batch_006]] (value_liquidity_interaction): 5 候选 → admit=0 / reserve=3 / reject=2。core finding: **T006 PE/PB/PS 自归一化速率三点通用性确立**（alpha_survival 0.92/0.79/0.72 全 dom=str_1m）但 ls_t 全弱<2；T001 "分母去市值" 路径证伪；C004_b6 极端悖论。
-- [[batches/batch_005/judge|batch_005]] (value_liquidity_interaction): 5 候选 → admit=1 (F002 retroactive) / reserve=1 / reject=3。core finding: **C004 首次跳出流动性风格天花板**（dom=str_1m, alpha_survival=0.92）+ **C005/F002 首个 positive IC+perfect mono**。
-- [[batches/batch_004/judge|batch_004]] (turnover_structural_signal): 5 候选 → admit=0 / reserve=1 / reject=4。core finding: **turnover 同样撞 vol_20d 天花板**——"field 换方向"非"维度切换"。方向 status saturated。
-- [[batches/batch_003/judge|batch_003]] (amount_volatility_signal): 5 候选 → admit=0 / reserve=4 / reject=1。core finding: **DSL 实现空间对 vol_20d 无解**，T002/T004 四子路径全落。
-- [[batches/batch_002/judge|batch_002]] (amount_volatility_signal): 5 候选 → admit=0 / reserve=2 / reject=3。core finding: **T001 窗口扫描答案 = 10d 最优**（F001 anchor 地位确立）。
-- [[batches/batch_001/judge|batch_001]] (amount_volatility_signal): 8 候选 → admit=1 / reserve=2 / reject=5。core finding: 短窗口 CV (C001) 强 alpha + 完美单调，但全方向 dominant_style=vol_20d。
+<!-- BEGIN NARRATIVE-RECENT -->
+
+- [[batches/batch_029/judge|batch_029]] — batch_029 · [[directions/return_momentum_acceleration]] · 3 candidates (direction 首批) · ❌ **admit=0** · ❌ **reject=3** · **核心发现**: return momentum 变化率 3/3 ls_t<1 (C001=-0.81, C003=-0.49) 或 mono_sign_flip (C002)。**price return rate 与 fundamental rate 同源失败**——rate 形式不携稳定 alpha。 · **MT Budget**: cumulative 131 → **134** · direction 0 → **3** · bucket `low`
+- [[batches/batch_028/judge|batch_028]] — batch_028 · [[directions/asymmetric_momentum]] · 3 candidates (direction 首批) · ❌ **admit=0** · ❌ **reject=3** (全 hard_gate) · **核心发现**: up/down momentum 分解 **全 IS/OOS sign/mono 反转**——IS 有效的方向在 OOS 完全反转，证明 loss aversion 信号在 A 股市场 **regime-dependent**，不构成稳定 cross-section alpha。Direction 首批 dead。 · **MT Budget**: cumulative 128 → **131** · direction 0 → **3** · bucket `low`
+- [[batches/batch_027/judge|batch_027]] — batch_027 · [[directions/overnight_intraday_split]] · 3 candidates · ❌ **admit=0** · ❌ **reject=3** · **核心发现**: pure intraday return 3/3 corr 0.65-0.89 @F009 + library reducer。**intraday 段不独立于 F009 spread**——F009 = overnight - intraday 所以 intraday ≈ overnight - F009，数学相关必然。Direction 进一步 saturated。 · **MT Budget**: cumulative 125 → **128** · direction 6 → **9** · bucket `medium`
+- [[batches/batch_026/judge|batch_026]] — batch_026 · [[directions/overnight_intraday_split]] · 3 candidates · ✅ **admit=1** (C001 → overnight_return_persistence_3d) · ⏸ **reserve=1** (C002 10d 库 bloat) · ❌ **reject=1** (C003 mono=+0.10) · **核心发现**: F010 3d ablation 成功 (ls_t=7.98 整库第 2 强)；10d reserve 因库 bloat；product form 破坏 mono rank。 · **MT Budget**: cumulative 122 → **125** · direction 3 → **6** · bucket `low`
+- [[batches/batch_025/judge|batch_025]] — batch_025 · [[directions/overnight_intraday_split]] · 3 candidates (direction 首批) · ✅ **admit=2** (C001 overnight_intraday_spread_5d, C002 overnight_return_persistence_5d) · ❌ **reject=1** (C003 corr sign_flip) · **核心发现**: **首批 DOUBLE ADMIT**——overnight/intraday 分解是全新 cross-section 维度。C002 ls_t=7.50 是整库最强之一；C001 incr_ic=+0.044 是库增值最强候选之一 (4× F007 的 0.023)。 · **MT Budget**: cumulative 119 → **122** · direction 0 → **3** · bucket `low`
+- [[batches/batch_024/judge|batch_024]] — batch_024 · [[directions/vol_shock_signals]] · 3 candidates (direction 首批) · ❌ **admit=0** · ❌ **reject=3** · **核心发现**: vol shock 信号 3/3 失败——C001 库 reducer (incr_ic=-0.027) + C002 hard_gate mono_sign_flip + C003 **alpha_surv=0.117 catastrophic 第 4 次出现 vol-derived 签名**。Direction 首批即 **dead**。 · **MT Budget**: cumulative 116 → **119** · direction 0 → **3** · bucket `low`
+- [[batches/batch_023/judge|batch_023]] — batch_023 · [[directions/liquidity_acceleration]] · 3 candidates (direction 首批) · ❌ **admit=0** · ⏸ **reserve=2** (C001 5d/60d amount; C003 5d/60d turnover) · ❌ **reject=1** (C002 normalized accel) · **核心发现**: 流动性加速度信号 mono=-1.00 完美 + ls_t strong (-2.92 to -3.27) — **rank-order 在方向首批就强**。但 max_corr 集中 0.27-0.32@F001 (low-medium) + incr_ic 全负 (-0.021 to -0.030)。**与 F001 (amount CV) 部分重叠 + library reducer**——admit 会稀释 F001 信号。 · **MT Budget**: cumulative 113 → **116** · direction 0 → **3** · bucket `low`
+- [[batches/batch_022/judge|batch_022]] — batch_022 · [[directions/fundamental_momentum]] · 4 candidates (direction 首批) · ❌ **admit=0** · ❌ **reject=4** · **核心发现**: PE/PB/PS 变化率作为 cross-section 信号**全部弱**——4/4 ls_t<2 + mono≤-0.70 + 全 library reducer (incr_ic 全负)。Rank-based variant (C003) 改善 mono 但仍 weak。**fundamental rate hypothesis 直接证伪**。 · **MT Budget**: cumulative 109 → **113** · direction 0 → **4** · bucket `low`
+- [[batches/batch_021/judge|batch_021]] — batch_021 · [[directions/ohlc_temporal_aggregation]] · 3 candidates · ❌ **admit=0** · ⏸ **reserve=1** (C002 7d upper-shadow) · ❌ **reject=2** · **核心发现**: F007 (5d open-position) 不像 F006 那样有 3d phase variant —— C001 3d open-position **mono_sign_flip 完全反转** (IS=-1.00 OOS=+0.90)。**open-position 信号是 5d-only stability**。C002 7d upper-shadow alpha_surv=1.685 极 clean 但 corr=0.834@F006 太 high 转 reserve（库 bloat）。C003 turnover-weighted body 是 F007 noisy 版本。 · **MT Budget**: cumulative 106 → **109** · direction 19 → **22** · bucket `high`
+- [[batches/batch_020/judge|batch_020]] — batch_020 · [[directions/ohlc_temporal_aggregation]] · 5 candidates · ✅ **admit=1** (C001 → upper_shadow_persistence_3d) · ⏸ **reserve=0** · ❌ **reject=4** (C002 C003 C004 C005) · **核心发现**: **F006 window ablation 找到 3d phase variant**——C001 (3d upper-shadow) ic=+0.029 ls_t=2.91 mono=+0.90 alpha_surv=1.268 incr_ic=+0.022 admit；max_corr=0.758@F006 high 但 incr_ic 显示真实库增值。10d 窗口 (C002) mono_sign_flip 反转——**确认 3d-5d 是 sweet spot 区间**。Cross-day signs (C003/C004) 和 Donchian (C005) 全 reject——20d 范围信号失败。 · **MT Budget**: cumulative 101 → **106** · direction 14 → **19** · bucket `high`（接近 saturated 但未到）
+- [[batches/batch_019/judge|batch_019]] — batch_019 · [[directions/ohlc_temporal_aggregation]] · 4 candidates · ❌ **admit=0** · ⏸ **reserve=0** · ❌ **reject=4** · **核心发现**: 5d OHLC aggregation 在 F006 (close 端) + F007 (open 端) 之外**剩余维度无独立 alpha**。Range 演化 (C001) rank 噪声大；流动性调整 range (C002) corr=0.746@F002；volume-weighted body (C003) corr=0.721@F007；离散 count (C004) hard_gate sign_flip。**方向接近 saturated**——5d 窗口的 directional ratio 空间被 F006/F007 饱和。 · **MT Budget**: cumulative 97 → **101** · direction 10 → **14** · bucket `medium`
+- [[batches/batch_018/judge|batch_018]] — batch_018 · [[directions/ohlc_temporal_aggregation]] · 5 candidates · ✅ **admit=1** (C003 → open_position_persistence_5d) · ⏸ **reserve=0** · ❌ **reject=4** (C001 C002 C004 C005) · **核心发现**: **方向连续两批 admit** —— C003 open-position 5d (ic=+0.037 ls_t=3.22 mono=+0.90 alpha_surv=0.637 incr_ic=+0.023 cum_dd=-1.5) 与 F006 (upper-shadow) 机制正交（max_corr=0.276）。**OHLC 5d aggregation 在开盘+收盘两端独立载 alpha**。C001 lower-shadow corr=1.000 与 F006 algebraic 等价（reject）；C004 signed-range corr=0.544 与 F006 部分重叠；C005 overnight-gap-magnitude alpha_surv=0.164 暴露另一个 vol-derived pattern。 · **MT Budget**: cumulative 92 → **97** · direction 5 → **10** · bucket `medium` (上界)
+- [[batches/batch_017/judge|batch_017]] — batch_017 · [[directions/ohlc_temporal_aggregation]] · 5 candidates (direction 首批) · ✅ **admit=1** (C005 → upper_shadow_persistence_5d) · ⏸ **reserve=1** (C003 bullish-freq) · ❌ **reject=3** (C001 C002 C004) · **核心发现**: **方向假设验证成立** —— 5 日聚合 OHLC patterns 在 close-strength 维度（C005 upper-shadow / C004 close/high）携带**真正独立的 alpha**（与单日 saturated 形成对比）。**关键判别**：alpha_survival 区分"独立载体"（C005=1.508 ✓）vs "vol_20d 镜像"（C004=0.003 ✗）——这是方向首次出现 Barra-clean 信号。**4 轮以来首个 admit！** · **MT Budget**: cumulative 87 → **92** · direction 0 → **5**（首批） · bucket `low`
+- [[batches/batch_016/judge|batch_016]] — batch_016 · [[directions/return_distribution_signals]] · 5 candidates (direction 首批) · ❌ **admit=0** · ⏸ **reserve=0** · ❌ **reject=5** · **核心发现**: **方向假设直接证伪——所有高阶矩 (skew/kurt/Q-range) 在 cross-section 上都 collapse 到 vol_20d**。C004 quantile range mono=-0.9 + ls_t=-2.28 看似强，但 style_r²=0.845 + alpha_survival=0.008 暴露其本质就是 vol_20d 的 monotone 变换。Skew/kurt 不是独立维度。 · **MT Budget**: cumulative 82 → **87** · direction 0 → **5**（首批） · bucket `low`
+- [[batches/batch_015/judge|batch_015]] — batch_015 · [[directions/barra_residual_alpha]] · 5 candidates · ❌ **admit=0** · ⏸ **reserve=0** · ❌ **reject=5** (C001–C005 全部 hard_gate) · **核心发现**: **F004 是该 7-style basis 上 OLS-family 残差的唯一不动点**——5 个变体（Huber 鲁棒 / 5d HL 8th style / 标准化 / Winsor / vol×turn 交互）4 个 corr=0.907–0.997 with F004，1 个 compute_error。**barra_residual_alpha 方向 saturated** — 在同 7-basis + OLS-family 内不可能产生独立 alpha。 · **MT Budget**: cumulative 77 → **82** · direction 10 → **15** · bucket `medium`
+
+<!-- END NARRATIVE-RECENT -->
 
 ## 因子库
 
@@ -89,23 +98,23 @@ last_consolidation_round: null
 | Direction | Status | Priority | Rounds | Admits | Threads | Last batch |
 |---|---|---|---|---|---|---|
 | amount_volatility_signal | productive | high | 5 | 1 | 1 | batch_008 |
-| asymmetric_momentum | exploring | medium | 1 | 0 | 2 | batch_028 |
+| asymmetric_momentum | dead | medium | 1 | 0 | 0 | batch_028 |
 | barra_residual_alpha | saturated | low | 6 | 1 | 1 | batch_015 |
 | fundamental_momentum | dead | low | 1 | 0 | 0 | batch_022 |
 | intraday_price_formation | saturated | high | 4 | 2 | 1 | batch_011 |
 | liquidity_acceleration | exploring | medium | 1 | 0 | 2 | batch_023 |
 | ohlc_temporal_aggregation | saturated | medium | 5 | 3 | 1 | batch_021 |
-| overnight_intraday_split | productive | high | 3 | 3 | 1 | batch_027 |
+| overnight_intraday_split | saturated | high | 3 | 3 | 1 | batch_027 |
 | return_distribution_signals | dead | low | 1 | 0 | 0 | batch_016 |
-| return_momentum_acceleration | exploring | medium | 1 | 0 | 1 | batch_029 |
+| return_momentum_acceleration | dead | medium | 1 | 0 | 0 | batch_029 |
 | turnover_structural_signal | saturated | low | 1 | 0 | 0 | batch_004 |
 | value_liquidity_interaction | productive | high | 6 | 1 | 2 | batch_009 |
 | vol_shock_signals | dead | low | 1 | 0 | 0 | batch_024 |
 
 | Metric | Value |
 |---|---|
-| Total factors admitted | 11 |
-| Current round | 28 |
+| Total factors admitted | 10 |
+| Current round | 29 |
 | Last consolidation | — |
 
 <!-- END AUTO-SECTION -->

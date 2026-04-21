@@ -1,6 +1,6 @@
 ---
 direction_tag: asymmetric_momentum
-status: exploring
+status: dead
 priority: medium
 rounds: 1
 admits: 0
@@ -8,7 +8,7 @@ last_batch: batch_028
 last_admits: []
 last_goal: '首批 3 候选测 up/down return 分解: 5d mean down-only, 5d mean up-only, 两者比值。测是否携独立
   alpha。'
-last_activity: '2026-04-20T22:55:53Z'
+last_activity: '2026-04-21T16:40:05Z'
 created_batch: batch_028
 members: []
 retired_members: []
@@ -22,8 +22,8 @@ merged_into: null
 
 ## Threads
 
-### T001: Down-only momentum [◉ ACTIVE]
-### T002: Up-only momentum [◉ ACTIVE]
+### T001: Down-only momentum [✗ DISPROVEN batch_028]
+### T002: Up-only momentum [✗ DISPROVEN batch_028]
 
 ## Known Failures
 - (空)

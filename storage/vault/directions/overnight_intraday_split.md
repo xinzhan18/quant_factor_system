@@ -1,6 +1,6 @@
 ---
 direction_tag: overnight_intraday_split
-status: productive
+status: saturated
 priority: high
 rounds: 3
 admits: 3
@@ -8,7 +8,7 @@ last_batch: batch_027
 last_admits: []
 last_goal: 'Round 3: intraday return 5d/3d mean mirror of F010/F011 overnight。测 intraday
   段是否与 overnight 段正交、产独立 alpha；若 admit，overnight+intraday 两段同时入库形成完整分解。'
-last_activity: '2026-04-20T22:44:43Z'
+last_activity: '2026-04-21T16:40:05Z'
 created_batch: batch_025
 members:
 - F009
