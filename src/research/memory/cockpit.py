@@ -19,12 +19,14 @@ it produces DIRECTIVES.
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from research.papers import slugify_paper_name
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import load_yaml
 
@@ -46,6 +48,13 @@ def _read_fm(path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+@dataclass(frozen=True)
+class PendingPaper:
+    slug: str
+    raw_pdf_path: str
+    note_path: str
+
+
 @dataclass
 class CockpitAssessment:
     phase: str | None = None
@@ -63,6 +72,8 @@ class CockpitAssessment:
     rounds_since_consolidation: int = 0
     consolidation_triggers: list[str] = field(default_factory=list)
     empty_factor_mds: list[str] = field(default_factory=list)
+    pending_paper_slugs: list[str] = field(default_factory=list)
+    pending_papers: list[PendingPaper] = field(default_factory=list)
     zero_admit_streak: int = 0
     active_directions: int = 0
     recommended_actions: list[str] = field(default_factory=list)
@@ -88,6 +99,43 @@ def _detect_empty_factor_mds(paths: StoragePaths) -> list[str]:
         if not text.strip() or f"# {yp.stem}" not in text:
             offenders.append(yp.stem)
     return offenders
+
+
+def _detect_pending_papers(paths: StoragePaths) -> list[str]:
+    """Raw PDFs that have not yet been converted into ``vault/papers/*.md``."""
+    if not paths.vault_raw_papers_dir.exists():
+        return []
+
+    pending: list[str] = []
+    for pdf_path in sorted(paths.vault_raw_papers_dir.glob("*.pdf")):
+        slug = slugify_paper_name(pdf_path.stem)
+        if not paths.paper_file(slug).exists():
+            pending.append(slug)
+    return pending
+
+
+def _display_storage_path(paths: StoragePaths, path: Path) -> str:
+    return (Path("storage") / path.relative_to(paths.root)).as_posix()
+
+
+def _collect_pending_papers(paths: StoragePaths) -> list[PendingPaper]:
+    if not paths.vault_raw_papers_dir.exists():
+        return []
+
+    pending: list[PendingPaper] = []
+    for pdf_path in sorted(paths.vault_raw_papers_dir.glob("*.pdf")):
+        slug = slugify_paper_name(pdf_path.stem)
+        note_path = paths.paper_file(slug)
+        if note_path.exists():
+            continue
+        pending.append(
+            PendingPaper(
+                slug=slug,
+                raw_pdf_path=_display_storage_path(paths, pdf_path),
+                note_path=_display_storage_path(paths, note_path),
+            )
+        )
+    return pending
 
 
 def _compute_zero_admit_streak(paths: StoragePaths) -> int:
@@ -201,6 +249,14 @@ def _build_recommendations(a: CockpitAssessment) -> list[str]:
             "确认有库空间独立错杀 → 调阈；否则继续"
         )
 
+    if a.pending_paper_slugs:
+        joined = ", ".join(a.pending_paper_slugs)
+        recs.append(
+            f"📄 **新论文待 intake**：{joined} → 先跑 PDF 抽取，再用 "
+            "`/factor-paper` subagent 按 `.claude/skills/factor-paper/paper-note-template.md` "
+            "生成 `papers/{slug}.md`；若 paper note 判定全部 blocked，再回到常规选方向"
+        )
+
     if not recs:
         if a.last_batch_admit > 0 and a.last_direction_status not in {
             "saturated",
@@ -260,6 +316,8 @@ def assess(paths: StoragePaths, config: dict[str, Any] | None = None) -> Cockpit
 
     a.active_directions = _count_active_directions(paths)
     a.empty_factor_mds = _detect_empty_factor_mds(paths)
+    a.pending_papers = _collect_pending_papers(paths)
+    a.pending_paper_slugs = [paper.slug for paper in a.pending_papers]
     a.zero_admit_streak = _compute_zero_admit_streak(paths)
 
     cfg = config if config is not None else (load_yaml(paths.config_file) or {})
@@ -308,10 +366,29 @@ def render_cockpit_block(a: CockpitAssessment) -> str:
     warnings: list[str] = []
     if a.empty_factor_mds:
         warnings.append(f"空 factor.md: {', '.join(a.empty_factor_mds)}")
+    if a.pending_paper_slugs:
+        warnings.append(f"待 intake papers: {', '.join(a.pending_paper_slugs)}")
     if a.consolidation_triggers:
         warnings.append("consolidation 触发: " + "; ".join(a.consolidation_triggers))
     if warnings:
         lines.append("> **⚠️ 预警** · " + " · ".join(warnings))
+
+    if a.pending_papers:
+        head = a.pending_papers[0]
+        suffix = (
+            f" · +{len(a.pending_papers) - 1} more"
+            if len(a.pending_papers) > 1
+            else ""
+        )
+        extract_cmd = (
+            "PYTHONPATH=src python3 scripts/extract_paper_pdf.py --pdf "
+            + shlex.quote(head.raw_pdf_path)
+        )
+        lines.append(
+            f"> **📄 Intake Queue** · `{head.slug}` ← `{head.raw_pdf_path}`"
+            f" · target=`{head.note_path}`{suffix}"
+        )
+        lines.append(f"> **下一条论文 intake 命令** · `{extract_cmd}`")
 
     lines.append(">")
     lines.append("> **🎯 下一步（按优先级）**")

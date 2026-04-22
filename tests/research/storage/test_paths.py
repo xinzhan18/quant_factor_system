@@ -28,6 +28,10 @@ class TestVaultPaths:
         assert sp.vault_dir == tmp_path / "vault"
         assert sp.vault_index_file == sp.vault_dir / "INDEX.md"
         assert sp.vault_lessons_file == sp.vault_dir / "lessons.md"
+        assert sp.vault_raw_dir == sp.vault_dir / "raw"
+        assert sp.vault_raw_papers_dir == sp.vault_raw_dir / "papers"
+        assert sp.vault_raw_paper_extracts_dir == sp.vault_raw_dir / "paper_extracts"
+        assert sp.vault_papers_dir == sp.vault_dir / "papers"
         assert sp.directions_dir == sp.vault_dir / "directions"
         assert sp.factors_dir == sp.vault_dir / "factors"
         assert sp.vault_meta_dir == sp.vault_dir / "_meta"
@@ -46,6 +50,16 @@ class TestVaultPaths:
     def test_consolidation_log(self, tmp_path: Path) -> None:
         sp = StoragePaths(tmp_path)
         assert sp.consolidation_log_file == sp.vault_meta_dir / "consolidation_log.md"
+
+    def test_paper_files(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        assert sp.paper_file("factor_miner") == sp.vault_papers_dir / "factor_miner.md"
+        assert sp.paper_assets_dir("factor_miner") == (
+            sp.vault_papers_dir / "factor_miner"
+        )
+        assert sp.paper_extract_file("factor_miner") == (
+            sp.vault_raw_paper_extracts_dir / "factor_miner.md"
+        )
 
 
 class TestBatchPaths:

@@ -19,6 +19,8 @@ user_invocable: true
 
 **一个 batch 对应一个 direction**。跨方向融合 → 新开 direction，不混 batch。
 
+**Paper intake 边界**：`/factor-idea` 不直接读 PDF 或 raw extract。若方向来自外部论文，先跑 `/factor-paper` 产出 `vault/papers/{paper_slug}.md` 与 `vault/directions/{tag}.md`，再由本 skill 消费 direction。
+
 ---
 
 ## 流程

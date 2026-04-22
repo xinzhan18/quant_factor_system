@@ -146,6 +146,19 @@ class TestRefreshIndex:
         assert "total_active_directions: 1" in text
         assert "total_factors_admitted: 1" in text
 
+    def test_cockpit_surfaces_pending_raw_papers(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        (paths.vault_raw_papers_dir / "Factor Miner.pdf").write_bytes(b"%PDF-1.4 fake")
+        refresh_index(paths, round_counter=1)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        assert "待 intake papers: factor_miner" in text
+        assert "📄 **新论文待 intake**" in text
+        assert (
+            "PYTHONPATH=src python3 scripts/extract_paper_pdf.py --pdf "
+            "'storage/vault/raw/papers/Factor Miner.pdf'"
+        ) in text
+        assert "target=`storage/vault/papers/factor_miner.md`" in text
+
     def test_syncs_factor_md_status_from_yaml(self, tmp_path: Path) -> None:
         paths = _bootstrap(tmp_path)
         save_yaml(

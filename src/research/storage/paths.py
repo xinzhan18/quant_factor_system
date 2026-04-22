@@ -8,6 +8,9 @@ Layout (see refactor_plan.md §4):
       vault/                                # Obsidian vault (Rule B Markdown)
         INDEX.md
         lessons.md
+        raw/papers/*.pdf
+        raw/paper_extracts/{slug}.md
+        papers/{slug}.md
         directions/{tag}.md
         factors/F{id}.{yaml,md}
         _meta/consolidation_log.md
@@ -73,6 +76,31 @@ class StoragePaths:
     @property
     def vault_lessons_file(self) -> Path:
         return self.vault_dir / "lessons.md"
+
+    @property
+    def vault_raw_dir(self) -> Path:
+        return self.vault_dir / "raw"
+
+    @property
+    def vault_raw_papers_dir(self) -> Path:
+        return self.vault_raw_dir / "papers"
+
+    @property
+    def vault_raw_paper_extracts_dir(self) -> Path:
+        return self.vault_raw_dir / "paper_extracts"
+
+    @property
+    def vault_papers_dir(self) -> Path:
+        return self.vault_dir / "papers"
+
+    def paper_file(self, paper_slug: str) -> Path:
+        return self.vault_papers_dir / f"{paper_slug}.md"
+
+    def paper_assets_dir(self, paper_slug: str) -> Path:
+        return self.vault_papers_dir / paper_slug
+
+    def paper_extract_file(self, paper_slug: str) -> Path:
+        return self.vault_raw_paper_extracts_dir / f"{paper_slug}.md"
 
     @property
     def directions_dir(self) -> Path:
@@ -225,6 +253,10 @@ class StoragePaths:
         """
         return [
             self.vault_dir,
+            self.vault_raw_dir,
+            self.vault_raw_papers_dir,
+            self.vault_raw_paper_extracts_dir,
+            self.vault_papers_dir,
             self.directions_dir,
             self.factors_dir,
             self.vault_meta_dir,

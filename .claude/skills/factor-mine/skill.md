@@ -73,6 +73,7 @@ PYTHONPATH=src python3 -m research doctor
    - `⚠️ 修空报告` → 按提示重 dispatch `/factor-report` subagent（把缺 `.md` 的 F{id} 补齐）
    - `📚 触发 consolidation` → 先调 `/factor-consolidate`，回来再读 cockpit
    - `🧪 阈值校准` → 走 `lessons.md#Threshold Calibration` 扫 reserve，确认后才继续
+   - `📄 新论文待 intake` → 对 `raw/papers/*.pdf` 中尚未转成 `papers/{slug}.md` 的条目逐个跑 `/factor-paper`；paper note 统一按 `.claude/skills/factor-paper/paper-note-template.md` 起稿；若新 paper 全部 blocked，再回 cockpit 继续
    - `▶️ 继续同方向` → 读 `directions/{last_direction}.md` 的 Threads 决定下一 thread → Phase 1
    - `🆕 选新方向` → Phase 1 走 snapshot + lessons 选方向
 

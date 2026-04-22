@@ -20,6 +20,9 @@ setup(
         "python-dateutil>=2.8.0",
         "pytz>=2023.3",
         "pyyaml>=6.0",
+        "requests>=2.31.0",
+        "pdfplumber>=0.11.0",
+        "PyMuPDF>=1.24.0",
     ],
     extras_require={
         "ricequant": ["rqdatac>=1.0.0"],
