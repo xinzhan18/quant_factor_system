@@ -31,6 +31,8 @@ from typing import Any
 
 import yaml
 
+from research.memory.cockpit import assess as assess_cockpit
+from research.memory.cockpit import render_cockpit_block
 from research.memory.factor_md_sync import sync_all_factor_md
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import load_yaml
@@ -276,8 +278,15 @@ def _render_moc_body(
     total_active_directions: int,
     last_consolidation_round: int | None,
     insight_block: str,
+    cockpit_block: str,
 ) -> str:
-    """Render the body below the frontmatter. Stable, minimal layout."""
+    """Render the body below the frontmatter. Stable, minimal layout.
+
+    INDEX carries no row data — both humans (via Bases) and LLMs (via
+    ``research memory snapshot``) pull from the same frontmatter source.
+    The cockpit block up top gives the LLM derived state + next-action
+    directives; INSIGHT carries the last Phase-5 distilled wisdom.
+    """
     consolidation_cell = (
         f"round {last_consolidation_round}"
         if last_consolidation_round is not None
@@ -288,20 +297,23 @@ def _render_moc_body(
             "# 🗺️ Factor Research Index",
             "",
             "> [!info] MOC · Map of Content",
-            "> 路口页：读完这里决定下一轮打哪个方向。",
-            "> 表格由 Obsidian Bases 实时查询 `directions/` + `factors/` + `batches/` frontmatter，永远新鲜。",
+            "> 路口页。人看下方 Bases 三表；**LLM 启动读此文件顶部 Cockpit 块**"
+            "（派生状态 + 下一步指令）；拿数据用 "
+            "`PYTHONPATH=src python3 -m research memory snapshot`。",
+            "",
+            cockpit_block,
             "",
             insight_block,
             "",
-            "## 🎯 方向总览",
+            "## 🎯 方向总览 (Bases)",
             "",
             "![[_bases/directions.base]]",
             "",
-            "## 📚 因子库",
+            "## 📚 因子库 (Bases)",
             "",
             "![[_bases/factors.base]]",
             "",
-            "## 📊 最近 Batch",
+            "## 📊 最近 Batch (Bases)",
             "",
             "![[_bases/recent_batches.base]]",
             "",
@@ -359,6 +371,8 @@ def refresh_index(
         last_consolidation_round=last_consolidation_round,
         generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
+    cockpit_block = render_cockpit_block(assess_cockpit(paths))
+
     body = _render_moc_body(
         round_counter=round_counter,
         last_batch=last_batch,
@@ -366,6 +380,7 @@ def refresh_index(
         total_active_directions=total_active_directions,
         last_consolidation_round=last_consolidation_round,
         insight_block=insight_block,
+        cockpit_block=cockpit_block,
     )
 
     index_path = paths.vault_index_file

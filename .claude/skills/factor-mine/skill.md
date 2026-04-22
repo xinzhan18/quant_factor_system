@@ -46,9 +46,37 @@ null → designed → executing → judged → archived → null
 | `research archive <batch>` | Phase 4 归档（F{id} 分配 + backfill + 画图 + 打 packet + commit） |
 | `research consolidate [--target ...]` | Phase 5 |
 
-## 断点恢复
+## 流程
 
-启动先读 `state.yaml`：
+### Phase 0 — Situational Assessment（**启动必做**）
+
+**每次 /factor-mine 启动（含中断重启）必须先跑这四步，按 INDEX cockpit 指令行动**：
+
+```bash
+# 1. 刷新 cockpit 数据（扫 state + frontmatter + config 触发）
+PYTHONPATH=src python3 -m research memory refresh-index
+
+# 2. drift 检测
+PYTHONPATH=src python3 -m research doctor
+```
+
+然后：
+
+3. **Read `vault/INDEX.md`** — 顶部 `<!-- BEGIN COCKPIT -->` 块给出：
+   - `state.phase` + `current_batch`：是否正在某 phase 中断
+   - `last_batch` 摘要 + `last_direction.status`：上一批结果与方向状态
+   - `rounds_since_consolidation` / `zero_admit_streak` / `empty factor.md` 预警
+   - **🎯 下一步（按优先级）**：cockpit 已把规则跑过一遍，给出排序建议
+
+4. **严格按 cockpit 第 1 条建议执行**。可能的分支：
+   - `🔄 断点续跑` → 跳对应 phase（见下表）
+   - `⚠️ 修空报告` → 按提示重 dispatch `/factor-report` subagent（把缺 `.md` 的 F{id} 补齐）
+   - `📚 触发 consolidation` → 先调 `/factor-consolidate`，回来再读 cockpit
+   - `🧪 阈值校准` → 走 `lessons.md#Threshold Calibration` 扫 reserve，确认后才继续
+   - `▶️ 继续同方向` → 读 `directions/{last_direction}.md` 的 Threads 决定下一 thread → Phase 1
+   - `🆕 选新方向` → Phase 1 走 snapshot + lessons 选方向
+
+### 断点恢复表（phase ≠ null 时）
 
 | phase | 上一步 | 恢复动作 |
 |---|---|---|
@@ -60,11 +88,13 @@ null → designed → executing → judged → archived → null
 
 不要重复已完成的 phase——DAG 会 raise。
 
-## 流程
+## 正常流程
 
 ### Phase 1 — /factor-idea
 
-1. 读 `vault/INDEX.md`，找 `status=active` 且 `rounds` 最少的 direction；若无，读 `vault/lessons.md` 的 "Promising unexplored" 或由 LLM 新开
+1. 从 Phase 0 cockpit 已确定的方向出发：
+   - 若 cockpit 建议"继续同方向" → 读 `directions/{tag}.md` Threads + narrative log，选下一 thread
+   - 若 cockpit 建议"选新方向" → `PYTHONPATH=src python3 -m research memory snapshot --recent 10`，从方向表选 `status=productive/exploring` 且 `rounds` 最少；配合 `vault/lessons.md` Promising Unexplored
 2. 调 `/factor-idea`，按该 skill 的 6 步执行（选方向 / 定 batch_goal / 设计 5-10 候选 / Python 验证 / 冻结 manifest）
 
 校验：`state.current_batch_phase == "designed"`。

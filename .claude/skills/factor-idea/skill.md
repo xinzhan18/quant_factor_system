@@ -23,25 +23,43 @@ user_invocable: true
 
 ## 流程
 
-### Step 1 — Python: refresh INDEX 下半段
+### Step 1 — Python: snapshot vault（**必做**）
 
 ```bash
-PYTHONPATH=src python3 -m research memory refresh-index
+PYTHONPATH=src python3 -m research memory snapshot --recent 10
 ```
 
-自动刷新方向列表 / factor count / admit rate 等统计。
+输出三张聚合 markdown 表（方向 / 因子库 / 近 10 batch），filter 语义与 Obsidian Bases 完全一致 —— 这是 LLM 看 vault 状态的**唯一入口**。INDEX.md 本身只有 Bases embed（给人看的，Read 读不到数据），不用再去读它的 body。
 
 ### Step 2 — LLM: select direction
-1. 读 `vault/INDEX.md` 全文（方向优先级 + 最近 batch）
-2. 选目标 direction：优先 `status=active/exploring` 且 `rounds` 最少；若无，读 `lessons.md` 的 "Promising unexplored"（若有）或 **LLM 自判新开**
-3. 跟随 wikilink 读 `vault/directions/{direction}.md` 全文（hypothesis + threads + narrative log）
-4. 若新建方向：创建 `vault/directions/{tag}.md`，结构见 §Direction.md schema
+
+1. 从 Step 1 的方向表里选目标 direction：优先 `status=productive/exploring` 且 `rounds` 最少；若无，读 `vault/lessons.md` 的 "Promising unexplored"（若有）或 **LLM 自判新开**
+2. 跟随 wikilink 读 `vault/directions/{direction}.md` 全文。**按优先级看**：
+   - `## Final Conclusion`（若存在）—— dead/saturated 方向的**元教训**，一眼判断假设是否已封闭
+   - `## Threads` → 每个 `### T{n}` 的状态标签 + `**Evidence trail**` bullet（bullet 里 `[[batches/.../candidates/C{id}]]` 可点进去看 6-CP 深度判决，**候选设计有疑惑时必钻进去**）
+   - `## Known Failures` —— 已 reject 候选的 pattern，避免重复
+   - `## Related` —— 横向邻近方向列表（下一步 §3 的扫描入口）
+3. **Adjacent scan（避免重造轮子）**：Step 1 方向表里凡是信号族跟你目标重叠的 🔴 dead / 🟡 saturated direction，**都要读其 `## Final Conclusion` + `## Known Failures`** 再设计。典型触发：
+   - 设计 return/momentum 类 → 扫 `asymmetric_momentum`、`return_momentum_acceleration`、`return_distribution_signals`
+   - 设计 volume/turnover 类 → 扫 `vol_shock_signals`、`liquidity_acceleration`、`turnover_structural_signal`
+   - 任何时候点开 `## Related` 里的近邻条目
+4. 需要看 insight / 系统状态：`Read vault/INDEX.md`
+5. 若新建方向：创建 `vault/directions/{tag}.md`，结构见 §Direction.md schema
+
+**语义约定（Thread 状态标签的权重）**：
+- `[◉ ACTIVE]` → 可延续，设计类似候选前先看最新 Evidence trail
+- `[✓ ANSWERED batch_X]` → 机制已确认，不需要再测相同形式
+- `[✗ DISPROVEN batch_X]` → **该机制空间已封闭**，换角度或换字段，**不要**重设计同形状候选
 
 ### Step 3 — LLM: decide batch_goal + active threads
 - `batch_goal` — 本 batch 要验证什么（≥30 chars，Python 审计长度）
 - `active_threads_referenced: [T001, T002, ...]` — 本 batch 推进的 thread 编号
 
 ### Step 4 — LLM: design 5-10 candidates
+
+**设计前的最后一道反射（R2 纪律，防止重造轮子）**：对每个候选，都必须能回答：
+1. 本候选机制对应当前 direction 的哪个 **`[◉ ACTIVE]` thread**？（如对应 `[✗ DISPROVEN]` thread，**禁设计**；如跨 thread，在 rationale 里说明）
+2. Step 2.3 adjacent scan 里有没有邻近 direction 已经 disprove 了同形状的候选？有则说明本候选如何绕开（换字段 / 换算子结构 / 换条件）
 
 **DSL 优先（R8）**。Python escape hatch 仅限：
 - DSL 无法表达的非平凡循环
@@ -129,7 +147,7 @@ merged_into: null            # 仅 status=merged 时有值
 
 ## Threads
 ### T001: <子问题> [◉ ACTIVE]
-**Question**: ...
+**Question**: <1-2 句完整问题陈述>
 **Evidence trail**:
 - batch_101: C003 → style_r2=0.12（太脏）
 - batch_102: C004 → style_r2=0.08（acceptable）
@@ -138,6 +156,8 @@ merged_into: null            # 仅 status=merged 时有值
 ### T002: <子问题> [✓ ANSWERED batch_103]
 **Question**: ...
 **Answer**: ...
+**Evidence trail**:
+- batch_103: C001 → admit F{id}
 
 ## Known Failures
 - <已证伪的 pattern + 为什么>
@@ -155,13 +175,19 @@ merged_into: null            # 仅 status=merged 时有值
 
 Thread = direction body 中的 `###` 子节，跨多 batch 逐步回答的开放问题。
 
-| 状态 | 含义 |
-|---|---|
-| `[◉ ACTIVE]` | 正在探索 |
-| `[✓ ANSWERED batch_X]` | 已回答（admit 或 refute） |
-| `[✗ DISPROVEN batch_X]` | 子假设被证伪 |
+| 状态 | 含义 | spelling（固定，c20 硬检查） |
+|---|---|---|
+| `[◉ ACTIVE]` | 正在探索 | 无 batch 编号 |
+| `[✓ ANSWERED batch_X]` | 已回答（admit 或 conclusive refute） | 带 batch 编号 |
+| `[✗ DISPROVEN batch_X]` | 子假设被证伪 | 带 batch 编号 |
 
-**Thread 完全由 LLM 维护**——Python 不管理 thread 状态、数量或标记。LLM 在 Phase 1 创建，在 Phase 4 更新 evidence 与状态标记。
+**Thread block 三件套（audit c20 硬检查，仅对被本 batch 候选引用的 thread 生效）**：
+
+1. H3 行带上表三个状态标签之一
+2. Body 有 `**Question**:` 行
+3. Body 有 `**Evidence trail**:` 标题（**禁用** bare `**Evidence**:`）
+
+**Thread 完全由 LLM 维护**——Python 不管理 thread 状态/数量/内容，只 audit 三件套形状 + `thread_id` 存在（c16）。LLM 在 Phase 1 创建，在 Phase 3 更新 evidence 与状态标记。
 
 ### Direction 生命周期
 

@@ -108,6 +108,23 @@ def main() -> None:
     mem_sub.add_parser(
         "refresh-index", help="Regenerate INDEX.md lower auto-section"
     )
+    snap_p = mem_sub.add_parser(
+        "snapshot",
+        help="Dump aggregated markdown (directions/factors/batches) — "
+        "LLM-friendly, mirrors Bases filter logic",
+    )
+    snap_p.add_argument(
+        "--section",
+        choices=("all", "directions", "factors", "batches"),
+        default="all",
+        help="Which section(s) to render (default: all)",
+    )
+    snap_p.add_argument(
+        "--recent",
+        type=int,
+        default=None,
+        help="For batches section: cap to last N entries (default: unlimited)",
+    )
 
     # ── phase1 (freeze manifest) ──────────────────────────────────────
     p1_p = sub.add_parser("phase1", help="Phase 1 START+DESIGN helpers")
@@ -859,6 +876,17 @@ def _cmd_memory(args: argparse.Namespace) -> None:
         state = StateFile(paths.state_file).read()
         path = refresh_index(paths, round_counter=state.round)
         print(f"INDEX refreshed: {path}")
+    elif args.memory_cmd == "snapshot":
+        from research.memory.snapshot import render_snapshot
+        from research.storage.paths import StoragePaths
+
+        paths = StoragePaths()
+        sections = (
+            ("directions", "factors", "batches")
+            if args.section == "all"
+            else (args.section,)
+        )
+        print(render_snapshot(paths, sections=sections, recent_batches=args.recent))
 
 
 def _cmd_phase1(args: argparse.Namespace) -> None:
