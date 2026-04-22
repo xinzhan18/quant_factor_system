@@ -16,128 +16,102 @@ merged_into: null
 # value_liquidity_interaction
 
 > [!abstract]+ 方向概要
-> **状态**　🟢 productive · priority=high · rounds=6 · admits=1
+> **状态**　🟢 productive · priority=high · rounds=6 · admits=1 (F002)
 > **最近**　[[batches/batch_009/judge|batch_009]] · 2026-04-19 · admit=0 / reserve=2 / reject=5
-> **一句话**　基本面×流动性交互：F002 已 admit，DSL 空间 str_1m 突破待 Python residual 兑现。
+> **一句话**　基本面 × 流动性交互：DSL 空间已实质封闭，rank-order 层突破已成 (alpha_survival 0.92 / dom=str_1m)，PnL 层 ls_t 仍未兑现；Python Barra residual 是唯一未走的路径。
 
 ---
 
 ## Hypothesis
 
-前两个方向（`amount_volatility_signal` / `turnover_structural_signal`）证实纯流动性-波动率派生量在 Barra 空间里全部撞 `vol_20d` 天花板。脱此出路之一：**引入基本面风格维度**。`$pe_ratio / $pb_ratio / $ps_ratio / $market_cap / $circ_market_cap` 直接对应 `ep_ratio / book_to_price / log_circ_cap` 等基本面 Barra 风格——用它们与流动性特征**交互**，理论上产生跨风格空间的 alpha。
-
-三条经济学线索：
-
-1. **价值陷阱 vs 价值实现**：低 PE/PB 股票在高换手率（放量）下往往是"价值实现" (rerating)；低 PE/PB 股票在低换手率（缩量）下可能是"价值陷阱"（基本面恶化市场已知、无买盘）。交互项 `low_PE × high_turnover` vs `low_PE × low_turnover` 应有方向差异。
-2. **小盘流动性溢价**：小市值股票 (low circ_mktcap) 当流动性充足时（高 amount）反映了机构关注，当流动性稀薄时反映了困境。`small_cap × high_liquidity` 做多、`small_cap × low_liquidity` 做空构成反转信号。
-3. **基本面-技术面脱钩**：PE 分位数变化快（盈利改善） + amount 变化慢（市场反应滞后）= 潜在价值发现机会。反之则是"已 priced-in"。动量 × 基本面交互。
-
-**结构性约束**（延续前两方向教训）：
-- 候选必须引入**至少一个基本面字段** ($pe/pb/ps/mktcap)
-- 避免纯流动性派生量（已证伪）
-- CP04 档位参考 rubric 全局阈值（alpha_survival<0.30 poor / 0.30-0.50 borderline / >0.50 clean，2026-04-19 放宽）；不强制 reject
-- 目标：至少 1 候选 **max_corr@F001 < 0.30 且 incremental_ic > 0.010** 即可 admit（Barra 脏但库空间独立仍有价值）
-
----
-
-## Current Focus
-
-batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio, 20), $pe_ratio)` alpha_survival=**0.92** + dominant_style=**str_1m**，方向首次双中 hypothesis 目标（ls_t=-1.22 未达显著 → reserve）；(2) C005 `Div($pb_ratio, Mean($amount, 20))` **positive IC=+0.032** + mono_oos=**+1.0** + cum_dd=**-2.17**（全库最浅），9 年全正——但 Barra 层 70% IC 被 vol_20d 吞。**核心教训**：基本面 × 流动性**乘法**交互 (C001/C002/C003) 全败给量纲主导方；**自归一化变化率** (C004) 和 **分母去市值/去波动率**路径是方向真正出路。下批 batch_006：T003 升级（C004 + amount/turnover 速率）+ C005 分母替换 turnover_rate + 新 T006 (basic × momentum)。
+> [!note]+ Hypothesis (rank-order 层已部分验证 · PnL 层未兑现)
+> 纯流动性-波动率派生量全部撞 `vol_20d` 天花板 ([[amount_volatility_signal]] / [[turnover_structural_signal]] 教训)。脱困出路：引入**基本面风格维度** ($pe/$pb/$ps/$market_cap/$circ_market_cap 对应 ep_ratio / book_to_price / log_circ_cap Barra style)，与流动性特征交互。
+>
+> **三条经济学线索**：
+> 1. **价值陷阱 vs 价值实现**：低 PE/PB × 高换手 = rerating；低 PE/PB × 低换手 = 基本面恶化已知
+> 2. **小盘流动性溢价**：small_cap × high_liquidity 多 / small_cap × low_liquidity 空
+> 3. **基本面-技术面脱钩**：PE 变化快 + amount 变化慢 = 潜在价值发现
+>
+> **结构性约束**：
+> - 候选必须含 ≥1 基本面字段；避免纯流动性派生量
+> - CP04 rubric (2026-04-19 放宽)：alpha_survival<0.30 poor / 0.30-0.50 borderline / >0.50 clean
+> - Admit 门槛：`max_corr@F001 < 0.30 且 incremental_ic > 0.010`（Barra 脏但库独立即可）
 
 ---
 
 ## Threads
 
-### T001: Value × Liquidity 交互 [◉ ACTIVE] (DSL 边界已到，Python residual 待启)
+### T001: Value × Liquidity 交互 [◉ ACTIVE · DSL 已封闭]
 
 > [!note]+ Thread 进展
-> **Question**: PE/PB 分位 × turnover 水平的交互是否产生独立于流动性因子的价值 alpha？价值实现 vs 价值陷阱能否在横截面上区分？
+> **Question**: PE/PB 分位 × turnover 水平的交互是否产生独立于流动性因子的价值 alpha？
 > **Evidence trail**:
-> - [[batches/batch_005/candidates/C001|batch_005 C001]]　Mul($pe,Mean(tr,20)) ICIR_OOS=-0.228 alpha_surv=0.26 dom=vol_20d → **reject (乘法失败)**
-> - [[batches/batch_005/candidates/C005|batch_005 C005]]　Div($pb, Mean(amount,20)) **IC=+0.032 mono=+1.0 cum_dd=-2.17** alpha_surv=0.30 dom=vol_20d → **reject** (positive edge 真实但 vol_20d 吞)
-> - [[batches/batch_006/candidates/C003|batch_006 C003]]　Div($pb, Mean(tr,20)) **IC=+0.027 mono=+0.3 cum_dd=-2.64** alpha_surv=0.28 vol_20d=**25.2**(5.5× of C005_b5) → **reserve (诊断证据)**
-> - [[batches/batch_006/candidates/C004|batch_006 C004]]　Div($pe, Mean(tr,20)) ICIR=+0.284 ls_t=+0.20 alpha_surv=**0.0009**(极端悖论) → **reject (极端 dealbreaker)**
-> - [[batches/batch_007/candidates/C003|batch_007 C003]]　Sub(CsRank($pb), CsRank(Mean(tr,20))) **alpha_surv=0.71**(2.5× 改善) ICIR=+0.107 ls_t=+0.33 dom=vol_20d → **reserve** (秩差诊断)
+> - [[batches/batch_005/candidates/C001|C001_b5]] Mul($pe, Mean(tr,20)) alpha_surv=0.26 dom=vol_20d → reject
+> - [[batches/batch_005/candidates/C005|C005_b5]] Div($pb, Mean(amount,20)) **IC=+0.032 mono=+1.0 cum_dd=-2.17(全库最浅)** alpha_surv=0.30 → reject (positive edge 真实但被 vol_20d 吞 70%)
+> - [[batches/batch_006/candidates/C003|C003_b6]] Div($pb, Mean(tr,20)) 诊断：分母换 tr 未改善 (0.30→0.28) → reserve
+> - [[batches/batch_007/candidates/C003|C003_b7]] Sub(CsRank($pb), CsRank(Mean(tr,20))) **alpha_surv=0.71 (2.5× 改善)** 但 raw IC 0.032→0.011 (1/3 削弱) ls_t=0.33 → reserve
 >
-> **Partial Answer**: 乘法结构 (Mul) 全部被量纲主导方吞噬；除法结构 `Div(fundamental, smoothed_liquidity)` 与 vol_20d **天然共存**（非分母代理问题）——C003 诊断实验证伪"分母去市值"路径。但 C005_b5/C003 positive IC 真实存在 + cum_dd<-3%（全库最浅）证明底层 value×illiquidity edge 真实。DSL 出路剩秩差结构或 Python Barra residual。
-> **Next probes**: `Sub(CsRank($pb), CsRank(Mean($turnover_rate, 20)))` 秩差；Python 逃生口做 Barra residual。
->
-> **batch_007 追加**：C003 秩差 `Sub(CsRank($pb), CsRank(Mean($turnover_rate, 20)))` 已跑：alpha_survival 从 0.28 拉到 **0.71**（2.5× 改善），但 raw IC 从 0.032 削到 0.011（1/3），ls_t=0.33 近零。**秩差消 Barra 但大幅削弱 signal 强度**——Barra 吞噬与 raw IC 的定量 trade-off。dom=vol_20d 仍在。→ **reserve**。Python residual 是唯一未探路径。
+> **Partial Answer**: 乘法结构全部被量纲主导方吞噬；除法结构 `Div(fundamental, smoothed_liquidity)` 与 vol_20d 天然共存（非分母代理问题，已由 C003_b6 诊断证伪「分母去市值」假说）。秩差结构以 2.5× Barra cleanliness 换 3× raw signal 削弱的定量权衡。positive edge 真实存在但 DSL 路径事实封闭。
+> **Next**: Python Barra residual (vol_20d / turnover_20d)。
 
-### T002: Size × Liquidity 反转 [◉ ACTIVE]
+### T002: Size × Liquidity 反转 [◉ ACTIVE · 未跑]
 
 > [!note]+ Thread 进展
-> **Question**: 小市值 × 高流动性 vs 小市值 × 低流动性 在 A 股中是否构成反转信号？
-> **Evidence trail**:
-> - （批次待跑 — 市值代理红线需谨慎设计）
->
-> **Next probes**: 避免直接 $market_cap；改用 log_circ_cap Barra 残差或 tick-level proxies。
+> **Question**: 小市值 × 高流动性 vs 小市值 × 低流动性 在 A 股是否构成反转信号？
+> **Evidence trail**: 批次待跑 —— 市值代理红线 ([[lessons#Structural Constraints]]) 需谨慎设计
+> **Next**: 避免直接 $market_cap；改用 log_circ_cap Barra 残差或 tick-level proxy
 
-### T003: PE 变化率 vs amount 变化率脱钩 [◉ ACTIVE] (PARTIAL ANSWERED via C004_b5)
+### T003: PE 变化率 vs amount 变化率脱钩 [◉ ACTIVE · DSL 封闭]
 
 > [!note]+ Thread 进展
-> **Question**: 基本面信号更新速率（PE 变化）与技术面反应速率（amount 变化）的差异是否携带价值发现 alpha？
+> **Question**: 基本面更新速率 vs 技术面反应速率的差异是否携带价值发现 alpha？
 > **Evidence trail**:
-> - [[batches/batch_005/candidates/C004|batch_005 C004]]　Div(Delta($pe,20), $pe) **alpha_surv=0.92 dom=str_1m** ls_t=-1.22 mono=-0.3 → **reserve**
-> - [[batches/batch_006/candidates/C005|batch_006 C005]]　Mul(Div(Delta($pe,20),$pe), Mean(tr,20)) alpha_surv=**0.29** dom=vol_20d → **reject (乘法第 5 次证伪)**
-> - [[batches/batch_007/candidates/C004|batch_007 C004]]　Div(Delta($pe,20), Mean($pe,60)) alpha_surv=**0.86** dom=str_1m ls_t=-1.21 → **reserve** (60d-norm 边际)
-> - [[batches/batch_007/candidates/C005|batch_007 C005]]　Div(PE_rate, turnover_rate) ls_t=**-2.92**(首个>2) ICIR=-0.284 mono=-0.9 alpha_surv=**0.097**(悖论) → **reject**
+> - [[batches/batch_005/candidates/C004|C004_b5]] Div(Delta($pe,20), $pe) **alpha_surv=0.92 dom=str_1m (方向首次突破天花板)** ls_t=-1.22 → reserve
+> - [[batches/batch_006/candidates/C005|C005_b6]] Mul(PE_rate, Mean(tr,20)) alpha_surv=0.92→**0.29 崩塌** → reject (rate×level 乘法摧毁 rate 独立性)
+> - [[batches/batch_007/candidates/C004|C004_b7]] Div(Delta($pe,20), Mean($pe,60)) alpha_surv=0.86 ls_t=-1.21 → reserve (60d-norm 边际)
+> - [[batches/batch_007/candidates/C005|C005_b7]] Div(PE_rate, turnover_rate) **ls_t=-2.92 首破 2** ICIR=-0.284 mono=-0.9 9年全负 alpha_surv=**0.097 极端悖论** → reject
 >
-> **Partial Answer**: PE 自归一化变化率**成功跳出流动性风格天花板**（方向首次 dominant=str_1m + alpha_survival 超 0.70）。但 ls_t=-1.22 未达 PnL 显著。升级尝试 (C005_b6) 用 level 乘法被吞 — **rate × level 乘法彻底摧毁 rate 独立性**。
-> **Next probes**: 秩差 `Sub(CsRank(PE_rate), CsRank(Mean(turnover)))` 或两 rate 除法 `Div(PE_rate, Div(Delta(Mean(tr,10),10), Mean(tr,10)))`；**禁**乘法升级。
+> **Partial Answer**: PE 自归一化变化率**首次跳出 vol_20d 天花板** (dom=str_1m + alpha_surv>0.70)，但 ls_t 全部 <2。两 rate 除法 (C005_b7) 终于跨过 PnL 显著阈值，却被 Barra 完全吃掉残差——确立 **「静态正交 ≠ 动态正交」** 几何悖论（因子值 ⊥ Barra basis style_r²=0.016，但 IC 生成的 L/S weights 落在 Barra span 内 alpha_surv=0.097）。
+> **Next**: 禁乘法升级；Python Barra residual。
+
+### T006: Fundamental 自归一化速率 [✓ ANSWERED batch_006 · rank-order 层三点通用性]
+
+> [!success]+ Thread 结论
+> **Question**: 基本面字段 `Div(Delta(X,n), X)` 的自归一化变化率是否普遍跳出流动性风格天花板？
+> **Evidence trail**:
+> - [[batches/batch_005/candidates/C004|C004_b5]] PE rate alpha_surv=**0.92** dom=str_1m ls_t=-1.22 → reserve
+> - [[batches/batch_006/candidates/C001|C001_b6]] PB rate alpha_surv=**0.79** dom=str_1m ls_t=-1.49 → reserve
+> - [[batches/batch_006/candidates/C002|C002_b6]] PS rate alpha_surv=**0.72** dom=str_1m ls_t=-1.47 → reserve
+> - [[batches/batch_007/candidates/C001|C001_b7]] 3-funda 等权合成 alpha_surv=**0.86** ls_t=-1.27 → reserve
 >
-> **batch_007 追加**：
-> - C002 `Sub(CsRank(PE_rate), CsRank(Mean(turnover)))` hard_gate fail（sign_flip IS→OOS 反号 + oos_decay=-5.95）— 非对称 rank-diff（rate vs level）IS 信号归零 OOS regime shift。
-> - C005 `Div(PE_rate, turnover_rate)` **首个 ls_t>2 = -2.92** + ICIR=-0.284 + mono=-0.9 + 9 年全负零翻转（**方向里程碑**），但 alpha_survival=**0.097** 极端 poor（C004_b6 悖论第 2 次复现）→ **reject**。
-> - 两 rate 除法是 DSL 空间**真正打出 ls_t>2 的结构**，但被 Barra 完全吃掉残差——**"静态正交 ≠ 动态正交"** 几何悖论：因子值 cross-sectional ⊥ Barra-basis (style_r²=0.016)，但 IC 生成的 L/S weights 落在 Barra span 内 (alpha_survival=0.097)。
-> - T003 DSL 路径事实上封闭；复活需 Python Barra residual。
+> **Answer**: **PE/PB/PS 自归一化速率三点通用性确立**——「基本面字段自归一化变化率跳出 vol_20d 天花板」在 rank-order 层是**跨 valuation 指标普适机制**，不是 PE 孤证。但 ls_t 全部 -1.2~-1.5 <2，L/S PnL 层未兑现。DSL 等权合成不产生信噪比增益（合成等权 ≠ 合成加权）。
+> **Next**: Python 逃生口做 str_1m 加权 residual 合成（方案 D / R8 trigger）。
+
+### T007: 跨基本面 Rank-Diff [◉ ACTIVE · batch_009 新开]
+
+> [!note]+ Thread 进展
+> **Question**: 不同基本面字段 ($pe/$pb/$ps) 之间的 rank 差异是否携带独立于 Barra 的价值发现信号？
+> **Evidence trail**:
+> - [[batches/batch_009/candidates/C002|C002_b9]] Sub(CsRank($pe), CsRank($pb)) mono_sign_flip → reject (level rank-diff 非对称 shift)
+> - [[batches/batch_009/candidates/C003|C003_b9]] Sub(CsRank(PE_rate), CsRank(PB_rate)) 9年全正 cum_dd=-1.54 **incr_ic=+0.019 (库增值真实)** ls_t=0.47 → reserve
+> - [[batches/batch_009/candidates/C007|C007_b9]] Sub(CsRank(turnover), CsRank(PE)) **ls_t=-2.43 mono=-1.0 (方向 PnL 最强)** vol_20d=18.8 incr_ic=-0.035 → reserve
+>
+> **Partial Answer**: 互补悖论——C003 库干净但 PnL 弱 / C007 PnL 最强但库冲突。两 rate 做 rank-diff 优于 level rank-diff (C002 非对称 shift 失败)。
+> **Next**: Python Barra residual(C003 或 C007) 验证独立 alpha。
 
 ### T004: PB × 波动率交互 [✗ DISPROVEN batch_005]
 
 > [!failure]+ Thread 结论
-> **Question**: 低 PB（便宜）× 低波动率是否是"稳定的便宜"（价值），低 PB × 高波动率是否是"不稳定的便宜"（困境）？
-> **Evidence trail**:
-> - [[batches/batch_005/candidates/C003|batch_005 C003]]　Mul($pb, Std($close,20)) alpha_surv=**0.083** (史上最差) dom=vol_20d → **reject**
->
-> **Disproven**: `Mul(fundamental_ratio, Std(price))` 结构是波动率 proxy 教科书样本——未归一化 Std 量纲主导。Barra vol_20d 吞 92% IC。
+> **Question**: 低 PB × 低波动率 = 稳定的便宜（价值）vs 低 PB × 高波动率 = 不稳定的便宜（困境）？
+> **Evidence trail**: [[batches/batch_005/candidates/C003|C003_b5]] Mul($pb, Std($close,20)) alpha_surv=**0.083 (史上最差)** dom=vol_20d → reject
+> **Disproven**: `Mul(fundamental_ratio, Std(price))` 是波动率 proxy 教科书样本——未归一化 Std 量纲主导，Barra vol_20d 吞 92% IC。
 
 ### T005: EP × momentum 交互 [✗ DISPROVEN batch_005]
 
 > [!failure]+ Thread 结论
-> **Question**: 高 E/P（低估） × 正动量是否是 "确认的便宜"？E/P = 1/PE 更稳健（PE 分母可为零）。
-> **Evidence trail**:
-> - [[batches/batch_005/candidates/C002|batch_005 C002]]　Mul(Div(1,$pe), Mean(tr,20)) alpha_surv=0.22 dom=turnover_20d → **reject**
->
-> **Disproven**: EP×turnover 乘法结构撞 turnover_20d 簇；"便宜+热闹"实测负 alpha 与 hypothesis 反向——A 股语境下高 EP + 高换手更接近散户拥挤。
-
-### T006: Fundamental 自归一化速率 (从 C004_b5 抽象) [✓ ANSWERED batch_006]
-
-> [!success]+ Thread 结论
-> **Question**: 基本面字段 `Div(Delta(X, n), X)` 的自归一化变化率是否普遍跳出流动性风格天花板？PB / PS 的变化率是否与 PE 的变化率（C004_b5）产生互补信号？
-> **Evidence trail**:
-> - [[batches/batch_005/candidates/C004|batch_005 C004]]　Div(Delta($pe,20), $pe) **alpha_surv=0.92** dom=str_1m ls_t=-1.22 → **reserve** (PE rate)
-> - [[batches/batch_006/candidates/C001|batch_006 C001]]　Div(Delta($pb,20), $pb) **alpha_surv=0.79** dom=str_1m ls_t=-1.49 → **reserve** (PB rate)
-> - [[batches/batch_006/candidates/C002|batch_006 C002]]　Div(Delta($ps,20), $ps) **alpha_surv=0.72** dom=str_1m ls_t=-1.47 → **reserve** (PS rate)
-> - [[batches/batch_007/candidates/C001|batch_007 C001]]　Div(Add(Add(PE_rate, PB_rate), PS_rate), 3) **alpha_surv=0.86** dom=str_1m ls_t=-1.27 → **reserve** (3-fundamental 合成)
->
-> **Answer**: **三点通用性确立** — PE/PB/PS 自归一化速率形态高度一致（alpha_survival 0.92/0.79/0.72，dom=str_1m，ls_t -1.2 到 -1.5）。"基本面字段自归一化变化率跳出 vol_20d 天花板" 在 rank-order 层是**跨 valuation 指标普适机制**。但 ls_t 全部弱 <2 → L/S PnL 层未兑现。
->
-> **batch_007 合成尝试**：
-> - C001 `Div(Add(Add(PE_rate, PB_rate), PS_rate), 3)` alpha_surv=0.86 dom=str_1m 保持 + 三点通用性再验证，但 ls_t=-1.27 未改善（PE/PB/PS 中位）→ **reserve**。**DSL 等权合成不产生信噪比增益**（Q5 一桨驱动是方向机制层的单边结构）。
-> - C004 `Div(Delta($pe,20), Mean($pe,60))` 60d-norm 变体 alpha_surv=0.86 dom=str_1m ls_t=-1.21 ≈ C004_b5 → **reserve**。分母工程已触底。
->
-> **Next probes**: Python 逃生口做 str_1m 加权 residual 合成（方案 D / R8 trigger）。
-
-### T007: 跨基本面 Rank-Diff [◉ ACTIVE] 🆕 batch_009
-
-> [!note]+ Thread 进展
-> **Question**: 不同基本面字段($pe/$pb/$ps)之间的 rank 差异是否携带独立于 Barra 的价值发现信号？
-> **Evidence trail**:
-> - [[batches/batch_009/candidates/C002|batch_009 C002]]　Sub(CsRank($pe), CsRank($pb)) mono_sign_flip → **reject** (非对称 shift)
-> - [[batches/batch_009/candidates/C003|batch_009 C003]]　Sub(CsRank(PE_rate), CsRank(PB_rate)) 9年全正 cum_dd=-1.54 incr_ic=+0.019 ls_t=0.47 → **reserve**
-> - [[batches/batch_009/candidates/C007|batch_009 C007]]　Sub(CsRank(turnover), CsRank(PE)) ls_t=-2.43 mono=-1.0 vol_20d=18.8 incr_ic=-0.035 → **reserve**
->
-> **Next probes**: Python Barra residual(C003/C007) — C003 incr_ic=+0.019(库增值真实)或 C007 ls_t=-2.43(PnL 最强)残差化验证独立 alpha。
+> **Question**: 高 E/P × 正动量 = 确认的便宜？
+> **Evidence trail**: [[batches/batch_005/candidates/C002|C002_b5]] Mul(Div(1,$pe), Mean(tr,20)) alpha_surv=0.22 dom=turnover_20d → reject
+> **Disproven**: EP×turnover 乘法撞 turnover_20d 簇；"便宜+热闹"在 A 股语境下实测负 alpha 与 hypothesis 反向——更接近散户拥挤。
 
 ---
 
@@ -145,28 +119,35 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 
 | Candidate | Expression | Reject Reason |
 |---|---|---|
-| [[batches/batch_005/candidates/C001\|C001_b5]] | Mul($pe_ratio, Mean(tr,20)) | alpha_survival=0.26 dealbreaker + dom=vol_20d；PE 原值乘法被量纲吞 |
-| [[batches/batch_005/candidates/C002\|C002_b5]] | Mul(Div(1,$pe), Mean(tr,20)) | alpha_survival=0.22 + dom=turnover_20d；EP×turnover 反向 hypothesis |
-| [[batches/batch_005/candidates/C003\|C003_b5]] | Mul($pb, Std($close,20)) | alpha_survival=0.083（史上最差）；未归一化 Std 量纲主导，92% IC 被吞 |
-| [[batches/batch_005/candidates/C005\|C005_b5]] | Div($pb, Mean($amount,20)) | IC=+0.032 + mono=+1.0 但 alpha_surv=0.30 + dom=vol_20d；$amount 分母退化 |
-| [[batches/batch_006/candidates/C004\|C004_b6]] | Div($pe, Mean(tr,20)) | alpha_survival=0.0009 极端记录；"低 style_r² ≠ barra-clean" 教训标本 |
-| [[batches/batch_006/candidates/C005\|C005_b6]] | Mul(Div(Delta($pe,20),$pe), Mean(tr,20)) | rate×level 乘法摧毁 rate 独立性；alpha_surv 0.92→0.29 崩塌 |
+| [[batches/batch_005/candidates/C001\|C001_b5]] | Mul($pe, Mean(tr,20)) | alpha_surv=0.26 + dom=vol_20d；PE 乘法被量纲吞 |
+| [[batches/batch_005/candidates/C002\|C002_b5]] | Mul(1/$pe, Mean(tr,20)) | alpha_surv=0.22 + dom=turnover_20d；EP×turnover 反向 hypothesis |
+| [[batches/batch_005/candidates/C003\|C003_b5]] | Mul($pb, Std($close,20)) | alpha_surv=0.083 (史上最差)；未归一化 Std 波动率 proxy |
+| [[batches/batch_005/candidates/C005\|C005_b5]] | Div($pb, Mean($amount,20)) | IC=+0.032 mono=+1.0 但 alpha_surv=0.30 + dom=vol_20d；$amount 分母退化 |
+| [[batches/batch_006/candidates/C004\|C004_b6]] | Div($pe, Mean(tr,20)) | **alpha_surv=0.0009 极端记录**；"低 style_r² ≠ barra-clean" 标本 |
+| [[batches/batch_006/candidates/C005\|C005_b6]] | Mul(PE_rate, Mean(tr,20)) | rate×level 乘法摧毁 rate 独立性；alpha_surv 0.92→0.29 崩塌 |
 | [[batches/batch_007/candidates/C002\|C002_b7]] | Sub(CsRank(PE_rate), CsRank(Mean(tr,20))) | 非对称 rank-diff hard_gate sign_flip + oos_decay=-5.95 |
 | [[batches/batch_007/candidates/C005\|C005_b7]] | Div(PE_rate, turnover_rate) | ls_t=-2.92 首破 2 但 alpha_surv=0.097；静态正交 ≠ 动态正交悖论 |
-| [[batches/batch_009/candidates/C001\|C001_b9]] | PE_rate / Mean(PE_rate, 60) | sign_flip + ic_oos_too_low + oos_decay=-1.3；self-norm 放大 regime 漂移 |
+| [[batches/batch_009/candidates/C001\|C001_b9]] | PE_rate / Mean(PE_rate, 60) | sign_flip + ic_oos_too_low；self-norm 放大 regime 漂移 |
 | [[batches/batch_009/candidates/C002\|C002_b9]] | Sub(CsRank($pe), CsRank($pb)) | mono_sign_flip IS=-0.60 OOS=0.90；level rank-diff 非对称 shift |
-| [[batches/batch_009/candidates/C004\|C004_b9]] | PE_rate / turnover_rate_of_change | sign_flip + ic_oos_too_low + oos_decay=-16.9；ratio 放大 sign 不稳 |
-| [[batches/batch_009/candidates/C005\|C005_b9]] | (PE_rate + PB_rate) / 2 | dom=str_1m 历史首次 + alpha_surv=0.883 但 incremental_ic=-0.033 库 reducer |
-| [[batches/batch_009/candidates/C006\|C006_b9]] | PB_rate / turnover_rate_of_change | sign_flip + ic_oos_too_low + oos_decay=-32.5；ratio 放大 regime 崩溃 |
+| [[batches/batch_009/candidates/C004\|C004_b9]] | PE_rate / turnover_rate_of_change | sign_flip + oos_decay=-16.9；ratio 放大 sign 不稳 |
+| [[batches/batch_009/candidates/C005\|C005_b9]] | (PE_rate + PB_rate) / 2 | dom=str_1m 首次 alpha_surv=0.883 但 incr_ic=-0.033 库 reducer |
+| [[batches/batch_009/candidates/C006\|C006_b9]] | PB_rate / turnover_rate_of_change | sign_flip + oos_decay=-32.5；ratio 放大 regime 崩溃 |
+
+**失败模式系统化**：
+- `Mul(A, B)` 交互 → 量纲主导方吞噬 (5 次证伪)
+- `Div(A, $amount)` → size×vol 毛代理
+- `Div(rate, rate_of_change)` → self-normalization 放大 regime 漂移 (3 次 sign_flip)
+- `Sub(CsRank(level_A), CsRank(level_B))` → 非对称 shift
+- **有效结构**：`Div(Delta(X), X)` 自归一化 / `Sub(CsRank(rate_A), CsRank(rate_B))` 对称 rank-diff
 
 ---
 
 ## Related
 
 - 🟢 [[amount_volatility_signal]] `productive` — vol_20d 天花板教训来源，F001 admitted
-- 🟡 [[turnover_structural_signal]] `saturated` — "field 换方向 ≠ 维度切换"教训
-- 🔴 [[fundamental_momentum]] `dead` — 已测 PE/PB/PS 纯变化率全败，印证本方向 rank-diff 路径更优
-- 🟡 [[barra_residual_alpha]] `saturated` — 本方向 DSL 已触顶，Python residual 路径与其交集
+- 🟡 [[turnover_structural_signal]] `saturated` — "field 换方向 ≠ 维度切换" 教训
+- 🔴 [[fundamental_momentum]] `dead` — PE/PB/PS 纯变化率全败，印证 rank-diff 路径更优
+- 🟡 [[barra_residual_alpha]] `saturated` — 本方向 DSL 已触顶，Python residual 路径交集
 - [[lessons#Structural Constraints]] — 市值代理红线 / 向量化约束
 
 ---
@@ -174,109 +155,47 @@ batch_005 产出**两个结构性正面发现**：(1) C004 `Div(Delta($pe_ratio,
 ## Narrative Log
 
 > [!quote]+ 2026-04-19 · [[batches/batch_009/judge|batch_009]]
-> **admit=0 · reserve=2 (C003 C007) · reject=5 (C001 C002 C004 C005 C006)**。方向第 5 批零 admit。
+> admit=0 · reserve=2 (C003, C007) · reject=5。方向第 5 批零 admit。
+> - **Self-norm rate × turnover 结构全灭** (C001/C004/C006 三个 Div(rate, rate_of_change) sign_flip + oos_decay collapse)
+> - **C005 dom=str_1m breakthrough**：方向 22 候选历史首次 dominant_style=str_1m (alpha_surv=0.883) 但 incr_ic=-0.033 库 reducer → reject
+> - **C007 ls_t=-2.43 方向 PnL 最强**，mono=-1.0 完美，但 vol_20d=18.8 暴露 + incr_ic=-0.035 库冲突
+> - **C003 cum_dd=-1.54 方向最浅**，incr_ic=+0.019 库增值真实，但 ls_t=0.47
+> - 新开 T007（跨基本面 rank-diff）：C003/C007 互补悖论
 >
-> **核心发现**：
-> 1. **Self-normalized rate × turnover 结构全灭**：C001/C004/C006 三个 `Div(rate, turnover_rate_of_change)` 全部 sign_flip + oos_decay collapse——ratio 结构放大 regime 漂移，self-normalization 不解决跨期问题
-> 2. **C005 dom=str_1m breakthrough**：方向 22 候选历史首次 dominant_style=str_1m（alpha_surv=0.883）——证明"基本面 × 某结构"可以跳出 Barra 天花板。但 incremental_ic=-0.033(库 reducer) reject
-> 3. **C007 ls_t=-2.43**：方向 PnL 最强候选，完美 mono=-1.0，但 vol_20d=18.8 极端暴露 + incr_ic=-0.035 库冲突
-> 4. **C003 cum_dd=-1.54**：方向 22 候选中最浅回撤，9年全正，incremental_ic=+0.019(库增值真实)，但 ls_t=0.47 太弱
-> 5. **新开 T007**（跨基本面 rank-diff）—— C002 rank-diff 失败(非对称 shift)，C003/C007 reserve(互补悖论)
->
-> **Thread 进展**：
-> - T001: ACTIVE（乘法/除法/rank 结构全覆盖，DSL 实质封闭）
-> - T003: ACTIVE（self-norm rate 路径全灭）
-> - T006: ACTIVE（str_1m breakthrough 实现但库 reducer reject）
-> - T007: 新增 ACTIVE（跨基本面 rank-diff — C003 库干净/C007 PnL 强互补悖论）
->
-> **下轮唯一出口**：Python Barra residual。C003(incr_ic=+0.019 库增值真实)或 C007(ls_t=-2.43 PnL 最强)残差化验证独立 alpha。若 Python 残差版仍零 admit，方向转 `saturated`，开第 4 方向。
->
-> 若下一批 admit=0，方向 `productive → saturated`。
+> **下轮唯一出口**：Python Barra residual。若残差版仍零 admit → 方向转 `saturated`，开第 4 方向。
 
 > [!quote]- 2026-04-19 · [[batches/batch_007/judge|batch_007]]
-> **admit=0 · reserve=3 (C001 合成, C003 rank-diff PB, C004 60d-norm) · reject=2 (C002 hard_gate, C005 alpha_survival 极端悖论)**。
+> admit=0 · reserve=3 · reject=2。三项里程碑发现：
+> 1. **C005 首个 ls_t>2**：Div(PE_rate, turnover_rate) ls_t=-2.92 + ICIR=-0.284 + 9 年全负零翻转（方向 15 候选首次跨 PnL 显著阈值）
+> 2. **"静态正交 ≠ 动态正交" 悖论确立**：style_r²=0.016 极低 + alpha_survival=0.097 极低共存
+> 3. **Rank-diff 定量权衡**：alpha_survival 0.28→0.71 (2.5×) 但 raw IC 0.032→0.011 (1/3)
 >
-> **三项里程碑发现**（信息密度最高一批）：
-> 1. **C005 首个 ls_t>2**：`Div(PE_rate, turnover_rate)` ls_t=**-2.92** + ICIR=-0.284 + mono=-0.9 + 9 年全负零翻转。**方向 15 候选首次跨过 PnL 显著阈值**。
-> 2. **"静态正交 ≠ 动态正交"悖论确立**（C004_b6 + C005_b7）：style_r² 极低 (0.016) + alpha_survival 极低 (0.097)。几何含义：因子值 ⊥ Barra basis，但 IC 生成的 L/S weights 落在 Barra span 内。
-> 3. **Rank-diff (C003) 定量权衡**：alpha_survival 0.28→**0.71**（2.5× 改善），但 raw IC 0.032→0.011（1/3 削弱）。**Barra 吞噬消除必须付出 raw signal 削弱的代价**。
+> **方向决策**：DSL 空间完全探尽（乘法/除法/合成/秩差/分母工程/两 rate 除法 6 种结构全部触天花板）。R8 Python 逃生口触发条件完成。
 >
-> **方向决策：DSL 空间完全探尽**。6 种结构化尝试（乘法 / 除法 / 合成 / 秩差 / 分母工程 / 两 rate 除法）全部触天花板。R8 Python 逃生口触发条件完成。
->
-> **Thread 进展**：
-> - T001: ACTIVE（DSL 边界已到，Python residual 待启）
-> - T003: ACTIVE（首个 ls_t>2 + 悖论；DSL 事实封闭）
-> - T006: ACTIVE（合成 PnL 天花板，rank-order 层完成）
->
-> **下轮决策（batch_008，必须方案 D / R8 触发）**：
-> 1. Python 逃生口实现 `python_factors/value_rate_residual.py`
-> 2. 对 C004_b5 / C001_b7 / C005_b7 做 Barra residual (vol_20d / turnover_20d / str_1m 三风格)
-> 3. 若残差版 ls_t>2 + alpha_survival>0.6 保留 → 方向首个 admit
-> 4. 若残差版 ls_t 仍弱 → 方向 saturated，开辟第 4 方向（如 momentum × fundamental）
->
-> **跨方向总览（累计 6 batches / 3 directions / 38 候选 / 1 admit）**：
-> - amount_volatility_signal: productive, 3 batches, 1 admit (F001), 6 reserve
-> - turnover_structural_signal: saturated, 1 batch, 1 reserve
-> - value_liquidity_interaction: exploring, 3 batches, 8 reserve, 里程碑最密集
->
-> **Phase 5 consolidation 触发进度**：rounds_since_last=7（<10 阈值）；lessons.md 79 行（<400）；directions 各 <500 行；active ≥ 20 (当前 2，含 value)。**暂不触发 consolidation**；batch_008 后会到 8，仍不触发。
->
-> **元洞察入 lessons.md 候选（Phase 5）**：
-> - "DSL 空间对 vol_20d 天花板物理极限" — 需要物理残差才能推进
+> **元洞察入 lessons.md 候选**：
+> - DSL 空间对 vol_20d 天花板的物理极限
 > - "静态正交 ≠ 动态正交" 悖论 — style_r² 不是 Barra-clean 硬判据
-> - "Barra 吞噬与 raw IC 定量 trade-off" — rank-diff 以 signal 换 cleanliness 1:2.5
-> - "方向首批 hypothesis 证伪率"是方向级最高效信号
+> - Barra 吞噬与 raw IC 定量 trade-off (1:2.5)
 
 > [!quote]- 2026-04-19 · [[batches/batch_006/judge|batch_006]]
-> **admit=0 · reserve=3 (C001 PB rate, C002 PS rate, C003 PB/turnover) · reject=2 (C004 极端悖论, C005 乘法失败)**。方向 `status: exploring` 保持；priority high。
+> admit=0 · reserve=3 · reject=2。三项核心发现：
+> 1. **T006 三点通用性确立**（最重要）：PE/PB/PS 自归一化速率在 rank-order 层形态高度一致 (alpha_surv 0.92/0.79/0.72、dom=str_1m)——跨 valuation 普适机制
+> 2. **T001 "分母去市值"路径证伪**：C003 诊断 (amount→turnover) 未改善 Barra ceiling (0.30→0.28)
+> 3. **C004 极端悖论**：style_r²=0.08 clean + alpha_survival=0.0009 共存——低 style_r² ≠ barra-clean
 >
-> **三项 batch 核心发现**：
-> 1. **T006 三点通用性确立**（最重要）：PE/PB/PS 自归一化速率在 rank-order 层形态高度一致（alpha_survival 0.92/0.79/0.72、dom=str_1m、ls_t 弱）。**这是跨 valuation 普适机制**，不是 PE 孤证。
-> 2. **T001 "分母去市值"路径证伪**：C003 诊断实验 (amount→turnover) 未改善 Barra ceiling (0.30→0.28)；positive edge 真实但与 vol_20d 天然共存。
-> 3. **C004 极端悖论**：style_r²=0.08 clean + alpha_survival=0.0009 极端 poor 共存；**低 style_r² ≠ barra-clean**（因子 IC 可完全在 Barra 子空间内运动）。
->
-> **累计 5 batches / 3 directions / 33 候选 / 1 admit** — 方向关键转折：rank-order 层突破已成，PnL 层需合成 + 正交化工程步骤。
->
-> **Thread 进展**：
-> - T001: ACTIVE（DSL 出路仅剩秩差/Python residual）
-> - T003: ACTIVE PARTIAL ANSWERED（乘法升级证伪）
-> - T006: ANSWERED rank-order 层（PE/PB/PS 三点通用性）
->
-> **下轮决策树（batch_007，4 方案）**：
-> - **方案 A**: T006 合成 — `Div(Add(Add(PE_rate, PB_rate), PS_rate), 3)` 三基本面平均 rate
-> - **方案 B**: 秩差结构 — `Sub(CsRank(PE_rate), CsRank(Mean(tr)))` 显式放大基本面-流动性差异
-> - **方案 C**: 高阶 positive signal — C005_b5 / C003 的 `Div(Add($pe,$pb), Mean(tr))` 双字段分子版
-> - **方案 D（R8 触发）**: Python 逃生口做 C004_b5 + C001 + C002 + C003 合成 Barra residual — 这是方向可兑现的唯一路径
->
-> **建议 batch_007 优先 方案 A + 方案 B 各 2-3 候选**（DSL 内可验证合成/秩差是否把 ls_t 推过 2），若失败 batch_008 转 方案 D。
+> rank-order 层突破已成，PnL 层需合成 + 正交化工程步骤。
 
 > [!quote]- 2026-04-19 · [[batches/batch_005/judge|batch_005]]
-> **admit=0 · reserve=1 (C004 PE change rate) · reject=4**。方向 `status: exploring` 保持；priority `high`。
+> admit=0 · reserve=1 (C004 PE rate) · reject=4。两项结构性正面发现：
+> 1. **C004 突破 Barra 天花板**：Div(Delta($pe,20), $pe) alpha_survival=0.92 + dominant_style=str_1m，方向首次双中 hypothesis 目标
+> 2. **C005 positive IC 孤证**：Div($pb, Mean($amount,20)) IC_OOS=+0.032 / mono_oos=+1.0 / cum_dd=-2.17 (全库最浅) / 9 年全正，70% IC 被 vol_20d 吞
 >
-> **两项结构性正面发现**（高于前两方向的信息增量）：
-> 1. **C004 突破 Barra 天花板**：`Div(Delta($pe_ratio, 20), $pe_ratio)` alpha_survival=**0.92** + dominant_style=**str_1m** → 方向首次双中 hypothesis 目标。ls_t=-1.22 未达 PnL 显著 → reserve（rank-order 层 hypothesis 成立，交易性待升级）
-> 2. **C005 positive IC 孤证**：`Div($pb_ratio, Mean($amount, 20))` **IC_OOS=+0.032 / mono_oos=+1.0（PERFECT）/ cum_dd=-2.17（全库最浅）/ 9 年全正**。70% IC 被 vol_20d 吞 → 底层 positive edge 真实，被 Barra 遮蔽。
->
-> **四候选失败模式系统化** (T004/T005 证伪 + T001 乘法结构证伪)：
-> - `Mul(A, B)` 交互 = 量纲主导方吞噬信号 (C001/C002/C003)
-> - `Div(A, $amount)` = size×vol 毛代理，分母退化 (C005)
-> - **有效出路**: 自归一化变化率 `Div(Delta(X), X)` (C004)、分母去市值（turnover_rate 替代 amount）
->
-> **Thread 进展**:
-> - T001: ACTIVE 乘法结构证伪，除法结构证伪（C005 positive 但 Barra 吞）
-> - T002: 未跑
-> - T003: ACTIVE PARTIAL ANSWERED（C004 rank-order 层 hypothesis 成立）
-> - T004: DISPROVEN batch_005（PB×Std 是波动率 proxy）
-> - T005: DISPROVEN batch_005（EP×turnover 反向 hypothesis）
-> - T006: 新增 ACTIVE（从 C004 抽象：基本面字段自归一化速率通用性）
+> **四候选失败模式系统化**：
+> - Mul(A,B) = 量纲主导方吞噬
+> - Div(A, $amount) = size×vol 毛代理
+> - **有效出路**：Div(Delta(X), X) 自归一化 / 分母去市值 (turnover_rate 替代 amount)
 >
 > **跨方向元教训**（累计 4 batches / 3 directions / 28 候选 / 1 admit）：
-> - Barra 天花板的物理出口仍是 Python 逃生口 Barra residual
-> - 乘法交互 ≠ 维度交互；必用 `Div(Delta(X),X)` 或 `Sub(Rank(A),Rank(B))` 自归一化/秩差结构
-> - "方向首批 hypothesis 证伪率" 是方向级评估最高效信号
->
-> **下轮 (batch_006)**:
-> 1. T003 升级：C004 + amount/turnover 自归一化速率交互
-> 2. T001 修复：C005 分母 $amount → $turnover_rate 去市值
-> 3. T006 新增：$pb 自归一化速率 + $ps 自归一化速率探通用性
-> 4. 保持 ≤ 5 候选，continue hypothesis 精度优先
+> - Barra 天花板物理出口仍是 Python Barra residual
+> - 乘法交互 ≠ 维度交互；必用自归一化或秩差结构
+> - "方向首批 hypothesis 证伪率"是方向级最高效信号

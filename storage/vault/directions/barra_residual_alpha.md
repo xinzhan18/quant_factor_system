@@ -24,21 +24,25 @@ merged_into: null
 > [!abstract]+ 方向概要
 > **状态**　🟡 saturated · priority=low · rounds=6 · admits=1
 > **最近**　[[batches/batch_015/judge|batch_015]] · 2026-04-21 · admit=0 / reserve=0 / reject=5
-> **一句话**　F004 是 7-style × OLS-family 残差的几何不变量；method 变体全 collapse。
+> **一句话**　F004 是 7-style × OLS-family 残差的几何不变量；basis / 损失函数 / 标准化 / interaction / 时序后处理 5 类路径全部 collapse，框架内已穷尽。
 
 ---
 
 ## Hypothesis
 
-All existing directions hit vol_20d/str_1m style coupling as structural bottleneck — every DSL candidate either has Barra dominant style exposure or is near-duplicate of existing factors. The residual from regressing returns on Barra style factors represents idiosyncratic alpha orthogonal to known risk.
-
-** Barra residual alpha  = Regress(Returns ~ vol_20d + str_1m + turnover_20d + log_circ_cap + book_to_price + mom_12_1 + ep_ratio) → Residuals
-
-经济直觉：Barra 风格因子吸收了市场 common risk；如果 residual 仍携带 IC，说明存在风格无法解释的异质波动。
-
-> [!info]+ 方向饱和说明
-> **为何 saturated**　F004 admit 后，5 method-switch 候选 (Huber / hetero-norm / winsor / vol×turn / EMA) 全部 collapse 到 corr ≥ 0.91 — 实验性证明 F004 是该 7-style basis × OLS-family 上的几何不变量。任何同框架内的变体都无法产生独立残差。F005 作为 60d 变体被 admit 后 2026-04-20 retired（bit-for-bit duplicate of F004；near_duplicate gate 对 Python factors 盲区）。
-> **复活条件**　(a) 加非 Barra style basis（行业 / GICS / microstructure factor model）；(b) nonparametric residualization（kernel ridge / NN）；(c) 与库其他因子的非线性 ensemble。
+> [!failure]+ ⚠️ 证伪后的 Hypothesis（2026-04-21 saturated）
+> **原始假设**：Regress(Returns ~ 7 Barra styles) 的 residual 携带独立于风格因子的 idiosyncratic alpha。
+>
+> `Barra residual alpha = Regress(Returns ~ vol_20d + str_1m + turnover_20d + log_circ_cap + book_to_price + mom_12_1 + ep_ratio) → Residuals`
+>
+> **成立部分**：F004 admit 确认 residual IC=0.033 > raw IC=0.024 的 incremental alpha 存在。
+>
+> **⚠️ 证伪部分**：在 **7-style basis × OLS-family** 框架内，F004 是几何不变量——≥5 条独立路径（basis 子集调整 / 损失函数切换 / 标准化变换 / interaction style / 时序后处理）全部 collapse 到 corr ≥ 0.91。方向在当前框架内已穷尽。
+>
+> **复活条件**：
+> (a) 加非 Barra style basis（行业 / GICS / microstructure factor model）
+> (b) nonparametric residualization（kernel ridge / NN）
+> (c) 与库其他因子的非线性 ensemble
 
 ---
 
@@ -50,40 +54,69 @@ All existing directions hit vol_20d/str_1m style coupling as structural bottlene
 > **Question**: Barra residual returns 是否携带独立于风格因子的 alpha？
 > **Evidence trail**:
 > - [[batches/batch_012/candidates/C001|batch_012 C001]]　IC=0.024 ICIR=0.293 ls_t=7.34 Barra_residual_IC=0.033 > raw IC=0.024 → **admit → [[factors/F004]]**
-> - [[batches/batch_012/candidates/C003|batch_012 C003]]　Barra_residual_IC=0.033（与 C001 相当）但 style_r²=0.289 + vol_20d exposure=15.6 耦合严重 → **reserve**
+> - [[batches/batch_012/candidates/C003|batch_012 C003]]　Barra_residual_IC=0.033 但 style_r²=0.289 + vol_20d exposure=15.6 → **reserve**
 >
 > **Answer**: Barra residual 携带 incremental alpha（residual IC=0.033 > raw IC=0.024），F004 admit 确认假设成立。
 
-### T002: 残差与其他因子正交性 [✗ DISPROVEN batch_015]
+### T002: 7-style × OLS 框架内的可分离性 [✗ DISPROVEN batch_015]
 
 > [!failure]+ Thread 结论
-> **Question**: Barra residual 与 F001/F002/F003 的增量 IC 是否 > 0？vol-20d-only residual 是否可行？换损失函数 / 标准化 / 加 interaction style 能否产生独立残差？
-> **Evidence trail**:
-> - [[batches/batch_012/candidates/C001|batch_012 C001]]　incremental_ic=0.032 max_corr=0.15（F002）→ 正交
-> - [[batches/batch_013/candidates/C001|batch_013 C001]]　Barra_residual_alpha_60d → **admit→retire** (F005, 2026-04-20 retired as bit-for-bit duplicate of F004; near_duplicate gate was blind to Python factors at commit time)
-> - [[batches/batch_013/candidates/C002|batch_013 C002]]　vol-20d-only residual → reserve (ICIR=0.243 ls_t=7.28 alpha_surv=1.62 incremental_ic=0.030 max_corr=0.12)；比全剥离 survival 更高
-> - [[batches/batch_014/candidates/C001|batch_014 C001]]　纯 vol_20d 本体（无 residual）→ reserve (ic_oos=-0.063 mono=-0.7 cum_dd=-98 style_r²=0.999 incremental_ic=-0.046)；|IC| 大但 style_r²=0.999 + 与库反向
-> - [[batches/batch_014/candidates/C002|batch_014 C002]]　vol-20d-keep residual + 3d EMA → **reject hard_gate** (corr=0.987 with F004)；时序平滑不改 cross-sectional 结构
-> - [[batches/batch_014/candidates/C004|batch_014 C004]]　strip only momentum (str_1m+mom_12_1) → **reject hard_gate** (sign_flip + ic_oos_too_low)；momentum 簇带 regime 依赖，不可单独剥离
-> - [[batches/batch_014/candidates/C005|batch_014 C005]]　strip 6 styles, keep log_circ_cap → **reject hard_gate** (corr=0.906 with F004)；log_circ_cap 在 7-style basis 中只贡献边际信息
-> - [[batches/batch_014/candidates/C006|batch_014 C006]]　F004 residual × Sign(Δvolume_5d) → **reject hard_gate** (ic_oos=0.0071 < 0.008)；attention/volume-confirmation 在 daily 频率证伪
-> - [[batches/batch_015/candidates/C001|batch_015 C001]]　Huber IRLS residual → **reject hard_gate** (corr=0.907 with F004)；鲁棒损失不动 cross-sectional 几何
-> - [[batches/batch_015/candidates/C003|batch_015 C003]]　heteroscedastic-norm (F004 / rolling20d-std) → **reject hard_gate** (corr=0.927)；per-symbol time-series transform 不改 cross-section rank
-> - [[batches/batch_015/candidates/C004|batch_015 C004]]　winsorized OLS (±5 MAD) → **reject hard_gate** (corr=0.941)；±5 MAD 截断 <2% 尾部 β fit 几乎不动
-> - [[batches/batch_015/candidates/C005|batch_015 C005]]　OLS + vol×turn interaction style → **reject hard_gate** (corr=0.997)；collinear style pinv 自动消除
+> **Question**: 在 7-style Barra basis + OLS 家族内，能否通过调整 basis 子集 / 损失函数 / 标准化 / interaction / 时序后处理产生与 F004 独立（corr<0.7）的残差？
+> **Evidence trail**（5 类路径全部证伪）:
 >
-> **Answer**: **F004 是该 7-style basis × OLS-family 残差的几何不变量**——5 method variants 全部 collapse 到 corr ≥ 0.91。换损失函数 / 标准化 / 加 interaction style 都不能产生独立残差。后续需跳出 7-style basis 或 OLS-family 框架才能继续。
+> **路径 A · basis 子集调整**
+> - [[batches/batch_014/candidates/C002|b014 C002]]　vol-20d-keep + 3d EMA → corr=0.987；时序平滑不改 cross-sectional 结构
+> - [[batches/batch_014/candidates/C004|b014 C004]]　strip only momentum (str_1m+mom_12_1) → sign_flip + ic_oos_too_low
+> - [[batches/batch_014/candidates/C005|b014 C005]]　strip 6 styles, keep log_circ_cap → corr=0.906；size 仅边际贡献
+>
+> **路径 B · 损失函数**
+> - [[batches/batch_015/candidates/C001|b015 C001]]　Huber IRLS residual → corr=0.907；鲁棒损失不动 cross-sectional 几何
+> - [[batches/batch_015/candidates/C004|b015 C004]]　winsorized OLS (±5 MAD) → corr=0.941；截断 <2% 尾部 β fit 几乎不动
+>
+> **路径 C · 标准化变换**
+> - [[batches/batch_015/candidates/C003|b015 C003]]　heteroscedastic-norm (F004 / rolling20d-std) → corr=0.927；per-symbol time-series transform 不改 cross-section rank
+>
+> **路径 D · interaction style**
+> - [[batches/batch_015/candidates/C005|b015 C005]]　OLS + vol×turn interaction style → corr=0.997；collinear style pinv 自动消除
+>
+> **路径 E · 后处理调制**
+> - [[batches/batch_014/candidates/C006|b014 C006]]　F004 residual × Sign(Δvolume_5d) → ic_oos=0.0071 < 0.008；volume-confirmation 在 daily 频率证伪
+>
+> **旁证**
+> - [[batches/batch_014/candidates/C001|b014 C001]]　纯 vol_20d 本体（无 residual）→ |IC|=0.063 但 style_r²=0.999 + incremental_ic=-0.046 → magnitude ≠ tradability；residualization 是 12× 清洁度 value-add
+> - [[batches/batch_013/candidates/C002|b013 C002]]　vol-20d-only residual → reserve（ICIR=0.243 ls_t=7.28 alpha_surv=1.62）；vol_20d 单独剥离即捕获大部分 alpha
+> - F005（20d window 变体）admit → 2026-04-20 retired（bit-for-bit duplicate of F004；near_duplicate gate 对 Python factors 盲区）
+>
+> **Answer**: **F004 是 7-style basis × OLS-family 残差的几何不变量**。basis 子集 / 损失函数 / 标准化 / interaction / 时序后处理 5 类路径全部 collapse 到 corr ≥ 0.91。后续探索必须跳出该框架。
 
-### T003: Lookahead detection / construction safety [◉ ACTIVE] 🆕
+### T003: Lookahead detection + 数据契约缺口 [◉ ACTIVE]
 
 > [!note]+ Thread 进度
-> **Question**: hard_gate 是否充分检测 Python 候选的时序泄漏？AST 扫描应禁止哪些模式？
-> **Evidence trail**:
-> - [[batches/batch_014/candidates/C003|batch_014 C003]]　`close.shift(-HORIZON)/close - 1` 把 t+5 累计收益作为 t 时刻因子值；hard_gate 8 项全过但 ic_oos=0.386 / icir=4.63 / ls_t=83 / ls_max_dd=0 / win_rate=1.0 / sortino=inf 是构造性 leak artifact
-> - 系统盲区：Barra residualize 只剥截面风格不防时序 leak；hard_gate 当前无 negative-shift 检测、无"too good to be true"哨兵
-> - [[batches/batch_015/candidates/C002|batch_015 C002]]　Python 候选 REQUIRED_FIELDS=["$close","$high","$low"] 触发 `compute_error: market_df missing $high/$low`——data_bridge loader 默认只准备 close/volume/amount/market_cap，不尊重 REQUIRED_FIELDS 契约。系统级数据契约缺口。
+> **Question**: hard_gate 是否充分检测 Python 候选的时序泄漏？REQUIRED_FIELDS 契约是否被 loader 遵守？
 >
-> **Next probes**: 短期—主 agent 对 |ic_oos|>0.10 候选 manual review；中期—loader 扩默认列加 OHLC 全集 / phase1 freeze 时 validate REQUIRED_FIELDS ⊆ loader 列；长期—hard_gate 增 AST 扫描禁 `shift(-k)` in factor value path + 哨兵指标（ls_max_dd=0 / win_rate=1.0 / sortino=inf 任一触发→suspicion queue）
+> **Evidence trail**:
+> - [[batches/batch_014/candidates/C003|b014 C003]]　`close.shift(-HORIZON)/close - 1` 把 t+5 累计收益作为 t 因子值；hard_gate 8 项全过，但 ic_oos=0.386 / icir=4.63 / ls_t=83 / ls_max_dd=0 / win_rate=1.0 / sortino=inf 是构造性 leak artifact
+> - [[batches/batch_015/candidates/C002|b015 C002]]　Python 候选 REQUIRED_FIELDS=["$close","$high","$low"] 触发 `compute_error: market_df missing $high/$low`——data_bridge loader 默认只准备 close/volume/amount/market_cap，不尊重契约
+>
+> **系统盲区**:
+> 1. Barra residualize 只剥截面风格，不防时序 leak
+> 2. hard_gate 当前无 negative-shift 检测、无"too good to be true"哨兵
+> 3. loader 忽视 Python factor 的 REQUIRED_FIELDS 声明
+>
+> **Next probes**:
+> - **短期**：主 agent 对 |ic_oos|>0.10 候选 manual review
+> - **中期**：loader 扩默认列加 OHLC 全集 / phase1 freeze 时 validate REQUIRED_FIELDS ⊆ loader 列
+> - **长期**：hard_gate 增 AST 扫描禁 `shift(-k)` in factor value path + 哨兵指标（ls_max_dd=0 / win_rate=1.0 / sortino=inf 任一触发 → suspicion queue）
+
+---
+
+## Lessons 升格（反复出现经验）
+
+1. **时序平滑/标准化不改 cross-sectional rank**：EMA / rolling-std / heteroscedastic-norm 对截面秩零贡献（T002 路径 A+C 三证）。
+2. **鲁棒损失 ≈ OLS 在低尾部污染数据上**：Huber / winsor ±5 MAD 对 A 股日频 β 估计几乎零修正（T002 路径 B 二证）。
+3. **共线 style 被 pinv 自动消除**：interaction/duplicate basis 不产生新自由度（vol×turn corr=0.997）。
+4. **magnitude ≠ tradability**：|IC|=0.063 的纯 vol_20d style_r²=0.999，residualization 才是 value-add。
+5. **Python factor 构造安全必须纳入 hard_gate**：negative-shift / forward-cumulative 等构造性 leak 无法被 IS/OOS 统计指标捕获。
 
 ---
 
@@ -91,21 +124,21 @@ All existing directions hit vol_20d/str_1m style coupling as structural bottlene
 
 | Candidate | Expression | Reject Reason |
 |---|---|---|
-| [[batches/batch_012/candidates/C002\|C002]] (batch_012) | Barra residual variant | sign_flip + oos_decay 双杀（IS→OOS alpha 逆转） |
-| [[batches/batch_012/candidates/C004\|C004]] (batch_012) | 5d rolling residual | IC=0.007 < 0.008（太弱） |
-| [[batches/batch_012/candidates/C005\|C005]] (batch_012) | 20d momentum residual | IC=-0.0035（方向反转） |
-| [[batches/batch_013/candidates/C003\|C003]] (batch_013) | Barra residual × turnover interaction | sign_flip (IS=-0.0066, OOS=+0.011) + oos_decay=-1.648 |
-| [[batches/batch_013/candidates/C004\|C004]] (batch_013) | 10d Barra styles | redundant with C001 (identical metrics) |
-| [[batches/batch_013/candidates/C005\|C005]] (batch_013) | size-neutral quintile | compute_error (quintile shape mismatch) |
-| [[batches/batch_014/candidates/C002\|C002]] (batch_014) | vol-20d-keep + 3d EMA | corr 0.987 with F004（时序平滑不动 cross-sectional 结构） |
-| [[batches/batch_014/candidates/C003\|C003]] (batch_014) | 5d forward cumulative residual | **lookahead leak**（forbidden 构造，非真信号） |
-| [[batches/batch_014/candidates/C004\|C004]] (batch_014) | strip only momentum cluster | sign_flip + ic_oos_too_low（momentum regime-dep） |
-| [[batches/batch_014/candidates/C005\|C005]] (batch_014) | strip all except log_circ_cap | corr 0.906 with F004（size 仅边际贡献） |
-| [[batches/batch_014/candidates/C006\|C006]] (batch_014) | F004 × Sign(Δvolume_5d) | sign 调制把 IC 0.024→0.0071 稀释（volume confirmation 证伪） |
-| [[batches/batch_015/candidates/C001\|C001]] (batch_015) | Huber IRLS residual | corr=0.907 with F004（鲁棒损失不动 cross-sectional 几何） |
-| [[batches/batch_015/candidates/C003\|C003]] (batch_015) | heteroscedastic-norm | corr=0.927（per-symbol time-series transform 不改 cross-section rank） |
-| [[batches/batch_015/candidates/C004\|C004]] (batch_015) | winsorized OLS (±5 MAD) | corr=0.941（±5 MAD 截断 <2% 尾部 β fit 几乎不动） |
-| [[batches/batch_015/candidates/C005\|C005]] (batch_015) | OLS + vol×turn interaction style | corr=0.997（collinear style pinv 自动消除） |
+| [[batches/batch_012/candidates/C002\|b012 C002]] | Barra residual variant | sign_flip + oos_decay |
+| [[batches/batch_012/candidates/C004\|b012 C004]] | 5d rolling residual | IC=0.007 < 0.008 |
+| [[batches/batch_012/candidates/C005\|b012 C005]] | 20d momentum residual | IC=-0.0035（方向反转） |
+| [[batches/batch_013/candidates/C003\|b013 C003]] | residual × turnover interaction | sign_flip + oos_decay=-1.648 |
+| [[batches/batch_013/candidates/C004\|b013 C004]] | 10d Barra styles | redundant with C001 |
+| [[batches/batch_013/candidates/C005\|b013 C005]] | size-neutral quintile | compute_error |
+| [[batches/batch_014/candidates/C002\|b014 C002]] | vol-20d-keep + 3d EMA | corr=0.987 with F004 |
+| [[batches/batch_014/candidates/C003\|b014 C003]] | 5d forward cumulative residual | **lookahead leak** |
+| [[batches/batch_014/candidates/C004\|b014 C004]] | strip only momentum cluster | sign_flip + ic_oos_too_low |
+| [[batches/batch_014/candidates/C005\|b014 C005]] | strip all except log_circ_cap | corr=0.906 with F004 |
+| [[batches/batch_014/candidates/C006\|b014 C006]] | F004 × Sign(Δvolume_5d) | ic_oos=0.0071（volume confirmation 证伪） |
+| [[batches/batch_015/candidates/C001\|b015 C001]] | Huber IRLS residual | corr=0.907 |
+| [[batches/batch_015/candidates/C003\|b015 C003]] | heteroscedastic-norm | corr=0.927 |
+| [[batches/batch_015/candidates/C004\|b015 C004]] | winsorized OLS (±5 MAD) | corr=0.941 |
+| [[batches/batch_015/candidates/C005\|b015 C005]] | OLS + vol×turn interaction | corr=0.997 |
 
 ---
 
@@ -113,7 +146,7 @@ All existing directions hit vol_20d/str_1m style coupling as structural bottlene
 
 - 🔴 [[lessons#Structural Constraints]] `reference` — Barra style coupling 教训汇编
 - 🟡 [[amount_volatility_signal]] `saturated` — vol_20d 天花板同源；本方向残差化证实 vol_20d 主导
-- 🟡 [[value_liquidity_interaction]] `saturated` — DSL 空间穷尽；两方向均指向需要跳出 OHLCV+Barra 基底
+- 🟡 [[value_liquidity_interaction]] `saturated` — DSL 空间穷尽；两方向均指向需跳出 OHLCV+Barra 基底
 - 🔴 [[fundamental_momentum]] `dead` — 其 ep_ratio 已是 Barra style；证伪"变化率"形式后强化本方向 basis 穷尽结论
 
 ---
@@ -121,69 +154,30 @@ All existing directions hit vol_20d/str_1m style coupling as structural bottlene
 ## Narrative Log
 
 > [!quote]+ 2026-04-21 · [[batches/batch_015/judge|batch_015]]
-> **admit=0 / reserve=0 / reject=5** — barra_residual_alpha 第二批 0 admit，**方向 saturated**。
+> **admit=0 / reserve=0 / reject=5** — 方向 saturated。
 >
-> **实验性建立 F004 不动点定理**：5 个 method-switch 候选 4/4 全部 collapse 到 F004（Huber=0.907 / hetero=0.927 / winsor=0.941 / vol×turn=0.997）。F004 是该 7-style basis × OLS-family 上的几何不变量——任何在同框架内的方法变体都无法产生独立 alpha。
+> **F004 不动点定理（实验性建立）**：5 method-switch 候选全部 collapse——Huber=0.907 / hetero=0.927 / winsor=0.941 / vol×turn=0.997。F004 是 7-style basis × OLS-family 上的几何不变量。
 >
-> **汇总 batch_014 + batch_015 saturation 证据链**：
-> 1. 调整 7-style 子集（C002/C005 batch_014）→ vol_20d 主导，子集变化无效
-> 2. 换 loss function（Huber/winsor batch_015）→ 几何不变
-> 3. 时序后处理（EMA/std batch_014/015）→ cross-section rank 不变
-> 4. 加 interaction style（vol×turn batch_015）→ collinear pinv 消除
-> 5. 加 forward horizon（batch_014 C003）→ lookahead leak 不可用
+> **跨 batch_014+015 saturation 证据链**：
+> 1. basis 子集调整 → vol_20d 主导
+> 2. 损失函数切换 → 几何不变
+> 3. 时序后处理（EMA/std）→ cross-section rank 不变
+> 4. interaction style → collinear pinv 消除
+> 5. forward horizon → lookahead leak
 >
-> **方向状态**：`productive → saturated`，`priority: high → low`。**复活路径**：(a) 加非 Barra style basis（行业 / GICS / microstructure factor model）；(b) nonparametric residualization（kernel ridge / NN）；(c) 与库其他因子的非线性 ensemble。
->
-> **Thread 进展**：
-> - T002 [✗ DISPROVEN batch_015]：method 变体证伪
-> - T003 active：data 契约缺口新增（C002 case），系统短期需 loader 扩列
->
-> **下一步**：batch_016 开新方向 **microstructure_signal** —— intraday H-L / open-close / 量价不对称等 daily-bar 内部结构信号。先解决 loader $high/$low 加载问题（直接修改或绕过）。
+> **状态转移**：`productive → saturated`，`priority: high → low`。
+> **下一步**：batch_016 开新方向 **microstructure_signal**（intraday H-L / open-close / 量价不对称），先解决 loader $high/$low 问题。
 
 > [!quote]- 2026-04-21 · [[batches/batch_014/judge|batch_014]]
-> **admit=0 / reserve=1 / reject=5** — Barra residual alpha 方向首批 0 admit。三大发现：
+> **admit=0 / reserve=1 / reject=5**。三大发现：
+> 1. vol_20d 主导残差空间（C002+C005 双向证明）：strip 6 keep vol_20d corr=0.987；strip 6 keep log_circ_cap corr=0.906。其余 6 styles 合计贡献 <10% 可分离方差。
+> 2. C003 暴露 hard_gate 时序检测盲区（`close.shift(-5)/close - 1` lookahead leak，8 项 gate 全过但全是 artifact）。新建 T003 thread。
+> 3. C001 纯 vol_20d reserve：|IC|=0.063 但 style_r²=0.999 + incremental_ic=-0.046——residualization 是 12× 清洁度 value-add。
 >
-> 1. **vol_20d 主导残差空间（C002+C005 双向证明）**：strip 6 keep vol_20d → corr 0.987 with F004；strip 6 keep log_circ_cap → corr 0.906 with F004。F004 的 alpha 几乎完全来自剥离 vol_20d 这一动作，其余 6 styles 加起来贡献 < 10% 可分离方差。**调整 7-style basis 子集已穷尽**。
-> 2. **C003 暴露 hard_gate 时序检测盲区**：`close.shift(-5)/close - 1` 是 lookahead leak，hard_gate 8 项全过但指标 (ic_oos=0.386, ls_max_dd=0, win_rate=1.0) 是 artifact。新建 T003 thread 跟踪。
-> 3. **C001 (纯 vol_20d 本体) reserve**：|IC|=0.063 > F004 |IC|=0.024 但 style_r²=0.999 + incremental_ic=-0.046 → magnitude 大不等于可投资，residualization 是真正的 12× 清洁度 value-add。
->
-> **Thread 进展**：
-> - T002 active：vol_20d 主导残差空间 → 探索路径必须改残差化方法（robust regression / kernel / 加新 styles），不再调 7-style 子集
-> - T003 active 🆕：lookahead detection 系统盲区记录，等待 hard_gate 增 AST 扫描
->
-> **下一步**：
-> 1. batch_015 同方向但换残差化方法：robust regression（Huber/quantile）、加 intraday vol style
-> 2. 若 batch_015 仍 0 admit，方向 `productive → saturated`，开新方向（cross-field interaction / microstructure）
-> 3. 监控 admit 率：当前 4 batches/2 admits = 50%，若 batch_015 跌到 2/5=40% 触发 saturated 检讨
+> **下一步**：batch_015 换残差化方法，若仍 0 admit 则方向 saturated。
 
 > [!quote]- 2026-04-19 · [[batches/batch_013/judge|batch_013]]
-> **admit=1 / reserve=1 / reject=3** — Barra residual alpha 第二批验证：
-> - **C001 admit**（barra_residual_alpha_60d）：ICIR=0.293 ls_t=7.34；replicate batch_012 结果；vol_20d dominant (coef=4.44) 但 residual IC > raw IC
-> - **C002 reserve**：vol-20d-only residual；ICIR=0.243 ls_t=7.28 alpha_surv=1.62；incremental_ic=0.030 max_corr=0.12；比全剥离 survival 更高(1.62 vs 1.35)
-> - **C003 reject**：Barra residual × turnover interaction — sign_flip (IS=-0.0066, OOS=+0.011) + oos_decay=-1.648
-> - **C004 reject**：10d Barra styles — identical metrics to C001; no incremental value
-> - **C005 reject**：size-neutral quintile — compute_error (quintile shape mismatch)
->
-> **Thread 进展**：
-> - T001 answered (batch_012)：Barra residual alpha 存在
-> - T002 active：C001 admit 确认 vol_20d 主要吞噬来源但 residual 仍显著；C002 reserve 说明 vol-20d-only residual 可行
->
-> **下一步**：
-> 1. C002 reserve 值得再观察一批 — incremental_ic=0.030 + max_corr=0.12 满足库空间独立条件
-> 2. 纯 vol_20d 信号 vs Barra residual 哪个 IC 更高？
-> 3. 20d 窗口的 Barra residual 是否比 60d 衰减更快？
+> **admit=1 / reserve=1 / reject=3**。C001 admit（F005，60d 变体，后因 F004 duplicate 于 2026-04-20 retired）replicate batch_012 结果；vol_20d dominant (coef=4.44) 但 residual IC > raw IC。C002 reserve：vol-20d-only residual（ICIR=0.243 ls_t=7.28 alpha_surv=1.62）比全剥离 survival 更高。C003 reject（sign_flip + oos_decay）；C004 reject（identical to C001）；C005 reject（compute_error）。
 
 > [!quote]- 2026-04-19 · [[batches/batch_012/judge|batch_012]]
-> **admit=1 / reserve=1 / reject=3** — Barra residual alpha 方向首批验证假设成立：
-> - **C001 admit**（barra_residual_return）：IC=0.024 ICIR=0.293 ls_t=7.34 Barra_residual_IC=0.033 > raw IC=0.024；incremental_ic=0.032 全新机制空间
-> - **C003 reserve**：Barra_residual_IC=0.033 但 style_r²=0.289 + vol_20d exposure=15.6，耦合严重
-> - **C002/C004/C005 reject**：IC 不足或 sign_flip
->
-> **Thread 进展**：
-> - T001 answered：Barra residual alpha 假设验证成立
-> - T002 active：C001 证明增量 IC=0.032 > 0
->
-> **下一步**：
-> 1. 下一批扩展 Barra residual + volume 交互候选
-> 2. 监控 C003（若 style_r² 改善可 admit）
-> 3. 注意 2021 后 Barra residual edge 衰减趋势
+> **admit=1 / reserve=1 / reject=3** — 方向首批验证假设成立。C001 admit（F004 barra_residual_return）：IC=0.024 ICIR=0.293 ls_t=7.34；Barra_residual_IC=0.033 > raw IC=0.024；incremental_ic=0.032 全新机制空间。C003 reserve（style_r²=0.289 + vol_20d exposure=15.6 耦合严重）。C002/C004/C005 reject（IC 不足或 sign_flip）。T001 answered；T002 active。

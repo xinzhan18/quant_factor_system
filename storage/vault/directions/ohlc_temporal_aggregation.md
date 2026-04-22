@@ -23,65 +23,82 @@ merged_into: null
 > [!abstract]+ 方向概要
 > **状态**　🟡 saturated · priority=medium · rounds=5 · admits=3
 > **最近**　[[batches/batch_021/judge|batch_021]] · 2026-04-21 · admit=0 / reserve=1 / reject=2
-> **一句话**　5d OHLC aggregation 三维独立 (close/open/3d phase)，剩余维度 ROI 低，方向饱和。
+> **一句话**　5d OHLC aggregation 至少 3 维独立（close 端 F006 / open 端 F007 / 3d phase F008），剩余维度 ROI 低，方向饱和。
 
 ---
 
 ## Hypothesis
 
-Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mono_sign_flip 失败——单日内 noise 太大，盖过任何稳定信号。但 **多日 smoothed/aggregated** 版本可能 reveal persistent intraday flow patterns：连续 N 天 close > open 反映 sustained buying pressure，与单日的 random walk 完全不同性质。
+> [!success]+ Hypothesis（已基本验证）
+> 单日 OHLC body/shadow 信号（[[intraday_price_formation]]）因 intraday noise 过大而全部 mono_sign_flip 失败；**多日 smoothed/aggregated** 版本可 reveal persistent intraday flow：连续 N 天 close > open = sustained order flow asymmetry，与单日 random walk 完全不同性质。
+>
+> 经济直觉：
+> - 单日 body = random walk + microstructure noise
+> - 5d/20d mean(body) 累加同向偏移 = persistent order flow
+> - 反向 trend-following：高 mean shadow → 持续抛压 → 短期反转
+>
+> **验证结果**：5d aggregation 在 close 端（upper-shadow）/ open 端（open-position）两个独立维度均成立；但 20d 加深 vol_20d 耦合，magnitude-only / discrete count / turnover-wt 全 fail。
 
-经济直觉：
-- 单日 body 是 noisy 的（开盘到收盘是 random walk + microstructure noise）
-- 5d/20d mean(body) 累加同向偏移 = persistent order flow asymmetry
-- Trend-following 的反向：高 mean body → 持续买入 → 已 stretched → 短期反转
+> [!info]+ 饱和说明
+> **为什么 ROI 低**：累计 admit 率 14% (3/21)；5d directional ratio 空间已被 F006 + F007 + F008 占满。剩余候选要么高 corr（7d upper-shadow corr=0.834@F006），要么 mono_sign_flip（3d open-position、10d upper-shadow 跨 phase 反转），要么 vol_20d 衍生。
+>
+> **复活条件**：(a) 新 OHLC 原子维度（跨日 engulfing、gap-close）且预期 max_corr<0.50@F006/F007；(b) regime 转变使 5d sweet spot 失效需重探窗口；(c) 与非 OHLC 维度（IV / 资金流）交互的 OHLC 变体。
 
-> [!info]+ 方向饱和说明
-> **为什么 ROI 低**：累计 admit 率 14% (3/21)；5d directional ratio 空间已被 F006 (close端) + F007 (open端) + F008 (3d phase variant) 占满。剩余候选要么与现有 admit 高 corr（7d upper-shadow corr=0.834@F006），要么 mono_sign_flip（3d open-position、10d upper-shadow 跨 phase 反转），要么 vol_20d 衍生（magnitude-only / range-based 反复失败）。turnover-weighted 变体确认 turnover 不构成 OHLC 轴。
-> **复活条件**：(a) 出现新 OHLC 原子维度（如跨日 engulfing pattern、gap-close relationship）且预期 max_corr < 0.50@F006/F007；(b) 市场 regime 转变（e.g. 波动率聚类模式变化）导致 5d aggregation sweet spot 失效，需重新探索窗口；(c) 与新非 OHLC 维度（如 IV / 资金流）交互的 OHLC 变体。
+---
+
+## Promoted Lessons
+
+1. **alpha_survival 是 vol_20d 衍生判别量**：>1.0 = Barra 空间独立载体；<<0.40 = vol 衍生。F006 admit 的核心证据是 alpha_surv=1.508，而非 ls_t / mono 单独（来自 b017 C004 vs C005 对照）。
+2. **5d 是 OHLC aggregation sweet spot**：单日（intraday saturated）与 20d（vol-coupled）之间；既保 idiosyncratic flow 又过滤噪声；≥10d 跨 phase 反转。
+3. **信号家族 multi-window 不对称**：upper-shadow 在 [3d, 7d] 都稳；open-position **严格 5d-only**（3d mono_sign_flip IS=-1.00 OOS=+0.90）——不能假设 window 扩展对所有维度同效。
+4. **OHLC 三段约束 → algebraic mirror trap**：lower-shadow ≡ -upper-shadow（corr=1.000@F006），signed-range 与 F006 高 corr；三段 ratio 任意两端代数互补。
+5. **Magnitude-only / turnover-wt / discrete count 全部失败**：signed 方向性是 OHLC 信号的必要条件，turnover 不构成独立 OHLC 轴（b021 C003 corr=0.579@F007 确认）。
 
 ---
 
 ## Threads
 
-### T001: 多日 smoothed body 是否产生信号 [✗ DISPROVEN batch_017]
+### T001: 多日 smoothed signed body 是否产生信号 [✗ DISPROVEN batch_017]
 
 > [!failure]+ Thread 结论
-> **Question**: Mean(body, 5) 和 Mean(body, 20) 是否 OOS IC > 0.008？sign 是否稳定？
+> **Question**: Mean(body, 5) 与 Mean(body, 20) 是否 OOS IC > 0.008？sign 稳定？
 > **Evidence trail**:
-> - [[batches/batch_017/candidates/C001|batch_017 C001]]　5d signed body → ic=-0.043 ls_t=-2.87 alpha_surv=1.076 (Barra-clean) 但 incr_ic=-0.050 (库 reducer) + cum_dd=-105 → reject
-> - [[batches/batch_017/candidates/C002|batch_017 C002]]　20d signed body → ic=-0.042 ls_t=-2.62 r²=0.638 (vol-coupled) → reject
+> - [[batches/batch_017/candidates/C001|b017 C001]]　5d signed body → ic=-0.043 alpha_surv=1.076 Barra-clean 但 incr_ic=-0.050 + cum_dd=-105（库内最深）→ reject（与 F003 反向冲突）
+> - [[batches/batch_017/candidates/C002|b017 C002]]　20d signed body → ic=-0.042 r²=0.638 vol-coupled → reject
 >
-> **Answer**: 5d signed body Barra-clean 但与库 F003 反向冲突；20d 加深 vol_20d 耦合。Hypothesis 部分成立——5d 保留 idiosyncratic 信号但与现库不正交。
+> **Answer**: 5d Barra-clean 但与库不正交；20d 加深 vol_20d 耦合。Hypothesis 部分成立——signed body 本身不是独立轴，但 shadow / open-position ratio 可以。
 
-### T002: Sign-of-body 频率信号 [◉ ACTIVE]
+### T002: Sign-of-body 频率信号 [◉ RESERVED]
 
 > [!note]+ Thread 当前
 > **Question**: 多日内 close>open 的频率（bullish bar count）是否 forward-predictive？
 > **Evidence trail**:
-> - [[batches/batch_017/candidates/C003|batch_017 C003]]　5d Mean(Sign(close-open)) → ic=-0.033 ls_t=-3.55 mono=-0.80 alpha_surv=1.014 incr_ic=-0.031 → **reserve** (CP02-04 完美但 incr_ic 负)
+> - [[batches/batch_017/candidates/C003|b017 C003]]　5d Mean(Sign(close-open)) → ic=-0.033 ls_t=-3.55 mono=-0.80 alpha_surv=1.014 incr_ic=-0.031 → **reserve**（CP02-04 perfect 但 incr_ic 负，与 C005 镜像）
 >
-> **Next probes**: C003 与 C005 admit symmetric——下批做 C005-C003 对称信号或 spread
+> **Next probes**: Phase 5 后若重启本方向，设计 C005-C003 对称 spread 信号。
 
-### T003: Close-vs-high 强度 + 多端点 OHLC aggregation [✓ ANSWERED batch_018]
+### T003: 多端点 OHLC aggregation (close / open / shadow) [✓ ANSWERED batch_018-021]
 
 > [!success]+ Thread 结论
-> **Question**: 5d mean(close/high) 测度 intraday close strength；持续 close 接近 high 是 sustained demand，是否 forward-predictive？扩展：open/range/body 各端点是否独立？
-> **Evidence trail**:
-> - [[batches/batch_017/candidates/C004|batch_017 C004]]　Mean(close/high, 5) → ic=+0.052 mono=+0.9 但 alpha_surv=0.003 catastrophic + ls_t=1.91<2 → reject (vol_20d 衍生)
-> - [[batches/batch_017/candidates/C005|batch_017 C005]]　Mean(upper-shadow, 5) → ic=+0.024 ls_t=3.20 mono=+0.90 alpha_surv=1.508 incr_ic=+0.031 cum_dd=-3.5 → **admit → upper_shadow_persistence_5d (F006)**
-> - [[batches/batch_018/candidates/C001|batch_018 C001]]　Mean(lower-shadow, 5) → near_dup F006 corr=1.000 (algebraic mirror) → reject
-> - [[batches/batch_018/candidates/C002|batch_018 C002]]　Mean(|body|/range, 5) → ic_oos_too_low (magnitude-only fails) → reject
-> - [[batches/batch_018/candidates/C003|batch_018 C003]]　Mean((open-low)/range, 5) → ic=+0.037 ls_t=3.22 mono=+0.90 alpha_surv=0.637 incr_ic=+0.023 cum_dd=-1.5 → **admit → open_position_persistence_5d (F007)**
-> - [[batches/batch_018/candidates/C004|batch_018 C004]]　Mean(signed_range, 5) → max_corr=0.544@F006 + incr_ic=-0.039 + cum_dd=-103 → reject
-> - [[batches/batch_018/candidates/C005|batch_018 C005]]　Mean(|gap|/range, 5) → alpha_surv=0.164 catastrophic → reject
-> - [[batches/batch_020/candidates/C001|batch_020 C001]]　Mean(upper-shadow, 3) → ic=+0.029 ls_t=2.91 mono=+0.90 alpha_surv=1.268 incr_ic=+0.022 max_corr=0.758@F006 → **admit → upper_shadow_persistence_3d (F008)** (high-corr admit 先例)
-> - [[batches/batch_020/candidates/C002|batch_020 C002]]　Mean(upper-shadow, 10) → mono_sign_flip IS=-0.60 OOS=+0.90 → reject (10d 跨 phase 反转，确认 5d sweet spot 上界)
-> - [[batches/batch_021/candidates/C001|batch_021 C001]]　Mean(open-position, 3) → mono_sign_flip IS=-1.00 OOS=+0.90 → reject (open-position 在 3d 完全反转 — F007 是 5d-only stable signal，与 upper-shadow multi-window 不对称)
-> - [[batches/batch_021/candidates/C002|batch_021 C002]]　Mean(upper-shadow, 7) → ic=+0.017 ls_t=2.33 mono=+0.90 alpha_surv=1.685 corr=0.834@F006 incr=+0.014 → **reserve** (rubric 形式允许 admit 但库 bloat 风险，7d 与 F006 5d + F008 3d 形成 3-window upper-shadow family 占库 30%)
-> - [[batches/batch_021/candidates/C003|batch_021 C003]]　turnover-weighted body sign 5d → corr=0.579@F007 + incr=-0.032 + mono=-0.30 → reject
+> **Question**: 5d mean(close/high)、mean(open-position)、shadow ratios 各端点是否机制独立？window 范围几何？
 >
-> **Answer**: OHLC aggregation 至少 3 个独立 admit——close 端 5d (F006) + open 端 5d (F007) + close 端 3d phase variant (F008)。Window range：upper-shadow 在 [3d, 7d] 都稳；open-position 仅 5d-only（**信号家族 multi-window 不对称**）；10d 反转。Magnitude-only / discrete count / turnover-weighting / Donchian 全部 fail。**方向 saturated** — admit 率从 25%→14%，剩余探索 ROI 低。
+> **Admit evidence**:
+> - [[batches/batch_017/candidates/C005|b017 C005]]　Mean(upper-shadow, 5) → ic=+0.024 ls_t=3.20 mono=+0.90 alpha_surv=1.508 incr_ic=+0.031 cum_dd=-3.5（库内最浅）→ **admit F006 upper_shadow_persistence_5d**；max_corr=0.069@F003 → 与 overnight-gap 机制正交
+> - [[batches/batch_018/candidates/C003|b018 C003]]　Mean((open-low)/range, 5) → ic=+0.037 ls_t=3.22 mono=+0.90 alpha_surv=0.637 incr_ic=+0.023 max_corr=0.276@F006 → **admit F007 open_position_persistence_5d**（持续高开 = 隔夜信息驱动 momentum continuation）
+> - [[batches/batch_020/candidates/C001|b020 C001]]　Mean(upper-shadow, 3) → ic=+0.029 ls_t=2.91 mono=+0.90 alpha_surv=1.268 max_corr=0.758@F006 → **admit F008 upper_shadow_persistence_3d**（high-corr admit 先例）
+>
+> **Reject evidence (saturation signals)**:
+> - b017 C004 close/high → alpha_surv=0.003 catastrophic（vol_20d derivative）
+> - b018 C001 lower-shadow → corr=1.000@F006（algebraic mirror）
+> - b018 C002/C005 magnitude-only（\|body\|/range, \|gap\|/range）→ 无符号失方向 / alpha_surv=0.164（第 3 个 vol 衍生）
+> - b018 C004 signed-range → corr=0.544@F006 + incr_ic=-0.039
+> - b019 C001-C004 range expansion / range/amount / vol×body / discrete count → 4/4 reject（rank 噪声 / F002 cluster / F007 mirror / sign_flip）
+> - b020 C002 Mean(upper-shadow, 10) → mono_sign_flip IS=-0.60 OOS=+0.90（**确认 5d sweet spot 上界**）
+> - b021 C001 Mean(open-position, 3) → mono_sign_flip IS=-1.00 OOS=+0.90（**F007 5d-only stable**）
+> - b021 C002 Mean(upper-shadow, 7) → alpha_surv=1.685 clean 但 corr=0.834@F006 → **reserve**（避库 bloat）
+> - b021 C003 turnover-wt body sign 5d → corr=0.579@F007 + incr=-0.032 → **turnover ≠ 新 OHLC 轴**
+>
+> **Answer**: OHLC 5d aggregation ≥3 独立 admit（close 端 F006 + open 端 F007 + 3d phase F008）。Window 规律：upper-shadow [3d, 7d] 稳定但 ≥7d corr 逼近 F006；open-position 严格 5d-only；≥10d 跨 phase 反转。Magnitude-only / discrete / turnover-wt / Donchian 全 fail。**方向 saturated** — admit 率 25%→14%。
 
 ---
 
@@ -89,74 +106,44 @@ Single-day OHLC body/shadow signals (intraday_price_formation 方向) 全部 mon
 
 | Candidate | Expression | Reject Reason |
 |---|---|---|
-| [[batches/batch_017/candidates/C001\|C001]] | 5d signed body | incr_ic=-0.050 库 reducer + cum_dd=-105 整库最深 |
-| [[batches/batch_017/candidates/C002\|C002]] | 20d signed body | style_r²=0.638 poor + incr_ic=-0.039 |
-| [[batches/batch_017/candidates/C004\|C004]] | 5d close/high | alpha_surv=0.003 catastrophic (vol_20d) + ls_t=1.91 weak |
-| [[batches/batch_018/candidates/C001\|C001]] | 5d lower-shadow | corr=1.000 with F006 (algebraic mirror trap) |
-| [[batches/batch_018/candidates/C002\|C002]] | 5d body magnitude | ic=0.0067<0.008 (magnitude-only no signal) |
-| [[batches/batch_018/candidates/C004\|C004]] | 5d signed range | corr=0.544@F006 + incr_ic=-0.039 + cum_dd=-103 |
-| [[batches/batch_018/candidates/C005\|C005]] | 5d gap-mag/range | alpha_surv=0.164 catastrophic (third vol-derived) |
-| [[batches/batch_019/candidates/C001\|C001]] | 5d range expansion | mono=-0.30 + ls_t=-0.89 (rank 噪声) |
-| [[batches/batch_019/candidates/C002\|C002]] | 5d range/amount | corr=0.746@F002 + r²=0.348 (amount cluster) |
-| [[batches/batch_019/candidates/C003\|C003]] | 5d volume×body | corr=0.721@F007 (F007 mirror) |
-| [[batches/batch_019/candidates/C004\|C004]] | 5d count close-near-high | hard_gate sign_flip (discretization failure) |
-| [[batches/batch_021/candidates/C001\|C001]] | 3d open-position | mono_sign_flip IS=-1.00 OOS=+0.90 (5d-only stable) |
-| [[batches/batch_021/candidates/C003\|C003]] | turnover-wt body sign 5d | corr=0.579@F007 + incr=-0.032 + mono=-0.30 |
+| [[batches/batch_017/candidates/C001\|b017 C001]] | 5d signed body | incr_ic=-0.050 + cum_dd=-105（库最深）|
+| [[batches/batch_017/candidates/C002\|b017 C002]] | 20d signed body | r²=0.638 vol-coupled |
+| [[batches/batch_017/candidates/C004\|b017 C004]] | 5d close/high | alpha_surv=0.003（vol_20d derivative）|
+| [[batches/batch_018/candidates/C001\|b018 C001]] | 5d lower-shadow | corr=1.000@F006（algebraic mirror）|
+| [[batches/batch_018/candidates/C002\|b018 C002]] | 5d \|body\|/range | magnitude-only ic=0.0067 |
+| [[batches/batch_018/candidates/C004\|b018 C004]] | 5d signed range | corr=0.544@F006 + cum_dd=-103 |
+| [[batches/batch_018/candidates/C005\|b018 C005]] | 5d \|gap\|/range | alpha_surv=0.164（vol-derived）|
+| [[batches/batch_019/candidates/C001\|b019 C001]] | 5d range expansion | mono=-0.30 + ls_t=-0.89 |
+| [[batches/batch_019/candidates/C002\|b019 C002]] | 5d range/amount | corr=0.746@F002（amount cluster）|
+| [[batches/batch_019/candidates/C003\|b019 C003]] | 5d volume×body | corr=0.721@F007 |
+| [[batches/batch_019/candidates/C004\|b019 C004]] | 5d count close-near-high | hard_gate sign_flip |
+| [[batches/batch_020/candidates/C002\|b020 C002]] | 10d upper-shadow | mono_sign_flip（跨 phase 反转）|
+| [[batches/batch_021/candidates/C001\|b021 C001]] | 3d open-position | mono_sign_flip（F007 5d-only）|
+| [[batches/batch_021/candidates/C003\|b021 C003]] | turnover-wt body sign 5d | corr=0.579@F007 + mono=-0.30 |
 
 ---
 
 ## Related
 
-- 🟡 [[intraday_price_formation]] `saturated` — 单日 body/shadow 已穷尽；本方向在其基础上探 multi-day aggregation sweet spot
-- 🔴 [[return_distribution_signals]] `dead` — 同样 vol_20d 主导；本方向识别的 alpha_surv 判别量是从那里总结的教训
-- 🟢 [[lessons#Structural Constraints]] — OHLC 三段约束 / algebraic mirror trap / vol_20d derivative pattern 的系统级教训源
+- 🟡 [[intraday_price_formation]] `saturated` — 单日 body/shadow 已穷尽；本方向在其基础上探 multi-day aggregation
+- 🔴 [[return_distribution_signals]] `dead` — 同样 vol_20d 主导；alpha_surv 判别量教训源于此
+- 🟢 [[lessons#Structural Constraints]] — OHLC 三段约束 / algebraic mirror / vol_20d derivative pattern 系统级教训源
 
 ---
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-21 · [[batches/batch_021/judge|batch_021]]
-> **admit=0 / reserve=1 / reject=2 — direction status: productive → saturated**
-> - C001 reject: 3d open-position F007 ablation hard_gate mono_sign_flip IS=-1.00 OOS=+0.90。F007 是 5d-only stable signal。
-> - C002 reserve: 7d upper-shadow alpha_surv=1.685 极 clean 但 corr=0.834@F006 high → 库 bloat。
-> - C003 reject: turnover-weighted body sign 5d → corr=0.579@F007 + incr_ic=-0.032 + mono=-0.30。turnover ≠ 新 axis。
-> - **MT budget**: 本 batch 消耗 3 tests，0 admit 占预算。
-> - **Direction operations**: status `productive → saturated`。累计 admit 率 14% (3/21)。下批触发 Phase 5 consolidation，再开新方向。
+> [!quote]+ 2026-04-21 · [[batches/batch_021/judge|batch_021]] · admit=0 / reserve=1 / reject=2
+> direction `productive → saturated`。3d open-position mono_sign_flip（F007 5d-only）；7d upper-shadow alpha_surv=1.685 但 corr=0.834@F006 → reserve 避 bloat；turnover-wt body sign corr=0.579@F007 → turnover 非新轴。累计 admit 率 14% (3/21)。下批触发 Phase 5 consolidation。
 
-> [!quote]- 2026-04-21 · [[batches/batch_019/judge|batch_019]]
-> **admit=0 / reserve=0 / reject=4 — 方向第 3 轮 0 admit 接近 saturated**
-> - C001 (range expansion): mono=-0.30 + ls_t=-0.89 → rank 失败
-> - C002 (range/amount): max_corr=0.746@F002 + r²=0.348 → 落入 F002 cluster
-> - C003 (volume × body): max_corr=0.721@F007 → F007 mirror
-> - C004 (discrete count): hard_gate sign_flip → 离散化丢失 magnitude
-> - **饱和判断**：方向 admit 率 22% (2/9 candidates)，但本批 4/4 reject + 库 corr 与新 admits 重叠 → **5d directional ratio 空间被 F006/F007 饱和**。
-> - **MT budget**: 本 batch 消耗 4 tests，0 admit 占预算。
-> - **Direction operations**: 无状态变化（仍 productive），但饱和信号已出现；下批验证。
-> - **下一步（batch_020）**：(1) 跨日 pattern：3d 内 high 上升 + 5d body sign 一致性 (engulfing-like) (2) window ablation：3d/10d upper-shadow 验证 5d 是 sweet spot (3) 若 batch_020 仍 0 admit → status `productive → saturated`
+> [!quote]- 2026-04-21 · [[batches/batch_020/judge|batch_020]] · admit=1 / reject=1
+> F008 upper_shadow_persistence_3d admit（alpha_surv=1.268 max_corr=0.758@F006，high-corr admit 先例）；10d upper-shadow mono_sign_flip（IS=-0.60 OOS=+0.90）→ 确认 5d sweet spot 上界在 10d。
 
-> [!quote]- 2026-04-21 · [[batches/batch_018/judge|batch_018]]
-> **admit=1 / reserve=0 / reject=4 — 方向连续两批 admit (F006+F007)**
-> - **C003 admit → open_position_persistence_5d (F007)**: ic=+0.037 ls_t=3.22 mono=+0.90 alpha_surv=0.637 incr_ic=+0.023 cum_dd=-1.5。机制：5d mean(open-low)/(high-low) 测度持续开盘位置；持续高开 = 隔夜信息驱动 momentum continuation。与 F006 max_corr=0.276 完全机制正交。
-> - **C001 reject (algebraic mirror)**: lower-shadow corr=1.000 with F006 — OHLC 三段约束 trap。
-> - **C002 reject (magnitude-only)**: |body|/range ic=0.0067<0.008 — 无符号失去方向性。
-> - **C004 reject (interaction trap)**: signed-range corr=0.544@F006 + incr_ic=-0.039 — sign×magnitude 不构新维度。
-> - **C005 reject (vol-derived again)**: |gap|/range alpha_surv=0.164 — 第 3 个被识别的 vol_20d 镜像。
-> - **方向核心结论**：OHLC 5d aggregation 至少 2 个独立维度（close-strength F006 + open-position F007），max_corr=0.276 远低 0.30 阈值。**预期还有 1-2 个独立维度可探**：body-position（close vs midpoint）、3d/10d 窗口 ablation。
-> - **MT budget**: 本 batch 消耗 5 tests，1 admit 占预算。
-> - **Direction operations**: 保持 `productive`；priority 维持 high。
-> - **下一步（batch_019）**：(1) 第三轮 ohlc_temporal_aggregation：探索剩余维度 (close-vs-midpoint, body asymmetry, 3d/10d ablation) (2) 若 0 admit → 方向接近 saturated；若再 1 admit → 5d OHLC 至少 3 维独立
+> [!quote]- 2026-04-21 · [[batches/batch_019/judge|batch_019]] · admit=0 / reject=4
+> 4/4 reject：rank 噪声 / F002 amount cluster / F007 mirror / discrete sign_flip。5d directional ratio 空间被 F006/F007 饱和信号首现；status 仍 productive，待 b020 验证。
 
-> [!quote]- 2026-04-21 · [[batches/batch_017/judge|batch_017]]
-> **admit=1 / reserve=1 / reject=3 — direction status: exploring → productive (首 admit)**
-> **4 轮 0-admit 之后的关键突破**：
-> - **C005 admit → upper_shadow_persistence_5d**：5d mean upper-shadow ratio (high-close)/(high-low)。alpha_surv=1.508 (residual stronger than raw)、incr_ic=+0.031 库 adder、cum_dd=-3.5（库内最浅）、9 年 IC 全正。机制：持续 close 远低 day-high = 持续抛压 → 反转上涨。
-> - **C003 reserve**：5d sign-of-body frequency。CP02-04 perfect (alpha_surv=1.014, mono=-0.80)，但 incr_ic=-0.031 库 reducer。与 C005 镜像。
-> - **C001/C002 reject**：signed body 5d/20d，longer window 加深 vol_20d 耦合（r² 0.234→0.638）；5d Barra-clean 但 incr_ic 负。
-> - **C004 reject**：close/high 5d，alpha_surv=0.003 catastrophic 暴露其本质 ≡ vol_20d monotone derivative。
-> - **核心元发现（系统层级）**：
->   1. **alpha_survival 是新关键判别量**：4 轮以来 18 个 reject 中部分被错过的"vol_20d 衍生" pattern 在本批通过 C004 vs C005 对照得到清晰区分——alpha_surv > 1.0 = "Barra 空间独立载体"，<< 0.40 = "vol 衍生"。**C005 admit 的核心证据是 alpha_survival=1.508，不是 ls_t/mono 单独**。
->   2. **5d aggregation 是 sweet spot**：单日 (intraday_price_formation 全 saturated) 与 20d (vol-coupled) 之间的 5d 窗口是 OHLC 信号的 sweet spot——既保留 idiosyncratic flow 又过滤噪声。
->   3. **upper-shadow 机制独立性**：C005 max_corr=0.069 with F003 (overnight gap)——OHLC 空间内 intraday-shadow 与 overnight-gap 完全机制正交。
-> - **MT budget**: 本 batch 消耗 5 tests，1 admit 占预算。
-> - **Direction operations**: status `exploring → productive`（首 admit）；priority `medium → high`（productive 方向应提升优先级）。
-> - **下一步（batch_018）**：(1) 同方向 deepen — 5d 窗口的 OHLC pattern 变体：lower-shadow、body-position-in-range、signed body × range、跨日 body 一致性 (2) C005 + C003 symmetric pair design — 5d frequency-asymmetry 信号 (3) **观察**: 该方向是否能持续产 admit （alpha_surv > 1 + incr_ic > 0 是关键指标）
+> [!quote]- 2026-04-21 · [[batches/batch_018/judge|batch_018]] · admit=1 / reject=4
+> F007 open_position_persistence_5d admit（ic=+0.037 max_corr=0.276@F006 完全机制正交）。4 reject 暴露三 trap：algebraic mirror（lower-shadow ≡ -upper-shadow）、magnitude-only（无符号失方向）、vol_20d mirror（\|gap\|/range alpha_surv=0.164 第 3 个 vol 衍生）。
+
+> [!quote]- 2026-04-21 · [[batches/batch_017/judge|batch_017]] · admit=1 / reserve=1 / reject=3
+> status `exploring → productive`（首 admit，4 轮 0-admit 后关键突破）。F006 upper_shadow_persistence_5d admit：alpha_surv=1.508 + incr_ic=+0.031 + cum_dd=-3.5（库内最浅）+ 9 年 IC 全正。**系统级元发现**：(1) alpha_survival 是 vol_20d 衍生判别量（C004 vs C005 对照）；(2) 5d 是 OHLC sweet spot；(3) upper-shadow 与 overnight-gap 机制正交（max_corr=0.069@F003）。
