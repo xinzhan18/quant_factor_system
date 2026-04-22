@@ -192,23 +192,44 @@ Audit c13 要求 body 里每个 candidate 都有 `[[batches/{batch_id}/candidate
 
 必须在跑 `judge audit` **之前**把 `directions/{direction}.md` 和 `INDEX.md` 更新好。wikilink **vault-root**（禁 `[[../...]]`）。
 
-### 1. Threads — evidence trail
+### 1. Threads — evidence trail（callout 排版 · c20 硬检查）
 
-对每个非-hard-gate-reject 候选，在其 `thread_id` 对应的 `### T{n}` 段 `**Evidence trail**` 下追加：
+**Thread block 三件套**（c20 audit 硬检查——每个被本 batch 候选引用的 `### T{n}` 段都必须满足）：
+
+1. **H3 行带状态标签**（三选一，spelling 固定）：
+   - `[◉ ACTIVE]` / `[✓ ANSWERED batch_{N}]` / `[✗ DISPROVEN batch_{N}]`
+2. **Body 有 `**Question**:` 行**（1–2 句问题陈述）
+3. **Body 有 `**Evidence trail**:` 标题**（**禁用** bare `**Evidence**:`）
+
+**视觉排版**：每个 Thread body 整段包在一个 Obsidian callout 里——按状态着色。详见 `.claude/skills/factor-idea/skill.md` §Body 模板，简要：
+
+| H3 状态标签 | callout 类型 | 色 |
+|---|---|---|
+| `[◉ ACTIVE]` | `> [!note]+ Thread 当前` | 🔵 |
+| `[✓ ANSWERED batch_X]` | `> [!success]+ Thread 结论` | 🟢 |
+| `[✗ DISPROVEN batch_X]` | `> [!failure]+ Thread 结论` | 🔴 |
+
+**追加 evidence 的操作**：对每个**非-hard-gate-reject** 候选，在其 `thread_id` 对应 Thread callout 的 `**Evidence trail**:` 下追加一行：
 
 ```markdown
-- [[batches/{batch}/candidates/C{id}|batch_{N} C{id}]]: {key_metrics_short} → {verdict}
+### T001: <子问题摘要> [◉ ACTIVE]
+
+> [!note]+ Thread 当前
+> **Question**: <...>
+>
+> **Evidence trail**:
+> - [[batches/batch_009/candidates/C001|batch_009 C001]]　ICIR=0.338 ls_t=3.89 → **admit**
+> - [[batches/batch_009/candidates/C002|batch_009 C002]]　mono_flip → **reject (hard_gate)**
+>
+> **Next probes**: <下一步>
 ```
 
-admit 示例（不写 `[[factors/F{id}]]`——id 由 Phase 4 分配，Phase 4 回填）：
-```markdown
-- [[batches/batch_009/candidates/C001|batch_009 C001]]: ICIR=0.338 ls_t=3.89 → **admit**
-```
+（admit 不写 `[[factors/F{id}]]`——id 由 Phase 4 分配后回填。）
 
-Thread 状态标记转换：
-- admit 回答了 Question → `[◉ ACTIVE]` 改 `[✓ ANSWERED batch_{N}]`
-- 证据反驳假设 → `[◉ ACTIVE]` 改 `[✗ DISPROVEN batch_{N}]`
-- 新子问题 → Threads 段末尾加 `### T{next}: ... [◉ ACTIVE]`
+**Thread 状态转换（同步改 H3 tag + callout 类型）**：
+- admit 回答了 Question → `[◉ ACTIVE]` 改 `[✓ ANSWERED batch_{N}]` + callout `[!note]` → `[!success]`
+- 证据反驳假设 → `[◉ ACTIVE]` 改 `[✗ DISPROVEN batch_{N}]` + callout `[!note]` → `[!failure]`
+- 新子问题 → Threads 段末尾加新 `### T{next}: ... [◉ ACTIVE]` + `[!note]+` callout（三件套必须齐全）
 
 ### 2. Known Failures — reject 条目
 
@@ -278,7 +299,7 @@ LLM 维护的上半段**固定三个 H2 段**，风格统一避免视觉混乱�
 
 ---
 
-## Audit Checks（16 项）
+## Audit Checks（20 项）
 
 实现见 `src/research/checkpoints/audit.py`。一次过，失败返回全部违规（不短路）。
 
@@ -300,6 +321,10 @@ LLM 维护的上半段**固定三个 H2 段**，风格统一避免视觉混乱�
 | 14 | direction.md 更新 | evidence trail + Narrative Log + Known Failures 到位，wikilink vault-root |
 | 15 | INDEX 方向条目 | 对应方向 `###` 段后 1–3 行提到 `{batch_id}` |
 | 16 | thread_id 交叉 | C{id}.frontmatter.thread_id 在 direction.md 以 `### T{n}` 存在 |
+| 17 | judge.md Thread 进展段 | 多 candidate/多 thread 时 body 有 `## Thread 进展` |
+| 18 | judge.md 跨候选对比段 | `>1` candidate 时 body 有 `## 跨候选对比` |
+| 19 | judge.md 候选一览表列 | `## 候选一览` 表头含 `档位` + `反思` 两列 |
+| 20 | thread block 三件套 | 被引用的 `### T{n}` 有状态标签 + `**Question**:` + `**Evidence trail**:` |
 
 ---
 

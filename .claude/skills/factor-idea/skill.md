@@ -138,40 +138,119 @@ merged_into: null            # 仅 status=merged 时有值
 | `status` | **Python auto** 首次 admit → `exploring → productive`；其余（`productive → saturated / dead / merged`）由 **LLM** 在 Narrative Log 翻 |
 | `rounds` / `admits` / `members` / `last_batch` / `last_admits` / `last_goal` / `last_activity` | **Python** | Phase 4 archive 后自动 |
 
-### Body（LLM 完全维护）
+### Body（LLM 完全维护 · Obsidian callout 排版）
 
-```markdown
+**视觉纪律**：方向文件面向人阅读为主，用 Obsidian callout 做视觉分块。四个固定位置：
+
+| 位置 | callout | 折叠 | 作用 |
+|---|---|---|---|
+| 顶部「方向概要」 | `[!abstract]+` | 展开 | 状态 / 最近 batch / 一句话（人一眼看懂现在） |
+| Hypothesis 证伪标记 | `[!warning]` | 展开 | 仅 dead/merged 方向使用——承载**元教训** |
+| 每个 Thread body | `[!note]+` / `[!success]+` / `[!failure]+` | 展开 | 按状态着色，见下表 |
+| 每轮 Narrative | `[!quote]+`（最新）/ `[!quote]-`（历史） | 最新展开，旧的折叠 | 时间线 |
+
+**Thread callout 色码**（匹配 H3 行状态标签）：
+
+| H3 状态标签 | callout 类型 | 视觉 |
+|---|---|---|
+| `[◉ ACTIVE]` | `> [!note]+ Thread 当前` | 🔵 蓝 |
+| `[✓ ANSWERED batch_X]` | `> [!success]+ Thread 结论` | 🟢 绿 |
+| `[✗ DISPROVEN batch_X]` | `> [!failure]+ Thread 结论` | 🔴 红 |
+
+**完整模板**：
+
+````markdown
+# {direction_tag}
+
+> [!abstract]+ 方向概要
+> - **状态**　{🟢/🔵/🟡/🔴} `{status}` · priority `{priority}` · rounds = {N} · admits = {M}
+> - **最近**　[[batches/batch_{N}/judge|batch_{N}]] · {YYYY-MM-DD} · {admit}/{reserve}/{reject}
+> - **一句话**　{≤40 字：现在最值得关注的一个事实}
+
+---
+
 ## Hypothesis
-<经济学逻辑 2-3 段>
 
-## Current Focus
-<当前最值得探索的角度 + 下一步计划>
+{经济学逻辑 2-3 段}
+
+<!-- 仅 dead/merged 方向保留下面的 warning，active 方向删掉 -->
+> [!warning] ⚠️ Hypothesis 已证伪（batch_{N}）
+> {一段证伪归因}
+>
+> **元教训**　{可迁移到后续方向的 1 句话}
+
+---
+
+## Current Focus  <!-- 仅 exploring/productive，dead/saturated 删掉 -->
+
+{当前最值得探索的角度 + 下一步计划，2-4 行}
+
+---
 
 ## Threads
-### T001: <子问题> [◉ ACTIVE]
-**Question**: <1-2 句完整问题陈述>
-**Evidence trail**:
-- batch_101: C003 → style_r2=0.12（太脏）
-- batch_102: C004 → style_r2=0.08（acceptable）
-**Next probes**: ...
 
-### T002: <子问题> [✓ ANSWERED batch_103]
-**Question**: ...
-**Answer**: ...
-**Evidence trail**:
-- batch_103: C001 → admit F{id}
+### T001: {子问题摘要} [◉ ACTIVE]
+
+> [!note]+ Thread 当前
+> **Question**: {1-2 句完整问题}
+>
+> **Evidence trail**:
+> - [[batches/batch_101/candidates/C003|batch_101 C003]]　{key metric} → {verdict}
+> - [[batches/batch_102/candidates/C004|batch_102 C004]]　{key metric} → {verdict}
+>
+> **Next probes**: {下一步探测方向}
+
+### T002: {子问题摘要} [✓ ANSWERED batch_103]
+
+> [!success]+ Thread 结论
+> **Question**: {...}
+>
+> **Answer**: {admit / refute 的一句结论}
+>
+> **Evidence trail**:
+> - [[batches/batch_103/candidates/C001|batch_103 C001]]　{key metric} → **admit → [[factors/F{id}]]**
+
+### T003: {子问题摘要} [✗ DISPROVEN batch_104]
+
+> [!failure]+ Thread 结论
+> **Question**: {...}
+>
+> **Evidence trail**:
+> - [[batches/batch_104/candidates/C002|batch_104 C002]]　{key metric} → **reject**
+
+---
 
 ## Known Failures
-- <已证伪的 pattern + 为什么>
+
+| Candidate | Expression | Reject Reason |
+|---|---|---|
+| [[batches/batch_104/candidates/C002\|C002]] | `{表达式摘要}` | `{gate / code}` {细节} |
+
+---
 
 ## Related
+
+- {🟢/🔵/🟡/🔴} [[<related_direction>]] `{status}` — {一句为什么相关}
 - [[../lessons#Structural Constraints]]
-- [[<related_direction>]]
+
+---
 
 ## Narrative Log
-### 2026-04-11 batch_103
-<admitted / rejected / thread 状态变化 / 下一步>
-```
+
+> [!quote]+ {YYYY-MM-DD} · [[batches/batch_{N}/judge|batch_{N}]]
+> **{一句总结}** · admit = {X} / reserve = {Y} / reject = {Z}
+>
+> - {转折点 1}
+> - {转折点 2}
+> - MT budget　cumulative {a} → **{b}** · direction {c} → **{d}** · bucket `{bucket}`
+>
+> **Operations**　`status: {from} → {to}` · {priority 变化}
+
+> [!quote]- {YYYY-MM-DD} · [[batches/batch_{N-1}/judge|batch_{N-1}]]
+> {历史 batch 折叠，保留关键结论一段}
+````
+
+**每个段之间用 `---` 分隔线**：视觉上 obvious，不是装饰——减少无分隔大块文字带来的阅读疲劳。
 
 ### Thread 约定
 

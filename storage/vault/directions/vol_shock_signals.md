@@ -16,35 +16,70 @@ merged_into: null
 ---
 # vol_shock_signals
 
+> [!abstract]+ 方向概要
+> **状态**　🔴 dead · priority=low · rounds=1 · admits=0
+> **最近**　[[batches/batch_024/judge|batch_024]] · 2026-04-21 · admit=0 / reserve=0 / reject=3
+> **一句话**　Magnitude-based vol shock（range/vol-ratio/abs-return）在 A 股 cross-section 全部 collapse 到 vol_20d，不构成独立 alpha。
+
+---
+
 ## Hypothesis
 
 **突发** vol 变化（相对于近期基线）反映 information flow shocks；与 F001 (amount CV 稳定性) 正交——F001 测稳态波动幅度，本方向测**突发性**（today vs baseline）。
 
-## Current Focus
+> [!warning] ⚠️ Hypothesis 已证伪（batch_024）
+> 3 个 DSL 候选全 reject：C001 今日 range / 20d baseline → ls_t=-2.25 borderline + incr_ic=-0.027 库 reducer；C002 5d/60d returns vol ratio → hard_gate mono_sign_flip (IS=+0.70 / OOS=-1.00 完全反转)；C003 Abs 收益 - 20d baseline → a_surv=0.117 catastrophic (vol_20d-derived 第 4 次独立出现)。无论用 range / vol ratio / abs return 哪种 magnitude normalize 形式，信号最终都塌缩到 vol_20d rank。
+> **元教训**　A 股 csi1000 universe 上 magnitude-based vol shock 信号在 cross-section 全部 collapse 到 vol_20d——"突发性 vs 基线"用幅度差或比值构造不可行。后续 direction 设计应绝对避开 magnitude-only vol 信号；若要突破必须换坐标系（signed return 方向、intraday OHLC microstructure、或 portfolio-level regime state），不能停留在 single-series magnitude 变换。
 
-3 候选测 vol shock 在不同 horizon 的表现。
+---
 
 ## Threads
 
 ### T001: 日内 range vs 20d baseline [✗ DISPROVEN batch_024]
-**Evidence**: C001 ic=-0.029 ls_t=-2.25 incr_ic=-0.027 库 reducer → reject；C003 ic=+0.008 ls_t=2.97 **a_surv=0.117 catastrophic** (vol 衍生)
-**Conclusion**: magnitude-based vol shock 无论 normalize 形式都 collapse to vol_20d。
+
+> [!failure]+ Thread 结论
+> **Question**: 今日 high-low range 相对于 20d baseline 的偏离是否携带 forward IC（"突发幅度"信号）？
+> **Evidence trail**:
+> - [[batches/batch_024/candidates/C001|batch_024 C001]]　今日 range / 20d mean range → ic=-0.029 ls_t=-2.25 incr_ic=-0.027 库 reducer → reject
+> - [[batches/batch_024/candidates/C003|batch_024 C003]]　Abs 收益 - 20d baseline → ic=+0.008 ls_t=2.97 **a_surv=0.117 catastrophic**（vol_20d 衍生）→ reject
+>
+> **Conclusion**: magnitude-based vol shock 无论 normalize 形式（range ratio / abs return deviation）都 collapse 到 vol_20d；幅度差 / 幅度比都无独立 alpha。
 
 ### T002: 5d vol vs 60d vol (regime change) [✗ DISPROVEN batch_024]
-**Evidence**: C002 hard_gate mono_sign_flip IS=+0.70 / OOS=-1.00 → reject
-**Conclusion**: 短/长窗口 vol ratio 跨期行为不稳。
+
+> [!failure]+ Thread 结论
+> **Question**: 短窗口 5d vol 相对于长窗口 60d vol 的比值是否能 capture regime change 并携带 cross-sectional forward IC？
+> **Evidence trail**:
+> - [[batches/batch_024/candidates/C002|batch_024 C002]]　5d/60d returns vol ratio → hard_gate mono_sign_flip IS=+0.70 / OOS=-1.00（完全反转）→ reject
+>
+> **Conclusion**: 短/长窗口 vol ratio 跨期行为不稳——IS/OOS mono 完全反转暴露其本质是 vol regime 的 random walk noise，不是可交易的结构信号。
+
+---
 
 ## Known Failures
-- C001 (batch_024): today range / 20d mean range — ls_t=-2.25 borderline + incr_ic=-0.027 库 reducer
-- C002 (batch_024): 5d/60d returns vol ratio — hard_gate mono_sign_flip (vol regime IS/OOS 完全反转)
-- C003 (batch_024): Abs return shock - 20d baseline — **alpha_surv=0.117 catastrophic** (vol_20d-derived 第 4 次出现)
+
+| Candidate | Expression | Reject Reason |
+|---|---|---|
+| [[batches/batch_024/candidates/C001\|C001]] | 今日 range / 20d mean range | ls_t=-2.25 borderline + incr_ic=-0.027 库 reducer |
+| [[batches/batch_024/candidates/C002\|C002]] | 5d/60d returns vol ratio | hard_gate mono_sign_flip（vol regime IS=+0.70 / OOS=-1.00 完全反转）|
+| [[batches/batch_024/candidates/C003\|C003]] | Abs 收益 - 20d baseline | **alpha_surv=0.117 catastrophic**（vol_20d-derived 第 4 次独立出现）|
+
+---
 
 ## Related
-- [[amount_volatility_signal]]  (测稳态 CV)
-- [[return_distribution_signals]]  (dead — 高阶矩 collapse to vol_20d)
+
+- 🔴 [[amount_volatility_signal]] `dead` — 测稳态 CV；本方向原本设计成 magnitude 正交补位，结论同样 collapse 到 vol_20d
+- 🔴 [[return_distribution_signals]] `dead` — 高阶矩 (skew/kurt/qrange) 同样 collapse 到 vol_20d，与本方向共享"magnitude 变换 → vol rank"失败根因
+- 🟡 [[barra_residual_alpha]] `saturated` — vol_20d 为 Barra style 之一，本方向失败本质是 style coupling
+
+---
 
 ## Narrative Log
-### 2026-04-21 [[batches/batch_024/judge|batch_024]]
-**admit=0 / reserve=0 / reject=3 — direction status: exploring → dead**
 
-3 候选全 reject：库 reducer / hard_gate / vol_20d 衍生 catastrophic alpha_surv。**元教训**：magnitude-based vol shock 信号在 A 股 cross-section 全部 collapse to vol_20d (第 4 次独立观察)。后续 direction 设计应绝对避开 magnitude-only vol 信号。
+> [!quote]+ 2026-04-21 · [[batches/batch_024/judge|batch_024]]
+> **admit=0 / reserve=0 / reject=3** — 3 候选全 reject：库 reducer / hard_gate mono_sign_flip / vol_20d 衍生 catastrophic alpha_surv。
+> - T001 日内 range vs 20d baseline：`[◉ ACTIVE] → [✗ DISPROVEN batch_024]`
+> - T002 5d/60d vol regime change：`[◉ ACTIVE] → [✗ DISPROVEN batch_024]`
+> - **核心元教训**：magnitude-based vol shock 信号在 A 股 cross-section 全部 collapse 到 vol_20d（第 4 次独立观察，跨 amount_volatility_signal / return_distribution_signals / barra_residual_alpha 多方向确认）。后续 direction 设计应绝对避开 magnitude-only vol 信号——突破须换坐标系（signed return / intraday microstructure / portfolio regime）。
+> - **MT budget**: 本 batch 消耗 3 tests，全 reject，无 admit 占预算。
+> - **Direction operations**: status `exploring → dead`（不可逆）；priority `low` 保持；不进入 retry pool。

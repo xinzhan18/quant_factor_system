@@ -12,7 +12,7 @@ direction.md update + INDEX.md update are written. It targets **structure**,
 not semantics — "did the LLM reason correctly?" is out of scope.
 "Did the LLM follow the protocol?" is in scope.
 
-16 checks:
+20 checks:
 
 1. judge.md frontmatter has ``batch_id``, ``candidates`` list, ``batch_summary``
 2. every judge frontmatter candidate has verdict ∈ VALID_VERDICTS
@@ -38,6 +38,12 @@ not semantics — "did the LLM reason correctly?" is out of scope.
 15. INDEX.md upper half (above ``<!-- BEGIN AUTO-SECTION -->``) for this direction
     mentions the current batch_id
 16. each C{id}.md ``thread_id`` resolves to ``### T{n}`` H3 header in direction.md
+17. judge.md body has ``## Thread 进展`` section (when >1 thread or >1 candidate)
+18. judge.md body has ``## 跨候选对比`` section (when >1 candidate)
+19. judge.md ``## 候选一览`` table header has ``档位`` + ``反思`` columns
+20. each thread_id referenced by this batch's candidates has, in direction.md's
+    ``### T{n}`` section, a status tag on the H3 line and ``**Question**:`` +
+    ``**Evidence trail**:`` labels in the body
 """
 
 from __future__ import annotations
@@ -90,6 +96,24 @@ AUTO_SECTION_BEGIN: str = "<!-- BEGIN AUTO-SECTION -->"
 # direction.md thread headers are H3 with format ``### T001: ...`` or ``### T001 ...``.
 _THREAD_HEADER_PATTERN: re.Pattern[str] = re.compile(
     r"^###\s+(T\d+)\b", re.MULTILINE
+)
+
+# c20 — status tag on the thread H3 line. Three variants:
+#   [◉ ACTIVE]              — in-flight
+#   [✓ ANSWERED batch_NNN]  — thread resolved (admit or conclusive refute)
+#   [✗ DISPROVEN batch_NNN] — sub-hypothesis falsified
+# The markers carry meaning in the knowledge graph (phase5 uses them for
+# consolidation) — Python enforces the canonical spelling.
+_THREAD_STATUS_TAG_PATTERN: re.Pattern[str] = re.compile(
+    r"\[(?:◉\s*ACTIVE|✓\s*ANSWERED\s+batch_\d+|✗\s*DISPROVEN\s+batch_\d+)\]"
+)
+
+# c20 — split direction.md body into ``### T{n}`` blocks. Capture the T-id,
+# the full H3 line (for status-tag check), and the body until the next H3
+# or EOF (for Question/Evidence-trail label checks).
+_THREAD_BLOCK_PATTERN: re.Pattern[str] = re.compile(
+    r"^(###\s+(T\d+)[^\n]*)\n(.*?)(?=^###\s+|\Z)",
+    re.MULTILINE | re.DOTALL,
 )
 
 
@@ -641,6 +665,71 @@ def _c19_judge_candidate_table_has_full_columns(judge: ParsedDoc) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# c20 — thread body schema (direction.md ### T{n} structure)
+#
+# For each ``thread_id`` this batch's candidates reference (via C{id}.md
+# frontmatter), the matching ``### T{n}`` section in direction.md must carry:
+#
+#   1. a status tag on the H3 line — one of ``[◉ ACTIVE]``,
+#      ``[✓ ANSWERED batch_NNN]``, ``[✗ DISPROVEN batch_NNN]``
+#   2. a ``**Question**:`` label somewhere in the section body
+#   3. a ``**Evidence trail**:`` label — bare ``**Evidence**:`` is NOT
+#      accepted; one canonical spelling
+#
+# Scope-limited to referenced threads on purpose: audit is per-batch, and
+# dragging historical thread drift into every new batch would force a
+# migration. Threads become compliant the next time any candidate points
+# at them.
+# ---------------------------------------------------------------------------
+
+
+def _c20_thread_body_schema(
+    direction_doc: ParsedDoc | None,
+    candidates: dict[str, ParsedDoc],
+) -> list[str]:
+    errs: list[str] = []
+    if direction_doc is None:
+        return errs  # c14 surfaces the missing-file case
+
+    referenced: set[str] = {
+        doc.frontmatter.get("thread_id")
+        for doc in candidates.values()
+        if doc.frontmatter.get("thread_id")
+    }
+    if not referenced:
+        return errs
+
+    # Index thread blocks by T-id for O(1) lookup
+    blocks: dict[str, tuple[str, str]] = {}
+    for m in _THREAD_BLOCK_PATTERN.finditer(direction_doc.body):
+        h3_line, tid, section_body = m.group(1), m.group(2), m.group(3)
+        blocks[tid] = (h3_line, section_body)
+
+    for tid in sorted(referenced):
+        block = blocks.get(tid)
+        if block is None:
+            # Unresolved thread_id — c16 already reports this. Don't double-up.
+            continue
+        h3_line, section_body = block
+        if not _THREAD_STATUS_TAG_PATTERN.search(h3_line):
+            errs.append(
+                f"direction.md '### {tid}' header missing status tag "
+                "(one of [◉ ACTIVE] / [✓ ANSWERED batch_NNN] / "
+                "[✗ DISPROVEN batch_NNN])"
+            )
+        if "**Question**:" not in section_body:
+            errs.append(
+                f"direction.md '### {tid}' body missing **Question**: label"
+            )
+        if "**Evidence trail**:" not in section_body:
+            errs.append(
+                f"direction.md '### {tid}' body missing **Evidence trail**: label "
+                "(bare **Evidence**: is not accepted — use the canonical spelling)"
+            )
+    return errs
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -652,7 +741,7 @@ def audit_batch_judge(
     direction_path: str | Path,
     index_path: str | Path,
 ) -> ParsedBatch:
-    """Audit a batch's judge artifacts against all 16 structural rules.
+    """Audit a batch's judge artifacts against all 20 structural rules.
 
     Collects every violation (does not short-circuit) so the LLM sees the full
     picture on rewrite. Raises :class:`JudgeAuditError` iff any violation found;
@@ -732,6 +821,7 @@ def audit_batch_judge(
     violations += _c17_judge_has_thread_progress_section(judge, candidates)
     violations += _c18_judge_has_cross_candidate_section(judge, candidates)
     violations += _c19_judge_candidate_table_has_full_columns(judge)
+    violations += _c20_thread_body_schema(direction_doc, candidates)
 
     parsed = ParsedBatch(judge=judge, candidates=candidates, violations=violations)
     if violations:

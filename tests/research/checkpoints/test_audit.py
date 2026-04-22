@@ -873,3 +873,113 @@ class TestCheck19CandidateTableColumns:
         bdir = _write_batch(tmp_path, candidate_ids=["C001"], judge_md=judge)
         with pytest.raises(JudgeAuditError, match="候选一览"):
             _run_audit(tmp_path, bdir, ["C001"])
+
+
+# ---------------------------------------------------------------------------
+# c20 — thread body schema (direction.md ### T{n} structure)
+#
+# Each thread_id referenced by this batch's candidate frontmatters must, in
+# direction.md's ``### T{n}`` section, carry: (a) a status tag on the H3 line
+# — one of ``[◉ ACTIVE]`` / ``[✓ ANSWERED batch_XXX]`` / ``[✗ DISPROVEN
+# batch_XXX]``; (b) a ``**Question**:`` label; (c) a ``**Evidence trail**:``
+# label (bare ``**Evidence**:`` is NOT accepted — one canonical spelling).
+#
+# Scope-limited to referenced threads so historical threads in long-running
+# directions don't retro-break batches.
+# ---------------------------------------------------------------------------
+
+
+class TestCheck20ThreadBodySchema:
+    def test_referenced_thread_with_all_three_labels_passes(
+        self, tmp_path: Path
+    ) -> None:
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        parsed = _run_audit(tmp_path, bdir, ["C001"])
+        assert parsed.violations == []
+
+    def test_thread_missing_status_tag_fails(self, tmp_path: Path) -> None:
+        dmd = _good_direction_md().replace(
+            "### T001: Example thread [◉ ACTIVE]",
+            "### T001: Example thread",
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        with pytest.raises(JudgeAuditError, match="status tag"):
+            _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+
+    def test_thread_missing_question_label_fails(self, tmp_path: Path) -> None:
+        dmd = _good_direction_md().replace("**Question**: test\n", "")
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        with pytest.raises(JudgeAuditError, match=r"\*\*Question\*\*"):
+            _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+
+    def test_thread_missing_evidence_trail_label_fails(
+        self, tmp_path: Path
+    ) -> None:
+        # Bare **Evidence**: is deliberately NOT accepted — one canonical label.
+        dmd = _good_direction_md().replace("**Evidence trail**:", "**Evidence**:")
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        with pytest.raises(JudgeAuditError, match=r"\*\*Evidence trail\*\*"):
+            _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+
+    def test_answered_status_tag_passes(self, tmp_path: Path) -> None:
+        dmd = _good_direction_md().replace(
+            "### T001: Example thread [◉ ACTIVE]",
+            "### T001: Example thread [✓ ANSWERED batch_042]",
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        parsed = _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+        assert parsed.violations == []
+
+    def test_disproven_status_tag_passes(self, tmp_path: Path) -> None:
+        dmd = _good_direction_md().replace(
+            "### T001: Example thread [◉ ACTIVE]",
+            "### T001: Example thread [✗ DISPROVEN batch_042]",
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        parsed = _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+        assert parsed.violations == []
+
+    def test_unreferenced_thread_not_audited(self, tmp_path: Path) -> None:
+        """A legacy T002 with no Question/Evidence passes iff no candidate
+        references it — c20 is scope-limited to referenced threads."""
+        base = _good_direction_md()
+        dmd = base.rstrip() + (
+            "\n\n### T002: Legacy unreferenced thread\n"
+            "No labels here — historical drift.\n"
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        parsed = _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+        assert parsed.violations == []
+
+    def test_wrong_status_tag_text_fails(self, tmp_path: Path) -> None:
+        # e.g. "[IN PROGRESS]" is not in the enum
+        dmd = _good_direction_md().replace(
+            "### T001: Example thread [◉ ACTIVE]",
+            "### T001: Example thread [IN PROGRESS]",
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        with pytest.raises(JudgeAuditError, match="status tag"):
+            _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+
+    def test_callout_wrapped_thread_body_passes(self, tmp_path: Path) -> None:
+        """Thread body wrapped in an Obsidian callout (`> [!note]+`) must
+        still satisfy c20 — the **Question**: and **Evidence trail**: labels
+        remain as plain substrings inside the blockquote lines."""
+        callout_body = (
+            "### T001: Example thread [◉ ACTIVE]\n\n"
+            "> [!note]+ Thread 结论\n"
+            "> **Question**: test\n"
+            ">\n"
+            "> **Evidence trail**:\n"
+            "> - [[batches/batch_042/candidates/C001|batch_042 C001]]: admit\n"
+        )
+        dmd = _good_direction_md().replace(
+            "### T001: Example thread [◉ ACTIVE]\n"
+            "**Question**: test\n"
+            "**Evidence trail**:\n"
+            "- [[batches/batch_042/candidates/C001|batch_042 C001]]: admit\n",
+            callout_body,
+        )
+        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
+        parsed = _run_audit(tmp_path, bdir, ["C001"], direction_md=dmd)
+        assert parsed.violations == []
