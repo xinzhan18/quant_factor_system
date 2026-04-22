@@ -1,0 +1,52 @@
+filters:
+  and:
+    - file.inFolder("directions")
+    - file.ext == "md"
+formulas:
+  status_icon: if(status == "productive", "🟢", if(status == "exploring", "🔵", if(status == "saturated", "🟡", if(status == "dead", "🔴", "⚪"))))
+  last_batch_link: if(last_batch, link("batches/" + last_batch + "/judge", last_batch), "—")
+properties:
+  status:
+    displayName: Status
+  priority:
+    displayName: Prio
+  rounds:
+    displayName: Rounds
+  admits:
+    displayName: Admits
+  formula.last_batch_link:
+    displayName: Last
+  last_goal:
+    displayName: 最近目标
+views:
+  - type: table
+    name: 活跃方向
+    filters:
+      not:
+        - status == "dead"
+        - status == "merged"
+        - status == "archived"
+    groupBy:
+      property: status
+      direction: ASC
+    order:
+      - formula.status_icon
+      - file.name
+      - status
+      - priority
+      - rounds
+      - admits
+      - formula.last_batch_link
+    sort:
+      - property: formula.status_icon
+        direction: ASC
+      - property: priority
+        direction: DESC
+  - type: table
+    name: 已证伪
+    filters: status == "dead"
+    order:
+      - file.name
+      - formula.last_batch_link
+      - rounds
+      - last_goal

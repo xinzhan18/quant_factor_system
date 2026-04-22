@@ -123,6 +123,13 @@ def _bootstrap_batch(
             "reserve": 0,
             "reject": 0,
         },
+        # Flat count keys required by Bases queries + index_audit.
+        # Mirror batch_summary — production pipeline adds these via
+        # ensure_judge_bases_fields before phase4 reads the file.
+        "admit_count": len(admit_ids),
+        "reject_count": 0,
+        "reserve_count": 0,
+        "candidate_count": len(admit_ids),
     }
     (bdir / "judge.md").write_text(
         f"---\n{yaml.dump(fm, sort_keys=False)}\n---\n\n## C001\n\n### CP01\nok",
@@ -161,12 +168,16 @@ class TestPhase4HappyPath:
 
         # INDEX.md refreshed — reflects POST-finish_batch state so round
         # matches state.yaml (not lagging by 1 like the old order did).
+        # Direction names + factor counts live in Bases views (live-queried
+        # from directions/ + factors/), so we only assert frontmatter fields
+        # here — the Bases embeds are structural, covered by audit_index_format.
         assert result.index_path == paths.vault_index_file
         index_text = paths.vault_index_file.read_text(encoding="utf-8")
-        assert "vol" in index_text
-        assert "Total factors admitted | 2" in index_text
+        assert "total_factors_admitted: 2" in index_text
+        assert "total_active_directions: 1" in index_text
         assert "round: 1" in index_text
         assert "last_batch: batch_001" in index_text
+        assert "![[_bases/directions.base]]" in index_text
 
         # State advanced: finish_batch clears current_batch and bumps round
         state = StateFile(paths.state_file).read()
@@ -271,9 +282,14 @@ class TestPhase4ReportCallback:
             packet_text: str, packet_path: Path, factor_md_path: Path
         ) -> None:
             invocations.append((packet_text, packet_path, factor_md_path))
-            # Write the factor.md to the specified location
+            # Write the factor.md with minimum frontmatter so the Bases
+            # queries + index_audit see a well-formed file.
             factor_md_path.parent.mkdir(parents=True, exist_ok=True)
             factor_md_path.write_text(
+                "---\n"
+                f"id: {factor_md_path.stem}\n"
+                "direction: vol\ndecision: admit\nstatus: active\n"
+                "---\n\n"
                 f"# {factor_md_path.stem}\n\n(LLM-written report body)\n"
             )
 
@@ -596,6 +612,7 @@ class TestDiagnosticsRetention:
         bdir.mkdir(parents=True, exist_ok=True)
         fm = {
             "batch_id": batch_id,
+            "direction": "vol",
             "candidates": (
                 [
                     {
@@ -618,6 +635,10 @@ class TestDiagnosticsRetention:
                     for cid in reject_ids
                 ]
             ),
+            "admit_count": len(admit_ids),
+            "reject_count": len(reject_ids),
+            "reserve_count": 0,
+            "candidate_count": len(admit_ids) + len(reject_ids),
         }
         (bdir / "judge.md").write_text(
             f"---\n{yaml.dump(fm, sort_keys=False)}\n---\nbody",

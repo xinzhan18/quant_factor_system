@@ -1,0 +1,60 @@
+filters:
+  and:
+    - file.inFolder("batches")
+    - file.name == "judge"
+formulas:
+  outcome_icon: if(admit_count > 0, "✅", if(reserve_count > 0, "⏸", "❌"))
+  ratio: admit_count.toString() + "/" + candidate_count.toString()
+  direction_link: link("directions/" + direction, direction)
+  batch_link: link(file.path, batch_id)
+properties:
+  formula.ratio:
+    displayName: Admit
+  formula.direction_link:
+    displayName: Direction
+  formula.batch_link:
+    displayName: Batch
+  admit_count:
+    displayName: ✅
+  reject_count:
+    displayName: ❌
+  reserve_count:
+    displayName: ⏸
+  candidate_count:
+    displayName: Total
+  mt_bucket:
+    displayName: MT
+  judged_at:
+    displayName: Date
+views:
+  - type: table
+    name: 最近 batch
+    order:
+      - formula.outcome_icon
+      - formula.batch_link
+      - formula.direction_link
+      - formula.ratio
+      - admit_count
+      - reject_count
+      - reserve_count
+      - mt_bucket
+      - judged_at
+    limit: 10
+  - type: table
+    name: 全部 batch 流水
+    order:
+      - formula.batch_link
+      - formula.direction_link
+      - formula.ratio
+      - admit_count
+      - reject_count
+      - judged_at
+  - type: table
+    name: admit batch
+    filters: admit_count > 0
+    order:
+      - formula.batch_link
+      - formula.direction_link
+      - admit_count
+      - candidate_count
+      - judged_at

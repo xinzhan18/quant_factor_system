@@ -101,6 +101,12 @@ def register_audit_subcommand(subparsers: argparse._SubParsersAction) -> None:
     )
     mt.set_defaults(func=_run_mt_budget)
 
+    idx = audit_sub.add_parser(
+        "index",
+        help="Verify INDEX.md format + base file / frontmatter coverage",
+    )
+    idx.set_defaults(func=_run_audit_index)
+
     from research.cli.audit_reserves import register_audit_reserves
     register_audit_reserves(audit_sub)
 
@@ -109,6 +115,21 @@ def _run_mt_budget(args: argparse.Namespace) -> None:
     storage_root = Path(getattr(args, "storage_root", "storage"))
     paths = StoragePaths(storage_root)
     print(format_mt_budget_report(paths, direction=args.direction))
+
+
+def _run_audit_index(args: argparse.Namespace) -> None:
+    from research.memory.index_audit import audit_index_format
+
+    storage_root = Path(getattr(args, "storage_root", "storage"))
+    paths = StoragePaths(storage_root)
+    report = audit_index_format(paths)
+    if report.ok:
+        print("INDEX.md audit: OK")
+        return
+    print(f"INDEX.md audit: {len(report.errors)} issue(s)", file=sys.stderr)
+    for err in report.errors:
+        print(f"  - {err}", file=sys.stderr)
+    raise SystemExit(1)
 
 
 def dispatch_audit(args: argparse.Namespace) -> None:

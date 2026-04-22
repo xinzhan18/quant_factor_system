@@ -100,12 +100,17 @@ def update_direction_frontmatter(
         fm = {
             "direction_id": path.stem,
             "status": "exploring",
+            "priority": "medium",
             "rounds": 0,
             "admits": 0,
             "members": [],
             "created_at": _now_iso(),
             "created_batch": batch_id,
         }
+    # Ensure priority exists even on pre-existing skeletons (back-compat with
+    # directions created before this default landed — keeps audit_index_format
+    # green). Value may still be overwritten by LLM edits.
+    fm.setdefault("priority", "medium")
     if not body:
         body = f"\n# {path.stem}\n\n_(Body will be filled by Phase 5 consolidation.)_\n"
 

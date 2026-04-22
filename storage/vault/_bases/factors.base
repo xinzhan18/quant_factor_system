@@ -1,0 +1,64 @@
+filters:
+  and:
+    - file.inFolder("factors")
+    - file.ext == "md"
+    - decision == "admit"
+    - status == "active"
+formulas:
+  grade_icon: if(composite_grade == "A", "🥇", if(composite_grade == "B", "🥈", if(composite_grade == "C", "🥉", "")))
+  ic_abs: if(ic_ir_validation, ic_ir_validation.abs(), 0)
+  direction_link: link("directions/" + direction, direction)
+  batch_link: link("batches/" + batch + "/judge", batch)
+properties:
+  composite_grade:
+    displayName: Grade
+  composite_score:
+    displayName: Score
+  formula.direction_link:
+    displayName: Direction
+  ic_mean_validation:
+    displayName: IC
+  ic_ir_validation:
+    displayName: ICIR
+  monotonicity_validation:
+    displayName: Mono
+  alpha_survival_ratio:
+    displayName: α-Surv
+  max_lib_corr:
+    displayName: MaxCorr
+  formula.batch_link:
+    displayName: Admitted
+views:
+  - type: table
+    name: 因子库（按 Grade）
+    groupBy:
+      property: composite_grade
+      direction: ASC
+    order:
+      - formula.grade_icon
+      - file.name
+      - name
+      - formula.direction_link
+      - composite_grade
+      - composite_score
+      - ic_mean_validation
+      - ic_ir_validation
+      - monotonicity_validation
+      - alpha_survival_ratio
+      - max_lib_corr
+      - formula.batch_link
+    columnSize:
+      note.max_lib_corr: 108
+  - type: table
+    name: 按方向分组
+    groupBy:
+      property: direction
+      direction: ASC
+    order:
+      - file.name
+      - name
+      - composite_grade
+      - ic_mean_validation
+      - ic_ir_validation
+      - monotonicity_validation
+      - alpha_survival_ratio

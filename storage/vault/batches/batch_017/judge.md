@@ -9,6 +9,11 @@ candidates:
   - {candidate_id: C004, verdict: reject}
   - {candidate_id: C005, verdict: admit, factor_name: upper_shadow_persistence_5d}
 batch_summary: {total: 5, admit: 1, reserve: 1, reject: 3}
+admit_count: 1
+reject_count: 3
+reserve_count: 1
+candidate_count: 5
+mt_bucket: low
 ---
 
 # batch_017 Judge Summary

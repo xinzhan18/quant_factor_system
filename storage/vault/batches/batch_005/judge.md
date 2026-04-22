@@ -10,6 +10,10 @@ candidates:
   - {candidate_id: C004, verdict: reserve}
   - {candidate_id: C005, verdict: admit, factor_name: pb_amount_ratio_20}
 batch_summary: {total: 5, admit: 1, reserve: 1, reject: 3}
+admit_count: 1
+reject_count: 3
+reserve_count: 1
+candidate_count: 5
 ---
 
 > [!warning] **Retroactive revision (2026-04-19)**: C005 从 reject 升级为 admit (factor_name: pb_amount_ratio_20)。配置放宽：alpha_surv_min 0.60→0.40，rubric poor 阈值 0.60→0.30。原因：C005 与 F001 正交 (max_corr=0.029) + incremental_ic=+0.027 + 符号互补 + cum_dd=-2.17 全库最浅 — 库空间独立 alpha 明确；Barra 脏不阻碍库增值。

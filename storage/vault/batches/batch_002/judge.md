@@ -9,6 +9,10 @@ candidates:
   - {candidate_id: C004, verdict: reject}
   - {candidate_id: C005, verdict: reject}
 batch_summary: {total: 5, admit: 0, reserve: 2, reject: 3}
+admit_count: 0
+reject_count: 3
+reserve_count: 2
+candidate_count: 5
 ---
 
 # batch_002 Judge Summary

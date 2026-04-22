@@ -33,6 +33,7 @@ from research.archive.backfill import (
     backfill_candidate_md,
     backfill_direction_md,
     backfill_judge_md,
+    ensure_judge_bases_fields,
 )
 from research.archive.commit import (
     CommitResult,
@@ -296,6 +297,10 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
     state_file = StateFile(paths.state_file)
     state_file.transition_phase("archived")
 
+    # Ensure flat count keys exist in judge frontmatter before any downstream
+    # reader (audit, archive, or Obsidian Bases view) touches the file.
+    ensure_judge_bases_fields(judge_path)
+
     result = load_yaml_unsafe(result_path)
     manifest = load_yaml(paths.batch_manifest_file(inputs.batch_id))
     judge_fm = _parse_judge_frontmatter(judge_path)
@@ -455,6 +460,13 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
         round_counter=current_state.round,
         last_consolidation_round=None,
     )
+
+    # --- Hard-stop audit: INDEX + base files + frontmatter coverage ---
+    # Raises IndexFormatError on drift so the autonomous loop halts on any
+    # structural integrity failure (matches CLAUDE.md's "only system-level
+    # errors stop the loop" rule — a broken INDEX is system-level).
+    from research.memory.index_audit import audit_index_format_or_raise
+    audit_index_format_or_raise(paths)
 
     # --- Commit ---
     commit_result: CommitResult | None = None

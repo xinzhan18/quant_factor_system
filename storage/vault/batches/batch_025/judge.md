@@ -7,6 +7,11 @@ candidates:
   - {candidate_id: C002, verdict: admit, factor_name: overnight_return_persistence_5d}
   - {candidate_id: C003, verdict: reject}
 batch_summary: {total: 3, admit: 2, reserve: 0, reject: 1}
+admit_count: 2
+reject_count: 1
+reserve_count: 0
+candidate_count: 3
+mt_bucket: low
 ---
 
 # batch_025 Judge Summary

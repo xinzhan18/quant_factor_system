@@ -12,6 +12,11 @@ candidates:
   - {candidate_id: C007, verdict: reject, hard_gate_reason: mono_sign_flip}
   - {candidate_id: C008, verdict: reject, hard_gate_reason: ic_oos_too_low + mono_sign_flip}
 batch_summary: {total: 8, admit: 1, reserve: 0, reject: 7}
+admit_count: 1
+reject_count: 7
+reserve_count: 0
+candidate_count: 8
+mt_bucket: low
 ---
 
 # batch_010 Judge Summary
