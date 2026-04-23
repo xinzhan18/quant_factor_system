@@ -2,25 +2,27 @@
 direction_tag: gap_acceptance_structure
 status: saturated
 priority: medium
-rounds: 1
-admits: 0
-last_batch: batch_035
-last_admits: []
-last_goal: 'T001 + T003 + T004 baseline: probe pure sign-interaction acceptance (gap_sign
-  × body_sign) at 10/20/60d windows on csi1000; test TR-via-realized-vol normalization
-  against F003; seed turnover-weighted acceptance and a gap_magnitude × body_sign
-  hybrid for orthogonality check against F003/F009/F010.'
-last_activity: '2026-04-23T17:32:53Z'
+rounds: 2
+admits: 1
+last_batch: batch_036
+last_admits:
+- F013
+last_goal: 'T002 follow-up on C004 reserve: replace $turnover_rate direct weight with
+  time-series normalized participation measures ($amount/Mean, $volume/Mean, turnover
+  ratio, log-amount, csrank turnover); one 40d window extension. Probe whether scale-free
+  weighting fixes mono_OOS=0.30 avoid-worst barbell while preserving library independence.'
+last_activity: '2026-04-23T18:02:14Z'
 created_batch: null
-members: []
+members:
+- F013
 merged_into: null
 ---
 # gap_acceptance_structure
 
 > [!abstract]+ 方向概要
-> - **状态**　🔵 `exploring` · priority `medium` · rounds = 0 · admits = 0
-> - **最近**　[[batches/batch_035/judge|batch_035]] · 2026-04-24 · 0/1/5（首批 5 reject + 1 reserve C004）
-> - **一句话**　paper CSI 300 大盘结果不 transfer 到 csi1000；T001/T003/T004 首批即封闭，唯一生路是 T002 turnover 加权（C004）
+> - **状态**　🟡 `saturated` · priority `medium` · rounds = 1 · admits = 0
+> - **最近**　[[batches/batch_035/judge|batch_035]] · 2026-04-24 · 0/1/5（首批即 T001/T003/T004 三 thread 封闭）
+> - **一句话**　paper CSI 300 大盘结果不 transfer 到 csi1000；唯一生路 T002 turnover 加权（C004 reserve），需变体对照确认
 
 ---
 
@@ -58,15 +60,21 @@ merged_into: null
 > - [[batches/batch_035/candidates/C003|batch_035 C003]]　60d pure sign, IC_OOS=-0.0058 sign_flip + oos_decay=-1.03 → **reject (hard_gate)**
 > - [[batches/batch_035/candidates/C006|batch_035 C006]]　magnitude×sign 混合 IC_OOS=0.0058<0.008 + mono=0.30 → **reject (hard_gate)**
 
-### T002: Acceptance × abnormal volume 加权 [◉ ACTIVE]
+### T002: Acceptance × abnormal volume 加权 [✓ ANSWERED batch_036]
 
-> [!note]+ Thread 当前
-> **Question**: 将 T001 的 acceptance 信号加权 `$amount / Mean($amount, 20)` 或 `$volume / Mean($volume, 20)`（strong participation 加重），是否比纯 acceptance 提供 incremental alpha？要与 F007 open_position_persistence_5d、`liquidity_acceleration` 方向候选做 redundancy 对比。
+> [!success]+ Thread 结论
+> **Question**: 将 T001 的 acceptance 信号加权 `$amount / Mean($amount, 20)` 或 `$volume / Mean($volume, 20)`（strong participation 加重），是否比纯 acceptance 提供 incremental alpha？
+>
+> **Answer**: 是，**但仅在 log 非线性压缩下**。线性 ratio 加权（amount / volume / turnover TS-norm）在 csi1000 上全部 fail OOS（2021 regime break 把线性权重变成噪声放大器）；CsRank 变体把 magnitude 信息压平，也 fail。**log(abnormal_amount) 压缩尾部后** mono_OOS 从 0.30 翻倍到 0.60，IC_OOS=0.0094 通过阈值，9 年 8/9 年 IC 同号，anti-decay=1.36（OOS > IS）。
 >
 > **Evidence trail**:
 > - [[batches/batch_035/candidates/C004|batch_035 C004]]　`$turnover_rate` 直加权 20d acceptance, IC_OOS=0.0082 ls_t=3.90 mono_OOS=0.30 max_corr=0.054@F002 incr_ic=0.0098 → **reserve**（rank-order "avoid worst barbell"，非 monotonic）
->
-> **Next probes**: `$amount / Mean($amount, 20)` 归一加权 vs `$volume / Mean($volume, 20)` 归一加权 vs abnormal vol 加权三变体对照；核心审计 mono_OOS 能否从 0.30 拉到 ≥ 0.50 同时保持 9 年 IC 同号；与 F007 turnover-weighted body（已 reject）对比 delta 在哪里——F007 缺的是跨 session gap 符号，C004 差的是连续 body 强度
+> - [[batches/batch_036/candidates/C001|batch_036 C001]]　$amount 线性 ratio 加权 IC_OOS=0.0016 → **reject**（线性加权在 2021+ regime 放大噪声）
+> - [[batches/batch_036/candidates/C002|batch_036 C002]]　$volume 线性 ratio 加权 IC_OOS=0.0013 → **reject**
+> - [[batches/batch_036/candidates/C003|batch_036 C003]]　$turnover TS-norm 加权 IC_OOS=0.0013 → **reject**
+> - [[batches/batch_036/candidates/C004|batch_036 C004]]　**log(abnormal amount) 加权** IC_OOS=0.0094 ls_t=3.23 **mono_OOS=0.60** incr=0.0071 → **admit → [[factors/F013]]**
+> - [[batches/batch_036/candidates/C005|batch_036 C005]]　C001 40d 窗口扩展 IC_OOS=0.0022 → **reject**（超 signal_half_life=19d）
+> - [[batches/batch_036/candidates/C006|batch_036 C006]]　CsRank($turnover) 加权 IC_OOS=0.0058 → **reject**（rank 化压平 magnitude）
 
 ### T003: TR-normalized gap 与 F003 的 near_duplicate 风险 [✗ DISPROVEN batch_035]
 
@@ -101,6 +109,11 @@ merged_into: null
 | [[batches/batch_035/candidates/C003\|C003]] | `Mean(Mul(Sign(Sub($open, Ref($close,1))), Sign(Sub($close,$open))), 60)` | hard_gate: sign_flip + ic_oos_too_low + oos_decay (最严重 cum_dd=-4.18) |
 | [[batches/batch_035/candidates/C005\|C005]] | `Div(Sub($open, Ref($close,1)), Std(Sub($close, Ref($close,1)), 20))` | hard_gate: near_duplicate corr=0.964@F003 |
 | [[batches/batch_035/candidates/C006\|C006]] | `Mean(Mul(Div(Sub($open, Ref($close,1)), Mean($high, 5)), Sign(Sub($close,$open))), 20)` | hard_gate: ic_oos_too_low (0.0058 < 0.008, mono=0.30) |
+| [[batches/batch_036/candidates/C001\|C001]] | `Mean(Mul(Mul(Sign(gap), Sign(body)), Div($amount, Mean($amount, 20))), 20)` | hard_gate: ic_oos_too_low + oos_decay（线性 amount ratio 加权） |
+| [[batches/batch_036/candidates/C002\|C002]] | `Mean(Mul(Mul(Sign(gap), Sign(body)), Div($volume, Mean($volume, 20))), 20)` | hard_gate: ic_oos_too_low + oos_decay（线性 volume ratio 加权） |
+| [[batches/batch_036/candidates/C003\|C003]] | `Mean(Mul(Mul(Sign(gap), Sign(body)), Div($turnover_rate, Mean($turnover_rate, 20))), 20)` | hard_gate: ic_oos_too_low + oos_decay（TS norm turnover 加权） |
+| [[batches/batch_036/candidates/C005\|C005]] | C001 formula @ 40d window | hard_gate: ic_oos_too_low（超 signal half-life 19d，稀释） |
+| [[batches/batch_036/candidates/C006\|C006]] | `Mean(Mul(Mul(Sign(gap), Sign(body)), CsRank($turnover_rate)), 20)` | hard_gate: ic_oos_too_low（rank 化压平 magnitude）|
 
 ---
 
@@ -118,7 +131,18 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-24 · [[batches/batch_035/judge|batch_035]]
+> [!quote]+ 2026-04-24 · [[batches/batch_036/judge|batch_036]]
+> **T002 ANSWERED · 首个 admit：log_amount_weighted_acceptance_20** · admit=1 (C004) / reserve=0 / reject=5
+>
+> - log(abnormal $amount) 非线性压缩是关键：mono_OOS 从 batch_035 C004 的 0.30 翻倍到 **0.60**，IC_OOS=0.0094 · ls_t=3.23 · anti-decay=1.36（OOS > IS，极罕见）
+> - 5 reject 候选覆盖 (amount / volume / turnover TS-norm / CsRank / 40d window) 五个正交变体 → T002 future_probes preemptively closed
+> - 线性 ratio 加权在 csi1000 2021+ regime 下是"噪声放大器"，CsRank 化压平 magnitude，窗口扩展超 signal half-life=19d——只有 log 压缩同时保住 magnitude 信号 + 抑制极端天权重
+> - paper 0.0744 Rank IC (CSI 300) → 我们 0.0094 (csi1000)，~8x 衰减，但结构稳健（mono + 9 年同号 + anti-decay）足以 admit
+> - MT budget　cumulative 174 → **180** · direction 6 → **12** · bucket `medium`（C004 search_adjusted raw `high` → adjusted `medium`）
+>
+> **Operations**　T002 `[◉ ACTIVE] → [✓ ANSWERED batch_036]` · Python 在 Phase 4 会写 status 并 backfill F{id} 链接 · 方向维持 `saturated`（T001/T003/T004 早封闭 + T002 admit 单果）
+
+> [!quote]- 2026-04-24 · [[batches/batch_035/judge|batch_035]]
 > **首批即完成 T001/T003/T004 三 thread 信息性封闭** · admit=0 / reserve=1 (C004) / reject=5
 >
 > - T001 pure sign interaction 在 10/20/60d 三窗口同步 sign_flip + ic_oos_too_low + oos_decay——`ic_by_year` 2015-2020 全正 → 2021-2023 全负，regime 硬证伪
