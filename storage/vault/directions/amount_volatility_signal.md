@@ -1,14 +1,15 @@
 ---
 direction_tag: amount_volatility_signal
-status: productive
-priority: high
-rounds: 5
+status: saturated
+priority: low
+rounds: 6
 admits: 1
-last_batch: batch_008
+last_batch: batch_033
 last_admits: []
-last_goal: 验证 vol_20d 结构性瓶颈三条逃脱路径：C005 40d horizon 扩展、amount×turnover_rate 跨字段组合、新机制
-  amount acceleration
-last_activity: '2026-04-19T12:41:09Z'
+last_goal: 测试 amount_volatility_signal 的唯一 Python 逃生口：对历史 reserve 候选做 signal-level
+  residualization，重点验证 C003_b8/C005_b3/C004_b8/C002_b3 在去除 vol_20d 或关键 killer style
+  后，能否把强 rank-order 从 DSL reserve 提升为可 admit 的独立 alpha。
+last_activity: '2026-04-23T15:31:53Z'
 created_batch: batch_001
 members:
 - F001
@@ -17,9 +18,9 @@ merged_into: null
 # amount_volatility_signal
 
 > [!abstract]+ 方向概要
-> **状态**　🟢 productive · priority=high · rounds=5 · admits=1
-> **最近**　[[batches/batch_008/judge|batch_008]] · 2026-04-19 · admit=0 / reserve=4 / reject=2
-> **一句话**　$amount 二阶统计量 core edge 已 admit F001；DSL 空间对 vol_20d 脱敏 19/19 失败，唯一逃生口 = Python Barra residual。
+> **状态**　⚪ saturated · priority=low · rounds=6 · admits=1
+> **最近**　[[batches/batch_033/judge|batch_033]] · 2026-04-23 · admit=0 / reserve=0 / reject=5
+> **一句话**　F001 仍是唯一 anchor；Python residualization 也只留下低 coverage 的统计影子，方向在当前日频 `$amount` 空间已收束。
 
 ---
 
@@ -39,7 +40,7 @@ merged_into: null
 
 ## Current Focus
 
-**方向级结构瓶颈已四次确认**：累计 19/19 非 hard_gate 候选 `dominant_style=vol_20d`，admit 率 5.3%（1/19），逼近 saturated 临界。DSL 实现空间对 vol_20d 脱敏全部失败——分位数、sign-preserved 三分支、40d horizon、amount×turnover 跨字段、amount acceleration 五条路径均落。**F001 不可撼动 anchor**。唯一未证伪子路径：**Python vol_20d Barra residual**——优先 C003_b8 rank-order 最强（max_corr=0.07@F001, mono=-1.0）或 C002_b3 (mono=-1.0, incr_ic=-0.024) 残差版验证独立 alpha。若仍零 admit，方向转 `saturated`。
+**方向已收束为 saturated**：batch_033 把唯一剩余的 Python `vol_20d` residualization 逃生口完整跑完，结果 5/5 全部 hard-gate reject，且共同死因是 `coverage < 0.80`。这说明 DSL 层的 `vol_20d` 吞噬虽然能靠残差化修掉，但修掉后留下的是**统计影子而非可执行载体**。**F001 仍是唯一可沉淀的 anchor**；本方向在当前日频数据空间里不再值得继续追加 batch。
 
 ---
 
@@ -89,9 +90,9 @@ merged_into: null
 >
 > **Answer**: 两个 baseline 实现结构性失败 —— Corr 分位跨期翻转（regime-dep），Log-Slope 遇 0 成交额发散（NaN 传播压缩样本）。**hypothesis 本身未被证伪**，转 T004 承接替代实现。
 
-### T004: Amount-return 一致性的 NaN-safe 算子族 [◉ ACTIVE] (DSL-bounded, 5 次证伪)
+### T004: Amount-return 一致性的 NaN-safe 算子族 [✗ DISPROVEN batch_033] (DSL-bounded → Python residualized, 8 次证伪)
 
-> [!note]+ Thread 当前
+> [!failure]+ Thread 结论
 > **Question**: 避免 Log 发散 + 分位稳定的前提下，归一化 slope / 幅度 corr / sign-preserved 实现能否落 T003 经济假设？
 >
 > **Evidence trail**:
@@ -101,24 +102,25 @@ merged_into: null
 > - [[batches/batch_003/candidates/C005|batch_003 C005]]　`Corr(amount, Sign(Δclose), 20)` → **max_corr=0.07@F001** 但 ls_t=0.14 PnL 坍塌 → reserve
 > - [[batches/batch_008/candidates/C001|batch_008 C001]]　`Corr(amount, Sign(Δclose), 40)` → 40d mono_flip IS=0.70→OOS=-0.90 → reject
 > - [[batches/batch_008/candidates/C004|batch_008 C004]]　`Delta(Mean(amount,20), 5)` → cum_ic_mdd=-73.3 vol_20d=16.2（历史最高暴露）→ reserve
+> - [[batches/batch_033/candidates/C003|batch_033 C003]]　`Corr(amount, Sign(Δclose), 20)` residualized → coverage=0.697，虽 ic_oos=-0.0157 / decay=1.17 仍 **reject (hard_gate)**
+> - [[batches/batch_033/candidates/C004|batch_033 C004]]　`Delta(Mean(amount,20), 5)` residualized → coverage=0.711 + ic_oos=-0.0062 → **reject (hard_gate)**
+> - [[batches/batch_033/candidates/C005|batch_033 C005]]　`Slope(amount/Mean, 20)` residualized → coverage=0.685，虽 ic_oos=-0.0244 / decay=0.88 仍 **reject (hard_gate)**
 >
-> **Partial Answer**: C005_b3 max_corr=0.07 证明方向内**仍有非-CV 的独立机制**，但 DSL 实现五次撞墙（幅度-only / 条件均值 / 归一化 Slope / sign-only Corr 20d / 40d / amount acceleration）——horizon 拉长不解决 regime 依赖。**T004 DSL-native 空间事实上封闭**。
->
-> **Next probes**: C003_b8 sign-only Corr × vol_20d Barra residual（Python 逃生口，同 T002）。
+> **Answer**: T004 的经济假设并非完全错误，Python residualization 后 C003/C005 仍保留了真实 rank-order 和稳定 decay；但**唯一逃生口最终被 coverage 硬闸堵死**，说明这条路径在当前日频数据可用性约束下没有可落地实现。DSL-native 空间已封闭，Python residual 也无法把它送进因子库，线程到此判为 `DISPROVEN`。
 
-### T005: Amount × Turnover_rate 跨字段交互 [◉ ACTIVE] (DSL-bounded) 🆕 batch_008
+### T005: Amount × Turnover_rate 跨字段交互 [✗ DISPROVEN batch_033] (DSL-bounded → Python residualized)
 
-> [!note]+ Thread 当前
+> [!failure]+ Thread 结论
 > **Question**: $amount 二阶统计量与 $turnover_rate 组合能否产生独立于 vol_20d 的新信号？
 >
 > **Evidence trail**:
 > - [[batches/batch_008/candidates/C002|batch_008 C002]]　`Std($amount,20) / (Mean($turnover_rate,20)+1e-8)` → mono=-1.0 style_r²=0.784 → reserve
 > - [[batches/batch_008/candidates/C005|batch_008 C005]]　`Std($amount,20) / Mean($turnover_rate,20)` (near-dup C002) → max_corr=0.60@F002 → reserve
 > - [[batches/batch_008/candidates/C003|batch_008 C003]]　`Div(Corr(amount,volume,20), Corr(amount,volume,60))` → mono=-1.0 **max_corr=0.07@F001** alpha_surv=0.24（mom_12_1 alpha killer）→ reserve
+> - [[batches/batch_033/candidates/C001|batch_033 C001]]　`Corr(amount,volume,20) / Corr(amount,volume,60)` residualized by vol_20d → coverage=0.680 + ic_oos=0.0028 → **reject (hard_gate)**
+> - [[batches/batch_033/candidates/C002|batch_033 C002]]　同上再控 `mom_12_1` → coverage=0.680 + sign_flip + negative decay → **reject (hard_gate)**
 >
-> **Partial Answer**: 跨字段 DSL 组合同被 Barra vol_20d 高暴露阻断（style_r² 0.78）。C003_b8 正交性最强但 CP04 poor。
->
-> **Next probes**: C003_b8 Barra residual 版（与 T002 共用逃生口）。
+> **Answer**: 跨字段路径在 DSL 里先被 `vol_20d` 吞噬，在 Python residualization 里又暴露出 coverage 与稳定性不足。C001 只剩边缘独立性，C002 则直接变成符号翻转噪声。T005 没有打开新轴，线程到此关闭。
 
 ---
 
@@ -128,7 +130,7 @@ merged_into: null
 2. **F001 anchor 不可撼动**：10d CV 是 "alpha 强度 × 风格干净度 × 换手成本" 三维全局最优；任何新候选必须通过 `incremental_ic` & `max_corr@F001` 双关。
 3. **20d 高阶矩死路**：skew / kurt 两次证伪，信噪比结构性过低，不再重测。
 4. **mono_flip 是 DSL 空间的主要死因**：比值、条件均值、Corr 横向跨期、40d horizon Corr 全部 IS→OOS 翻号——regime-dependent 编码是 DSL 空间对 `$amount × direction` 的系统性弱点。
-5. **max_corr ≤ 0.1 + mono=-1.0 的候选即使 CP04 poor 也值得 Python 残差化**：C003_b8 / C005_b3 两次独立机制信号，DSL 层 PnL 坍塌但 rank-order 正交——vol_20d Barra residual 是唯一未被证伪的 DSL-bounded 出口。
+5. **Python residualization 只能验证“是否有统计影子”，不能自动变成可执行载体**：C003_b33 / C005_b33 说明去掉 `vol_20d` 后仍有 rank-order，但 coverage 0.697 / 0.685 使其无法入库。对这个方向而言，`vol_20d` 不是最后一个问题，样本可用性才是残差化后的终点约束。
 
 ---
 
@@ -149,6 +151,11 @@ merged_into: null
 | [[batches/batch_003/candidates/C004\|C004_b3]] | `Q0.95/Mean($amount, 20)` | vol_20d=35.3（方向最高） max_corr=0.52@F001 |
 | [[batches/batch_008/candidates/C001\|C001_b8]] | `Corr(amount, Sign(Δclose), 40)` | 40d mono_flip (IS=0.70 OOS=-0.90) |
 | [[batches/batch_008/candidates/C006\|C006_b8]] | `Skew($amount, 20)` 重测 | ic_oos=-0.0033 + mono_flip（高阶矩 6 次证伪）|
+| [[batches/batch_033/candidates/C001\|C001_b33]] | `Corr(amount,volume,20) / Corr(amount,volume,60)` residualized | coverage=0.680 + ic_oos=0.0028 |
+| [[batches/batch_033/candidates/C002\|C002_b33]] | `Corr(amount,volume,20) / Corr(amount,volume,60)` residualized + mom_12_1 | coverage=0.680 + sign_flip + decay<0 |
+| [[batches/batch_033/candidates/C003\|C003_b33]] | `Corr(amount, Sign(Δclose), 20)` residualized | coverage=0.697 hard_gate |
+| [[batches/batch_033/candidates/C004\|C004_b33]] | `Delta(Mean(amount,20), 5)` residualized | coverage=0.711 + ic_oos=-0.0062 |
+| [[batches/batch_033/candidates/C005\|C005_b33]] | `Slope(amount/Mean(amount,20), 20)` residualized | coverage=0.684 hard_gate |
 
 ---
 
@@ -161,6 +168,9 @@ merged_into: null
 ---
 
 ## Narrative Log
+
+> [!quote]+ 2026-04-23 · [[batches/batch_033/judge|batch_033]] · admit=0 / reserve=0 / reject=5
+> **方向正式收束为 saturated**。batch_033 把 direction 文档里写明的唯一逃生口 `Python vol_20d residualization` 完整跑完，结果 5/5 全部 hard-gate reject，且共同死因是 `coverage < 0.80`。最关键的结论不是“残差化无效”，恰恰相反：C003/C005 说明残差化确实修掉了历史上的 CP04 `vol_20d` 吞噬，留下了 `ic_oos=-0.0157/-0.0244`、`decay=1.17/0.88` 的统计影子；但这些影子没有足够 coverage 进入可执行空间。**Thread**: T004 `DISPROVEN batch_033`（Python 逃生口被 coverage 堵死）/ T005 `DISPROVEN batch_033`（cross-field residualization 变成低覆盖或 sign-flip 噪声）。**结论**：本方向在当前日频 `$amount` 数据空间里已经 answer 掉，不再继续追加 batch；若未来复活，只能依赖更高频数据或更好的残差化样本覆盖。
 
 > [!quote]+ 2026-04-19 · [[batches/batch_008/judge|batch_008]] · admit=0 / reserve=4 / reject=2
 > **方向级 vol_20d 结构性瓶颈第 4 次确认**。19/19 非 hard_gate 候选 100% `dominant_style=vol_20d`。三条逃脱路径全部失败：40d horizon（C001 mono_flip）/ 跨字段组合（C002/C005 style_r²=0.78；C003 alpha_surv=0.24）/ amount momentum（C004 cum_ic_mdd=-73.3）。**最大矛盾 C003**：mono=-1.0 / max_corr=0.07@F001 / 9 年全负 / 符号一致性=1.0 的完美 rank-order 正交信号，但 CP04 alpha_survival=0.24 触 poor dealbreaker。C002 vs C005 near-duplicate（incr_ic 负，对库无增值）。新开 T005（amount × turnover_rate），同被 Barra 阻断。**Thread**: T001 ANSWERED / T002 ACTIVE DSL-bounded（6 次证伪）/ T003 DISPROVEN / T004 ACTIVE DSL-bounded（5 次证伪）/ T005 新增 ACTIVE。**下轮唯一逃生口**：Python vol_20d Barra residual（C003_b8 rank 最强 或 C002_b3 mono=-1.0）。若仍零 admit，方向 `productive → saturated`。

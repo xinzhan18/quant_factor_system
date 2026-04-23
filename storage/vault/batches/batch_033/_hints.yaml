@@ -1,0 +1,940 @@
+batch_id: batch_033
+direction: amount_volatility_signal
+generated_at: '2026-04-23T15:22:24+00:00'
+mt_counts:
+  cumulative_candidates: 158
+  direction_candidates: 24
+  validation_exposure: 32
+  n_batches_scanned: 32
+per_candidate:
+  C001:
+    expression: storage/vault/batches/batch_033/python_candidates/C001.py
+    coverage: 0.6801
+    hard_gate:
+      passed: false
+      reasons:
+      - coverage 0.680 < min 0.800
+      - 'ic_oos_too_low: |0.0028| < 0.008'
+      gate_results:
+        compute_error:
+          passed: true
+        forbidden:
+          passed: true
+        coverage:
+          passed: false
+          value: 0.6801
+          threshold: 0.8
+        sign_flip:
+          passed: true
+          train_ic: 0.0065737885428639896
+          val_ic: 0.0027626426759368014
+        ic_oos_min:
+          passed: false
+          value: 0.0027626426759368014
+          threshold: 0.008
+        oos_decay:
+          passed: true
+          value: 0.4203
+          threshold: 0.2
+        mono_flip:
+          passed: true
+          train: 0.39999999999999997
+          validation: -0.3
+          min_magnitude: 0.5
+        near_duplicate:
+          passed: true
+          max_corr: 0.0682
+          nearest: F004
+    metrics:
+      cp03:
+        ic_oos: 0.0027626426759368014
+        icir_oos: 0.03089998127181256
+        ls_tstat_oos: -0.5423
+        ic_is: 0.0065737885428639896
+        icir_is: 0.08265404482349355
+        ic_std_is: 0.07953377910182394
+        ic_std_oos: 0.08940596603069552
+        n_days_is: 1646
+        n_days_oos: 484
+        ic_win_rate_is: 0.5382746051032807
+        ic_win_rate_oos: 0.5289256198347108
+        monotonicity_is: 0.39999999999999997
+        monotonicity_oos: -0.3
+        quintile_returns_is:
+          q1: 0.0003419134591240436
+          q2: 0.0002615319681353867
+          q3: 0.00029894246836192906
+          q4: 0.0003005987673532218
+          q5: 0.00047050233115442097
+        quintile_returns_oos:
+          q1: -9.999902249546722e-05
+          q2: 0.00016870965191628784
+          q3: 0.0001876218302641064
+          q4: -4.5476557716028765e-05
+          q5: -0.00023793189029674977
+        ls_mean_is: 0.00010317514900116415
+        ls_mean_oos: -0.00013531271885639857
+        ls_sharpe_oos: -0.3909
+        ls_sortino_oos: -0.6324
+        ls_calmar_oos: -0.2382
+        ls_max_dd_oos: -0.1432
+        ls_sharpe_is: 0.2917
+        ls_tstat_is: 0.7457
+        ls_max_dd_is: -0.2396
+        ic_by_horizon:
+          1:
+            ic_is: 0.0065737885428639896
+            icir_is: 0.08265404482349355
+            win_rate_is: 0.5382746051032807
+            ic_oos: 0.0027626426759368014
+            icir_oos: 0.03089998127181256
+            win_rate_oos: 0.5289256198347108
+          3:
+            ic_is: 0.012868964672526474
+            icir_is: 0.15976930960939098
+            win_rate_is: 0.5722964763061968
+            ic_oos: 0.0031415313169985163
+            icir_oos: 0.035536124081720195
+            win_rate_oos: 0.5082644628099173
+          5:
+            ic_is: 0.015778641858075763
+            icir_is: 0.1886659989416923
+            win_rate_is: 0.5771567436208992
+            ic_oos: 0.0016670270115645184
+            icir_oos: 0.018850936700785303
+            win_rate_oos: 0.4690082644628099
+          10:
+            ic_is: 0.01926984967498236
+            icir_is: 0.22459691442000046
+            win_rate_is: 0.6032806804374241
+            ic_oos: 0.0023468078526480787
+            icir_oos: 0.024701572620819585
+            win_rate_oos: 0.48760330578512395
+          20:
+            ic_is: 0.019296908989862183
+            icir_is: 0.2371453697723536
+            win_rate_is: 0.6093560145808019
+            ic_oos: 0.0048866631934993895
+            icir_oos: 0.04465764556749587
+            win_rate_oos: 0.518595041322314
+      cp04:
+        style_r_squared: 0.09486950029162633
+        alpha_survival_ratio: 0.4852
+        alpha_surv_min_threshold: 0.4
+        extreme_ratio: 0.006373
+        barra_residual_ic: -0.00134
+        barra_residual_icir: -0.02708
+        dominant_style_exposure: vol_20d
+        style_crowding_risk: medium
+        style_exposures:
+          log_circ_cap: 0.09197669258342098
+          book_to_price: 0.2592532085870389
+          mom_12_1: 0.39274364806143514
+          str_1m: 1.0535765586083765
+          vol_20d: 14.357931051760582
+          turnover_20d: 1.1082333583188744
+          ep_ratio: 0.4490290772000955
+        distribution_skew: 0.5893
+        distribution_kurt: 1.7329
+        distribution_zero_ratio: 0.0
+      cp05:
+        max_lib_corr: 0.0682
+        is_near_duplicate: false
+        incremental_ic: 0.003841
+        nearest_factor_id: F004
+        nearest_factor_expression: null
+        all_correlations:
+          F001: -0.010797390393551856
+          F002: 0.04014016703094276
+          F003: 0.02099372107806859
+          F006: -0.023186536785062092
+          F007: 0.012006739129318721
+          F008: -0.018564286945548944
+          F009: 0.009269691872666424
+          F010: 0.0361865245910282
+          F011: 0.032285996841794756
+          F012: -0.057431665163414705
+          F004: 0.06822127415246582
+          F005: 0.06822127415246582
+        exceeds_threshold: false
+      cp06:
+        sign_consistency: 0.75
+        train_validation_decay: 0.4203
+        sign_consistent: true
+        ic_by_year:
+          2015: 0.0029082770987050514
+          2016: -0.0024062182787910205
+          2017: 0.013793478075219936
+          2018: 0.0017707202030350436
+          2019: 0.004745217681424954
+          2020: 0.008900570026720926
+          2021: 0.01544434834513023
+          2022: 0.007122792964443669
+          2023: -0.0015975076125700662
+        worst_quarter_ic: -0.028083
+        best_quarter_ic: 0.033363
+        ic_autocorr_lag1: 0.068276
+        cum_ic_max_drawdown: -2.793837
+        split_ic_means:
+        - 0.009029765389496071
+        - 0.0052158205393912655
+        - -0.006792248154225263
+        - 0.0035972329290851314
+        split_dispersion: 2.1198
+        n_splits: 4
+      feasibility:
+        turnover_mean: 0.39276002198752574
+        liquidity_coverage: 0.7887860949477639
+        tail_concentration: 0.007166946228072802
+        small_cap_concentration: 0.2871041869444135
+        signal_half_life: 10.0
+        signal_autocorr_lag1: 0.9475
+        rebalance_stress:
+          value: 0.0035686353704139527
+          rebalance_stress_bucket: low
+        ic_half_life_days: null
+  C002:
+    expression: storage/vault/batches/batch_033/python_candidates/C002.py
+    coverage: 0.6801
+    hard_gate:
+      passed: false
+      reasons:
+      - coverage 0.680 < min 0.800
+      - 'sign_flip: train +0.003016 vs validation -0.000627'
+      - 'ic_oos_too_low: |-0.0006| < 0.008'
+      - 'oos_decay_too_low: -0.208 < 0.2'
+      gate_results:
+        compute_error:
+          passed: true
+        forbidden:
+          passed: true
+        coverage:
+          passed: false
+          value: 0.6801
+          threshold: 0.8
+        sign_flip:
+          passed: false
+          train_ic: 0.0030158374407177452
+          val_ic: -0.0006271963375052219
+        ic_oos_min:
+          passed: false
+          value: -0.0006271963375052219
+          threshold: 0.008
+        oos_decay:
+          passed: false
+          value: -0.208
+          threshold: 0.2
+        mono_flip:
+          passed: true
+          train: -0.39999999999999997
+          validation: -0.7
+          min_magnitude: 0.5
+        near_duplicate:
+          passed: true
+          max_corr: 0.0972
+          nearest: F004
+    metrics:
+      cp03:
+        ic_oos: -0.0006271963375052219
+        icir_oos: -0.0069866190369194245
+        ls_tstat_oos: -0.5793
+        ic_is: 0.0030158374407177452
+        icir_is: 0.04199147601938032
+        ic_std_is: 0.07182022940384011
+        ic_std_oos: 0.08977108014490633
+        n_days_is: 1646
+        n_days_oos: 484
+        ic_win_rate_is: 0.5328068043742406
+        ic_win_rate_oos: 0.45867768595041325
+        monotonicity_is: -0.39999999999999997
+        monotonicity_oos: -0.7
+        quintile_returns_is:
+          q1: 0.0004134941555093974
+          q2: 0.00029351538978517056
+          q3: 0.0002774506574496627
+          q4: 0.00027618263266049325
+          q5: 0.0004129236622247845
+        quintile_returns_oos:
+          q1: -0.00010387878137407824
+          q2: 0.00024063323508016765
+          q3: 0.00020046532154083252
+          q4: -0.00011758921755244955
+          q5: -0.00024670441052876413
+        ls_mean_is: -9.434705284774362e-06
+        ls_mean_oos: -0.00014023538415506868
+        ls_sharpe_oos: -0.4176
+        ls_sortino_oos: -0.6937
+        ls_calmar_oos: -0.2597
+        ls_max_dd_oos: -0.1361
+        ls_sharpe_is: -0.0298
+        ls_tstat_is: -0.0761
+        ls_max_dd_is: -0.2174
+        ic_by_horizon:
+          1:
+            ic_is: 0.0030158374407177452
+            icir_is: 0.04199147601938032
+            win_rate_is: 0.5328068043742406
+            ic_oos: -0.0006271963375052219
+            icir_oos: -0.0069866190369194245
+            win_rate_oos: 0.45867768595041325
+          3:
+            ic_is: 0.007101444634726508
+            icir_is: 0.0967000335139639
+            win_rate_is: 0.5449574726609964
+            ic_oos: -0.0014425506135826835
+            icir_oos: -0.016093172175849806
+            win_rate_oos: 0.49586776859504134
+          5:
+            ic_is: 0.00886139425306343
+            icir_is: 0.11731998124961804
+            win_rate_is: 0.5552855407047388
+            ic_oos: -0.0036398400517800174
+            icir_oos: -0.04016729809669458
+            win_rate_oos: 0.44834710743801653
+          10:
+            ic_is: 0.011097321008741633
+            icir_is: 0.14367169471167945
+            win_rate_is: 0.56865127582017
+            ic_oos: -0.0033820559357227733
+            icir_oos: -0.03475393175475067
+            win_rate_oos: 0.4380165289256198
+          20:
+            ic_is: 0.008857372347691033
+            icir_is: 0.11965986421860342
+            win_rate_is: 0.5668286755771568
+            ic_oos: -0.000281133043992969
+            icir_oos: -0.0025474945127953487
+            win_rate_oos: 0.45661157024793386
+      cp04:
+        style_r_squared: 0.06571925803740508
+        alpha_survival_ratio: 2.3425
+        alpha_surv_min_threshold: 0.4
+        extreme_ratio: 0.008453
+        barra_residual_ic: -0.001469
+        barra_residual_icir: -0.028771
+        dominant_style_exposure: vol_20d
+        style_crowding_risk: medium
+        style_exposures:
+          log_circ_cap: 0.08833288801855238
+          book_to_price: 0.25282381567461215
+          mom_12_1: 0.29006069325270945
+          str_1m: 1.0221891597837207
+          vol_20d: 9.27605542607456
+          turnover_20d: 1.118188471709446
+          ep_ratio: 0.47894889327772994
+        distribution_skew: 0.5397
+        distribution_kurt: 1.9164
+        distribution_zero_ratio: 0.0
+      cp05:
+        max_lib_corr: 0.0972
+        is_near_duplicate: false
+        incremental_ic: 0.001784
+        nearest_factor_id: F004
+        nearest_factor_expression: null
+        all_correlations:
+          F001: 0.02346578354158016
+          F002: 0.049285576693664145
+          F003: 0.01356122593008357
+          F006: -0.01850837477038036
+          F007: 0.005183595463094304
+          F008: -0.014206211169551387
+          F009: 0.0011232317117539417
+          F010: 0.0249734478859888
+          F011: 0.022156259181706647
+          F012: -0.007960781015023585
+          F004: 0.09720918418495623
+          F005: 0.09720918418495623
+        exceeds_threshold: false
+      cp06:
+        sign_consistency: 0.75
+        train_validation_decay: -0.208
+        sign_consistent: false
+        ic_by_year:
+          2015: 0.003556987617525758
+          2016: -0.0008262191870566296
+          2017: 0.010446969602687145
+          2018: -0.0004892920278761544
+          2019: 0.0017397017209127244
+          2020: -0.0016828715230967856
+          2021: 0.008485231027773727
+          2022: 0.0029714452573157924
+          2023: -0.004225837932326237
+        worst_quarter_ic: -0.0247
+        best_quarter_ic: 0.033751
+        ic_autocorr_lag1: 0.064852
+        cum_ic_max_drawdown: -2.355009
+        split_ic_means:
+        - 0.006643605409618611
+        - -0.0007007148949870259
+        - -0.004895072455082733
+        - -0.0035566034095697407
+        split_dispersion: 7.1041
+        n_splits: 4
+      feasibility:
+        turnover_mean: 0.3943566629695413
+        liquidity_coverage: 0.7858519385824044
+        tail_concentration: 0.007166946228072802
+        small_cap_concentration: 0.2815909508136167
+        signal_half_life: 10.0
+        signal_autocorr_lag1: 0.9504
+        rebalance_stress:
+          value: 0.0035965209976873552
+          rebalance_stress_bucket: low
+        ic_half_life_days: null
+  C003:
+    expression: storage/vault/batches/batch_033/python_candidates/C003.py
+    coverage: 0.6972
+    hard_gate:
+      passed: false
+      reasons:
+      - coverage 0.697 < min 0.800
+      gate_results:
+        compute_error:
+          passed: true
+        forbidden:
+          passed: true
+        coverage:
+          passed: false
+          value: 0.6972
+          threshold: 0.8
+        sign_flip:
+          passed: true
+          train_ic: -0.013364084941891025
+          val_ic: -0.015690226402227236
+        ic_oos_min:
+          passed: true
+          value: -0.015690226402227236
+          threshold: 0.008
+        oos_decay:
+          passed: true
+          value: 1.1741
+          threshold: 0.2
+        mono_flip:
+          passed: true
+          train: 0.3
+          validation: -0.09999999999999999
+          min_magnitude: 0.5
+        near_duplicate:
+          passed: true
+          max_corr: 0.1108
+          nearest: F012
+    metrics:
+      cp03:
+        ic_oos: -0.015690226402227236
+        icir_oos: -0.2536720926048107
+        ls_tstat_oos: 0.1081
+        ic_is: -0.013364084941891025
+        icir_is: -0.22251528756323513
+        ic_std_is: 0.06005917655474874
+        ic_std_oos: 0.06185239472388727
+        n_days_is: 1685
+        n_days_oos: 484
+        ic_win_rate_is: 0.4124629080118694
+        ic_win_rate_oos: 0.40702479338842973
+        monotonicity_is: 0.3
+        monotonicity_oos: -0.09999999999999999
+        quintile_returns_is:
+          q1: 0.0003078682057093829
+          q2: 0.0005665054195560515
+          q3: 0.0005076021188870072
+          q4: 0.0004351724637672305
+          q5: 0.00055033148964867
+        quintile_returns_oos:
+          q1: -5.873110239917878e-06
+          q2: 1.1472691767266952e-05
+          q3: -4.918385820928961e-05
+          q4: -6.570035111508332e-06
+          q5: 1.0335164006392006e-05
+        ls_mean_is: 0.00027292952507935347
+        ls_mean_oos: 1.7157946350072195e-05
+        ls_sharpe_oos: 0.078
+        ls_sortino_oos: 0.1289
+        ls_calmar_oos: 0.062
+        ls_max_dd_oos: -0.0698
+        ls_sharpe_is: 0.9097
+        ls_tstat_is: 2.3531
+        ls_max_dd_is: -0.3137
+        ic_by_horizon:
+          1:
+            ic_is: -0.013364084941891025
+            icir_is: -0.22251528756323513
+            win_rate_is: 0.4124629080118694
+            ic_oos: -0.015690226402227236
+            icir_oos: -0.2536720926048107
+            win_rate_oos: 0.40702479338842973
+          3:
+            ic_is: -0.015753123108469637
+            icir_is: -0.2627573710970876
+            win_rate_is: 0.39287833827893176
+            ic_oos: -0.0192322476165151
+            icir_oos: -0.33502889197472335
+            win_rate_oos: 0.3739669421487603
+          5:
+            ic_is: -0.018413151201484533
+            icir_is: -0.3123338815624058
+            win_rate_is: 0.3655786350148368
+            ic_oos: -0.022546241763938428
+            icir_oos: -0.3964261772361114
+            win_rate_oos: 0.3285123966942149
+          10:
+            ic_is: -0.021251846240648638
+            icir_is: -0.36224266389748755
+            win_rate_is: 0.3376854599406528
+            ic_oos: -0.029333997893313108
+            icir_oos: -0.5143699370619302
+            win_rate_oos: 0.29545454545454547
+          20:
+            ic_is: -0.024613840862707022
+            icir_is: -0.4300963655082522
+            win_rate_is: 0.31572700296735906
+            ic_oos: -0.03511619441542356
+            icir_oos: -0.5979371286078019
+            win_rate_oos: 0.2768595041322314
+      cp04:
+        style_r_squared: 0.08037615204109216
+        alpha_survival_ratio: 0.5641
+        alpha_surv_min_threshold: 0.4
+        extreme_ratio: 0.004034
+        barra_residual_ic: -0.008851
+        barra_residual_icir: -0.216428
+        dominant_style_exposure: vol_20d
+        style_crowding_risk: medium
+        style_exposures:
+          log_circ_cap: 0.0801501555598001
+          book_to_price: 0.18328978688136324
+          mom_12_1: 0.11754258094923838
+          str_1m: 2.378721872057148
+          vol_20d: 7.484853611003378
+          turnover_20d: 1.245688747475171
+          ep_ratio: 0.3676933733565015
+        distribution_skew: -0.2868
+        distribution_kurt: 0.3078
+        distribution_zero_ratio: 0.0
+      cp05:
+        max_lib_corr: 0.1108
+        is_near_duplicate: false
+        incremental_ic: -0.013851
+        nearest_factor_id: F012
+        nearest_factor_expression: Mean(Div(Abs(Div(Delta($close, 1), Ref($close,
+          1))), $amount), 20)
+        all_correlations:
+          F001: 0.07234773685963888
+          F002: -0.07489322978861622
+          F003: -0.0022445837844465902
+          F006: 0.007438557096080168
+          F007: -0.04347727732876925
+          F008: 0.007867726266500785
+          F009: -0.08710344636234316
+          F010: -0.003905920481798573
+          F011: -0.0019271604031488067
+          F012: -0.11084616327644585
+          F004: -0.018471026041022486
+          F005: -0.018471026041022486
+        exceeds_threshold: false
+      cp06:
+        sign_consistency: 1.0
+        train_validation_decay: 1.1741
+        sign_consistent: true
+        ic_by_year:
+          2015: -0.006542815441541333
+          2016: -0.017782098957811198
+          2017: -0.01901633168709494
+          2018: -0.015388444664008877
+          2019: -0.01632463161586341
+          2020: -0.003357794004403272
+          2021: -0.0145495032104082
+          2022: -0.01378611652794541
+          2023: -0.01759433627650906
+        worst_quarter_ic: -0.028236
+        best_quarter_ic: 0.013977
+        ic_autocorr_lag1: 0.088135
+        cum_ic_max_drawdown: -30.497617
+        split_ic_means:
+        - -0.017449583279046946
+        - -0.010122649776843875
+        - -0.02004698355148275
+        - -0.01514168900153537
+        split_dispersion: 0.2328
+        n_splits: 4
+      feasibility:
+        turnover_mean: 0.8311223724863614
+        liquidity_coverage: 0.7165014535409625
+        tail_concentration: 0.00712900003730623
+        small_cap_concentration: 0.293431329014472
+        signal_half_life: 8.0
+        signal_autocorr_lag1: 0.9144
+        rebalance_stress:
+          value: 0.008269447877850783
+          rebalance_stress_bucket: low
+        ic_half_life_days: null
+  C004:
+    expression: storage/vault/batches/batch_033/python_candidates/C004.py
+    coverage: 0.7107
+    hard_gate:
+      passed: false
+      reasons:
+      - coverage 0.711 < min 0.800
+      - 'ic_oos_too_low: |-0.0062| < 0.008'
+      gate_results:
+        compute_error:
+          passed: true
+        forbidden:
+          passed: true
+        coverage:
+          passed: false
+          value: 0.7107
+          threshold: 0.8
+        sign_flip:
+          passed: true
+          train_ic: -0.02259886351636169
+          val_ic: -0.006207804638413236
+        ic_oos_min:
+          passed: false
+          value: -0.006207804638413236
+          threshold: 0.008
+        oos_decay:
+          passed: true
+          value: 0.2747
+          threshold: 0.2
+        mono_flip:
+          passed: true
+          train: -0.7
+          validation: -0.09999999999999999
+          min_magnitude: 0.5
+        near_duplicate:
+          passed: true
+          max_corr: 0.1621
+          nearest: F001
+    metrics:
+      cp03:
+        ic_oos: -0.006207804638413236
+        icir_oos: -0.05282134072895068
+        ls_tstat_oos: -3.3016
+        ic_is: -0.02259886351636169
+        icir_is: -0.1962877085439894
+        ic_std_is: 0.11513132270988397
+        ic_std_oos: 0.11752455641495713
+        n_days_is: 1681
+        n_days_oos: 484
+        ic_win_rate_is: 0.41582391433670435
+        ic_win_rate_oos: 0.4793388429752066
+        monotonicity_is: -0.7
+        monotonicity_oos: -0.09999999999999999
+        quintile_returns_is:
+          q1: 0.000538704392965883
+          q2: 0.0009146116208285093
+          q3: 0.0008848056313581765
+          q4: 0.000537632149644196
+          q5: -0.0005194003460928798
+        quintile_returns_oos:
+          q1: -0.00011239682498853654
+          q2: 0.0003072461113333702
+          q3: 0.0005059214308857918
+          q4: 0.0003604590892791748
+          q5: -0.0011500235414132476
+        ls_mean_is: -0.0012040141721073663
+        ls_mean_oos: -0.0010320265365024637
+        ls_sharpe_oos: -2.3799
+        ls_sortino_oos: -3.8987
+        ls_calmar_oos: -0.5866
+        ls_max_dd_oos: -0.4433
+        ls_sharpe_is: -2.288
+        ls_tstat_is: -5.9111
+        ls_max_dd_is: -0.9053
+        ic_by_horizon:
+          1:
+            ic_is: -0.02259886351636169
+            icir_is: -0.1962877085439894
+            win_rate_is: 0.41582391433670435
+            ic_oos: -0.006207804638413236
+            icir_oos: -0.05282134072895068
+            win_rate_oos: 0.4793388429752066
+          3:
+            ic_is: -0.0232307134157196
+            icir_is: -0.19886719535071443
+            win_rate_is: 0.4045211183819155
+            ic_oos: -0.00505811468007145
+            icir_oos: -0.04955663356898087
+            win_rate_oos: 0.5
+          5:
+            ic_is: -0.022940373248048356
+            icir_is: -0.19608338279233045
+            win_rate_is: 0.41582391433670435
+            ic_oos: -0.007586563342510094
+            icir_oos: -0.0778675831377131
+            win_rate_oos: 0.44214876033057854
+          10:
+            ic_is: -0.02327903085748802
+            icir_is: -0.2010696280371625
+            win_rate_is: 0.4330755502676978
+            ic_oos: -0.00617680590308855
+            icir_oos: -0.06297740520613142
+            win_rate_oos: 0.4834710743801653
+          20:
+            ic_is: -0.02287557024910561
+            icir_is: -0.20738711389252099
+            win_rate_is: 0.42950624628197503
+            ic_oos: -0.0002414157495084178
+            icir_oos: -0.002486229369878368
+            win_rate_oos: 0.5144628099173554
+      cp04:
+        style_r_squared: 0.29148545324660957
+        alpha_survival_ratio: 1.2666
+        alpha_surv_min_threshold: 0.4
+        extreme_ratio: 0.003799
+        barra_residual_ic: -0.007863
+        barra_residual_icir: -0.13861
+        dominant_style_exposure: vol_20d
+        style_crowding_risk: high
+        style_exposures:
+          log_circ_cap: 0.15817666520369955
+          book_to_price: 0.1933530426279787
+          mom_12_1: 0.2624832243955486
+          str_1m: 4.493957706054126
+          vol_20d: 15.088085258385782
+          turnover_20d: 1.7559677832269032
+          ep_ratio: 0.334256784955649
+        distribution_skew: -0.0962
+        distribution_kurt: 1.7255
+        distribution_zero_ratio: 0.0
+      cp05:
+        max_lib_corr: 0.1621
+        is_near_duplicate: false
+        incremental_ic: -0.001798
+        nearest_factor_id: F001
+        nearest_factor_expression: Div(Std($amount, 10), Mean($amount, 10))
+        all_correlations:
+          F001: 0.16213171719217437
+          F002: 0.05634450883025901
+          F003: -0.025677247657737115
+          F006: -0.1286790639765935
+          F007: -0.12437613454858053
+          F008: -0.06733061733462149
+          F009: -0.1417398730305358
+          F010: 0.03433781033898894
+          F011: -0.005806994700246127
+          F012: 0.07546268261570453
+          F004: -0.0006585274239004009
+          F005: -0.0006585274239004009
+        exceeds_threshold: false
+      cp06:
+        sign_consistency: 0.75
+        train_validation_decay: 0.2747
+        sign_consistent: true
+        ic_by_year:
+          2015: -0.0495612861993562
+          2016: -0.0331598688075116
+          2017: -0.018105041249217038
+          2018: -0.02773233850166393
+          2019: -0.026666533386975836
+          2020: -0.009757601254697738
+          2021: 0.00428033314367959
+          2022: -0.0031462162894758646
+          2023: -0.009269392987350609
+        worst_quarter_ic: -0.074777
+        best_quarter_ic: 0.030199
+        ic_autocorr_lag1: 0.029818
+        cum_ic_max_drawdown: -41.604738
+        split_ic_means:
+        - 0.000163224212679362
+        - -0.006455656791631093
+        - -0.011715916409466414
+        - -0.006822869565234803
+        split_dispersion: 0.6803
+        n_splits: 4
+      feasibility:
+        turnover_mean: 0.5143534909031733
+        liquidity_coverage: 0.8544642281447274
+        tail_concentration: 0.0068934874035745395
+        small_cap_concentration: 0.1890902651646407
+        signal_half_life: 7.0
+        signal_autocorr_lag1: 0.9397
+        rebalance_stress:
+          value: 0.004149605324291065
+          rebalance_stress_bucket: low
+        ic_half_life_days: null
+  C005:
+    expression: storage/vault/batches/batch_033/python_candidates/C005.py
+    coverage: 0.6845
+    hard_gate:
+      passed: false
+      reasons:
+      - coverage 0.684 < min 0.800
+      gate_results:
+        compute_error:
+          passed: true
+        forbidden:
+          passed: true
+        coverage:
+          passed: false
+          value: 0.6845
+          threshold: 0.8
+        sign_flip:
+          passed: true
+          train_ic: -0.027621772657317245
+          val_ic: -0.02438186373356757
+        ic_oos_min:
+          passed: true
+          value: -0.02438186373356757
+          threshold: 0.008
+        oos_decay:
+          passed: true
+          value: 0.8827
+          threshold: 0.2
+        mono_flip:
+          passed: true
+          train: -0.09999999999999999
+          validation: -0.09999999999999999
+          min_magnitude: 0.5
+        near_duplicate:
+          passed: true
+          max_corr: 0.2667
+          nearest: F001
+    metrics:
+      cp03:
+        ic_oos: -0.02438186373356757
+        icir_oos: -0.29398523613843414
+        ls_tstat_oos: -2.0522
+        ic_is: -0.027621772657317245
+        icir_is: -0.3102287107006871
+        ic_std_is: 0.08903680318604396
+        ic_std_oos: 0.08293567409652655
+        n_days_is: 1667
+        n_days_oos: 484
+        ic_win_rate_is: 0.36112777444511096
+        ic_win_rate_oos: 0.378099173553719
+        monotonicity_is: -0.09999999999999999
+        monotonicity_oos: -0.09999999999999999
+        quintile_returns_is:
+          q1: 0.0003990309196524322
+          q2: 0.0006365247536450624
+          q3: 0.0007852415437810123
+          q4: 0.000714699795935303
+          q5: -0.00027193003916181624
+        quintile_returns_oos:
+          q1: 2.355157266720198e-05
+          q2: 4.303201785660349e-05
+          q3: 0.00020450857118703425
+          q4: 0.000189672558917664
+          q5: -0.00047876685857772827
+        ls_mean_is: -0.0007442509119101254
+        ls_mean_oos: -0.0004953985242100918
+        ls_sharpe_oos: -1.4793
+        ls_sortino_oos: -2.3191
+        ls_calmar_oos: -0.5066
+        ls_max_dd_oos: -0.2464
+        ls_sharpe_is: -1.5385
+        ls_tstat_is: -3.9583
+        ls_max_dd_is: -0.8349
+        ic_by_horizon:
+          1:
+            ic_is: -0.027621772657317245
+            icir_is: -0.3102287107006871
+            win_rate_is: 0.36112777444511096
+            ic_oos: -0.02438186373356757
+            icir_oos: -0.29398523613843414
+            win_rate_oos: 0.378099173553719
+          3:
+            ic_is: -0.028895488618701615
+            icir_is: -0.3445609478667682
+            win_rate_is: 0.34313137372525493
+            ic_oos: -0.024818436513860186
+            icir_oos: -0.31092355000240807
+            win_rate_oos: 0.36363636363636365
+          5:
+            ic_is: -0.028613504666787835
+            icir_is: -0.34752326608750655
+            win_rate_is: 0.35272945410917816
+            ic_oos: -0.027533530169106077
+            icir_oos: -0.34092693235751964
+            win_rate_oos: 0.359504132231405
+          10:
+            ic_is: -0.02947667369645301
+            icir_is: -0.36650588507433807
+            win_rate_is: 0.3437312537492502
+            ic_oos: -0.030314183806905714
+            icir_oos: -0.3820554587393154
+            win_rate_oos: 0.33884297520661155
+          20:
+            ic_is: -0.034926892513035795
+            icir_is: -0.42965752728966117
+            win_rate_is: 0.3179364127174565
+            ic_oos: -0.032135372920867246
+            icir_oos: -0.3908717737086291
+            win_rate_oos: 0.32644628099173556
+      cp04:
+        style_r_squared: 0.07652377632837015
+        alpha_survival_ratio: 1.1488
+        alpha_surv_min_threshold: 0.4
+        extreme_ratio: 0.021375
+        barra_residual_ic: -0.028009
+        barra_residual_icir: -0.43733
+        dominant_style_exposure: vol_20d
+        style_crowding_risk: medium
+        style_exposures:
+          log_circ_cap: 0.06598871432202014
+          book_to_price: 0.23214177916962456
+          mom_12_1: 0.15804057251020867
+          str_1m: 2.223250600910239
+          vol_20d: 7.251341710760208
+          turnover_20d: 2.8928291453678683
+          ep_ratio: 0.44514096907983186
+        distribution_skew: -0.0594
+        distribution_kurt: 2.3752
+        distribution_zero_ratio: 0.0
+      cp05:
+        max_lib_corr: 0.2667
+        is_near_duplicate: false
+        incremental_ic: -0.013327
+        nearest_factor_id: F001
+        nearest_factor_expression: Div(Std($amount, 10), Mean($amount, 10))
+        all_correlations:
+          F001: 0.26669714143161105
+          F002: 0.08099741023329153
+          F003: -0.04406344550648166
+          F006: -0.1047507858887989
+          F007: -0.1666696726378498
+          F008: -0.057579467004663085
+          F009: -0.19156374794208975
+          F010: -0.006943166409641891
+          F011: -0.03402022942494069
+          F012: 0.08269590770155676
+          F004: 0.01668343227111437
+          F005: 0.01668343227111437
+        exceeds_threshold: false
+      cp06:
+        sign_consistency: 1.0
+        train_validation_decay: 0.8827
+        sign_consistent: true
+        ic_by_year:
+          2015: -0.020950464844173223
+          2016: -0.03188034629512236
+          2017: -0.025601830086140406
+          2018: -0.027624407861595226
+          2019: -0.04270473252292377
+          2020: -0.028068251658081418
+          2021: -0.015435297226112015
+          2022: -0.02017470766502758
+          2023: -0.028589019802107565
+        worst_quarter_ic: -0.046311
+        best_quarter_ic: -0.008772
+        ic_autocorr_lag1: -0.009084
+        cum_ic_max_drawdown: -57.796665
+        split_ic_means:
+        - -0.021950674073030314
+        - -0.018398741257024856
+        - -0.024098320744718803
+        - -0.033079718859496315
+        split_dispersion: 0.2222
+        n_splits: 4
+      feasibility:
+        turnover_mean: 0.5868954112857551
+        liquidity_coverage: 0.7457017483114902
+        tail_concentration: 0.0072328219762298335
+        small_cap_concentration: 0.3089240739437512
+        signal_half_life: 5.0
+        signal_autocorr_lag1: 0.9481
+        rebalance_stress:
+          value: 0.005692503790031208
+          rebalance_stress_bucket: low
+        ic_half_life_days: null

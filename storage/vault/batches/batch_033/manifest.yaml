@@ -1,0 +1,44 @@
+batch_id: batch_033
+round: 32
+direction: amount_volatility_signal
+direction_md_ref: vault/directions/amount_volatility_signal.md
+batch_goal: 测试 amount_volatility_signal 的唯一 Python 逃生口：对历史 reserve 候选做 signal-level
+  residualization，重点验证 C003_b8/C005_b3/C004_b8/C002_b3 在去除 vol_20d 或关键 killer style
+  后，能否把强 rank-order 从 DSL reserve 提升为可 admit 的独立 alpha。
+active_threads_referenced:
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T15:11:03Z'
+frozen_at: '2026-04-23T15:11:03Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_033/python_candidates/C001.py
+  rationale: T005 逃生口一：对 batch_008 C003 的 amount-volume corr ratio 只剥 vol_20d，检验最强
+    rank-order reserve 是否只是单一 volatility 载体。
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_033/python_candidates/C002.py
+  rationale: T005 精准剥离：对 batch_008 C003 同时剥 vol_20d + mom_12_1。该候选历史 alpha killer
+    主要是这两项，测试 targeted style strip 是否优于 full-Barra generic residual。
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_033/python_candidates/C003.py
+  rationale: T004 sign-preserved 分支：对 batch_003 C005 的 Corr(amount, Sign(ret1), 20)
+    只剥 vol_20d，检验低相关 reserve 的弱 PnL 是否来自 style 污染而非机制失效。
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_033/python_candidates/C004.py
+  rationale: T004 amount acceleration 分支：对 batch_008 C004 的 Delta(Mean(amount,20),5)
+    做 vol_20d orthogonalization，验证 high-vol proxy 是否能被提纯为真正的 flow-break 信号。
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_033/python_candidates/C005.py
+  rationale: T004 normalized slope 分支：对 batch_003 C002 的 Slope(amount/Mean(amount,20),20)
+    做 vol_20d orthogonalization，测试对齐 hypothesis 但 weak 的一阶资金动量是否能被 residualization
+    修复。
