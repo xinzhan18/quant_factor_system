@@ -1,0 +1,53 @@
+batch_id: batch_032
+round: 31
+direction: liquidity_acceleration
+direction_md_ref: vault/directions/liquidity_acceleration.md
+batch_goal: 推进 liquidity_acceleration T001：测试更长分母 10d/120d 与 volume base 的流动性加速度，确认是否能在
+  F001 amount CV 吸收之外产生正 incremental_ic；同时用长窗 normalized acceleration 对照短窗 delta 失败是否只是噪声问题。
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T14:26:46Z'
+frozen_at: '2026-04-23T14:26:46Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Mean($volume, 5), Mean($volume, 60))
+  canonical: Div(Mean($volume,5),Mean($volume,60))
+  rationale: T001 volume base 首测：把 batch_023 C001 的 amount 5d/60d ratio 换成 $volume，绕开
+    dollar amount 与 F001 amount CV 的直接同源性；邻近方向未证伪 volume ratio 本身，且避开 vol_shock magnitude-only
+    结构。
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Mean($volume, 10), Mean($volume, 120))
+  canonical: Div(Mean($volume,10),Mean($volume,120))
+  rationale: T001 长窗 volume acceleration：按 direction Next probes 拉长到 10d/120d，检验更慢的成交股数加速度是否比
+    5d/60d 更少被 F001 吸收；不同于 turnover_structural 的短 5/20 ratio。
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Mean($amount, 10), Mean($amount, 120))
+  canonical: Div(Mean($amount,10),Mean($amount,120))
+  rationale: T001 amount 长窗对照：复测 batch_023 C001 的同一机制但改为 10d/120d，判断 F001 吸收是 amount
+    family 永久约束还是 5d/60d horizon 过短导致。
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Mean($turnover_rate, 10), Mean($turnover_rate, 120))
+  canonical: Div(Mean($turnover_rate,10),Mean($turnover_rate,120))
+  rationale: T001 turnover 长窗对照：延续 batch_023 C003 的 turnover 5d/60d reserve，但拉长分母以降低短窗噪声；避开
+    batch_004 已失败的 CV/AutoCorr/rank-stability 结构。
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Sub(Mean($amount, 10), Mean($amount, 60)), Mean($amount, 120))
+  canonical: Div(Sub(Mean($amount,10),Mean($amount,60)),Mean($amount,120))
+  rationale: T001 长窗 normalized amount acceleration：不是 batch_023 C002 的 5d-20d 短窗
+    delta，而是 10d vs 60d、以 120d baseline 归一，用来判断 normalized delta 失败是否由短窗噪声造成。
+- candidate_id: C006
+  source_type: dsl
+  expression: Div(Sub(Mean($volume, 10), Mean($volume, 60)), Mean($volume, 120))
+  canonical: Div(Sub(Mean($volume,10),Mean($volume,60)),Mean($volume,120))
+  rationale: T001 volume normalized acceleration：与 C005 同形但换 $volume，测试非 dollar base
+    的长窗 delta 是否能保持 rank-order 同时改善 F001 corr 和 incremental_ic。

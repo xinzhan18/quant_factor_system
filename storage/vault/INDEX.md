@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-23T12:13:48Z
-round: 31
+generated_at: 2026-04-23T14:52:59Z
+round: 32
 total_active_directions: 9
 total_factors_admitted: 11
-last_batch: batch_031
+last_batch: batch_032
 last_consolidation_round: null
 ---
 
@@ -15,9 +15,9 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**31** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_031/judge|batch_031]] → [[directions/microstructure_illiquidity]] · admit=**0**/6 (reserve=1, reject=5) · direction.status=`saturated`
-> **健康** · rounds_since_consolidation=**2** · active_directions=**9** · zero-admit streak=**1**
+> **状态** · round=**32** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_032/judge|batch_032]] → [[directions/liquidity_acceleration]] · admit=**0**/6 (reserve=6, reject=0) · direction.status=`saturated`
+> **健康** · rounds_since_consolidation=**3** · active_directions=**9** · zero-admit streak=**2**
 >
 > **🎯 下一步（按优先级）**
 > 1. 🆕 **选新方向**：`snapshot --recent 10` 从 `status=productive/exploring` 里挑 rounds 最少；或读 `lessons.md` 的 Promising Unexplored
@@ -64,7 +64,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **31** · Admitted: **11** · Active directions: **9**
-> - Last batch: **batch_031**
+> - Round: **32** · Admitted: **11** · Active directions: **9**
+> - Last batch: **batch_032**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
