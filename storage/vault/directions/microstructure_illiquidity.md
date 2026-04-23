@@ -1,16 +1,16 @@
 ---
 direction_tag: microstructure_illiquidity
-status: productive
+status: saturated
 priority: high
-rounds: 1
+rounds: 2
 admits: 1
-last_batch: batch_030
-last_admits:
-- F012
-last_goal: 测试 microstructure 层 illiquidity 维度——Amihud 20d/60d、HHI(amount/turnover)
-  时序集中度、TsEntropy(amount)——是否能在 F001(amount CV) / F002(pb×amount) / vol_20d Barra
-  basis 外提供独立 alpha。三个自定义 DSL 算子在 29 批历史从未使用。
-last_activity: '2026-04-23T11:39:14Z'
+last_batch: batch_031
+last_admits: []
+last_goal: T001+T004 深化：探 Amihud residualization（除以 realized_vol / mean_turnover /
+  CsZscore）能否把 CP04 style_r² 从 0.47 降到 <0.25、alpha_survival 推到 >0.7；测 5d return Amihud
+  horizon 变体；测 PB/Amihud 非对称 Div 结构（避开 Mul 量纲吞噬陷阱）打开 illiquidity × value 第三维。目标 1+
+  admit。
+last_activity: '2026-04-23T12:13:48Z'
 created_batch: batch_030
 members:
 - F012
@@ -20,9 +20,9 @@ merged_into: null
 # microstructure_illiquidity
 
 > [!abstract]+ 方向概要
-> - **状态**　🔵 `exploring` · priority `high` · rounds = 0 · admits = 0
-> - **最近**　[[batches/batch_030/judge|batch_030]] · 2026-04-23 · admit=1 / reserve=4 / reject=1
-> - **一句话**　首批 admit Amihud illiquidity 20d（C001 → `amihud_illiq_20d`）；HHI 孪生双候选库空间冗余 reserve；Entropy 证伪。
+> - **状态**　🟡 `saturated` · priority `low` · rounds = 2 · admits = 1
+> - **最近**　[[batches/batch_031/judge|batch_031]] · 2026-04-23 · admit=0 / reserve=1 / reject=5
+> - **一句话**　方向 2 批结案：F012 (Amihud 20d amount-denom) 是 DSL 空间几何不变量 + 所有 residualization 路径搬家不减负；DSL 层 4 threads 全部 ANSWERED/DISPROVEN。
 
 ---
 
@@ -43,27 +43,52 @@ merged_into: null
 
 ---
 
-## Current Focus
+<!-- Current Focus section removed: direction saturated after batch_031 -->
 
-首批 admit C001 (`amihud_illiq_20d`) 打破 29 批历史"DSL 层无空间"断言，证实 Amihud illiquidity 是 DSL-native 剩余轴。但 admit 条件严苛：max_corr=0.754@F002（CP05 high）靠 incremental_ic=0.034 硬救；CP04 borderline（turnover_20d + vol_20d 双吞噬）。下轮焦点：**residualize Amihud by turnover_20d / vol_20d** 做纯化变体，目标 alpha_survival 从 0.44 → >0.70；若仍被 Barra 主导则方向 edge = "纯路径" 局部最优 F002-family 而非真独立维度。
+> [!warning]+ 饱和说明（batch_031 后追加）
+> batch_031 验证 residualize 路径全部失败后，方向 2 批结案转 saturated。F012 是 DSL Amihud 空间的**几何不变量**——同方向 12 累计候选中，0 个脱离 Barra vol_20d/turnover_20d 双 basis。
+>
+> **为什么 ROI 归零**：5/6 residualize 候选与 F012 相关 0.707-1.000（rank-preserving 变换保序 / Div 残差化搬家不减负 / cross-field Div 量纲吞噬）；唯一略出 near_dup 线的 C003 Amihud/mean_turnover CP04 塌陷（alpha_surv 0.44→0.14）。
+>
+> **复活条件**：(a) Python Barra residualized F012 走 barra_residual_alpha 方向；(b) rank-diff 结构 symmetric 交互（尚未测）；(c) minute-bar / tick-level 数据引入后 microstructure 空间真正扩张；(d) F012 退役后本方向 HHI/Entropy 家族复活。
 
 ---
 
 ## Threads
 
-### T001: Amihud 类 illiquidity 指标 [◉ ACTIVE]
+### T001: Amihud 类 illiquidity 指标 [✓ ANSWERED batch_031]
 
-> [!note]+ Thread 当前
+> [!success]+ Thread 结论
 > **Question**: Mean(|return|/$amount, n) 与 Mean(|return|/$turnover_rate, n) 是否能在横截面上提供独立于 F001(amount CV) / vol_20d(Barra) 的 illiquidity premium alpha？
 >
+> **Answer**: 是，且 F012 (Amihud 20d amount-denom) 是 DSL 空间局部+全局最优。horizon 扫描（10d/20d/60d/5d-return）与分母扫描（$amount/$turnover_rate）全部落入 near_duplicate 或 ls_t weak 象限——**F012 是 T001 DSL 空间的几何不变量**。
+>
 > **Evidence trail**:
-> - [[batches/batch_030/candidates/C001|batch_030 C001]]　Amihud 20d amount-denom → IC_OOS=0.034 ls_t=4.48 mono=1.0 incr_ic=0.034（6.7× 阈值）max_corr=0.754@F002 alpha_surv=0.443 → **admit → amihud_illiq_20d**
-> - [[batches/batch_030/candidates/C002|batch_030 C002]]　Amihud 60d amount-denom → IC_OOS=0.027 ls_t=3.58 mono=1.0 incr_ic=0.025 max_corr=0.677@F002 alpha_surv=0.43 (CP04 poor) → **reserve**（同 thread anchor，不可与 C001 双 admit）
+> - [[batches/batch_030/candidates/C001|batch_030 C001]]　Amihud 20d amount-denom → IC_OOS=0.034 ls_t=4.48 mono=1.0 incr_ic=0.034 max_corr=0.754@F002 alpha_surv=0.443 → **admit → [[factors/F012|F012]] amihud_illiq_20d**
+> - [[batches/batch_030/candidates/C002|batch_030 C002]]　Amihud 60d amount-denom → IC_OOS=0.027 ls_t=3.58 mono=1.0 incr_ic=0.025 max_corr=0.677@F002 alpha_surv=0.43 (CP04 poor) → **reserve**
 > - [[batches/batch_030/candidates/C006|batch_030 C006]]　Amihud 20d turnover-denom → IC_OOS=0.032 ls_t=1.84 mono=1.0/0.7 incr_ic=0.022 max_corr=0.111@F010 alpha_surv=0.216 (CP04 poor) → **reserve**（库空间最独立但 ls_t<2）
+> - [[batches/batch_031/candidates/C001|batch_031 C001]]　Amihud 10d amount-denom → max_corr=0.957@F012 → **reject (hard_gate near_dup)**
+> - [[batches/batch_031/candidates/C005|batch_031 C005]]　Amihud 5d-return 20d → max_corr=0.959@F012 → **reject (hard_gate near_dup)**
 >
-> **Partial Answer**: 20d horizon + $amount 分母 = T001 局部最优。30 批首触 microstructure DSL 原语，证实 illiquidity premium 作为独立 alpha 轴存在。horizon 扫描（20d vs 60d）与 分母扫描（$amount vs $turnover_rate）均落入较弱象限，说明"短窗 + dollar-scaled Amihud" 是当前 DSL 空间最强组合。
+> **升格教训**：Amihud 家族 horizon（分子 return 步长 / 聚合窗口）扫描不打开独立轴；20d amount-denom 是 A 股 csi1000 日频 DSL 空间的 microstructure illiquidity 局部最优。后续探索必须走 Python Barra residual 或非线性合成。
+
+### T004: Amihud residualization + cross-field 交互 [✗ DISPROVEN batch_031]
+
+> [!failure]+ Thread 结论
+> **Question**: (1) Amihud 除以 realized_vol / mean_turnover / cross-section z-score 是否能把 CP04 style_r² 从 0.47 降到 <0.25？(2) PB / Amihud（价值/流动性非对称 Div，避开 Mul 量纲陷阱）是否能打开 illiquidity × value 第三维？
 >
-> **Next probes**: (1) `AmihudIlliq` 自定义算子直接调用（vs 手构 `Mean(Div(Abs(Div(Delta($close,1), Ref($close,1))), $amount), 20)`）看是否产出 bit-for-bit 相同结果（若不同则算子内部可能做了 normalize/winsorize，是新候选）; (2) residualize C001 by turnover_20d 或 vol_20d（DSL 层可尝试 `Div(Amihud, Std($close, 20))` 作价格-规模双归一）; (3) Amihud × F002 交互（illiquidity × 价值）。
+> **Answer**: 全否。DSL 层 residualization 不是真 orthogonalization：CsZscore 保序零贡献、vol-residualize 放大 vol_20d 暴露、turnover-residualize 搬家（style_r² 改善但 alpha_survival 塌 69%）；Div-based cross-field 与 Mul 同样撞量纲陷阱。
+>
+> **Evidence trail**:
+> - [[batches/batch_031/candidates/C002|batch_031 C002]]　Div(Amihud, Std(ret,20)) → max_corr=0.919@F012 vol_20d exposure 5.9→32.6 → **reject (hard_gate)**
+> - [[batches/batch_031/candidates/C003|batch_031 C003]]　Div(Amihud, Mean(turnover,20)) → ic_oos=0.0598 ls_t=5.12 alpha_surv=**0.137**（塌 69%）max_corr=0.707@F012 incr_ic=0.042 → **reserve**（唯一略出 near_dup 线但 CP04 塌陷）
+> - [[batches/batch_031/candidates/C004|batch_031 C004]]　CsZscore(Amihud) → max_corr=**1.000**@F012 → **reject (hard_gate)**（rank-preserving 变换保序）
+> - [[batches/batch_031/candidates/C006|batch_031 C006]]　Div($pb_ratio, Amihud) → ic_oos=-0.050 ls_t=-4.76 alpha_surv=**0.025** max_corr=0.788@F012 **incr_ic=-0.044** → **reject**（CP05 high + signed negative incr_ic）
+>
+> **升格教训**：
+> 1. **Rank-preserving 变换（CsZscore/Scale/Sigmoid/Tanh/Softmax）在 cross-section 空间对 IC 零贡献** —— 下轮任何 direction 首轮应 skip 这类候选
+> 2. **DSL 层 `Div(factor, proxy)` residualization 不是真 orthogonalization** —— 要么保序、要么只是 style exposure 搬家；真 residualize 必走 Python OLS
+> 3. **Div-based cross-field 与 Mul 同样撞量纲吞噬** —— illiquidity × value 交互需走 rank-diff symmetric 结构或 Python ensemble
 
 ### T002: 成交额时序集中度（HHI）[✓ ANSWERED batch_030]
 
@@ -97,7 +122,12 @@ merged_into: null
 
 | Candidate | Expression | Reject Reason |
 |---|---|---|
-| [[batches/batch_030/candidates/C005\|C005]] | `TsEntropy($amount, 20)` | CP03 weak (ls_t=1.54 < 2) + signed incremental_ic=-0.001 近零（无库增值）+ mono=0.7 + IS ls_sharpe=0.06 跳 OOS 1.11 (OOS 碰巧) |
+| [[batches/batch_030/candidates/C005\|batch_030 C005]] | `TsEntropy($amount, 20)` | CP03 weak (ls_t=1.54 < 2) + signed incremental_ic=-0.001 近零（无库增值）+ mono=0.7 |
+| [[batches/batch_031/candidates/C001\|batch_031 C001]] | 10d Amihud | hard_gate near_dup 0.957@F012（horizon 保序）|
+| [[batches/batch_031/candidates/C002\|batch_031 C002]] | `Div(Amihud, Std(ret,20))` | hard_gate near_dup 0.919@F012；vol-residualize 放大 vol_20d exposure 5.9→32.6 |
+| [[batches/batch_031/candidates/C004\|batch_031 C004]] | `CsZscore(Amihud)` | hard_gate near_dup **1.000**@F012（rank-preserving 保序空对照）|
+| [[batches/batch_031/candidates/C005\|batch_031 C005]] | 5d-return Amihud | hard_gate near_dup 0.959@F012（分子 horizon 代数等价）|
+| [[batches/batch_031/candidates/C006\|batch_031 C006]] | `Div($pb_ratio, Amihud)` | CP05 high + signed incr_ic=-0.044；Div 让 F012 主导，PB 被自身 style 吞噬 |
 
 ---
 
@@ -114,7 +144,17 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-23 · [[batches/batch_030/judge|batch_030]] · 方向首批打破 3 批零 admit 僵局
+> [!quote]+ 2026-04-23 · [[batches/batch_031/judge|batch_031]] · T001 ANSWERED + T004 DISPROVEN · 方向 saturated
+> admit=0 / reserve=1 (C003) / reject=5。
+> - **F012 几何不变量**（5/6 候选）：10d/5d-return/CsZscore/vol-residualize/PB-cross 全部与 F012 相关 0.707-1.000
+> - **T004 四子路径全败**：residualization 不是真 orth（rank-preserving 保序 / Div 搬家 / Div cross-field 量纲陷阱）
+> - **C003 唯一略出 near_dup 线**但 CP04 alpha_surv 从 0.443 塌至 0.137（vol_20d exposure 3× 激活）——reserve 归档负证据
+> - **3 条升格系统级教训**：(1) rank-preserving 变换 IC 零贡献；(2) DSL Div residualization ≠ 真 orth；(3) Div-based cross-field 与 Mul 撞同样量纲吞噬
+> - **MT budget**　cumulative 146 → **152** · direction 6 → **12** · bucket `medium`
+>
+> **Operations**　`status: productive → saturated` · `priority: high → low` · 下轮换方向。
+
+> [!quote]- 2026-04-23 · [[batches/batch_030/judge|batch_030]] · 方向首批打破 3 批零 admit 僵局
 > admit=1 / reserve=4 / reject=1。
 > - **T001 Amihud 家族（C001/C002/C006）**：首批 admit C001 (`amihud_illiq_20d`, 20d amount-denom, IC=0.034 ls_t=4.48 incr_ic=0.034 max_corr=0.754@F002)。C002 (60d) / C006 (turnover-denom) 作为 horizon × 字段对照 reserve，thread 保持 ACTIVE。
 > - **T002 HHI 家族（C003/C004）**：两候选单体 strong（ls_t=±4.02/-4.08, mono=-1.0, 9 年全负）但 signed incremental_ic 均负（-0.013/-0.010）——F001 已吸收 amount 时序集中度维度。Thread ANSWERED。
