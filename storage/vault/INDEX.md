@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-23T16:42:41Z
-round: 34
+generated_at: 2026-04-23T17:32:53Z
+round: 35
 total_active_directions: 10
 total_factors_admitted: 11
-last_batch: batch_034
+last_batch: batch_035
 last_consolidation_round: null
 ---
 
@@ -15,12 +15,12 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**34** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_034/judge|batch_034]] → [[directions/value_liquidity_interaction]] · admit=**0**/5 (reserve=0, reject=5) · direction.status=`saturated`
-> **健康** · rounds_since_consolidation=**5** · active_directions=**10** · zero-admit streak=**4**
+> **状态** · round=**35** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_035/judge|batch_035]] → [[directions/gap_acceptance_structure]] · admit=**0**/6 (reserve=1, reject=5) · direction.status=`saturated`
+> **健康** · rounds_since_consolidation=**6** · active_directions=**10** · zero-admit streak=**5**
 >
 > **🎯 下一步（按优先级）**
-> 1. 🧪 **阈值校准**：连续 4 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 1. 🧪 **阈值校准**：连续 5 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
 > 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
@@ -64,7 +64,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **34** · Admitted: **11** · Active directions: **10**
-> - Last batch: **batch_034**
+> - Round: **35** · Admitted: **11** · Active directions: **10**
+> - Last batch: **batch_035**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
