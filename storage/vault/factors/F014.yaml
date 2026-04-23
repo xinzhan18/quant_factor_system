@@ -1,0 +1,20 @@
+factor_id: F014
+name: vwap_overnight_spread
+family_tag: vwap_proxy_signals
+source_type: dsl
+admitted_at: '2026-04-23T19:53:08Z'
+admitted_in_batch: batch_040
+status: active
+diagnostics_ref: cache/batch_diagnostics/batch_040/C004
+direction: vwap_proxy_signals
+expression: Div(Sub(Div($amount, $volume), Ref($close, 1)), Ref($close, 1))
+canonical: Div(Sub(Div($amount,$volume),Ref($close,1)),Ref($close,1))
+validation_metrics:
+  ic_mean: 0.011265429327184355
+  ic_ir: 0.09689198527954251
+  ic_win_rate: 0.5413223140495868
+  monotonicity: 0.6
+  long_short_mean: 0.0012160649469982418
+risk_metrics:
+  style_r_squared: 0.21208634114736524
+  alpha_survival_ratio: 0.679
