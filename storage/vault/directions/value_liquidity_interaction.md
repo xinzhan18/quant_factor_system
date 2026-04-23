@@ -1,13 +1,15 @@
 ---
 direction_tag: value_liquidity_interaction
-status: productive
-priority: high
-rounds: 6
+status: saturated
+priority: low
+rounds: 7
 admits: 1
-last_batch: batch_009
+last_batch: batch_034
 last_admits: []
-last_goal: str_1m 突破验证：self-norm rate + cross-funda rank-diff + amount-rate 交互，6 候选
-last_activity: '2026-04-19T13:07:56Z'
+last_goal: 测试 value_liquidity_interaction 的唯一 Python 逃生口：对最有信息量的 reserve 做 signal-level
+  Barra residualization，重点验证 C007_b9/C003_b9/C004_b5/C001_b7 在剥离 vol_20d、turnover_20d、str_1m
+  后，能否把 rank-order 证据兑现为可 admit 的独立 alpha。
+last_activity: '2026-04-23T16:42:41Z'
 created_batch: batch_005
 members:
 - F002
@@ -16,9 +18,9 @@ merged_into: null
 # value_liquidity_interaction
 
 > [!abstract]+ 方向概要
-> **状态**　🟢 productive · priority=high · rounds=6 · admits=1 (F002)
-> **最近**　[[batches/batch_009/judge|batch_009]] · 2026-04-19 · admit=0 / reserve=2 / reject=5
-> **一句话**　基本面 × 流动性交互：DSL 空间已实质封闭，rank-order 层突破已成 (alpha_survival 0.92 / dom=str_1m)，PnL 层 ls_t 仍未兑现；Python Barra residual 是唯一未走的路径。
+> **状态**　🟡 saturated · priority=low · rounds=7 · admits=1 (F002)
+> **最近**　[[batches/batch_034/judge|batch_034]] · 2026-04-23 · admit=0 / reserve=0 / reject=5
+> **一句话**　基本面 × 流动性交互：DSL 路径和 Python residual 路径都已跑完，剩下的只是不足 `coverage` 的 residual shadow，不再是可继续挖掘的方向。
 
 ---
 
@@ -41,18 +43,19 @@ merged_into: null
 
 ## Threads
 
-### T001: Value × Liquidity 交互 [◉ ACTIVE · DSL 已封闭]
+### T001: Value × Liquidity 交互 [✗ DISPROVEN batch_034]
 
-> [!note]+ Thread 进展
+> [!failure]+ Thread 结论
 > **Question**: PE/PB 分位 × turnover 水平的交互是否产生独立于流动性因子的价值 alpha？
 > **Evidence trail**:
 > - [[batches/batch_005/candidates/C001|C001_b5]] Mul($pe, Mean(tr,20)) alpha_surv=0.26 dom=vol_20d → reject
 > - [[batches/batch_005/candidates/C005|C005_b5]] Div($pb, Mean(amount,20)) **IC=+0.032 mono=+1.0 cum_dd=-2.17(全库最浅)** alpha_surv=0.30 → reject (positive edge 真实但被 vol_20d 吞 70%)
 > - [[batches/batch_006/candidates/C003|C003_b6]] Div($pb, Mean(tr,20)) 诊断：分母换 tr 未改善 (0.30→0.28) → reserve
 > - [[batches/batch_007/candidates/C003|C003_b7]] Sub(CsRank($pb), CsRank(Mean(tr,20))) **alpha_surv=0.71 (2.5× 改善)** 但 raw IC 0.032→0.011 (1/3 削弱) ls_t=0.33 → reserve
+> - [[batches/batch_034/candidates/C001|C001_b34]] turnover-EP residual probe coverage=0.706 + sign_flip + decay=-4.141 → reject
+> - [[batches/batch_034/candidates/C002|C002_b34]] deep residual probe 再加 `str_1m` 控制后 coverage=0.706 + sign_flip + decay=-7.403 → reject
 >
-> **Partial Answer**: 乘法结构全部被量纲主导方吞噬；除法结构 `Div(fundamental, smoothed_liquidity)` 与 vol_20d 天然共存（非分母代理问题，已由 C003_b6 诊断证伪「分母去市值」假说）。秩差结构以 2.5× Barra cleanliness 换 3× raw signal 削弱的定量权衡。positive edge 真实存在但 DSL 路径事实封闭。
-> **Next**: Python Barra residual (vol_20d / turnover_20d)。
+> **Disproven**: 乘法/除法/秩差三条 DSL 路径都已封闭，而 batch_034 进一步证明连 Python residual 也救不回 T001。C001/C002 一旦剥掉 `vol_20d/turnover_20d/str_1m` 载体，只剩 coverage 不足且符号翻转的弱噪声，说明这条交互 edge 并不会以独立残差信号的形式存活。
 
 ### T002: Size × Liquidity 反转 [◉ ACTIVE · 未跑]
 
@@ -61,20 +64,20 @@ merged_into: null
 > **Evidence trail**: 批次待跑 —— 市值代理红线 ([[lessons#Structural Constraints]]) 需谨慎设计
 > **Next**: 避免直接 $market_cap；改用 log_circ_cap Barra 残差或 tick-level proxy
 
-### T003: PE 变化率 vs amount 变化率脱钩 [◉ ACTIVE · DSL 封闭]
+### T003: PE 变化率 vs amount 变化率脱钩 [✗ DISPROVEN batch_034]
 
-> [!note]+ Thread 进展
+> [!failure]+ Thread 结论
 > **Question**: 基本面更新速率 vs 技术面反应速率的差异是否携带价值发现 alpha？
 > **Evidence trail**:
 > - [[batches/batch_005/candidates/C004|C004_b5]] Div(Delta($pe,20), $pe) **alpha_surv=0.92 dom=str_1m (方向首次突破天花板)** ls_t=-1.22 → reserve
 > - [[batches/batch_006/candidates/C005|C005_b6]] Mul(PE_rate, Mean(tr,20)) alpha_surv=0.92→**0.29 崩塌** → reject (rate×level 乘法摧毁 rate 独立性)
 > - [[batches/batch_007/candidates/C004|C004_b7]] Div(Delta($pe,20), Mean($pe,60)) alpha_surv=0.86 ls_t=-1.21 → reserve (60d-norm 边际)
 > - [[batches/batch_007/candidates/C005|C005_b7]] Div(PE_rate, turnover_rate) **ls_t=-2.92 首破 2** ICIR=-0.284 mono=-0.9 9年全负 alpha_surv=**0.097 极端悖论** → reject
+> - [[batches/batch_034/candidates/C004|C004_b34]] PE residual baseline `ic_oos=-0.0209` + `alpha_surv=1.09`，但 coverage=0.712 → reject
 >
-> **Partial Answer**: PE 自归一化变化率**首次跳出 vol_20d 天花板** (dom=str_1m + alpha_surv>0.70)，但 ls_t 全部 <2。两 rate 除法 (C005_b7) 终于跨过 PnL 显著阈值，却被 Barra 完全吃掉残差——确立 **「静态正交 ≠ 动态正交」** 几何悖论（因子值 ⊥ Barra basis style_r²=0.016，但 IC 生成的 L/S weights 落在 Barra span 内 alpha_surv=0.097）。
-> **Next**: 禁乘法升级；Python Barra residual。
+> **Disproven**: T003 已经不只是“DSL 封闭”。batch_034 显示即便做 signal-level residualization，PE 自归一化 rate 仍旧无法越过 `coverage` 硬闸。也就是说，这条路径的瓶颈不再是 Barra 风格，而是当前日频数据根本给不出足够可执行的 residual support。
 
-### T006: Fundamental 自归一化速率 [✓ ANSWERED batch_006 · rank-order 层三点通用性]
+### T006: Fundamental 自归一化速率 [✓ ANSWERED batch_006]
 
 > [!success]+ Thread 结论
 > **Question**: 基本面字段 `Div(Delta(X,n), X)` 的自归一化变化率是否普遍跳出流动性风格天花板？
@@ -83,21 +86,22 @@ merged_into: null
 > - [[batches/batch_006/candidates/C001|C001_b6]] PB rate alpha_surv=**0.79** dom=str_1m ls_t=-1.49 → reserve
 > - [[batches/batch_006/candidates/C002|C002_b6]] PS rate alpha_surv=**0.72** dom=str_1m ls_t=-1.47 → reserve
 > - [[batches/batch_007/candidates/C001|C001_b7]] 3-funda 等权合成 alpha_surv=**0.86** ls_t=-1.27 → reserve
+> - [[batches/batch_034/candidates/C005|C005_b34]] residual composite `alpha_surv=1.20` + `barra_residual_ic=-0.0236`，但 coverage=0.712 → reject
 >
 > **Answer**: **PE/PB/PS 自归一化速率三点通用性确立**——「基本面字段自归一化变化率跳出 vol_20d 天花板」在 rank-order 层是**跨 valuation 指标普适机制**，不是 PE 孤证。但 ls_t 全部 -1.2~-1.5 <2，L/S PnL 层未兑现。DSL 等权合成不产生信噪比增益（合成等权 ≠ 合成加权）。
-> **Next**: Python 逃生口做 str_1m 加权 residual 合成（方案 D / R8 trigger）。
+> **Next**: 无。batch_034 已证明连 residual composite 也被 coverage 上限卡死，线程知识结论充足但工程出口关闭。
 
-### T007: 跨基本面 Rank-Diff [◉ ACTIVE · batch_009 新开]
+### T007: 跨基本面 Rank-Diff [✗ DISPROVEN batch_034]
 
-> [!note]+ Thread 进展
+> [!failure]+ Thread 结论
 > **Question**: 不同基本面字段 ($pe/$pb/$ps) 之间的 rank 差异是否携带独立于 Barra 的价值发现信号？
 > **Evidence trail**:
 > - [[batches/batch_009/candidates/C002|C002_b9]] Sub(CsRank($pe), CsRank($pb)) mono_sign_flip → reject (level rank-diff 非对称 shift)
 > - [[batches/batch_009/candidates/C003|C003_b9]] Sub(CsRank(PE_rate), CsRank(PB_rate)) 9年全正 cum_dd=-1.54 **incr_ic=+0.019 (库增值真实)** ls_t=0.47 → reserve
 > - [[batches/batch_009/candidates/C007|C007_b9]] Sub(CsRank(turnover), CsRank(PE)) **ls_t=-2.43 mono=-1.0 (方向 PnL 最强)** vol_20d=18.8 incr_ic=-0.035 → reserve
+> - [[batches/batch_034/candidates/C003|C003_b34]] cross-funda residual probe max_corr=0.027 仍极低，但 coverage=0.712 + ic_oos=-0.0069 → reject
 >
-> **Partial Answer**: 互补悖论——C003 库干净但 PnL 弱 / C007 PnL 最强但库冲突。两 rate 做 rank-diff 优于 level rank-diff (C002 非对称 shift 失败)。
-> **Next**: Python Barra residual(C003 或 C007) 验证独立 alpha。
+> **Disproven**: T007 最后的希望是把 C003/C007 这组互补悖论放到 Python residual 环境里重验。batch_034 证明即便保留极低库相关，跨基本面 rank-diff 也只能留下过弱、低覆盖的 residual shadow，无法兑现为可 admit alpha。
 
 ### T004: PB × 波动率交互 [✗ DISPROVEN batch_005]
 
@@ -132,6 +136,11 @@ merged_into: null
 | [[batches/batch_009/candidates/C004\|C004_b9]] | PE_rate / turnover_rate_of_change | sign_flip + oos_decay=-16.9；ratio 放大 sign 不稳 |
 | [[batches/batch_009/candidates/C005\|C005_b9]] | (PE_rate + PB_rate) / 2 | dom=str_1m 首次 alpha_surv=0.883 但 incr_ic=-0.033 库 reducer |
 | [[batches/batch_009/candidates/C006\|C006_b9]] | PB_rate / turnover_rate_of_change | sign_flip + oos_decay=-32.5；ratio 放大 regime 崩溃 |
+| [[batches/batch_034/candidates/C001\|C001_b34]] | residualized turnover rank + EP rank | coverage=0.706 + sign_flip + decay=-4.141；T001 residual 失效 |
+| [[batches/batch_034/candidates/C002\|C002_b34]] | deep residualized turnover rank + EP rank | coverage=0.706 + sign_flip + decay=-7.403；加 `str_1m` 控制后更差 |
+| [[batches/batch_034/candidates/C003\|C003_b34]] | residualized PE_rate rank - PB_rate rank | coverage=0.712 + ic_oos=-0.0069；库干净但强度过弱 |
+| [[batches/batch_034/candidates/C004\|C004_b34]] | residualized PE_rate baseline | `alpha_surv=1.09` 但 coverage=0.712；真实残差无可执行覆盖 |
+| [[batches/batch_034/candidates/C005\|C005_b34]] | residualized funda-rate composite | `alpha_surv=1.20` 但 coverage=0.712；合成 residual 仍卡硬闸 |
 
 **失败模式系统化**：
 - `Mul(A, B)` 交互 → 量纲主导方吞噬 (5 次证伪)
@@ -153,6 +162,15 @@ merged_into: null
 ---
 
 ## Narrative Log
+
+> [!quote]+ 2026-04-23 · [[batches/batch_034/judge|batch_034]]
+> admit=0 · reserve=0 · reject=5。方向唯一保留的 Python Barra residual 逃生口完成后仍然零 admit，方向正式转 `saturated`。
+> - **5/5 全部死于 coverage < 0.80**，区间仅 0.7055-0.712，说明真正的工程上限已经从“Barra 吞噬”切换为“residual signal 可用性不足”
+> - **T001 彻底关闭**：C001/C002 额外出现 sign_flip + 负 decay，证明 turnover-PE rank-diff 离开原始 style 载体后不再稳定
+> - **T003/T006 残差真实但不可执行**：C004/C005 的 `alpha_surv` 分别为 1.09 / 1.20，`barra_residual_ic` 也接近 raw IC，但依然被 coverage 硬闸阻断
+> - **T007 悖论终结**：C003 继续保留极低库相关，却没能把 batch_009 的“库干净但 PnL 弱”提升为可 admit alpha
+>
+> **方向决策**：Python residual 已验证完，后续继续在本方向加 batch 只会重复制造 residual shadow reject。下一步转去新方向。
 
 > [!quote]+ 2026-04-19 · [[batches/batch_009/judge|batch_009]]
 > admit=0 · reserve=2 (C003, C007) · reject=5。方向第 5 批零 admit。

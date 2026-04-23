@@ -1,0 +1,48 @@
+batch_id: batch_034
+round: 33
+direction: value_liquidity_interaction
+direction_md_ref: vault/directions/value_liquidity_interaction.md
+batch_goal: 测试 value_liquidity_interaction 的唯一 Python 逃生口：对最有信息量的 reserve 做 signal-level
+  Barra residualization，重点验证 C007_b9/C003_b9/C004_b5/C001_b7 在剥离 vol_20d、turnover_20d、str_1m
+  后，能否把 rank-order 证据兑现为可 admit 的独立 alpha。
+active_threads_referenced:
+- T001
+- T003
+- T006
+- T007
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T15:48:27Z'
+frozen_at: '2026-04-23T15:48:27Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_034/python_candidates/C001.py
+  rationale: T001 残差化一：对 batch_009 C007 的 turnover-PE rank-diff 采用 Barra cache
+    中的 turnover_20d + ep_ratio 代理，并剥离 vol_20d + turnover_20d，验证最强 PnL 候选是否只是流动性
+    Barra 载体。
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_034/python_candidates/C002.py
+  rationale: T001 深剥离：对同一 C007 的代理信号再加 str_1m 控制，检验 batch_009 的负
+    incremental_ic 是否来自动态 Barra 冲突而非机制本身。
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_034/python_candidates/C003.py
+  rationale: T007/T003 交叉验证：对 batch_009 C003 的 PE_rate-PB_rate rank-diff 使用
+    ep_ratio/book_to_price 代理并剥离 vol_20d + str_1m，检验最独立的库增值 reserve 能否重建
+    rank-order。
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_034/python_candidates/C004.py
+  rationale: T003 基线残差化：对 batch_005 C004 的 PE 自归一化 rate 使用 ep_ratio 代理，
+    只剥 str_1m，并做尾部裁剪，测试最干净 baseline 是否能直接越过 ls_t 门槛。
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_034/python_candidates/C005.py
+  rationale: T006 合成逃生口：对 batch_007 C001 的三基本面等权 rate 合成改为 ep_ratio
+    + book_to_price 双字段代理，并剥离 str_1m + vol_20d，验证 DSL 合成天花板是否只是 style
+    承载问题。
