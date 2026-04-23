@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-23T19:00:41Z
-round: 38
+generated_at: 2026-04-23T19:24:44Z
+round: 39
 total_active_directions: 10
 total_factors_admitted: 12
-last_batch: batch_038
+last_batch: batch_039
 last_consolidation_round: null
 ---
 
@@ -15,13 +15,15 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**38** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_038/judge|batch_038]] → [[directions/log_value_liquidity]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`dead`
-> **健康** · rounds_since_consolidation=**9** · active_directions=**10** · zero-admit streak=**2**
+> **状态** · round=**39** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_039/judge|batch_039]] → [[directions/pv_covariance]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`dead`
+> **健康** · rounds_since_consolidation=**10** · active_directions=**10** · zero-admit streak=**3**
+> **⚠️ 预警** · consolidation 触发: rounds_since_last=10 ≥ 10
 >
 > **🎯 下一步（按优先级）**
-> 1. 🆕 **选新方向**：`snapshot --recent 10` 从 `status=productive/exploring` 里挑 rounds 最少；或读 `lessons.md` 的 Promising Unexplored
-> 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
+> 1. 📚 **触发 consolidation**：rounds_since_last=10 ≥ 10 → 先调 `/factor-consolidate`，再进 Phase 1
+> 2. 🧪 **阈值校准**：连续 3 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 3. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
 
@@ -64,7 +66,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **38** · Admitted: **12** · Active directions: **10**
-> - Last batch: **batch_038**
+> - Round: **39** · Admitted: **12** · Active directions: **10**
+> - Last batch: **batch_039**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
