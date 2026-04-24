@@ -1,0 +1,59 @@
+batch_id: batch_043
+round: 42
+direction: range_structure
+direction_md_ref: vault/directions/range_structure.md
+batch_goal: 首批探 range (high-low) 结构是否独立于 vol_20d 的 std-return 空间。5 子形式：IdxMax 时序 timing、高
+  range 频率、低 range 频率、range 分布 skew、短/长窗 ratio、range 变化率。硬闸 max_corr@F001 / F012 /
+  F013 < 0.7 防流动性簇吸收；目标 dominant_style ≠ vol_20d。
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T01:51:45Z'
+frozen_at: '2026-04-24T01:51:45Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: IdxMax(Div(Sub($high, $low), $close), 20)
+  canonical: IdxMax(Div(Sub($high,$low),$close),20)
+  rationale: T001 timing：过去 20 日最大 range 发生在几天前。离散整数值，结构上不同于 vol_20d 连续 power-mean。经济含义：近端事件（值小）=
+    新鲜冲击未消化；远端事件（值大）= 老故事 edge 衰减。
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Gt(Div(Sub($high, $low), $close), Mul(Mean(Div(Sub($high, $low),
+    $close), 60), 1.5)), 20)
+  canonical: Mean(Gt(Div(Sub($high,$low),$close),Mul(1.5,Mean(Div(Sub($high,$low),$close),60))),20)
+  rationale: T001 frequency-high：过去 20 日 range 超过 60d baseline 1.5× 的日数比例。Count-based
+    离散聚合，对比连续 power-mean 测试是否逃离 vol_20d。直觉：高频事件日比例反映近期关注度。
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Lt(Div(Sub($high, $low), $close), Mul(Mean(Div(Sub($high, $low),
+    $close), 60), 0.5)), 20)
+  canonical: Mean(Lt(Div(Sub($high,$low),$close),Mul(0.5,Mean(Div(Sub($high,$low),$close),60))),20)
+  rationale: T001 frequency-low：过去 20 日 range 低于 60d baseline 一半的日数比例。低 range 频率捕捉
+    compression regime；类似 Bollinger squeeze 的频率测量。与 C002 互补：C002 是 expansion、C003
+    是 compression。
+- candidate_id: C004
+  source_type: dsl
+  expression: Skew(Div(Sub($high, $low), $close), 60)
+  canonical: Skew(Div(Sub($high,$low),$close),60)
+  rationale: T001 skew：60d range 分布偏度。少数极大 range 日（正偏）= 事件驱动 universe；均匀分布（接近零偏）=
+    噪声驱动；负偏（极小 range 日多）= 横盘整理。return_distribution_signals dead 是对 returns 做 skew，本候选对
+    range 做 skew——range 不是 return，不应同构到 vol_20d。
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Mean(Div(Sub($high, $low), $close), 5), Mean(Div(Sub($high, $low),
+    $close), 60))
+  canonical: Div(Mean(Div(Sub($high,$low),$close),5),Mean(Div(Sub($high,$low),$close),60))
+  rationale: T002 短/长比：5d / 60d range 均值比。>1 近期 range 放大，<1 近期压缩。风险：类似 liquidity_acceleration
+    T001 被 F001 吸收的 ratio 形态；但 range 字段与 amount/turnover 不同——实测观察 incremental_ic 符号。
+- candidate_id: C006
+  source_type: dsl
+  expression: Delta(Mean(Div(Sub($high, $low), $close), 20), 5)
+  canonical: Delta(Mean(Div(Sub($high,$low),$close),20),5)
+  rationale: T002 变化率：过去 5 日 20d-mean range 的 delta。线性趋势测度，与 C005 ratio 形态互补（ratio
+    无趋势方向、delta 有方向）。若 C005 fail 而 C006 过，说明 range regime 方向性比 ratio 结构重要。
