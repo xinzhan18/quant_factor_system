@@ -1,0 +1,57 @@
+batch_id: batch_044
+round: 43
+direction: quantile_shape_signals
+direction_md_ref: vault/directions/quantile_shape_signals.md
+batch_goal: 首批探 Quantile/Median 算子在非 return 字段 (range/turnover/amount) 上的 shape 信号是否独立于
+  vol_20d 和 F001/F012。覆盖：range Q90-Q50 (top-skew)、turnover Median/Mean 比、amount IQR、range
+  Q75-Q25、median of range、Q-range 短/长比。目标 mono_is ≥ 0.5 避免 range_structure C004 的
+  IS-weak 悖论。
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T02:25:06Z'
+frozen_at: '2026-04-24T02:25:06Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(Quantile(Div(Sub($high,$low), $close), 60, 0.9), Quantile(Div(Sub($high,$low),
+    $close), 60, 0.5))
+  canonical: Sub(Quantile(Div(Sub($high,$low),$close),60,0.9),Quantile(Div(Sub($high,$low),$close),60,0.5))
+  rationale: T001 锚点1：range 的上尾偏度 = Q90 - Q50。大时表示事件驱动（少数大 range 日拉高 90 分位）。百分位差对极值
+    robust，理论上逃离 vol_20d 2nd-moment 主轴。与 C004 batch_043 Skew(range,60) 机制相近但更 robust。
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Med($turnover_rate, 20), Mean($turnover_rate, 20))
+  canonical: Div(Med($turnover_rate,20),Mean($turnover_rate,20))
+  rationale: T001 锚点2：turnover 的 Median/Mean 比 = 分布偏度指标（<1 高 turnover 日拖高均值；>1 左偏）。与
+    F001 amount CV 差异：F001 是离散度（std/mean），本候选是偏度方向。
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(Quantile($amount, 60, 0.75), Quantile($amount, 60, 0.25))
+  canonical: Sub(Quantile($amount,60,0.75),Quantile($amount,60,0.25))
+  rationale: T001 锚点3：amount IQR（Q75-Q25）。传统 robust dispersion 替代 std。风险：可能与 F001
+    amount CV 共线；硬闸 max_corr@F001 < 0.7 实测。
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(Quantile(Div(Sub($high,$low), $close), 60, 0.75), Quantile(Div(Sub($high,$low),
+    $close), 60, 0.25))
+  canonical: Sub(Quantile(Div(Sub($high,$low),$close),60,0.75),Quantile(Div(Sub($high,$low),$close),60,0.25))
+  rationale: T001 锚点4：range IQR = range Q75 - Q25。与 C001 (Q90-Q50) 互补——C001 测上尾，C004
+    测中段 spread。中段 spread 小表示大多数日 range 稳定 + 少数爆发日；大表示持续多样 range。
+- candidate_id: C005
+  source_type: dsl
+  expression: Med(Div(Sub($high,$low), $close), 60)
+  canonical: Med(Div(Sub($high,$low),$close),60)
+  rationale: T001 锚点5：range 的 60d 中位数本身。Mean(range, 60) 可能共线 vol_20d 但 Med(range,
+    60) 对尾部免疫，可能是独立的典型 range size 信号。
+- candidate_id: C006
+  source_type: dsl
+  expression: Div(Med(Div(Sub($high,$low), $close), 5), Med(Div(Sub($high,$low), $close),
+    60))
+  canonical: Div(Med(Div(Sub($high,$low),$close),5),Med(Div(Sub($high,$low),$close),60))
+  rationale: T001 锚点6：range 中位数的短/长比。对比 C005 batch_043 Mean-based ratio（被 vol_20d
+    吞噬，incr_ic=-0.025），本候选用 Median 替代 Mean——若 Median 版 incr_ic 翻正，证明均值才是 vol 吞噬的中介，百分位形式可逃离。
