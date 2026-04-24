@@ -1,0 +1,194 @@
+batch_id: batch_052
+round: 51
+direction: value_liquidity_interaction
+direction_md_ref: vault/directions/value_liquidity_interaction.md
+batch_goal: "T012 rank-diff 范式第 7 次跨家族泛化——测 value (PE/PB/PS) × liquidity (turnover/amount)\
+  \ 在 rank-diff 几何下能否独立兑现。\n\n当前 rank-diff 6 admit 跨 5 family (microstructure×2 /\
+  \ overnight×2 / OHLC×1 / gap×1 = F015/F016/F017/F018/F019/F020)。\nvalue_liquidity_interaction\
+  \ 仅 F002 (Div($pb,Mean($amount,20)) 原始比率，非 rank-diff)，本方向 7 轮探索仅 1 admit\n且全部 DSL\
+  \ 路径 (Mul/Div/Sub-rank) + Python residual 已被验证封闭。本批 reopen 唯一未试角度：rank-diff geometry\n\
+  在 value × liquidity 家族首次完整投放，借助 b050/b051 已确立的 4 条几何律设计 LHS/RHS。\n\n设计硬约束：\n(1)\
+  \ 每候选 LHS 唯一 — 6 LHS 全不同 atomic value/liquidity 表达；\n(2) 严避免重演 T001-T007 disproven\
+  \ 的 Mul/Div/PE_rate 路径；不用 Delta/$pe rate of change (lessons new_dead);\n(3) RHS\
+  \ 端避开 RHS 共振饱和律 endpoints (overnight_5/turnover_5/amount_20/turnover_5_cv/price_vol_20-short)；\n\
+  \    选 body_ratio_20/60 / |return|_60 / pb_60 / amount_60 / price_vol_60-long 等非饱和\
+  \ basis;\n(4) LHS 端避开 size proxy 红线 (|corr|>0.3 vs $market_cap/$circ_market_cap)\
+  \ — 不直接放 $market_cap;\n(5) 不重演 T003/T006 PE_rate 自归一化 (lessons.md new_dead 已升格);\n\
+  (6) 优先 higher-moment LHS independence axis (Std/Var vs Mean) 复用 b050 T012 教训;\n\
+  (7) 不重演 F002 同形 (Div($pb,Mean($amount,20)) 原始比率) — 本批全部 rank-diff 包装。\n\nC001 pe_vol_pricevol_rank_diff_20\
+  \ — LHS=Std($pe_ratio,20) higher-moment of PE level (跳出 PE_rate 自归一化死区),\n  RHS=Mean(Std($close,5),60)\
+  \ 60d price_vol 长窗 (区别 b051 dead RHS price_vol_20 短窗). 测 PE 横截面波动性\n  与 price_vol\
+  \ 长窗的 rank-diff 几何独立性. 预期 max_corr@F002<0.3 (Std vs raw level), max_corr@F019<0.4\
+  \ (LHS atomic 不同).\n\nC002 pe_per_turnover_body_ratio_diff_20 — LHS=Mean(Div($pe_ratio,$turnover_rate),20)\
+  \ PE 单位换手率\n  (类似 illiquidity-adjusted PE, 不是 PE_rate 也不是 PE/amount = F002 dual),\
+  \ RHS=Mean(body_ratio,20)\n  OHLC structural basis (b051 admit C002 已验证 body_ratio\
+  \ 是新 RHS 安全类目). 测 \"value per liquidity\" 单调性.\n  预期 max_corr@F002<0.4 (PE/turnover\
+  \ vs PB/amount 不同基本面对/不同分母), max_corr@F020<0.3 (LHS gap-vol vs PE-liq).\n\nC003\
+  \ pb_turnover_jointvol_absret_diff_60 — LHS=Std(Mul($pb_ratio,$turnover_rate),60)\
+  \ PB×turnover 乘积的时序波动 60d\n  (joint volatility of value×liquidity product, second-order\
+  \ co-movement; 避开 Qlib Corr/Cov 跨字段 NaN-window shape bug),\n  RHS=Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)\
+  \ |daily_return| mean 60d (Amihud 分子无 amount 分母 — b051 C006 已开创该 RHS).\n  测 value-liquidity\
+  \ 联合 vol vs return magnitude basis. 预期 max_corr@F012/F015 (Amihud)<0.4, max_corr@F002<0.3.\n\
+  \nC004 turnover_vol_pb_long_diff_20 — LHS=Std($turnover_rate,20) turnover higher-moment\
+  \ (Std 不是 Mean,\n  与 F033 mean_turnover_5 等 raw mean 不同), RHS=Mean($pb_ratio,60)\
+  \ PB 长窗 fundamental basis (60d 而非 20d/40d).\n  \"liquidity volatility 卖方 × value\
+  \ level 买方\" — 价值 × 流动性反向交叉. 预期 max_corr@F002<0.3 (LHS/RHS 完全反向),\n  max_corr@F004\
+  \ (std_vol_20)<0.4 (turnover vs price std), max_corr@F035 (mean_turnover_20)<0.4\
+  \ (Std vs Mean).\n\nC005 ps_amount_ratio_body_ratio_diff_60 — LHS=Mean(Div($ps_ratio,$amount),60)\
+  \ PS 单位 amount 长窗 (与 F002 PB/amount_20 不同基本面 + 不同窗口),\n  RHS=Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),60)\
+  \ body_ratio 长窗 60d (与 F019/F020 RHS body_ratio_20 不同窗口).\n  测 PS-based value ×\
+  \ intraday body 长窗. 预期 max_corr@F002<0.5 (PS vs PB + 60d vs 20d 双层差异), max_corr@F019/F020<0.4\
+  \ (60d vs 20d).\n\nC006 pb_stability_turnover_vol_diff_20 — LHS=Std(Mean($pb_ratio,5),20)\
+  \ PB 5d-smoothed level 在 20d 的 stability\n  (compound moment: smooth-then-std, 测\
+  \ PB 稳定性 — 类似 PB regime stickiness signal),\n  RHS=Mean(Std($turnover_rate,5),20)\
+  \ turnover 5d-vol 20d agg (与 F019 RHS price_vol-style 同结构但用 turnover).\n  \"PB stickiness\
+  \ × turnover micro-volatility\" — value persistence × liquidity micro-noise rank-diff.\n\
+  \  预期 max_corr@F002<0.3 (compound LHS), max_corr@F019<0.4 (LHS PB vs body_ratio)."
+active_threads_referenced:
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T23:21:10Z'
+frozen_at: '2026-04-24T23:21:10Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Std($pe_ratio,20)),CsRank(Mean(Std($close,5),60)))
+  canonical: Sub(CsRank(Std($pe_ratio,20)),CsRank(Mean(Std($close,5),60)))
+  rationale: 'LHS=Std($pe_ratio,20) PE 横截面波动 — 跳出 lessons.md new_dead 的 PE_rate 自归一化死区,
+
+    改用 raw PE level 的 higher-moment (Std 而非 Mean). RHS=Mean(Std($close,5),60) 长窗 60d
+
+    price_vol 聚合 (区别 b051 C005 dead RHS price_vol 20d 短窗 — 60d agg 把短窗共振降一阶).
+
+    预期 max_corr@F002 (PB/amount_20)<0.3 (PE Std vs PB level 完全不同), max_corr@F019 (body_disp×price_vol_20)<0.4
+
+    (LHS body_ratio std vs PE std 不同 atomic + RHS 60d vs 20d 不同窗口),
+
+    max_corr@F004 (std_returns_20)<0.4 (Std PE level vs Std returns 不同字段族).
+
+    推进 T002 + 测 PE level higher-moment 在 rank-diff 几何里首次.
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div($pe_ratio,$turnover_rate),20)),CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)))
+  canonical: Sub(CsRank(Mean(Div($pe_ratio,$turnover_rate),20)),CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)))
+  rationale: 'LHS=Mean(PE/turnover_rate, 20) value-per-liquidity 单位 (PE 每单位换手率 — illiquidity-adjusted
+    value,
+
+    与 F002 Div($pb,Mean($amount,20)) 不同：PE vs PB 不同基本面 + turnover vs amount 不同 liquidity
+    维度
+
+    + ratio in rolling Mean 而非 ratio of rolling). RHS=Mean(body_ratio,20) OHLC structural
+    basis
+
+    (b051 C002 admit 已验证 body_ratio_20 是 RHS 共振饱和律白名单的新安全类目).
+
+    预期 max_corr@F002<0.4 (PE/turnover vs PB/amount 完全不同基本面对 + 不同 liquidity), max_corr@F020<0.3
+
+    (本 LHS PE-liquidity vs F020 LHS gap-vol 不同 atomic), max_corr@F035 (mean_turnover_20)<0.3.
+
+    推进 T002 + value-per-liquidity 的 rank-diff 几何首次.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Std(Mul($pb_ratio,$turnover_rate),60)),CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)))
+  canonical: Sub(CsRank(Std(Mul($pb_ratio,$turnover_rate),60)),CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)))
+  rationale: 'LHS=Std(PB×turnover, 60) PB×turnover 乘积的时序波动 60d — joint volatility
+    of value×liquidity product
+
+    是 second-order 共动 atomic (不是 raw level/ratio/corr; 避开 Qlib Corr/Cov 跨字段 NaN-window
+    shape bug
+
+    operands could not be broadcast together — 改用 Std(product) 绕开). 全新 atomic 表达；b051
+    已验证 same
+
+    atomic 不同 moment 不冗余. RHS=Mean(|daily_return|, 60) Amihud 分子无 amount 分母 (b051
+    C006 已开创该
+
+    RHS 类目 — 全新 RHS basis). 测 value-liquidity 联合 vol vs return magnitude basis 的 rank-diff
+    几何.
+
+    预期 max_corr@F012 (amihud_20)<0.4 (Amihud 含 amount 分母, 本 RHS 无), max_corr@F015
+    (amihud_cv_rank_diff_20)<0.4
+
+    (LHS amihud-cv vs jointvol 不同), max_corr@F002<0.3 (jointvol 不是 ratio).
+
+    推进 T002 + 测 PB×turnover 联合 vol 在 rank-diff 几何首次.
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Std($turnover_rate,20)),CsRank(Mean($pb_ratio,60)))
+  canonical: Sub(CsRank(Std($turnover_rate,20)),CsRank(Mean($pb_ratio,60)))
+  rationale: 'LHS=Std($turnover_rate,20) turnover higher-moment (Std 而非 Mean — 与 F033/F035
+    mean_turnover 不冗余,
+
+    复用 b050 T012 higher-moment LHS independence axis). RHS=Mean($pb_ratio,60) PB 长窗
+    fundamental basis
+
+    (60d 而非 20d, 区别 F002 amount_20). "liquidity vol 卖方 × value level 买方" — value ×
+    liquidity 反向交叉.
+
+    预期 max_corr@F002<0.3 (LHS turnover-vol vs F002 LHS PB; RHS PB-60 vs F002 RHS amount-20
+    量纲完全不同),
+
+    max_corr@F004 (std_vol_20)<0.4 (Std turnover vs Std return 不同字段), max_corr@F035
+    (mean_turnover_20)<0.3
+
+    (Std vs Mean 同 atomic 不同 moment).
+
+    推进 T002 + value × liquidity 反向 rank-diff 首次.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div($ps_ratio,$amount),60)),CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),60)))
+  canonical: Sub(CsRank(Mean(Div($ps_ratio,$amount),60)),CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),60)))
+  rationale: 'LHS=Mean(PS/amount,60) PS-per-amount 长窗 (PS 而非 PB 不同基本面字段 + 60d 而非 F002
+    的 20d 长窗扩展;
+
+    F002 raw 是 ratio of rolling, 本 C005 是 rolling of ratio, 几何不同).
+
+    RHS=Mean(body_ratio,60) body_ratio 长窗 (与 F019/F020 RHS body_ratio_20 不同窗口 — 60d
+    agg 平滑短窗噪声).
+
+    预期 max_corr@F002<0.5 (PS vs PB 不同基本面 + 60d vs 20d + ratio 几何不同 三层差异),
+
+    max_corr@F019/F020<0.4 (RHS 60d body vs 20d body 不同窗口 + LHS 完全不同).
+
+    推进 T002 + 测 PS-based value × intraday body 长窗 rank-diff.
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Mean($pb_ratio,5),20)),CsRank(Mean(Std($turnover_rate,5),20)))
+  canonical: Sub(CsRank(Std(Mean($pb_ratio,5),20)),CsRank(Mean(Std($turnover_rate,5),20)))
+  rationale: 'LHS=Std(Mean($pb_ratio,5),20) compound moment — 5d-smoothed PB 在 20d
+    内的 stability (PB regime stickiness
+
+    signal: smooth-then-std). 与 F002 raw PB ratio 完全不同 — compound 嵌套结构.
+
+    RHS=Mean(Std($turnover_rate,5),20) turnover 5d-vol 20d agg (与 F019 RHS Mean(Std($close,5),20)
+    同结构
+
+    但 field 换 turnover — 测 turnover micro-vol RHS 是否仍 cluster-clean).
+
+    "PB stickiness × turnover micro-noise" — value persistence × liquidity granular
+    volatility.
+
+    预期 max_corr@F002<0.3 (compound smooth-then-std LHS vs raw ratio),
+
+    max_corr@F019<0.4 (LHS PB-stability vs body_ratio 不同 atomic; RHS turnover-vol
+    vs price-vol 不同字段),
+
+    max_corr@F004 (std_vol_20)<0.4 (Std turnover vs Std close 不同字段).
+
+    推进 T002 + 测 compound moment LHS (smooth-then-std) 在 rank-diff 几何首次.
+
+    '

@@ -57,9 +57,9 @@ merged_into: null
 # value_liquidity_interaction
 
 > [!abstract]+ 方向概要
-> **状态**　🟡 saturated · priority=low · rounds=7 · admits=1 (F002)
-> **最近**　[[batches/batch_034/judge|batch_034]] · 2026-04-23 · admit=0 / reserve=0 / reject=5
-> **一句话**　基本面 × 流动性交互：DSL 路径和 Python residual 路径都已跑完，剩下的只是不足 `coverage` 的 residual shadow，不再是可继续挖掘的方向。
+> **状态**　🟡 saturated · priority=low · rounds=9 · admits=1 (F002)
+> **最近**　[[batches/batch_052/judge|batch_052]] · 2026-04-25 · admit=0 / reserve=0 / reject=6
+> **一句话**　基本面 × 流动性交互：DSL/Python residual/rank-diff geometry 三条路径全部跑完。F002 是结构性 anchor 锁死库余量；rank-diff 范式连胜 6 跨家族在本方向中断；继续探索需要全新几何角度。
 
 ---
 
