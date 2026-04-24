@@ -1,0 +1,59 @@
+batch_id: batch_042
+round: 41
+direction: vwap_proxy_signals
+direction_md_ref: vault/directions/vwap_proxy_signals.md
+batch_goal: T003 独立 VWAP 形态：F014 (VWAP-prev_close) 之外是否有其它 VWAP 形式携带独立 alpha？探五类锚点：HLC
+  范围内 VWAP 位置 / VWAP 相对范围中点 / VWAP signed 持久性 / VWAP 相对 rolling mean 回归 / VWAP 与 body
+  方向一致性。硬闸 max_corr@F014 < 0.7 防自我近重复，max_corr@F010 < 0.7 防 overnight 维度重复。
+active_threads_referenced:
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T01:25:00Z'
+frozen_at: '2026-04-24T01:25:00Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Sub(Div($amount,$volume), $low), Sub($high, $low))
+  canonical: Div(Sub(Div($amount,$volume),$low),Sub($high,$low))
+  rationale: T003 锚点1：VWAP 在日内 HLC 范围内的位置 = (VWAP-low)/(high-low)。0→VWAP 在当日最低，1→VWAP
+    在当日最高。捕获日内 volume-weighted 买卖压力（VWAP 接近 high = 整日买盘主导）。F007 open_position_persistence
+    是 open 的范围位置，本候选是 VWAP 的范围位置——数学上独立（VWAP ≠ open）；与 F014 (VWAP-prev_close) 机制不同（前者捕日内结构，后者捕跨
+    session 跳空）。
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Sub(Div($amount,$volume), Div(Add($high,$low),2)), Sub($high, $low))
+  canonical: Div(Sub(Div($amount,$volume),Div(Add($high,$low),2)),Sub($high,$low))
+  rationale: T003 锚点2：VWAP 相对日内范围中点的 signed 偏离 = (VWAP - (H+L)/2) / (H-L)。正值→VWAP
+    偏高侧（买方主导）；负值→VWAP 偏低侧。与 C001 非线性相关——C001 是 [0,1] 位置，C002 是 [-0.5,+0.5] 相对中点距离。
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Sign(Sub(Div($amount,$volume), Ref($close,1))), 5)
+  canonical: Mean(Sign(Sub(Div($amount,$volume),Ref($close,1))),5)
+  rationale: T003 锚点3：SIGNED 持久性 = Mean(Sign(VWAP - prev_close), 5)。模仿 F010 overnight_return_persistence
+    形式（5d mean of sign）但用 VWAP-prev_close 而非 overnight_return。风险：与 F010 高度共线；硬闸 max_corr@F010
+    会测——若过则说明 VWAP 含日内量权信息未被 overnight 捕获。
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Sub(Div($amount,$volume), Mean(Div($amount,$volume), 20)), Mean(Div($amount,$volume),
+    20))
+  canonical: Div(Sub(Div($amount,$volume),Mean(Div($amount,$volume),20)),Mean(Div($amount,$volume),20))
+  rationale: T003 锚点4：VWAP 相对 20d 自身 mean 的回归信号 = (VWAP_t / MeanVWAP_20 - 1)。正值→今日
+    VWAP 高于近期 baseline（机构被推上买入）；负值→低于 baseline。与 F002 pb_amount_ratio 不同（后者 P/B ×
+    amount）；与 F014 正交（F014 是日间 jump，本候选是 20d 趋势）。
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Mul(Sign(Sub($close,$open)), Sign(Sub(Div($amount,$volume), Ref($close,1)))),
+    5)
+  canonical: Mean(Mul(Sign(Sub($close,$open)),Sign(Sub(Div($amount,$volume),Ref($close,1)))),5)
+  rationale: T003 锚点5：两源方向一致性 = Mean(Sign(body) × Sign(VWAP-prev_close), 5)。+1 当日内
+    body 与 overnight VWAP 移动同向（trend day），-1 反向（reversal day）。非线性组合，独立于任一单信号。
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Div(Sub(Div($amount,$volume), $low), Sub($high, $low)), 5)
+  canonical: Mean(Div(Sub(Div($amount,$volume),$low),Sub($high,$low)),5)
+  rationale: T003 锚点1-agg：C001 的 5d 平滑。若 C001 通过则测是否持续性成立；若 C001 fail 则本候选作对照。经验：T002
+    DISPROVEN 已证明 (VWAP-close)/close 的 5d agg 不成立，但 C001 形态不同（范围归一化而非 close 归一化），平滑是否挽救待测。
