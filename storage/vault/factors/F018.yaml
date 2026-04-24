@@ -1,0 +1,20 @@
+factor_id: F018
+name: overnight_sign_freq_amount_rank_diff_20
+family_tag: overnight_intraday_split
+source_type: dsl
+admitted_at: '2026-04-24T21:26:25Z'
+admitted_in_batch: batch_049
+status: active
+diagnostics_ref: cache/batch_diagnostics/batch_049/C006
+direction: overnight_intraday_split
+expression: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),20)),CsRank(Mean($amount,20)))
+canonical: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),20)),CsRank(Mean($amount,20)))
+validation_metrics:
+  ic_mean: 0.051057226960848905
+  ic_ir: 0.4729825569814151
+  ic_win_rate: 0.6983471074380165
+  monotonicity: 0.9999999999999999
+  long_short_mean: 0.0017767903398274308
+risk_metrics:
+  style_r_squared: 0.40804644225100883
+  alpha_survival_ratio: 0.3528

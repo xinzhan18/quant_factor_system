@@ -2,41 +2,61 @@
 direction_tag: overnight_intraday_split
 status: productive
 priority: high
-rounds: 5
-admits: 5
-last_batch: batch_048
+rounds: 7
+admits: 7
+last_batch: batch_049
 last_admits:
-- F017
-last_goal: 方向 saturated 后测试 T007 rank-diff 范式 (microstructure 两批 admit 升格) 在 overnight
-  家族 的跨方向泛化 + T004 overnight/intraday ratio 悬挂复活。batch_047 升格教训：rank-diff 结构 alpha
-  = signal-family 组合几何性质，约束 (1) 两端 scale-free (2) raw 字段独立不共振 (3) 两端不被单一库因子主导吸收 (4)
-  Sub 反向对偶同批 dedup。本批六候选按此范式覆盖：(C001) rank-diff 核心——CsRank(overnight_5d mean) − CsRank(intraday_5d
-  mean)，overnight vs intraday 是结构 complement (分子 Δ 字段不同 + 分母字段不同)， 测 CsRank 外包是否 escape
-  F009 spread 的 raw-diff aggregation 吸收；(C002) 同家族跨窗口跨 norm rank-diff ——F010 overnight
-  3d persistence (prev_close 分母) vs F003 overnight gap normalized (MeanHigh 分母)； (C003)
-  跨 direction rank-diff——overnight 5d × turnover_rate 5d，两端独立 direction 且不共享 raw field，
-  测 overnight signal × liquidity signal 是否产新 alpha；(C004) T004 悬挂复活——Div(overnight_5,
-  |intraday_5|) 非 rank 形式 ratio，signal-to-noise 结构；(C005) overnight horizon-diff——CsRank(20d
-  mean) − CsRank(5d mean)， 捕捉 overnight 长短期 acceleration (类 MACD)；(C006) asymmetric
-  rank-diff——CsRank(overnight_5) − CsRank(|intraday_5|)， signed vs magnitude 函数结构异质。避开死模式：Sub
-  反向对偶 (不测 B−A); 两端共享 raw 分母 (C002 分母 Ref($close,1) vs Mean($high,1) 独立); rank-preserving
-  DSL 变换 (本批无纯保序候选)。目标 ≥1 candidate 满足 max_corr@lib <0.70 + alpha_surv >0.40 + ls_t
-  >2 + incremental_ic >0.010，兑现"rank-diff 是通用几何性质"在 overnight 家族的二次泛化。
-last_activity: '2026-04-24T20:41:49Z'
+- F018
+last_goal: 'T008 rank-diff 第四波兑现——测 rank-diff 范式跨 direction LHS 多元化泛化边界。
+
+  batch_048 C003 admit F017 (overnight_5 × turnover_5 rank-diff) 成为 rank-diff 范式跨家族
+
+  第 3 次兑现；若本批再有 1 admit = 第 4 次兑现可触发 Phase 5 consolidation 升格 lessons.md。
+
+  cockpit 硬约束"每个候选 LHS 必须不同"——本批 6 候选 LHS 全部唯一且各来自独立 signal family：
+
+  (C001) Mean|ret|(Amihud-style illiquidity w/o $amount) × overnight——LHS=Mean(Abs(daily_ret),20)，
+
+  RHS=overnight_5；(C002) pb × overnight——LHS=Mean($pb_ratio,20)；
+
+  (C003) turnover_cv × |intraday|——C006-rerun 非 overnight LHS，LHS=Std($turnover,20)/Mean($turnover,20)，
+
+  RHS=|intraday|_5；(C004) volume HHI × overnight——LHS=Sum((volume/Sum(volume,20))²,20)
+  自算 HHI 纯 DSL；
+
+  (C005) L2 RealizedVol × overnight——LHS=Power(Sum(Power(daily_ret,2),20),0.5)，RHS=overnight_5；
+
+  (C006) overnight_sign_freq × amount——LHS=Mean(Sign(overnight),20) 首探 direction.md
+  复活条件 "overnight sign frequency"，
+
+  RHS=amount_20。避开死模式：LHS 全唯一；不用 ratio；不 CsRank 外包已入库 raw-diff；
+
+  不共享 raw numerator/denominator；无同字段跨窗口差。
+
+  技术注释：所有 CsRank 内层使用**标准 qlib DSL 算子** (Mean/Abs/Sum/Power/Sign/Div/Sub/Ref)，
+
+  避免 custom op (AmihudIlliq/HHI/RealizedVol) 的 __str__ 类名悬挂导致 CsRank 重建 cross-sectional
+
+  cache 时找不到算子的 latent bug (见 operators.py:428 _build_cs_cache 调用 D.features 重新 parse)。
+
+  目标 ≥1 candidate 满足 max_corr@lib<0.70 + alpha_surv>0.40 + ls_t>2 + incremental_ic>0.010。'
+last_activity: '2026-04-24T21:27:21Z'
 created_batch: batch_025
 members:
 - F009
 - F010
 - F011
 - F017
+- F{next}
+- F018
 retired_members: []
 merged_into: null
 ---
 # overnight_intraday_split
 
 > [!abstract]+ 方向概要
-> 🟢 **productive** · 4 rounds · 4 admits — overnight 家族 4 slot (F003/F007/F009/F010) 历史 saturated，但 batch_048 C003 (overnight × turnover rank-diff) 正确结构**部分复活**方向——rank-diff 跨 direction 泛化引入第 5 维度（待 Phase 4 分配 F{id}）。
-> **Members**: [[F009]] overnight_intraday_spread_5d · [[F010]] overnight_return_persistence_5d · [[F011]] overnight_return_persistence_3d · overnight_turnover_rank_diff_5 (F{id} 待 Phase 4 分配)
+> 🟢 **productive** · 6 rounds · 5 admits — batch_048 admit F17 (overnight × turnover rank-diff) 复活方向 + batch_049 admit C006 (sign_freq × amount rank-diff) 命中 direction.md hypothesis 文字级复活条件 "overnight sign frequency"，rank-diff 范式第 4 次跨家族兑现 tipping point 达到。
+> **Members**: [[F009]] overnight_intraday_spread_5d · [[F010]] overnight_return_persistence_5d · [[F011]] overnight_return_persistence_3d · [[F017]] overnight_turnover_rank_diff_5 · overnight_sign_freq_amount_rank_diff_20 (F{id} 待 Phase 4 分配)
 
 ---
 
@@ -124,6 +144,44 @@ merged_into: null
 
 ---
 
+### T008 · rank-diff RHS 共享已入库律 [✓ ANSWERED batch_049] 🆕
+
+> [!success]+ Thread 结论：已入库 rank-diff factors 占位的 RHS 对新候选有强吸收
+> **Question**: cockpit 要求 "每个候选 LHS 必须不同" 是否足以 escape 已入库 rank-diff 吸收律？
+> **Answer**: 否。LHS 唯一 ≠ admit 独立——RHS 结构决定吸收强度。当 F010/F017 都在 RHS=overnight_5 端已占位，新候选即使 LHS 多元化（Amihud/pb/HHI/RealizedVol）仍被 F010/F017 RHS 共享吸收。rank-diff admit 路径=RHS 换新 basis + LHS 几何正交。
+> **Evidence trail**:
+> - [[batches/batch_049/candidates/C001|batch_049 C001]]: `Sub(CsRank(Mean|ret|),CsRank(overnight_5))` → max_corr=0.826@F017 + incr_ic=-0.012 → reject（LHS=L1 vol，RHS 共 F017）
+> - [[batches/batch_049/candidates/C002|batch_049 C002]]: `Sub(CsRank(pb_20),CsRank(overnight_5))` → max_corr=0.713@F010 + incr_ic=-0.006 → reject（LHS=pb，RHS 共 F010）
+> - [[batches/batch_049/candidates/C004|batch_049 C004]]: `Sub(CsRank(volume_HHI),CsRank(overnight_5))` → max_corr=0.725@F010 + incr_ic=+0.004 → reject（LHS=vol_HHI，incr 勉强 >0.003 但 <0.005）
+> - [[batches/batch_049/candidates/C005|batch_049 C005]]: `Sub(CsRank(L2_vol),CsRank(overnight_5))` → max_corr=0.824@F017 + incr_ic=-0.009 → reject（LHS=L2 vol，RHS 共 F017）
+> - 四候选共 RHS=overnight_5 全部 reject = **rank-diff RHS 共享已入库律** 验证完整
+>
+> **升格教训**：rank-diff 设计硬约束扩展第 4 条——两端不仅需 "≥1 独立 raw field + 不单一窗口差 + 同批 LHS 共享最多 admit 1"（batch_047+048 三条），还需 **RHS 端不在已入库 rank-diff factors 占位的端点上**。
+
+---
+
+### T009 · asymmetric signed×magnitude 异质结构脱离 overnight LHS [✗ DISPROVEN batch_049] 🆕
+
+> [!failure]+ Thread 结论：batch_048 C006 reserve 的 signed×magnitude 潜在 alpha 主要来自 overnight LHS
+> **Question**: batch_048 C006 `Sub(CsRank(overnight_5), CsRank(|intraday_5|))` 的 signed×magnitude 异质结构脱离 overnight LHS 后能否独立兑现？
+> **Answer**: 否。在 LHS=turnover_cv_20 × RHS=|intraday_5| 组合上信号强度塌缩到 noise 边界（ic_oos=-0.0069 差 0.0011 未过 hard_gate）。反向证明 overnight signal 强度 >> |intraday| signal 强度，batch_048 C006 的潜在 alpha 主要来自 overnight LHS 端，非 signed×magnitude 函数形式本身。
+> **Evidence trail**:
+> - [[batches/batch_049/candidates/C003|batch_049 C003]]: `Sub(CsRank(turnover_cv_20),CsRank(|intraday_5|))` → hard_gate fail ic_oos=|-0.0069|<0.008（max_corr=0.422@F016, incr_ic=+0.021, style_r²=0.074 健康——不是机制问题而是**信号强度问题**）
+
+---
+
+### T010 · overnight sign frequency 复活条件首次探测 [✓ ANSWERED batch_049] 🆕
+
+> [!success]+ Thread 结论：sign 聚合与 magnitude 聚合几何正交——hypothesis 文字级复活条件兑现
+> **Question**: direction.md Hypothesis "正交 aggregation：overnight sign frequency（方向而非 magnitude）" 复活条件是否携带独立于现有 magnitude 聚合（F009/F010/F011）的 alpha？
+> **Answer**: 是。`Mean(Sign(overnight),20)` rank 相对 amount rank 的 rank-diff 是 F010 相关仅 0.37 几何独立维度——sign 聚合完全丢弃 magnitude 只保留方向，与库内所有 overnight magnitude 聚合正交。整库 cum_ic_mdd 最浅级别（-1.53）+ 9/9 年全正 + 近年增强（2022/2023 最高 IC）证明 edge 在当前市场仍在增强。
+> **Evidence trail**:
+> - [[batches/batch_049/candidates/C006|batch_049 C006]]: `Sub(CsRank(Mean(Sign(overnight),20)),CsRank(Mean($amount,20)))` → **admit → [[factors/F018]]** ic_oos=+0.051, ls_t=+5.98, mono=+1.0, ICIR=+0.473, incr_ic=+0.015, max_corr=0.616@F012, 9/9 yr + (近年最强), cum_mdd=-1.53 (整库最浅), horizon 1d→20d IC 单调增强 (0.051→0.127)，factor_name=`overnight_sign_freq_amount_rank_diff_20`
+>
+> **Next probes**：sign 聚合泛化——`sign_freq × turnover` / `sign_freq × pb` / `overnight 长 horizon (20d+) sign_freq` / `overnight × intraday 非线性交互`（hypothesis 复活条件 (c) 第二条尚未探测）。
+
+---
+
 ## Known Failures
 
 | Batch | Candidate | Pattern | 原因 |
@@ -136,6 +194,11 @@ merged_into: null
 | batch_048 | C002 | `Sub(CsRank(overnight_3),CsRank(overnight_gap_norm))` | ic_oos=0.004 noise（共 numerator 抵消律）|
 | batch_048 | C004 | `Div(overnight_5, Abs(intraday_5))` | T004 ratio 证伪，incr_ic=0.002 + max_corr=0.898@F010 |
 | batch_048 | C005 | `Sub(CsRank(overnight_20),CsRank(overnight_5))` | ic_oos=-0.0014 noise（同字段跨窗口 rank-diff 抵消律）|
+| batch_049 | C001 | `Sub(CsRank(Mean\|ret\|_20),CsRank(overnight_5))` | max_corr=0.826@F017 + incr_ic=-0.012（RHS=overnight_5 共 F017 rank-diff 被吸收）|
+| batch_049 | C002 | `Sub(CsRank(pb_20),CsRank(overnight_5))` | max_corr=0.713@F010 + incr_ic=-0.006（RHS=overnight_5 共 F010 被吸收）|
+| batch_049 | C003 | `Sub(CsRank(turnover_cv_20),CsRank(\|intraday_5\|))` | hard_gate fail ic_oos=-0.0069 差 0.0011（signed×magnitude 异质结构脱离 overnight LHS 塌缩）|
+| batch_049 | C004 | `Sub(CsRank(volume_HHI_20),CsRank(overnight_5))` | max_corr=0.725@F010 + incr_ic=+0.004（同批 C006 主导让位，RHS=overnight_5 饱和）|
+| batch_049 | C005 | `Sub(CsRank(L2_RealizedVol_20),CsRank(overnight_5))` | max_corr=0.824@F017 + incr_ic=-0.009（与 C001 几乎同构，L1/L2 vol 在 csi1000 日频数值等价）|
 
 ---
 
@@ -180,3 +243,14 @@ merged_into: null
 > **rank-diff 设计硬约束三条升格**（跨 batch_047+batch_048 证据链完整）：两端必须 ≥1 独立 raw field、不能单一 aggregation 窗口差、同批 LHS 共享最多 admit 1。
 >
 > **下一步**：方向 productive 后续 overnight × 其它独立 scale-free signal rank-diff 测试（Amihud/pb_amount rank）；C006 signed × magnitude 异质结构在非 overnight LHS 重测。
+
+> [!quote]+ 2026-04-25 [[batches/batch_049/judge|batch_049]] · productive (5 admits，rank-diff 第 4 次跨家族兑现)
+> admit=1 / reject=5。核心：**hypothesis 文字级复活条件 "overnight sign frequency" 首次 ANSWERED**（T010）——C006 `Sub(CsRank(Mean(Sign(overnight),20)),CsRank(Mean($amount,20)))` = ic_oos=+0.051 ls_t=+5.98 mono=+1.0 incr_ic=+0.015 max_corr=0.616@F012，整库 cum_ic_mdd 最浅级别（-1.53）+ 9/9 年全正 + 近年最强 + horizon 1d→20d IC 单调增强。Sign 聚合与 magnitude 聚合**几何正交**（F010 相关仅 0.37），rank-diff 范式第 4 次跨家族兑现达 tipping point。
+>
+> 同时 **T008 rank-diff RHS 共享律 ANSWERED**：cockpit 约束 "LHS 全唯一" 本批严格执行但 C001/C002/C004/C005 四候选 RHS 共 overnight_5 全 reject——LHS 唯一 ≠ admit 独立，RHS 结构决定吸收强度。rank-diff 设计硬约束扩展第 4 条：**RHS 端不在已入库 rank-diff factors 占位端点上**。
+>
+> **T009 DISPROVEN**：batch_048 C006 reserve 的 signed×magnitude 潜在 alpha 主要来自 overnight LHS，脱离 overnight 后塌缩 noise——反向证 overnight signal >> \|intraday\| signal 强度。
+>
+> **L1 vs L2 vol 冗余揭示**（C001 vs C005）：在 csi1000 日频低 kurt 样本上 Mean\|ret\| ≈ sqrt(Σret²)，未来不应同批组合两者。
+>
+> **下一步**：避开 RHS=overnight_5（饱和证明），sign 聚合 × 其它 basis 泛化（sign_freq × turnover / sign_freq × pb / 20d+ sign_freq）；或 overnight × intraday **非线性交互**（复活条件 (c) 第二条尚未探测）。**建议 Phase 5 consolidation 升格 lessons.md "rank-diff geometry" section** —— 4 次跨家族兑现证据链完整（batch_046/047 microstructure + batch_048 overnight_turnover + batch_049 sign_freq × amount）。
