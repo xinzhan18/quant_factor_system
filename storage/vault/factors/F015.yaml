@@ -1,0 +1,21 @@
+factor_id: F015
+name: amihud_cv_rank_diff_20
+family_tag: microstructure_illiquidity
+source_type: dsl
+admitted_at: '2026-04-24T19:21:28Z'
+admitted_in_batch: batch_046
+status: active
+diagnostics_ref: cache/batch_diagnostics/batch_046/C003
+direction: microstructure_illiquidity
+expression: Sub(CsRank(Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount),
+  20)), CsRank(Div(Std($amount, 10), Mean($amount, 10))))
+canonical: Sub(CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)),CsRank(Div(Std($amount,10),Mean($amount,10))))
+validation_metrics:
+  ic_mean: 0.05397926964924133
+  ic_ir: 0.5441030154456679
+  ic_win_rate: 0.7086776859504132
+  monotonicity: 0.9999999999999999
+  long_short_mean: 0.0016966479331228983
+risk_metrics:
+  style_r_squared: 0.35340326197844907
+  alpha_survival_ratio: 0.6582

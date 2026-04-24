@@ -1,28 +1,35 @@
 ---
 direction_tag: microstructure_illiquidity
-status: saturated
-priority: high
-rounds: 2
-admits: 1
-last_batch: batch_031
-last_admits: []
-last_goal: T001+T004 深化：探 Amihud residualization（除以 realized_vol / mean_turnover /
-  CsZscore）能否把 CP04 style_r² 从 0.47 降到 <0.25、alpha_survival 推到 >0.7；测 5d return Amihud
-  horizon 变体；测 PB/Amihud 非对称 Div 结构（避开 Mul 量纲吞噬陷阱）打开 illiquidity × value 第三维。目标 1+
-  admit。
-last_activity: '2026-04-23T12:13:48Z'
+status: productive
+priority: medium
+rounds: 4
+admits: 3
+last_batch: batch_046
+last_admits:
+- F015
+last_goal: '方向 saturated 后复活条件 (b) rank-diff symmetric interactions 探索 + sign-conditional
+  Amihud 变体。绕开 batch_030/031 DSL residualize/horizon/Div cross-field 全败空间： (1) up-day
+  vs down-day sign-conditional Amihud — 用 If gate 替代 Abs， 测 illiquidity 是否携带 signed
+  directional information (batch_030 系列只测 symmetric magnitude)。 (2) Rank-diff symmetric
+  interaction: CsRank(Amihud) - CsRank(F001_CV 里的 Std/Mean) 替代已败的 Div 结构（batch_031
+  T004 disproven），scale-free 且几何上 真正对称。 (3) SignedPower(Amihud, 0.5) tail-compressed
+  non-linear monotonic 变体，作为 rank-preserving 空对照延续（批 031 CsZscore 保序证据）。 (4) 探索新的
+  Kyle-lambda 风格 signed illiquidity proxy (Δturnover / turnover²) — 非 |return| magnitude
+  的替代信号源。 目标 ≥ 1 candidate 同时满足 max_corr@F012 < 0.50 + alpha_survival > 0.4。'
+last_activity: '2026-04-24T19:22:38Z'
 created_batch: batch_030
 members:
 - F012
+- F015
 retired_members: []
 merged_into: null
 ---
 # microstructure_illiquidity
 
 > [!abstract]+ 方向概要
-> - **状态**　🟡 `saturated` · priority `low` · rounds = 2 · admits = 1
-> - **最近**　[[batches/batch_031/judge|batch_031]] · 2026-04-23 · admit=0 / reserve=1 / reject=5
-> - **一句话**　方向 2 批结案：F012 (Amihud 20d amount-denom) 是 DSL 空间几何不变量 + 所有 residualization 路径搬家不减负；DSL 层 4 threads 全部 ANSWERED/DISPROVEN。
+> - **状态**　🟢 `productive` · priority `medium` · rounds = 3 · admits = 2
+> - **最近**　[[batches/batch_046/judge|batch_046]] · 2026-04-25 · admit=1 (C003) / reserve=1 (C006) / reject=4
+> - **一句话**　方向 saturated 后被 batch_046 rank-diff symmetric interactions 复活：F013-to-be (Amihud rank − amount CV rank) 在 DSL 空间开辟 F012 之外的独立 alpha 子空间，兑现 direction 复活条件 (b)。
 
 ---
 
@@ -43,18 +50,53 @@ merged_into: null
 
 ---
 
-<!-- Current Focus section removed: direction saturated after batch_031 -->
+<!-- Current Focus: batch_046 后 direction 从 saturated 复活为 productive -->
 
-> [!warning]+ 饱和说明（batch_031 后追加）
-> batch_031 验证 residualize 路径全部失败后，方向 2 批结案转 saturated。F012 是 DSL Amihud 空间的**几何不变量**——同方向 12 累计候选中，0 个脱离 Barra vol_20d/turnover_20d 双 basis。
+> [!success]+ 复活说明（batch_046 后追加，2026-04-25）
+> batch_046 C003 `Sub(CsRank(Amihud_20d), CsRank(amount_CV_10d))` admit 后方向从 `saturated → productive`。**复活条件 (b) rank-diff symmetric interactions 被证实有效**——这是在宣告 saturated 后 2 批即找到的有效子空间，说明 saturated 定性是对**当时探索范式的局部最优陈述**，不是永久结论。
 >
-> **为什么 ROI 归零**：5/6 residualize 候选与 F012 相关 0.707-1.000（rank-preserving 变换保序 / Div 残差化搬家不减负 / cross-field Div 量纲吞噬）；唯一略出 near_dup 线的 C003 Amihud/mean_turnover CP04 塌陷（alpha_surv 0.44→0.14）。
+> **兑现机制**: rank-diff 结构在 F012 空间之外开辟新维度，max_corr=0.655 接近 0.70 阈但 incremental_ic=0.031 证明库增值，alpha_surv=0.658 比 F012 高 48%。两端 scale-invariance 是必要条件（C004 Std 变体破坏范式）。
 >
-> **复活条件**：(a) Python Barra residualized F012 走 barra_residual_alpha 方向；(b) rank-diff 结构 symmetric 交互（尚未测）；(c) minute-bar / tick-level 数据引入后 microstructure 空间真正扩张；(d) F012 退役后本方向 HHI/Entropy 家族复活。
+> **尚未兑现的复活条件**: (a) Python Barra residualized F012 → 归 [[directions/barra_residual_alpha]]；(c) minute-bar / tick-level 数据暂无；(d) F012 健在不需其家族复活。
+>
+> **下一轮方向**: T006 ANSWERED 后可开 T007 "rank-diff 扩展到其他 signal family"（vs F002 pb_ratio / F003 overnight gap / F007 open_position 等），测试范式在不同 signal 对上的泛化。
 
 ---
 
 ## Threads
+
+### T006: rank-diff symmetric interactions [✓ ANSWERED batch_046]
+
+> [!success]+ Thread 结论
+> **Question**: 跨 signal family 的 CsRank 差结构（绕开 batch_031 T004 Div residualization disproven）是否能在 F012 之外开辟独立 alpha 子空间？
+>
+> **Answer**: 是。C003 `Sub(CsRank(Amihud_20d), CsRank(amount_CV_10d))` admit — IC_oos=0.054 mono_oos=1.0 ls_t=6.63 alpha_surv=0.658 incr_ic=0.031 max_corr=0.655@F012（strictly < 0.70 硬闸）9/9 年全正。**rank-diff 结构的 scale-free 属性让其真正脱离 F012 主子空间**，同时保留 F012 的 illiquidity 机制 + F001 的 amount dispersion 机制作为正交 rank reference。
+>
+> **Evidence trail**:
+> - [[batches/batch_046/candidates/C003|batch_046 C003]]　`Sub(CsRank(Amihud_20d), CsRank(amount_CV_10d))` → **admit → F{id}@Phase4 amihud_cv_rank_diff_20**
+> - [[batches/batch_046/candidates/C004|batch_046 C004]]　`Sub(CsRank(Std_amount), CsRank(Amihud_20d))` → max_corr=0.935 hard_gate reject（Std scale-dep 破坏 rank-diff 范式）
+>
+> **升格教训**: **rank-diff 符合率 range**：两端 signal family 都 scale-invariant（CV / ratio / correlation）时 rank-diff 结构 alpha 才独立；若一端 scale-dependent（Std / Mean / 绝对 level），rank-diff 退化为主因子近重复。C003/C004 对照是首个硬证据。推广到其他方向: 设计 CsRank 差结构时两端必须都 scale-free。
+
+### T005: sign-conditional / signed Amihud 变体 [◉ ACTIVE]
+
+> [!failure]+ Thread 结论
+> **Question**: (1) up-day vs down-day Amihud 是否有 sign asymmetry？(2) signed illiquidity proxy（Kyle-lambda 风格 Δturnover/turnover²）是否独立于 Abs(Amihud) 磁性空间？
+>
+> **Answer**:
+> - (1) 日频 20d 窗口下 **sign asymmetry 不存在**：C001 (up-day) max_corr=0.942, C002 (down-day) max_corr=0.918，对偶差仅 0.024（噪声级）。day-level sign gate + 20d mean aggregation 的组合在 csi1000 上抹平 asymmetry。
+> - (2) C006 Kyle-lambda signed turnover illiq: max_corr=0.16 库独立，9 年全负 sign_consistency=1.0 — **信号真实独立**，但 CP03 weak (ls_t=-1.84) + CP04 poor (alpha_surv=0.17) + signed incr_ic=-0.031 稀释库 → reserve 负参考。
+>
+> **Evidence trail**:
+> - [[batches/batch_046/candidates/C001|batch_046 C001]]　up-day Amihud → max_corr=0.942@F012 → reject (hard_gate)
+> - [[batches/batch_046/candidates/C002|batch_046 C002]]　down-day Amihud → max_corr=0.918@F012 → reject (hard_gate)
+> - [[batches/batch_046/candidates/C005|batch_046 C005]]　SignedPower(F012, 0.5) → max_corr=**1.000** → reject (rank-preserving 保序二证)
+> - [[batches/batch_046/candidates/C006|batch_046 C006]]　Mean(Δturnover/turnover², 20) → ic_oos=-0.042 ls_t=-1.84 alpha_surv=0.17 max_corr=0.16 signed_incr_ic=-0.031 → reserve
+>
+> **升格教训**:
+> 1. **day-level sign gate + window mean aggregation 抹平 asymmetry** —— 复活条件: ≤ 5d 短窗（减少对称化）或 quantile-based asymmetry 测度（非 mean aggregation）
+> 2. **DSL rank-preserving 变换族 ({Linear / SignedPower(p>0) / Sigmoid / Tanh / Exp / Softmax}) 对单已 admit 因子零信息增量** —— 建议 generator 层 hard-gate 预拦截（batch_031 C004 CsZscore + batch_046 C005 SignedPower 双证）
+> 3. **Kyle-lambda signed illiquidity 方向库独立但 alpha 弱** —— 探索需走 CV 归一 / Barra residualize / 更强机制重构
 
 ### T001: Amihud 类 illiquidity 指标 [✓ ANSWERED batch_031]
 
@@ -144,7 +186,18 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-23 · [[batches/batch_031/judge|batch_031]] · T001 ANSWERED + T004 DISPROVEN · 方向 saturated
+> [!quote]+ 2026-04-25 · [[batches/batch_046/judge|batch_046]] · T006 ANSWERED · T005 PARTIAL-DISPROVEN · 方向从 saturated 复活为 productive
+> admit=1 (C003) / reserve=1 (C006) / reject=4。
+> - **C003 rank-diff breakthrough**: `Sub(CsRank(Amihud_20d), CsRank(amount_CV_10d))` 兑现 saturated 复活条件 (b) rank-diff symmetric interactions — IC_oos=0.054 mono_oos=1.0 ls_t=6.63 alpha_surv=0.658（比 F012 的 0.443 高 48%）incr_ic=0.031 max_corr=0.655@F012（< 0.70 阈）9/9 年全正 cum_ic_mdd=-1.61 批内最强。
+> - **C001/C002 sign-conditional 对偶结题**: up-day vs down-day Amihud max_corr 0.942/0.918 near_dup F012 → 日度 20d 窗口下 sign asymmetry 近乎完美被窗口均值抹平，散户恐慌抛售假说在此时间尺度不成立。
+> - **C004 rank-diff 设计范式硬证据**: 同 C003 结构但分母端 Std (scale-dep) 替 CV → max_corr 0.935 退化为 F012 近重复。**升格教训**: rank-diff 结构 alpha 源依赖两端 signal family 都 scale-invariant（CV / ratio / correlation）；若一端 scale-dependent，rank-diff 退化。
+> - **C005 rank-preserving 保序二证**: SignedPower(F012, 0.5) max_corr=**1.000** — 延续 batch_031 C004 CsZscore 1.000 教训，证实 DSL 层 {Linear / SignedPower(p>0) / Sigmoid / Tanh / Exp / Softmax} 对单已 admit 因子零信息增量。
+> - **C006 signed illiq proxy 独立但弱**: Kyle-lambda 风格 Δturnover/turnover² max_corr=0.16（库独立）+ 9 年全负（sign_consistency=1.0），但 alpha_surv=0.17 + signed incr_ic=-0.031 稀释库 → reserve 负参考。
+> - **MT budget**　cumulative 152 → **240** · direction 12 → **18** · bucket `high`（search_adjusted 0.54 medium, C003 strong 档保留）
+
+> **Operations**　`status: saturated → productive` · `priority: low → medium` · rounds 2→3 · admits 1→2 · T006 ANSWERED, T005 保留 ACTIVE, 新开 T007（rank-diff 扩展到其他 signal family）。
+
+> [!quote]- 2026-04-23 · [[batches/batch_031/judge|batch_031]] · T001 ANSWERED + T004 DISPROVEN · 方向 saturated
 > admit=0 / reserve=1 (C003) / reject=5。
 > - **F012 几何不变量**（5/6 候选）：10d/5d-return/CsZscore/vol-residualize/PB-cross 全部与 F012 相关 0.707-1.000
 > - **T004 四子路径全败**：residualization 不是真 orth（rank-preserving 保序 / Div 搬家 / Div cross-field 量纲陷阱）
