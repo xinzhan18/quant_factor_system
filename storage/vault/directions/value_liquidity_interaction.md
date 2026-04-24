@@ -2,14 +2,53 @@
 direction_tag: value_liquidity_interaction
 status: saturated
 priority: low
-rounds: 7
+rounds: 9
 admits: 1
-last_batch: batch_034
+last_batch: batch_052
 last_admits: []
-last_goal: 测试 value_liquidity_interaction 的唯一 Python 逃生口：对最有信息量的 reserve 做 signal-level
-  Barra residualization，重点验证 C007_b9/C003_b9/C004_b5/C001_b7 在剥离 vol_20d、turnover_20d、str_1m
-  后，能否把 rank-order 证据兑现为可 admit 的独立 alpha。
-last_activity: '2026-04-23T16:42:41Z'
+last_goal: "T012 rank-diff 范式第 7 次跨家族泛化——测 value (PE/PB/PS) × liquidity (turnover/amount)\
+  \ 在 rank-diff 几何下能否独立兑现。\n\n当前 rank-diff 6 admit 跨 5 family (microstructure×2 /\
+  \ overnight×2 / OHLC×1 / gap×1 = F015/F016/F017/F018/F019/F020)。\nvalue_liquidity_interaction\
+  \ 仅 F002 (Div($pb,Mean($amount,20)) 原始比率，非 rank-diff)，本方向 7 轮探索仅 1 admit\n且全部 DSL\
+  \ 路径 (Mul/Div/Sub-rank) + Python residual 已被验证封闭。本批 reopen 唯一未试角度：rank-diff geometry\n\
+  在 value × liquidity 家族首次完整投放，借助 b050/b051 已确立的 4 条几何律设计 LHS/RHS。\n\n设计硬约束：\n(1)\
+  \ 每候选 LHS 唯一 — 6 LHS 全不同 atomic value/liquidity 表达；\n(2) 严避免重演 T001-T007 disproven\
+  \ 的 Mul/Div/PE_rate 路径；不用 Delta/$pe rate of change (lessons new_dead);\n(3) RHS\
+  \ 端避开 RHS 共振饱和律 endpoints (overnight_5/turnover_5/amount_20/turnover_5_cv/price_vol_20-short)；\n\
+  \    选 body_ratio_20/60 / |return|_60 / pb_60 / amount_60 / price_vol_60-long 等非饱和\
+  \ basis;\n(4) LHS 端避开 size proxy 红线 (|corr|>0.3 vs $market_cap/$circ_market_cap)\
+  \ — 不直接放 $market_cap;\n(5) 不重演 T003/T006 PE_rate 自归一化 (lessons.md new_dead 已升格);\n\
+  (6) 优先 higher-moment LHS independence axis (Std/Var vs Mean) 复用 b050 T012 教训;\n\
+  (7) 不重演 F002 同形 (Div($pb,Mean($amount,20)) 原始比率) — 本批全部 rank-diff 包装。\n\nC001 pe_vol_pricevol_rank_diff_20\
+  \ — LHS=Std($pe_ratio,20) higher-moment of PE level (跳出 PE_rate 自归一化死区),\n  RHS=Mean(Std($close,5),60)\
+  \ 60d price_vol 长窗 (区别 b051 dead RHS price_vol_20 短窗). 测 PE 横截面波动性\n  与 price_vol\
+  \ 长窗的 rank-diff 几何独立性. 预期 max_corr@F002<0.3 (Std vs raw level), max_corr@F019<0.4\
+  \ (LHS atomic 不同).\n\nC002 pe_per_turnover_body_ratio_diff_20 — LHS=Mean(Div($pe_ratio,$turnover_rate),20)\
+  \ PE 单位换手率\n  (类似 illiquidity-adjusted PE, 不是 PE_rate 也不是 PE/amount = F002 dual),\
+  \ RHS=Mean(body_ratio,20)\n  OHLC structural basis (b051 admit C002 已验证 body_ratio\
+  \ 是新 RHS 安全类目). 测 \"value per liquidity\" 单调性.\n  预期 max_corr@F002<0.4 (PE/turnover\
+  \ vs PB/amount 不同基本面对/不同分母), max_corr@F020<0.3 (LHS gap-vol vs PE-liq).\n\nC003\
+  \ pb_turnover_jointvol_absret_diff_60 — LHS=Std(Mul($pb_ratio,$turnover_rate),60)\
+  \ PB×turnover 乘积的时序波动 60d\n  (joint volatility of value×liquidity product, second-order\
+  \ co-movement; 避开 Qlib Corr/Cov 跨字段 NaN-window shape bug),\n  RHS=Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)\
+  \ |daily_return| mean 60d (Amihud 分子无 amount 分母 — b051 C006 已开创该 RHS).\n  测 value-liquidity\
+  \ 联合 vol vs return magnitude basis. 预期 max_corr@F012/F015 (Amihud)<0.4, max_corr@F002<0.3.\n\
+  \nC004 turnover_vol_pb_long_diff_20 — LHS=Std($turnover_rate,20) turnover higher-moment\
+  \ (Std 不是 Mean,\n  与 F033 mean_turnover_5 等 raw mean 不同), RHS=Mean($pb_ratio,60)\
+  \ PB 长窗 fundamental basis (60d 而非 20d/40d).\n  \"liquidity volatility 卖方 × value\
+  \ level 买方\" — 价值 × 流动性反向交叉. 预期 max_corr@F002<0.3 (LHS/RHS 完全反向),\n  max_corr@F004\
+  \ (std_vol_20)<0.4 (turnover vs price std), max_corr@F035 (mean_turnover_20)<0.4\
+  \ (Std vs Mean).\n\nC005 ps_amount_ratio_body_ratio_diff_60 — LHS=Mean(Div($ps_ratio,$amount),60)\
+  \ PS 单位 amount 长窗 (与 F002 PB/amount_20 不同基本面 + 不同窗口),\n  RHS=Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),60)\
+  \ body_ratio 长窗 60d (与 F019/F020 RHS body_ratio_20 不同窗口).\n  测 PS-based value ×\
+  \ intraday body 长窗. 预期 max_corr@F002<0.5 (PS vs PB + 60d vs 20d 双层差异), max_corr@F019/F020<0.4\
+  \ (60d vs 20d).\n\nC006 pb_stability_turnover_vol_diff_20 — LHS=Std(Mean($pb_ratio,5),20)\
+  \ PB 5d-smoothed level 在 20d 的 stability\n  (compound moment: smooth-then-std, 测\
+  \ PB 稳定性 — 类似 PB regime stickiness signal),\n  RHS=Mean(Std($turnover_rate,5),20)\
+  \ turnover 5d-vol 20d agg (与 F019 RHS price_vol-style 同结构但用 turnover).\n  \"PB stickiness\
+  \ × turnover micro-volatility\" — value persistence × liquidity micro-noise rank-diff.\n\
+  \  预期 max_corr@F002<0.3 (compound LHS), max_corr@F019<0.4 (LHS PB vs body_ratio)."
+last_activity: '2026-04-24T23:56:36Z'
 created_batch: batch_005
 members:
 - F002
@@ -57,12 +96,19 @@ merged_into: null
 >
 > **Disproven**: 乘法/除法/秩差三条 DSL 路径都已封闭，而 batch_034 进一步证明连 Python residual 也救不回 T001。C001/C002 一旦剥掉 `vol_20d/turnover_20d/str_1m` 载体，只剩 coverage 不足且符号翻转的弱噪声，说明这条交互 edge 并不会以独立残差信号的形式存活。
 
-### T002: Size × Liquidity 反转 [◉ ACTIVE · 未跑]
+### T002: Value × Liquidity rank-diff geometry [✗ DISPROVEN batch_052]
 
-> [!note]+ Thread 进展
-> **Question**: 小市值 × 高流动性 vs 小市值 × 低流动性 在 A 股是否构成反转信号？
-> **Evidence trail**: 批次待跑 —— 市值代理红线 ([[lessons#Structural Constraints]]) 需谨慎设计
-> **Next**: 避免直接 $market_cap；改用 log_circ_cap Barra 残差或 tick-level proxy
+> [!failure]+ Thread 结论
+> **Question**: rank-diff geometry (b049/b050/b051 在 microstructure/overnight/OHLC/gap 4 family 6 admit) 能否在 value × liquidity family 第 7 次跨家族兑现？
+> **Evidence trail**:
+> - [[batches/batch_052/candidates/C001|C001_b52]] Std($pe,20) × Mean(Std(close,5),60) → hard_gate sign_flip + mono_sign_flip
+> - [[batches/batch_052/candidates/C002|C002_b52]] Mean(PE/turnover,20) × body_ratio_20 → ic_oos=0.012 ls_t=0.05 alpha_surv=0.46 max_corr=0.40@F020 → reject (三 borderline)
+> - [[batches/batch_052/candidates/C003|C003_b52]] Std(PB×turnover,60) × |return|_60 → hard_gate sign_flip
+> - [[batches/batch_052/candidates/C004|C004_b52]] Std(turnover,20) × Mean(PB,60) → ic_oos=-0.019 ls_t=-0.91 **alpha_surv=0.96(整批最干净!)** max_corr=-0.45@F002 → reject (CP4 干净但 CP3 弱 + CP5 cluster)
+> - [[batches/batch_052/candidates/C005|C005_b52]] Mean(PS/amount,60) × body_ratio_60 → alpha_surv=0.12 严重 Barra 吞噬 + max_corr=0.47@F002 → reject
+> - [[batches/batch_052/candidates/C006|C006_b52]] Std(Mean(PB,5),20) × Mean(Std(turnover,5),20) → hard_gate ic_oos=0.0077<0.008 + ls_t_is=12.18 → ls_t_oos=-0.13 崩塌
+>
+> **Disproven**: rank-diff 范式连胜 6 跨 5 family (microstructure/overnight×2/OHLC/gap) 在 value × liquidity 中断。三条独立失败机制 — 不是 RHS 选择问题（已避开所有 dead RHS endpoints + 引入新 RHS basis），是 LHS 端基本面字段在 rank-diff 几何中固有的 regime-sensitivity + F002 cluster anchor 锁死。**结论：rank-diff geometry 不是万能钥匙——saturated 方向的 anchor factor (本方向 F002) 会消化新候选的库余量**。
 
 ### T003: PE 变化率 vs amount 变化率脱钩 [✗ DISPROVEN batch_034]
 
@@ -141,6 +187,12 @@ merged_into: null
 | [[batches/batch_034/candidates/C003\|C003_b34]] | residualized PE_rate rank - PB_rate rank | coverage=0.712 + ic_oos=-0.0069；库干净但强度过弱 |
 | [[batches/batch_034/candidates/C004\|C004_b34]] | residualized PE_rate baseline | `alpha_surv=1.09` 但 coverage=0.712；真实残差无可执行覆盖 |
 | [[batches/batch_034/candidates/C005\|C005_b34]] | residualized funda-rate composite | `alpha_surv=1.20` 但 coverage=0.712；合成 residual 仍卡硬闸 |
+| [[batches/batch_052/candidates/C001\|C001_b52]] | Sub(CsRank(Std($pe,20)), CsRank(...)) | hard_gate sign_flip + mono_sign_flip；PE level Std 跨 regime 翻号 |
+| [[batches/batch_052/candidates/C002\|C002_b52]] | Sub(CsRank(Mean(PE/turnover,20)), CsRank(body_ratio_20)) | ls_t=0.05 + max_corr=0.40@F020；body_ratio_20 RHS 第二次复用退化为共振 |
+| [[batches/batch_052/candidates/C003\|C003_b52]] | Sub(CsRank(Std(PB×turnover,60)), CsRank(\|return\|_60)) | hard_gate sign_flip；joint vol of value×liq product 同样 regime-sensitive |
+| [[batches/batch_052/candidates/C004\|C004_b52]] | Sub(CsRank(Std(turnover,20)), CsRank(Mean(PB,60))) | **alpha_surv=0.96(整批最干净)** + max_corr=-0.45@F002；F002 anchor cluster reject |
+| [[batches/batch_052/candidates/C005\|C005_b52]] | Sub(CsRank(Mean(PS/amount,60)), CsRank(body_ratio_60)) | alpha_surv=0.12 严重 Barra 吞噬 + amount-family 全 cluster |
+| [[batches/batch_052/candidates/C006\|C006_b52]] | Sub(CsRank(Std(Mean(PB,5),20)), CsRank(Mean(Std(turnover,5),20))) | hard_gate ic_oos_too_low + IS=+12.18 → OOS=-0.13；compound moment LHS over-fit |
 
 **失败模式系统化**：
 - `Mul(A, B)` 交互 → 量纲主导方吞噬 (5 次证伪)
@@ -162,6 +214,16 @@ merged_into: null
 ---
 
 ## Narrative Log
+
+> [!quote]+ 2026-04-25 · [[batches/batch_052/judge|batch_052]]
+> admit=0 · reserve=0 · reject=6。方向第 8 轮探索，T002 rank-diff × value × liquidity 完整投放后宣告 DISPROVEN。三条独立机制揭示：
+> - **基本面 second-order moment 跨 regime sign_flip** (C001 PE Std + C003 PB×turnover joint vol 双例)：raw 基本面字段 (PE/PB/PS) 的 higher-moment (Std/Var/joint-vol) 在 rank-diff 几何中天然 regime-sensitive，区别于 PE_rate (lessons.md 已 promote) 死区，是更基础的 raw level second-order 死区
+> - **value × liquidity ratio 必 cluster F002 anchor** (C002/C004/C005 三例 max_corr 0.40-0.47)：F002 在本方向是结构性 anchor，任何含 amount/turnover 分母的几何排列都被锁死。"RHS 共振饱和律" 在 saturated 方向进阶为 "factor-anchored cluster"
+> - **compound moment LHS over-fit** (C006 ls_t_is=12.18 → ls_t_oos=-0.13 戏剧崩塌)：嵌套 smooth-then-std 与单层 higher-moment (b051 admit C002 单层 Std(gap_ret) 行为完全相反) — 单层是 alpha 源头，嵌套是 over-fit 源头
+>
+> **CP4 alpha-survival 整批分布最完整**：C005=0.12 严重吞噬 / C002=0.46 borderline / C004=0.96 整批最干净。C004 干净但 cluster F002 reject，第二次复现 b051 升格律 "Barra-clean ≠ library-clean"。
+>
+> **方向决策**：维持 saturated（不退 dead——本批 3 条新结构教训知识价值已交付）。下次再开本方向需 (a) 完全脱离 amount/turnover 分母的新几何 / (b) Python residual 路径有新工具 / (c) 跨家族 rank-diff 在新 family 兑现后回流。**rank-diff geometry 7 跨家族泛化在 value × liquidity 中断——证明范式不是万能**。
 
 > [!quote]+ 2026-04-23 · [[batches/batch_034/judge|batch_034]]
 > admit=0 · reserve=0 · reject=5。方向唯一保留的 Python Barra residual 逃生口完成后仍然零 admit，方向正式转 `saturated`。

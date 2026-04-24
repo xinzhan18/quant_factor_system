@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-24T23:05:44Z
-round: 51
+generated_at: 2026-04-24T23:56:36Z
+round: 52
 total_active_directions: 13
 total_factors_admitted: 19
-last_batch: batch_051
+last_batch: batch_052
 last_consolidation_round: null
 ---
 
@@ -15,13 +15,13 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**51** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_051/judge|batch_051]] → [[directions/gap_acceptance_structure]] · admit=**1**/6 (reserve=1, reject=4) · direction.status=`productive`
-> **健康** · rounds_since_consolidation=**7** · active_directions=**13**
-> **⚠️ 预警** · 空 factor.md: F015, F020
+> **状态** · round=**52** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_052/judge|batch_052]] → [[directions/value_liquidity_interaction]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`saturated`
+> **健康** · rounds_since_consolidation=**8** · active_directions=**13** · zero-admit streak=**1**
+> **⚠️ 预警** · 空 factor.md: F015
 >
 > **🎯 下一步（按优先级）**
-> 1. ⚠️ **修空报告**：F015, F020 的 `.md` 为空或缺 H1 → 对每个 F{id} 重新 dispatch `/factor-report` subagent
+> 1. ⚠️ **修空报告**：F015 的 `.md` 为空或缺 H1 → 对每个 F{id} 重新 dispatch `/factor-report` subagent
 > 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
@@ -70,7 +70,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **51** · Admitted: **19** · Active directions: **13**
-> - Last batch: **batch_051**
+> - Round: **52** · Admitted: **19** · Active directions: **13**
+> - Last batch: **batch_052**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
