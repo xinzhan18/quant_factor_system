@@ -2,25 +2,38 @@
 direction_tag: microstructure_illiquidity
 status: productive
 priority: medium
-rounds: 4
-admits: 3
-last_batch: batch_046
+rounds: 5
+admits: 4
+last_batch: batch_047
 last_admits:
-- F015
-last_goal: '方向 saturated 后复活条件 (b) rank-diff symmetric interactions 探索 + sign-conditional
-  Amihud 变体。绕开 batch_030/031 DSL residualize/horizon/Div cross-field 全败空间： (1) up-day
-  vs down-day sign-conditional Amihud — 用 If gate 替代 Abs， 测 illiquidity 是否携带 signed
-  directional information (batch_030 系列只测 symmetric magnitude)。 (2) Rank-diff symmetric
-  interaction: CsRank(Amihud) - CsRank(F001_CV 里的 Std/Mean) 替代已败的 Div 结构（batch_031
-  T004 disproven），scale-free 且几何上 真正对称。 (3) SignedPower(Amihud, 0.5) tail-compressed
-  non-linear monotonic 变体，作为 rank-preserving 空对照延续（批 031 CsZscore 保序证据）。 (4) 探索新的
-  Kyle-lambda 风格 signed illiquidity proxy (Δturnover / turnover²) — 非 |return| magnitude
-  的替代信号源。 目标 ≥ 1 candidate 同时满足 max_corr@F012 < 0.50 + alpha_survival > 0.4。'
-last_activity: '2026-04-24T19:22:38Z'
+- F016
+last_goal: 'T007 rank-diff 范式泛化 + T005 短窗 sign-conditional 重试。batch_046 admit F015
+  (CsRank(Amihud_20) - CsRank(amount_CV_10))
+
+  兑现 rank-diff 结构 alpha 源，升格教训：两端 signal family 必须都 scale-invariant (CV / ratio /
+  correlation) 才独立。
+
+  本批按此范式在其他 scale-free signal 对上泛化：(1) CsRank(Amihud_20) - CsRank(turnover_rate_CV_20)
+  换分母 CV 字段
+
+  测 amount vs turnover dispersion 对 Amihud 的正交性；(2) CsRank(pb_amount_ratio) - CsRank(Amihud)
+  跨方向 value×liquidity
+
+  rank-diff，两端都 scale-free；(3) CsRank(amount_CV_10) - CsRank(overnight_gap_20) amount×pct-signal，两端完全独立
+  direction；
+
+  (4) 反转对 CsRank(turnover_CV) - CsRank(Amihud) 测 rank-diff 方向对称性。(5)(6) T005 短窗 ≤5d
+  sign-conditional 重试
+
+  避开 batch_046 确认的 "20d mean aggregation 抹平 day-level sign gate" 失败律。目标 ≥ 1 candidate
+  同时满足 max_corr@admitted < 0.50 + alpha_survival > 0.40 + ls_t > 2。'
+last_activity: '2026-04-24T20:00:08Z'
 created_batch: batch_030
 members:
 - F012
 - F015
+- F{id}@batch_047_C001
+- F016
 retired_members: []
 merged_into: null
 ---
@@ -52,18 +65,38 @@ merged_into: null
 
 <!-- Current Focus: batch_046 后 direction 从 saturated 复活为 productive -->
 
-> [!success]+ 复活说明（batch_046 后追加，2026-04-25）
-> batch_046 C003 `Sub(CsRank(Amihud_20d), CsRank(amount_CV_10d))` admit 后方向从 `saturated → productive`。**复活条件 (b) rank-diff symmetric interactions 被证实有效**——这是在宣告 saturated 后 2 批即找到的有效子空间，说明 saturated 定性是对**当时探索范式的局部最优陈述**，不是永久结论。
+> [!success]+ 复活说明（batch_046 后追加 + batch_047 延伸，2026-04-25）
+> batch_046 C003 `Sub(CsRank(Amihud_20d), CsRank(amount_CV_10d))` admit 后方向从 `saturated → productive`。**复活条件 (b) rank-diff symmetric interactions 被证实有效**。batch_047 C001 `Sub(CsRank(Amihud_20), CsRank(turnover_CV_20))` admit 进一步把 rank-diff 范式**泛化到不同分母字段** —— 连续两批 productive，admits 从 2→3 (F012, F015, C001-to-be)。
 >
-> **兑现机制**: rank-diff 结构在 F012 空间之外开辟新维度，max_corr=0.655 接近 0.70 阈但 incremental_ic=0.031 证明库增值，alpha_surv=0.658 比 F012 高 48%。两端 scale-invariance 是必要条件（C004 Std 变体破坏范式）。
+> **兑现机制**: rank-diff 结构在 F012 空间之外开辟新维度，max_corr (F015: 0.655, C001: 0.734) 都在 <0.90 硬闸内，incremental_ic (0.031 / 0.023) 远超库增值阈值。两端 scale-invariance 是必要条件（batch_046 C004 Std 变体破坏范式）。**批 047 发现泛化约束**: 跨 direction 时两端还需 **raw field-level 独立**（C002 $amount 共分母 noise），**一端未被库因子主导**（C003 amount_CV 被 F001 吸收主导）。
 >
 > **尚未兑现的复活条件**: (a) Python Barra residualized F012 → 归 [[directions/barra_residual_alpha]]；(c) minute-bar / tick-level 数据暂无；(d) F012 健在不需其家族复活。
 >
-> **下一轮方向**: T006 ANSWERED 后可开 T007 "rank-diff 扩展到其他 signal family"（vs F002 pb_ratio / F003 overnight gap / F007 open_position 等），测试范式在不同 signal 对上的泛化。
+> **下一轮方向**: T007 partial answered 保留 ACTIVE，focus shift 至 Amihud × correlation-based 测度（如 `Corr($close, $amount, 20)`）或库内其他 scale-free 对的 rank-diff（如 F007 upper_shadow_pct 与 F010 overnight 间）；T005 (a) 短窗条件 disproven，仅 quantile-asymmetry (P90-P10) 路径未测。
 
 ---
 
 ## Threads
+
+### T007: rank-diff 范式跨 signal family 泛化 [◉ ACTIVE]
+
+> [!success]+ Thread 结论
+> **Question**: batch_046 rank-diff 范式（CsRank(X) - CsRank(Y), 两端 scale-free）在其他 signal family 对上是否也有效？具体测 (1) 同 direction 内部分母字段替换 (amount → turnover) 泛化；(2) 跨 direction 不同 signal family 泛化（vs F002 pb, vs F003 overnight）。
+>
+> **Answer**: 部分泛化成立。**T007 范式可行空间收窄为"同 direction 内部 scale-free × scale-free 字段对换"**；跨 direction 泛化有两个硬约束。
+>
+> **Evidence trail**:
+> - [[batches/batch_047/candidates/C001|batch_047 C001]]　`Sub(CsRank(Amihud_20), CsRank(turnover_CV_20))` → **admit → F{id}@Phase4 amihud_turnover_cv_rank_diff_20** · ic_oos=0.050 mono_oos=1.0 ls_t=6.76 alpha_surv=0.579 max_corr=0.734@F015 incr_ic=0.023 · 9/9 年全正 split_dispersion=0.10 mdd=-1.57
+> - [[batches/batch_047/candidates/C002|batch_047 C002]]　`Sub(CsRank(pb_amount_ratio_20), CsRank(Amihud_20))` → ic_oos=|-0.0074|<0.008 → hard_gate fail（$amount 共分母 rank-diff 抵消）
+> - [[batches/batch_047/candidates/C003|batch_047 C003]]　`Sub(CsRank(amount_CV_10), CsRank(overnight_gap_20))` → max_corr=0.692@F001 incr_ic=**-0.0038** signed negative → reject（F001 吸收主导端）
+> - [[batches/batch_047/candidates/C004|batch_047 C004]]　C001 Sub 顺序翻转 → 完美数学反号 (incr_ic=-0.023) → reject（同批 anchor rule）
+>
+> **升格教训**:
+> 1. **rank-diff 泛化 2 约束**：(a) 两端 raw field-level 独立（不得共享分母/分子 raw field 如 $amount）；(b) 一端未被已有库因子主导吸收（若库因子占 rank-diff 一端，Sub 操作抵消主效应，signed incr_ic 为负）
+> 2. **rank-diff Sub 方向对偶律**：`Sub(A,B)` 和 `Sub(B,A)` 是数学完全反号（|corr|=1），admit 两者等价 double counting。generator 层应 pre-dedup，节省候选 slot。
+> 3. **rank-diff 可行泛化空间**：同 direction 内部 scale-free × scale-free 字段对换（amount_CV → turnover_CV）比跨 direction 泛化更可靠
+>
+> **保留 ACTIVE**: 本 thread 未完全关闭。下轮可测 (1) Amihud × correlation-based (`Corr($close, $amount, 20)`) 两端无量纲；(2) 库内其他 scale-free 对（F007 upper_shadow_pct × F010 overnight gap 等）；(3) "field-level 独立 + scale-free" 双条件的跨 direction 候选。
 
 ### T006: rank-diff symmetric interactions [✓ ANSWERED batch_046]
 
@@ -81,22 +114,29 @@ merged_into: null
 ### T005: sign-conditional / signed Amihud 变体 [◉ ACTIVE]
 
 > [!failure]+ Thread 结论
-> **Question**: (1) up-day vs down-day Amihud 是否有 sign asymmetry？(2) signed illiquidity proxy（Kyle-lambda 风格 Δturnover/turnover²）是否独立于 Abs(Amihud) 磁性空间？
+> **Question**: (1) up-day vs down-day Amihud 是否有 sign asymmetry？(2) signed illiquidity proxy（Kyle-lambda 风格 Δturnover/turnover²）是否独立于 Abs(Amihud) 磁性空间？(3) 短窗 ≤5d 是否可破 "20d mean aggregation 抹平" 规律？(4) non-mean aggregation (max-min range) 是否可逃离 F012 level 引力？
 >
 > **Answer**:
-> - (1) 日频 20d 窗口下 **sign asymmetry 不存在**：C001 (up-day) max_corr=0.942, C002 (down-day) max_corr=0.918，对偶差仅 0.024（噪声级）。day-level sign gate + 20d mean aggregation 的组合在 csi1000 上抹平 asymmetry。
-> - (2) C006 Kyle-lambda signed turnover illiq: max_corr=0.16 库独立，9 年全负 sign_consistency=1.0 — **信号真实独立**，但 CP03 weak (ls_t=-1.84) + CP04 poor (alpha_surv=0.17) + signed incr_ic=-0.031 稀释库 → reserve 负参考。
+> - (1) 日频 20d 窗口下 **sign asymmetry 不存在**：C001 (up-day) max_corr=0.942, C002 (down-day) max_corr=0.918，对偶差仅 0.024。
+> - (2) Kyle-lambda signed illiq 库独立 (max_corr=0.16) 但 alpha_surv=0.17 severe poor + signed incr_ic=-0.031 稀释库 → reserve 负参考。
+> - (3) **batch_047 C005 ≤5d 短窗复活条件硬证伪**: 5d up-day Amihud max_corr 从 20d 的 0.942 降到 0.754（asymmetry 部分存在），但 alpha_surv 反塌到 **0.149**（F012 的 34%），ic_oos 仅 0.020。短窗减少对称化但同步放大 noise + vol-coupling 不减。
+> - (4) **batch_047 C006 max-min range 5d 逃离失败**: range 与 F012 level 共变 86% (corr=0.862)，range-based 测度不足以 escape level 引力 → reserve。
 >
 > **Evidence trail**:
-> - [[batches/batch_046/candidates/C001|batch_046 C001]]　up-day Amihud → max_corr=0.942@F012 → reject (hard_gate)
-> - [[batches/batch_046/candidates/C002|batch_046 C002]]　down-day Amihud → max_corr=0.918@F012 → reject (hard_gate)
+> - [[batches/batch_046/candidates/C001|batch_046 C001]]　up-day Amihud 20d → max_corr=0.942@F012 → reject (hard_gate)
+> - [[batches/batch_046/candidates/C002|batch_046 C002]]　down-day Amihud 20d → max_corr=0.918@F012 → reject (hard_gate)
 > - [[batches/batch_046/candidates/C005|batch_046 C005]]　SignedPower(F012, 0.5) → max_corr=**1.000** → reject (rank-preserving 保序二证)
 > - [[batches/batch_046/candidates/C006|batch_046 C006]]　Mean(Δturnover/turnover², 20) → ic_oos=-0.042 ls_t=-1.84 alpha_surv=0.17 max_corr=0.16 signed_incr_ic=-0.031 → reserve
+> - [[batches/batch_047/candidates/C005|batch_047 C005]]　up-day Amihud 5d → ic_oos=0.020 alpha_surv=**0.149** max_corr=0.754 → reject（短窗复活 (a) 条件证伪）
+> - [[batches/batch_047/candidates/C006|batch_047 C006]]　TsMax-TsMin Amihud 5d → ic_oos=0.041 alpha_surv=0.484 max_corr=**0.862** incr_ic=0.022 → reserve（range 与 level 共变 86%）
 >
 > **升格教训**:
-> 1. **day-level sign gate + window mean aggregation 抹平 asymmetry** —— 复活条件: ≤ 5d 短窗（减少对称化）或 quantile-based asymmetry 测度（非 mean aggregation）
-> 2. **DSL rank-preserving 变换族 ({Linear / SignedPower(p>0) / Sigmoid / Tanh / Exp / Softmax}) 对单已 admit 因子零信息增量** —— 建议 generator 层 hard-gate 预拦截（batch_031 C004 CsZscore + batch_046 C005 SignedPower 双证）
-> 3. **Kyle-lambda signed illiquidity 方向库独立但 alpha 弱** —— 探索需走 CV 归一 / Barra residualize / 更强机制重构
+> 1. **day-level sign gate + window mean aggregation 抹平 asymmetry** —— 20d/5d 两窗口均证伪，T005 复活条件 (a) 硬证伪
+> 2. **max-min range 测度与 level 共变 86%** —— non-mean aggregation 中 range-based 无法逃离 level 引力
+> 3. **DSL rank-preserving 变换族 ({Linear / SignedPower(p>0) / Sigmoid / Tanh / Exp / Softmax}) 对单已 admit 因子零信息增量** —— 建议 generator 层 hard-gate 预拦截
+> 4. **Kyle-lambda signed illiquidity 方向库独立但 alpha 弱** —— 探索需走 CV 归一 / Barra residualize / 更强机制重构
+>
+> **T005 剩余复活路径**: 仅 **quantile-based asymmetry (P90-P10 rolling Amihud)** 未测——非 mean 非 max-min 的 quantile-range 可能提取 tail 不对称不与 level 同构。Thread 保留 ACTIVE 等 quantile DSL 表达或 minute-bar 数据接入。
 
 ### T001: Amihud 类 illiquidity 指标 [✓ ANSWERED batch_031]
 
@@ -170,6 +210,10 @@ merged_into: null
 | [[batches/batch_031/candidates/C004\|batch_031 C004]] | `CsZscore(Amihud)` | hard_gate near_dup **1.000**@F012（rank-preserving 保序空对照）|
 | [[batches/batch_031/candidates/C005\|batch_031 C005]] | 5d-return Amihud | hard_gate near_dup 0.959@F012（分子 horizon 代数等价）|
 | [[batches/batch_031/candidates/C006\|batch_031 C006]] | `Div($pb_ratio, Amihud)` | CP05 high + signed incr_ic=-0.044；Div 让 F012 主导，PB 被自身 style 吞噬 |
+| [[batches/batch_047/candidates/C002\|batch_047 C002]] | `Sub(CsRank(pb_amount_ratio_20), CsRank(Amihud_20))` | CP01 hard_gate fail ic_oos=\|-0.0074\|<0.008；$amount 共分母让 rank-diff Sub 抵消 |
+| [[batches/batch_047/candidates/C003\|batch_047 C003]] | `Sub(CsRank(amount_CV_10), CsRank(overnight_gap_20))` | CP05 max_corr=0.692@F001 + signed incr_ic=-0.0038；amount_CV 端被 F001 主导吸收 |
+| [[batches/batch_047/candidates/C004\|batch_047 C004]] | `Sub(CsRank(turnover_CV_20), CsRank(Amihud_20))` | C001 Sub 翻转数学反号对偶 (corr=-1)；同批 anchor rule reject |
+| [[batches/batch_047/candidates/C005\|batch_047 C005]] | `Mean(If(ret>0,ret/amount,0), 5)` (5d up-day Amihud) | CP04 alpha_surv=0.149 severe poor + CP05 max_corr=0.754@F012；T005 短窗复活条件 (a) 硬证伪 |
 
 ---
 
@@ -186,7 +230,18 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_046/judge|batch_046]] · T006 ANSWERED · T005 PARTIAL-DISPROVEN · 方向从 saturated 复活为 productive
+> [!quote]+ 2026-04-25 · [[batches/batch_047/judge|batch_047]] · T007 PARTIAL-ANSWERED · T005 FURTHER-DISPROVEN · 方向延续 productive (admits 2→3)
+> admit=1 (C001) / reserve=1 (C006) / reject=4。
+> - **C001 T007 rank-diff 泛化首锤**: `Sub(CsRank(Amihud_20), CsRank(turnover_CV_20))` admit — ic_oos=0.050 mono_oos=1.0 ls_t=6.76 alpha_surv=0.579 incr_ic=0.023 max_corr=0.734@F015（< 0.90 硬闸）9/9 年全正 mdd=-1.57 split_dispersion=0.10。证实 rank-diff 结构泛化到分母字段替换（amount_CV → turnover_CV）仍产出独立 alpha，范式是 signal-family-组合的几何性质。
+> - **C002/C003 T007 范式边界收窄硬证据**: C002 (pb/amount vs Amihud) $amount 共分母让 rank-diff Sub 抵消 → noise hard_gate fail；C003 (amount_CV vs overnight_gap) amount_CV 端被 F001 吸收主导 → signed negative incr_ic=-0.0038 reject。**T007 范式 2 约束升格**: (a) 两端 raw field-level 独立；(b) 两端未被已有库因子主导吸收。
+> - **C004 Sub 方向对偶硬证据**: C001 和 C004 (Sub 翻转) 数学完美反号（|corr|=1, 所有 signed metric 翻号），同批 anchor rule C004 reject。**设计范式升格**: rank-diff generator 层应 pre-dedup Sub 反向变体。
+> - **C005 T005 (a) 短窗复活条件硬证伪**: 5d up-day Amihud max_corr 从 20d 的 0.942 降到 0.754 但 alpha_surv 反塌到 **0.149**（F012 的 34%），ic_oos 仅 0.020。短窗减少对称化同步放大 noise + vol-coupling 不减——trade-off 负面。
+> - **C006 T005 range 逃离 level 失败**: 5d Amihud max-min range 与 F012 共变 86%（corr=0.862），非 mean aggregation 中 range-based 测度无法逃离 level 引力 → reserve。
+> - **MT budget**: cumulative 240 → **246** · direction 18 → **24** · bucket `high`（search_adjusted 0.53 medium, C001 strong 档保留）
+>
+> **Operations**: `status: productive` 保留 · `priority: medium` 保留 · rounds 3→4 · admits 2→3 · T007 ACTIVE (partial answered) · T005 (a) 短窗条件 disproven 但 thread 保留 ACTIVE 等 quantile 路径
+
+> [!quote]- 2026-04-25 · [[batches/batch_046/judge|batch_046]] · T006 ANSWERED · T005 PARTIAL-DISPROVEN · 方向从 saturated 复活为 productive
 > admit=1 (C003) / reserve=1 (C006) / reject=4。
 > - **C003 rank-diff breakthrough**: `Sub(CsRank(Amihud_20d), CsRank(amount_CV_10d))` 兑现 saturated 复活条件 (b) rank-diff symmetric interactions — IC_oos=0.054 mono_oos=1.0 ls_t=6.63 alpha_surv=0.658（比 F012 的 0.443 高 48%）incr_ic=0.031 max_corr=0.655@F012（< 0.70 阈）9/9 年全正 cum_ic_mdd=-1.61 批内最强。
 > - **C001/C002 sign-conditional 对偶结题**: up-day vs down-day Amihud max_corr 0.942/0.918 near_dup F012 → 日度 20d 窗口下 sign asymmetry 近乎完美被窗口均值抹平，散户恐慌抛售假说在此时间尺度不成立。
