@@ -1,0 +1,58 @@
+batch_id: batch_041
+round: 40
+direction: stochastic_position
+direction_md_ref: vault/directions/stochastic_position.md
+batch_goal: 'T001+T002 classic stochastic oscillator family not yet in library. Probe
+  %K (close position in rolling high-low range) at 20d/60d windows; TsRank variants;
+  high-low range vs close-close range. Critical gate: max_corr@F009 < 0.7 to avoid
+  reversal cluster near-dup.'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T20:02:20Z'
+frozen_at: '2026-04-23T20:02:20Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Sub($close, TsMin($low, 20)), Sub(TsMax($high, 20), TsMin($low,
+    20)))
+  canonical: Div(Sub($close,TsMin($low,20)),Sub(TsMax($high,20),TsMin($low,20)))
+  rationale: 'T001 classic stochastic %K: close position in 20d high-low range. Closest
+    to textbook definition.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Sub($close, TsMin($low, 60)), Sub(TsMax($high, 60), TsMin($low,
+    60)))
+  canonical: Div(Sub($close,TsMin($low,60)),Sub(TsMax($high,60),TsMin($low,60)))
+  rationale: 'T001 long window 60d: tests if longer horizon stabilizes rank (small-caps
+    may need longer baseline).'
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank($close, 20)
+  canonical: TsRank($close,20)
+  rationale: 'T002 TsRank form: close cross-time rank within 20d window. Equivalent
+    rank-order to %K but different functional form.'
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank($close, 60)
+  canonical: TsRank($close,60)
+  rationale: 'T002 TsRank 60d: long window TsRank vs C002 %K comparison.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Sub($close, TsMin($close, 20)), Sub(TsMax($close, 20), TsMin($close,
+    20)))
+  canonical: Div(Sub($close,TsMin($close,20)),Sub(TsMax($close,20),TsMin($close,20)))
+  rationale: 'T001 close/close range: use close for both boundaries (vs C001 low/high).
+    Tests if boundary choice matters.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Div(Sub($close, TsMin($low, 20)), Sub(TsMax($high, 20), TsMin($low,
+    20))), 5)
+  canonical: Mean(Div(Sub($close,TsMin($low,20)),Sub(TsMax($high,20),TsMin($low,20))),5)
+  rationale: 'T001 5d smoothing of C001: paper''s aggregation pattern. Tests if sliding
+    %K is more stable than point-in-time %K.'
