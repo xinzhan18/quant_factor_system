@@ -1,0 +1,20 @@
+factor_id: F019
+name: body_disp_pricevol_rank_diff_20
+family_tag: ohlc_temporal_aggregation
+source_type: dsl
+admitted_at: '2026-04-24T22:15:02Z'
+admitted_in_batch: batch_050
+status: active
+diagnostics_ref: cache/batch_diagnostics/batch_050/C005
+direction: ohlc_temporal_aggregation
+expression: Sub(CsRank(Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),20)))
+canonical: Sub(CsRank(Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),20)))
+validation_metrics:
+  ic_mean: 0.039407003291517494
+  ic_ir: 0.28965779890601373
+  ic_win_rate: 0.609504132231405
+  monotonicity: 0.9999999999999999
+  long_short_mean: 0.0011029904629493493
+risk_metrics:
+  style_r_squared: 0.2310917764841185
+  alpha_survival_ratio: 0.2067
