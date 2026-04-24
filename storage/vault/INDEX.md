@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-24T01:47:37Z
-round: 42
-total_active_directions: 12
+generated_at: 2026-04-24T02:18:59Z
+round: 43
+total_active_directions: 13
 total_factors_admitted: 13
-last_batch: batch_042
+last_batch: batch_043
 last_consolidation_round: null
 ---
 
@@ -15,12 +15,12 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**42** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_042/judge|batch_042]] → [[directions/vwap_proxy_signals]] · admit=**0**/6 (reserve=3, reject=3) · direction.status=`productive`
-> **健康** · rounds_since_consolidation=**8** · active_directions=**12** · zero-admit streak=**2**
+> **状态** · round=**43** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_043/judge|batch_043]] → [[directions/range_structure]] · admit=**0**/6 (reserve=4, reject=2) · direction.status=`exploring`
+> **健康** · rounds_since_consolidation=**9** · active_directions=**13** · zero-admit streak=**3**
 >
 > **🎯 下一步（按优先级）**
-> 1. 🆕 **选新方向**：`snapshot --recent 10` 从 `status=productive/exploring` 里挑 rounds 最少；或读 `lessons.md` 的 Promising Unexplored
+> 1. 🧪 **阈值校准**：连续 3 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
 > 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
@@ -64,7 +64,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **42** · Admitted: **13** · Active directions: **12**
-> - Last batch: **batch_042**
+> - Round: **43** · Admitted: **13** · Active directions: **13**
+> - Last batch: **batch_043**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
