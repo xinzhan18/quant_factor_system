@@ -14,8 +14,8 @@ user_invocable: true
 
 | 角色 | 动作 |
 |---|---|
-| 主 agent | 调 Python 前置 + prepack → dispatch 并行 subagent 写 vault md → dispatch INDEX subagent → 调 Python commit |
-| Python CLI | (1) 前置检查 (2) prepack packet (3) INDEX 下半段刷新 (4) 原子 commit（含 state.yaml） |
+| 主 agent | 调 Python 前置 + prepack → dispatch 并行 subagent 写 lessons/direction md → 调 Python refresh-index + commit |
+| Python CLI | (1) 前置检查 (2) prepack packet (3) INDEX 全骨架刷新且保留 HOT-TOPICS-LLM (4) 原子 commit（含 state.yaml） |
 | Subagent | 读 1 份 packet → 写 1 份 vault md（沙箱）|
 
 **LLM rewrite 不在 CLI 里发生**——`research consolidate` 不 dispatch subagent，只做机械步骤；真正的重写由本 skill 在会话里驱动。
@@ -44,20 +44,37 @@ PYTHONPATH=src python3 -m research consolidate [--target TARGET] [--dry-run]
 
 任一失败 → `Phase5PreconditionError`。
 
-## 流程
+## 流程（2-stage）
+
+本 skill 使用**两阶段 distillation→writer** 架构，避免旧版"24 个 silo rewriter 合起来做不出跨方向结论"的缺陷。
 
 ```
-Step 1  Python   前置检查 + backup 所有目标 md 到 _consolidation/backup/
-Step 2  Python   prepack — 为每个目标生成 _consolidation/packet_{target}.md
-Step 3  主 agent 并行 dispatch subagent（lessons + 各 direction），等全部成功
-Step 4  主 agent dispatch INDEX subagent（Step 3 全部返回后单次同步）
-Step 5  Python   refresh_index 刷 <!-- BEGIN AUTO-SECTION --> 块
-Step 6  Python   mark_consolidated() 写 state.yaml（rounds_since_last=0）
-Step 7  Python   git add {rewritten + state.yaml + consolidation_log.md} → 单次 commit
-Step 8  Python   删 _consolidation/backup/ 和 packets/
+Stage A — 4 并行 distillation specialists
+──────────────────────────────────────────
+Step 1  Python   前置检查（state idle / git clean / 无 stale backup）
+Step 2  Python   prepack_specialists — 写 4 份 packet_specialist_{name}.md
+Step 3  主 agent 单条消息并行 dispatch 4 subagent：
+                  - /consolidate-pattern-analyst
+                  - /consolidate-library-gap
+                  - /consolidate-calibration
+                  - /consolidate-hypothesis-promoter
+                每个写 N 份 _consolidation/findings/F{NNN}.md
+
+Stage B — 按 findings scope 的 targeted writers
+──────────────────────────────────────────
+Step 4  Python   load_findings → 计算 touched_directions (union of affected)
+                 + 判是否 touches_lessons
+Step 5  Python   backup (lessons if touched + touched directions)
+Step 6  Python   prepack_writers — 把 filtered findings 塞进对应 writer packet
+Step 7  主 agent 并行 dispatch writers（通常 3-7 个，非全 24）
+Step 8  Python   refresh_index（保留 INDEX HOT-TOPICS-LLM 块）+ mark_consolidated + commit
+Step 9  Python   删 backup + packet files（findings 进 commit 保留）
 ```
 
-**任一 Step 3-5 失败** → Python 从 backup 恢复所有已写目标 → 删 `_consolidation/` → raise。不会留下半新半旧的 vault。
+**任一 Stage A 失败** → findings/ 可能含部分文件，vault 未动，raise（下次重跑先清 findings/）。
+**任一 Stage B 失败** → Python 从 backup 恢复所有 writer 目标 → raise。
+
+对比旧版：24 个 silo rewriter → **新版 4 specialists + 3-7 writers = 典型 9-11 subagent**，且产 cross-direction findings 沉淀。
 
 ## 原子性保证
 
@@ -67,9 +84,18 @@ Step 8  Python   删 _consolidation/backup/ 和 packets/
 
 ## Subagent 沙箱
 
-每个 consolidation subagent：
+两类 subagent，不同沙箱：
 
-- **输入**：`_consolidation/packet_{target}.md`（唯一）
+**Stage A — distillation specialist**（4 种，见 `/consolidate-*` skills）
+
+- **输入**：`_consolidation/packet_specialist_{name}.md`
+- **输出**：`_consolidation/findings/F{NNN}.md`（一 subagent 可写多个 finding）
+- **禁止**：改 vault md / 读其它 packet
+- **findings 格式契约**：Markdown + YAML frontmatter，frontmatter 必含 `finding_id` / `specialist` / `severity` / `affected_directions` / `touches_lessons` / `batches_referenced`，见 `src/research/memory/finding_filter.py::FindingMeta`
+
+**Stage B — writer**（lessons / direction）
+
+- **输入**：`_consolidation/packet_{target}.md`（含自己当前 md + 过滤过的 findings）
 - **输出**：对应 vault md（唯一）
 - **禁止**：读其它文件 / 调 Qlib / 调 DB / follow `[[wikilink]]`
 - **异常**：抛出 → 主 agent 捕获 → Python 回滚
@@ -100,7 +126,7 @@ Step 8  Python   删 _consolidation/backup/ 和 packets/
 
 ## 归档候选（active directions ≥ 20 时才有）
 - status=saturated 或 last_batch 晚于最近 60 轮 → 列入
-- subagent 可把 frontmatter.status 改为 archived（archived 不进 INDEX 上半段）
+- subagent 可把 frontmatter.status 改为 archived（archived 不进 INDEX 的 active Bases 视图）
 
 ## Consolidation 规则
 1. 合并同类 lesson / thread
@@ -117,10 +143,9 @@ Step 8  Python   删 _consolidation/backup/ 和 packets/
 |---|---|---|
 | `lessons.md` | Data Facts / Operator Registry / Path Selection / Structural Constraints 四段 | 其它段落 |
 | `directions/{tag}.md` | hypothesis 段（除非证伪信号 ≥ 3）| threads 合并/删除/简化，narrative log 压缩；frontmatter 由 Python 管 |
-| `INDEX.md` 上半段 | frontmatter、`## 因子库` 的 `<!-- BEGIN/END FACTOR-LIBRARY -->` 块 | 按 status 分区；active direction 3-5 行 summary；archived 不列 |
-| `INDEX.md` 下半段 | `<!-- BEGIN/END AUTO-SECTION -->` 块 | Python 专管，subagent 绝不改 |
+| `INDEX.md` | 除 `<!-- BEGIN/END HOT-TOPICS-LLM -->` 外全部 Python 专管 | 本 skill 不重写；Python refresh 后自动反映 direction/frontmatter 变化 |
 
-INDEX 的三块 Python 专管区域是硬边界——frontmatter、FACTOR-LIBRARY、AUTO-SECTION：packet 给 subagent 完整当前 INDEX（保风格一致），但块内容原样保留。
+INDEX 的硬边界：frontmatter / COCKPIT / INSIGHT / Bases embeds / system status 全部 Python 专管；LLM 只能通过 `/pattern-scout` 维护 `HOT-TOPICS-LLM` 块。
 
 ## 死链处理
 

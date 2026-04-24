@@ -1,0 +1,85 @@
+# Consolidation Packet — directions/return_distribution_signals.md
+
+## Current content
+
+---
+direction_tag: return_distribution_signals
+status: dead
+priority: low
+rounds: 1
+admits: 0
+last_batch: batch_016
+last_admits: []
+last_goal: '首批 5 DSL 候选探索 return 分布高阶矩 (skew/kurt/qrange) on $close-derived 1d returns，窗口
+  20/60d。Hypothesis: 三/四阶矩在 Barra 7-style 之外构成新 cross-sectional 维度，绕过 barra_residual_alpha
+  的 vol_20d 饱和。目标 ≥1 admit。'
+last_activity: '2026-04-20T18:14:42Z'
+created_batch: batch_016
+members: []
+retired_members: []
+merged_into: null
+---
+# return_distribution_signals
+
+> [!abstract]+ 方向概要
+> **状态**　🔴 dead · priority=low · rounds=1 · admits=0
+> **最近**　[[batches/batch_016/judge|batch_016]] · 2026-04-21 · admit=0 / reserve=0 / reject=5
+> **一句话**　Daily-bar return 分布的高阶矩 (skew / kurt / Q90-Q10) 在 csi1000 上 **全部 monotone-equivalent 到 vol_20d**，不构成独立 cross-sectional 维度。
+
+---
+
+## Hypothesis
+
+> [!warning]+ ⚠️ Hypothesis 已证伪（batch_016，5/5 证伪信号）
+> **原设定**：收益率分布的高阶矩（skewness / kurtosis / quantile-range）携带 mean/variance 之外的预测信息——realized skewness anomaly（彩票偏好导致高 skew 股票被高估）、kurtosis premium（fat tails = latent jump risk）、Q-range 作为 std 的 robust 替代；三/四阶矩在 Barra 7-style 之外构成新 cross-sectional 维度，绕过 [[barra_residual_alpha]] 的 vol_20d 饱和。
+>
+> **证伪证据**（首批 5 候选全军覆没）：skew 三变体 (20d / 60d / ×vol) 全 `dom=vol_20d` + `alpha_surv` 0.10–0.18 远低 threshold；kurt 20d hard_gate sign_flip (train −0.004 / val +0.002)；Q90-Q10 `mono=-0.9 ls_t=-2.28` 看似强但 `alpha_surv=0.008` 暴露本质 ≡ vol_20d monotone 变换。
+>
+> **🔑 核心元教训**（升格至 [[lessons]]）：**A 股 csi1000 universe 的 cross-sectional 几何被 vol_20d 强烈主导——任何 daily-bar 内的 mean-of-power transformation (var / skew / kurt / quantile-range) 都 monotone-equivalent 到 vol rank**。突破必须从 (a) 不同时间频率（intraday OHLC），(b) 不同信号源（microstructure / fundamental shocks），或 (c) 非 rank 空间（portfolio-level ensemble）入手。
+
+---
+
+## Threads
+
+> [!failure]+ T001-T003 · Higher-order moments 三合一证伪 `[✗ DISPROVEN batch_016]`
+> **Question**: TsSkew / TsKurt / Q90-Q10 在 csi1000 上是否产生独立于 vol_20d 的 forward IC？
+>
+> **Evidence trail**:
+> - [[batches/batch_016/candidates/C001|C001]] · 20d skew → `ic=-0.023 ls_t=0.27 alpha_surv=0.177 dom=vol_20d` → reject
+> - [[batches/batch_016/candidates/C002|C002]] · 60d skew → `ic=-0.022 ls_t=-0.14 alpha_surv=0.173`（horizon-invariant，与 20d 几乎同形）→ reject
+> - [[batches/batch_016/candidates/C005|C005]] · skew × vol 交互 → `alpha_surv=0.098`（比单独 skew 更糟，交互放大共线）→ reject
+> - [[batches/batch_016/candidates/C003|C003]] · 20d kurt → hard_gate sign_flip (train −0.004 / val +0.002) → reject
+> - [[batches/batch_016/candidates/C004|C004]] · Q90-Q10 of 20d returns → `mono=-0.9 ls_t=-2.28` 看似强，`style_r²=0.845` + `alpha_surv=0.008`（整库最低之一）→ reject
+>
+> **Conclusion**: 三/四阶矩 + quantile-range 在 cross-section 上全部坍缩为 vol_20d 的 monotone derivative；horizon (20/60)、interaction (×vol)、order (skew vs kurt) 都不能解耦。**rank-order 显著 ≠ alpha 真**——Q90-Q10 是最佳反例。
+
+---
+
+## Known Failures
+
+| Candidate | Expression | Reject Reason |
+|---|---|---|
+| [[batches/batch_016/candidates/C001\|C001]] | 20d realized skew | `alpha_surv=0.177` + `dom=vol_20d` |
+| [[batches/batch_016/candidates/C002\|C002]] | 60d realized skew | `alpha_surv=0.173`（horizon-invariant 坍缩）|
+| [[batches/batch_016/candidates/C003\|C003]] | 20d realized kurt | hard_gate sign_flip (−0.004 / +0.002) |
+| [[batches/batch_016/candidates/C004\|C004]] | Q90-Q10 of 20d returns | `alpha_surv=0.008` catastrophic (≡ vol_20d monotone) |
+| [[batches/batch_016/candidates/C005\|C005]] | skew × vol interaction | `alpha_surv=0.098`（比 C001 更糟）|
+
+---
+
+## Related
+
+- 🟡 [[barra_residual_alpha]] `saturated` — vol_20d 主导陷阱的源头；本方向原设定为绕过路径，结果证实高阶矩依旧坍缩回 vol 轴
+- 🔵 [[lessons#Structural Constraints]] — mean-of-power transformation 全部等价 vol rank，作为 Barra style coupling 教训的补充证据
+
+---
+
+## Narrative Log
+
+> [!quote]+ 2026-04-21 · [[batches/batch_016/judge|batch_016]] · `status: exploring → dead`
+> admit=0 / reserve=0 / reject=5；首批 5 候选彻底证伪 hypothesis：skew (20d/60d/×vol) 三变体全 `dom=vol_20d` + `alpha_surv` 0.10–0.18；kurt sign_flip；Q90-Q10 `ls_t=-2.28` 看似强但 `alpha_surv=0.008` 暴露 ≡ vol_20d。T001/T002/T003 同批次 `[◉ ACTIVE] → [✗ DISPROVEN]`。priority `medium → low`，不进入 retry pool。下一步：(a) 扩 OHLC cache 开 microstructure_signal 方向，或 (b) Phase 5 重写 [[lessons]] / promising_unexplored，或 (c) 暂停 mining 待数据扩展。
+
+
+## Instructions
+
+Rewrite this direction md to compress long narrative logs, dedupe threads, and preserve Hypothesis + active Threads + Narrative Log (truncated to most recent 20 entries). Do not touch the frontmatter — Python manages that.

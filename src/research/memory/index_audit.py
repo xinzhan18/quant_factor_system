@@ -19,8 +19,8 @@ Checks:
 6. Every ``batches/*/judge.md`` carries required keys for the
    recent-batches base (``batch_id``, ``direction``, ``admit_count``,
    ``reject_count``, ``reserve_count``, ``candidate_count``).
-7. INDEX body contains the three base embeds (``![[_bases/...]]``) and
-   the ``<!-- BEGIN/END INSIGHT -->`` sentinels.
+7. INDEX body contains the three base embeds, ``INSIGHT`` sentinels, and
+   the LLM-owned ``HOT-TOPICS-LLM`` sentinel block.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ from typing import Any
 import yaml
 
 from research.memory.index_narrative import INSIGHT_BEGIN, INSIGHT_END
+from research.memory.index_refresher import HOT_TOPICS_BEGIN, HOT_TOPICS_END
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import load_yaml
 
@@ -152,6 +153,25 @@ def _check_index_body(report: IndexAuditReport, text: str) -> None:
             f"INDEX body missing insight sentinels "
             f"({INSIGHT_BEGIN!r} / {INSIGHT_END!r})"
         )
+    if text.count(HOT_TOPICS_BEGIN) != 1 or text.count(HOT_TOPICS_END) != 1:
+        report.fail(
+            f"INDEX body must contain exactly one hot-topics LLM block "
+            f"({HOT_TOPICS_BEGIN!r} / {HOT_TOPICS_END!r})"
+        )
+    elif text.index(HOT_TOPICS_BEGIN) > text.index(HOT_TOPICS_END):
+        report.fail("INDEX hot-topics LLM sentinels are out of order")
+    else:
+        block = text[
+            text.index(HOT_TOPICS_BEGIN) + len(HOT_TOPICS_BEGIN):
+            text.index(HOT_TOPICS_END)
+        ]
+        n_lines = len([line for line in block.splitlines() if line.strip()])
+        if n_lines > 40:
+            report.fail(
+                f"INDEX hot-topics LLM block too long ({n_lines} non-empty lines > 40)"
+            )
+        if "[[_bases/" in block:
+            report.fail("INDEX hot-topics LLM block must not contain Bases embeds")
 
 
 def _check_directions(report: IndexAuditReport, paths: StoragePaths) -> None:
@@ -233,3 +253,21 @@ def audit_index_format_or_raise(paths: StoragePaths) -> None:
     raise IndexFormatError(
         f"INDEX.md format audit failed ({len(report.errors)} issue(s)):\n{bullets}"
     )
+
+
+def audit_index_format_or_repair(paths: StoragePaths) -> IndexAuditReport:
+    """Audit INDEX and regenerate it once if structural sentinels drifted.
+
+    The repair path is intentionally deterministic: Python owns the INDEX
+    skeleton and preserves only the valid HOT-TOPICS-LLM block if present.
+    """
+    report = audit_index_format(paths)
+    if report.ok:
+        return report
+
+    from research.memory.index_refresher import refresh_index
+
+    state = load_yaml(paths.state_file) or {}
+    round_counter = int(state.get("round", 0) or 0) if isinstance(state, dict) else 0
+    refresh_index(paths, round_counter=round_counter)
+    return audit_index_format(paths)

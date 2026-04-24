@@ -1,0 +1,75 @@
+batch_id: batch_036
+round: 35
+direction: gap_acceptance_structure
+direction_md_ref: vault/directions/gap_acceptance_structure.md
+batch_goal: 'T002 follow-up on C004 reserve: replace $turnover_rate direct weight
+  with time-series normalized participation measures ($amount/Mean, $volume/Mean,
+  turnover ratio, log-amount, csrank turnover); one 40d window extension. Probe whether
+  scale-free weighting fixes mono_OOS=0.30 avoid-worst barbell while preserving library
+  independence.'
+active_threads_referenced:
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T17:37:50Z'
+frozen_at: '2026-04-23T17:37:50Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    Div($amount, Mean($amount, 20))), 20)
+  canonical: Mean(Mul(Div($amount,Mean($amount,20)),Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),20)
+  rationale: 'T002 variant: replace C004''s $turnover_rate direct weight with scale-free
+    $amount ratio (abnormal amount). Paper''s Gap_IntradayAcceptance_VolWeighted uses
+    abnormal volume, not raw turnover; amount is the RMB-volume analogue and avoids
+    $market_cap proxy risk that raw $volume can have on small caps.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    Div($volume, Mean($volume, 20))), 20)
+  canonical: Mean(Mul(Div($volume,Mean($volume,20)),Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),20)
+  rationale: 'T002 variant: abnormal $volume ratio weight. Paper literally says ''weighted
+    by abnormal volume''; we test the volume axis directly. Vs C001: $amount includes
+    price (RMB), $volume is share-count — different information if priced differently
+    across regimes.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    Div($turnover_rate, Mean($turnover_rate, 20))), 20)
+  canonical: Mean(Mul(Div($turnover_rate,Mean($turnover_rate,20)),Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),20)
+  rationale: 'T002 variant: time-series normalized $turnover_rate (vs batch_035 C004''s
+    direct $turnover_rate). Tests if normalization—dividing out stock-level turnover
+    baseline—fixes the cross-sectional rank-order issue (C004 mono=0.30). Small-caps
+    have persistent turnover biases; normalization equalizes.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    Log(Div($amount, Mean($amount, 20)))), 20)
+  canonical: Mean(Mul(Log(Div($amount,Mean($amount,20))),Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),20)
+  rationale: 'T002 variant: LOG abnormal amount weight. Log-compressing abnormal amount
+    reduces tail leverage — if C001''s barbell is driven by extreme amount spikes,
+    log smooths them; if barbell is driven by sign direction, log preserves it. Orthogonal
+    axis to C001.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    Div($amount, Mean($amount, 20))), 40)
+  canonical: Mean(Mul(Div($amount,Mean($amount,20)),Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),40)
+  rationale: 'T002 window extension: C001 @ 40d aggregation. If csi1000 needs longer
+    averaging to stabilize rank-order (batch_035 proved windows don''t save pure sign—but
+    maybe they do save weighted variant). Direct test of ''window matters only with
+    weighting''.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    CsRank($turnover_rate)), 20)
+  canonical: Mean(Mul(CsRank($turnover_rate),Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),20)
+  rationale: 'T002 cross-sectional variant: weight by cross-sectional turnover percentile
+    (CsRank) instead of time-series. Asks: ''is the signal in stocks that are HIGH-TURNOVER
+    relative to peers today?'' — fundamentally different from C003 ''stocks that are
+    HIGH-TURNOVER relative to own history''. If csi1000 acceptance signal is truly
+    participation-driven, at least one of (CsRank, TS normalized) should stabilize
+    mono.'

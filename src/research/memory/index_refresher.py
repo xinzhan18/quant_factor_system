@@ -103,6 +103,8 @@ def _ensure_base_files(paths: StoragePaths) -> None:
 # poke at them. Only INSIGHT is actively regenerated now.
 INSIGHT_BEGIN = "<!-- BEGIN INSIGHT -->"
 INSIGHT_END = "<!-- END INSIGHT -->"
+HOT_TOPICS_BEGIN = "<!-- BEGIN HOT-TOPICS-LLM -->"
+HOT_TOPICS_END = "<!-- END HOT-TOPICS-LLM -->"
 # Deprecated sentinels — kept exported so older call sites / tests
 # import cleanly, but the new INDEX layout does not emit them.
 BEGIN_SENTINEL = "<!-- BEGIN AUTO-SECTION -->"
@@ -118,6 +120,74 @@ def _read_frontmatter_and_body(path: Path) -> tuple[dict[str, Any], str]:
         return {}, text
     fm = yaml.safe_load(m.group("fm"))
     return (fm if isinstance(fm, dict) else {}), m.group("body")
+
+
+def _extract_sentinel_block(text: str, begin: str, end: str) -> str | None:
+    """Return an existing sentinel-bounded block, preserving LLM-owned prose."""
+    pattern = re.compile(
+        re.escape(begin) + r"\n.*?\n" + re.escape(end),
+        re.DOTALL,
+    )
+    matches = pattern.findall(text)
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def _render_default_hot_topics_block() -> str:
+    return "\n".join(
+        [
+            HOT_TOPICS_BEGIN,
+            "> [!warning]- 🔥 Hot Topics（LLM 维护）",
+            "> 当前无活跃跨批模式。`/pattern-scout` 只允许改写本块。",
+            HOT_TOPICS_END,
+        ]
+    )
+
+
+def _migrate_legacy_hot_topics_block(paths: StoragePaths) -> str | None:
+    """Render old ``_meta/hot_topics.md`` frontmatter into the new INDEX block.
+
+    This is a one-way compatibility bridge. New writes should target the
+    INDEX ``HOT-TOPICS-LLM`` block directly.
+    """
+    legacy = paths.vault_meta_dir / "hot_topics.md"
+    if not legacy.exists():
+        return None
+    fm, _ = _read_frontmatter_and_body(legacy)
+    patterns = fm.get("patterns") or []
+    if not isinstance(patterns, list):
+        return None
+
+    lines = [HOT_TOPICS_BEGIN, "> [!warning]+ 🔥 Hot Topics（LLM 维护）"]
+    if not patterns:
+        lines.append("> 当前无活跃跨批模式。")
+    else:
+        icon_by_conf = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+        for p in patterns[:5]:
+            if not isinstance(p, dict):
+                continue
+            conf = str(p.get("confidence") or "medium").lower()
+            icon = icon_by_conf.get(conf, "⚪")
+            pid = str(p.get("id") or "").strip()
+            title = str(p.get("title") or "(untitled)").strip()
+            affected = ", ".join(p.get("affected_directions") or []) or "—"
+            hint = str(p.get("action_hint") or "").strip()
+            suffix = f" → {hint}" if hint else ""
+            header = f"{pid} " if pid else ""
+            lines.append(f"> - {icon} **{header}{title}** · dirs: {affected}{suffix}")
+    lines.append(HOT_TOPICS_END)
+    return "\n".join(lines)
+
+
+def _load_hot_topics_block(paths: StoragePaths) -> str:
+    """Load the LLM-owned INDEX hot-topics block, repairing if absent."""
+    if paths.vault_index_file.exists():
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        existing = _extract_sentinel_block(text, HOT_TOPICS_BEGIN, HOT_TOPICS_END)
+        if existing is not None:
+            return existing
+    return _migrate_legacy_hot_topics_block(paths) or _render_default_hot_topics_block()
 
 
 def _read_direction_frontmatter_and_body(
@@ -279,6 +349,7 @@ def _render_moc_body(
     last_consolidation_round: int | None,
     insight_block: str,
     cockpit_block: str,
+    hot_topics_block: str,
 ) -> str:
     """Render the body below the frontmatter. Stable, minimal layout.
 
@@ -302,6 +373,8 @@ def _render_moc_body(
             "`PYTHONPATH=src python3 -m research memory snapshot`。",
             "",
             cockpit_block,
+            "",
+            hot_topics_block,
             "",
             insight_block,
             "",
@@ -372,6 +445,7 @@ def refresh_index(
         generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
     cockpit_block = render_cockpit_block(assess_cockpit(paths))
+    hot_topics_block = _load_hot_topics_block(paths)
 
     body = _render_moc_body(
         round_counter=round_counter,
@@ -381,6 +455,7 @@ def refresh_index(
         last_consolidation_round=last_consolidation_round,
         insight_block=insight_block,
         cockpit_block=cockpit_block,
+        hot_topics_block=hot_topics_block,
     )
 
     index_path = paths.vault_index_file

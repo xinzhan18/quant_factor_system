@@ -1,0 +1,59 @@
+batch_id: batch_040
+round: 39
+direction: vwap_proxy_signals
+direction_md_ref: vault/directions/vwap_proxy_signals.md
+batch_goal: 'T001+T002 first pass on synthesized VWAP = $amount/$volume. Probe VWAP-close
+  / VWAP-open / VWAP-prevclose spreads, raw and price-normalized; 5d/20d aggregations.
+  Critical: max_corr@F003 < 0.7 and @F009 < 0.7 to avoid near_duplicate with existing
+  overnight/gap family.'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T19:29:57Z'
+frozen_at: '2026-04-23T19:29:57Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Sub(Div($amount, $volume), $close), $close)
+  canonical: Div(Sub(Div($amount,$volume),$close),$close)
+  rationale: 'T001 baseline: (VWAP - close) / close normalized. Positive = VWAP above
+    close (buyer overshot then retreat late). Price-normalized to handle cross-sectional
+    price range. Pure daily snapshot, no aggregation.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Sub(Div($amount, $volume), $close), $close), 5)
+  canonical: Mean(Div(Sub(Div($amount,$volume),$close),$close),5)
+  rationale: T002 5d aggregation of C001. Tests if persistent VWAP-close spread direction
+    (5d) carries info. Paper-style aggregation as in F006-F008 shadow persistence.
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Div(Sub(Div($amount, $volume), $close), $close), 20)
+  canonical: Mean(Div(Sub(Div($amount,$volume),$close),$close),20)
+  rationale: T002 20d aggregation. Longer horizon tests institutional flow drift.
+    Compare vs 5d to find sweet spot.
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Sub(Div($amount, $volume), Ref($close, 1)), Ref($close, 1))
+  canonical: Div(Sub(Div($amount,$volume),Ref($close,1)),Ref($close,1))
+  rationale: 'T001 VWAP vs prev close (not same-day close): includes overnight gap
+    + intraday mix. Different from C001 (same-day) and F003 (pure gap). Tests if cross-session
+    VWAP spread is a new axis.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Sub(Div($amount, $volume), $open), 5)
+  canonical: Mean(Sub(Div($amount,$volume),$open),5)
+  rationale: 'T001 VWAP - open: how much did intraday trading push price above/below
+    open? Not normalized by price — raw RMB spread aggregated 5d. Small-caps have
+    lower $close magnitude so raw spread may carry scale bias; relative to C002.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Div(Div($amount, $volume), $close), 20)
+  canonical: Mean(Div(Div($amount,$volume),$close),20)
+  rationale: T002 VWAP/close ratio (pure ratio, no subtraction) aggregated 20d. Ratio
+    > 1 = VWAP above close persistently (sell pressure at close). Ratio < 1 = buy
+    pressure. Dimensionless, different from C003 spread/close.

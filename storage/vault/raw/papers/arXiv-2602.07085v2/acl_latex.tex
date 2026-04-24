@@ -1,0 +1,167 @@
+\documentclass[11pt]{article}
+
+\usepackage[final]{acl}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{multirow}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+
+\usepackage{inconsolata}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage[capitalize,noabbrev]{cleveref}
+\usepackage{threeparttable}
+\usepackage[table]{xcolor} 
+\usepackage{multirow} 
+\usepackage{array} 
+\usepackage{makecell}
+\usepackage{booktabs}
+\usepackage{xspace}
+
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+\usepackage{booktabs}
+\usepackage{titletoc}
+\definecolor{headerblue}{RGB}{41, 128, 185}
+\definecolor{metricgreen}{RGB}{39, 174, 96}
+\definecolor{alertred}{RGB}{192, 57, 43}
+\definecolor{warningyellow}{RGB}{243, 156, 18}
+\definecolor{lightgray}{RGB}{245, 245, 245}
+\definecolor{darkgray}{RGB}{52, 73, 94}
+\definecolor{mutationpurple}{RGB}{142, 68, 173}
+\definecolor{crossoverblue}{RGB}{52, 152, 219}
+
+
+
+\newcommand{\method}{QuantaAlpha\xspace}
+
+
+\title{\raisebox{-0.7em}{\includegraphics[height=2em]{images/icon.jpg}} QuantaAlpha: An Evolutionary Framework for LLM-Driven \\ Alpha Mining}
+
+% \vspace{20mm}
+
+\author{
+\textbf{Jun Han\textsuperscript{1*}},
+ \textbf{Shuo Zhang\textsuperscript{2*}},
+ \textbf{Wei Li\textsuperscript{1*}},
+ \textbf{Zhi Yang\textsuperscript{1*}},
+ \textbf{Yifan Dong\textsuperscript{1}},
+ \textbf{Tu Hu\textsuperscript{2}},\\
+ \textbf{Jialuo Yuan\textsuperscript{3}},
+ \textbf{Xiaomin Yu\textsuperscript{2}},
+ \textbf{Yumo Zhu\textsuperscript{1}},
+ \textbf{Fangqi Lou\textsuperscript{1}},
+ \textbf{Xin Guo\textsuperscript{1}},
+ \textbf{Zhaowei Liu\textsuperscript{1}},\\
+ \textbf{Tianyi Jiang\textsuperscript{4}},
+ \textbf{Ruichuan An\textsuperscript{4}},
+ \textbf{Jingping Liu\textsuperscript{5}},
+ \textbf{Biao Wu\textsuperscript{2}},
+ \textbf{Rongze Chen\textsuperscript{2}},
+ \textbf{Kunyi Wang\textsuperscript{2}},\\  
+ \textbf{Yifan Wang\textsuperscript{2}},
+ \textbf{Sen Hu\textsuperscript{2,4}},
+ \textbf{Xinbing Kong\textsuperscript{6\dag}},
+ % \textbf{Liwen Zhang\textsuperscript{1\dag}},
+ \textbf{Ronghao Chen\textsuperscript{2,4\dag}},
+ \textbf{Huacan Wang\textsuperscript{2\dag}}
+\\
+\\
+ \textsuperscript{1}SUFE\thanks{AIFin Lab: \href{mailto:aifinlab.sufe@gmail.com}{aifinlab.sufe@gmail.com}},
+\textsuperscript{2}QuantaAlpha\thanks{QuantaAlpha: \href{mailto:quantaalpha.ai@gmail.com}{quantaalpha.ai@gmail.com}},
+ \textsuperscript{3}Stanford,
+  \textsuperscript{4}PKU,
+  \textsuperscript{5}SYSU,
+    \textsuperscript{6}SEU
+    \vspace{2mm}
+\\
+\small {
+    \textbf{{*}These authors contributed equally to this work.}
+}
+\\
+ \small{
+   \textbf{\dag Correspondence:} 
+   \href{mailto:xinbingkong@126.com}{xinbingkong@126.com},
+   % \href{mailto:zhang.liwen@shufe.edu.cn}{zhang.liwen@shufe.edu.cn},
+\href{mailto:chenronghao@alumni.pku.edu.cn}{chenronghao@alumni.pku.edu.cn},
+\href{mailto:wanghuacan17@mails.ucas.ac.cn}{wanghuacan17@mails.ucas.ac.cn}
+ }
+}
+
+\makeatletter
+\def\@fnsymbol#1{%
+  \ifcase#1\or
+    \ensuremath{\mathsection} % 1 -> §
+  \or
+    \ensuremath{\P}      % 2 -> †
+  \or
+    \ensuremath{\dagger}     % 3 -> ‡
+  \or
+    \ensuremath{\star}        % 4 -> *
+  \else
+    \@ctrerr
+  \fi
+}
+\makeatother
+\begin{document}
+\maketitle
+\begin{center}
+    \vspace{20pt}
+    \large
+    \faGithub\hspace{6pt}\href{https://github.com/QuantaAlpha/QuantaAlpha}{\texttt{\color{black}https://github.com/QuantaAlpha/QuantaAlpha}}
+\end{center}
+
+
+\begin{abstract}
+Financial markets are noisy and non-stationary, making alpha mining highly sensitive to noise in backtesting results and sudden market regime shifts. While recent agentic frameworks improve alpha mining automation, they often lack controllable multi-round search and reliable reuse of validated experience. To address these challenges, we propose \textbf{QuantaAlpha}, an evolutionary alpha mining framework that treats each end-to-end mining run as a trajectory and improves factors through trajectory-level mutation and crossover operations. QuantaAlpha localizes suboptimal steps in each trajectory for targeted revision and recombines complementary high-reward segments to reuse effective patterns, enabling structured exploration and refinement across mining iterations.
+During factor generation, QuantaAlpha enforces semantic consistency across the hypothesis, factor expression, and executable code, while constraining the complexity and redundancy of the generated factor to mitigate crowding. Extensive experiments on the China Securities Index 300 (CSI 300) demonstrate consistent gains over strong baseline models and prior agentic systems. When utilizing GPT-5.2, QuantaAlpha achieves an Information Coefficient (IC) of 0.1501, with an Annualized Rate of Return (ARR) of 27.75\% and a Maximum Drawdown (MDD) of 7.98\%. Moreover, factors mined on CSI 300 transfer effectively to the China Securities Index 500 (CSI 500) and the Standard \& Poor's 500 Index (S\&P 500), delivering 160\% and 137\% cumulative excess return over four years, respectively, which indicates strong robustness of QuantaAlpha under market distribution shifts.
+\end{abstract}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.78\textwidth]{images/figure3.png}
+\caption{Cumulative excess returns of different approaches on CSI 500 and S\&P 500.}
+\label{fig:cumulative_returns}
+\end{figure}
+
+
+
+\newpage
+
+\input{section/1.introduction}
+\input{section/2.related_work}
+\input{section/3.problem_formulation}
+\input{section/4.method}
+\input{section/5.experiments}
+\input{section/6.conclusion}
+
+\bibliography{reference}
+
+
+
+\appendix
+\onecolumn
+\newpage
+\centerline{\maketitle{\textbf{SUMMARY OF THE APPENDIX}}}
+
+This appendix contains additional details for the  \textbf{\textit{``QuantaAlpha: An Evolutionary Framework for LLM-Driven Alpha Mining''}}. The appendix is organized as follows:
+
+
+\startcontents[appendices]
+\section*{Appendix Table of Contents}
+\printcontents[appendices]{}{0}{\large}
+
+
+
+\input{appendix/1.app_1}
+\input{appendix/2.app_2}
+
+\end{document}

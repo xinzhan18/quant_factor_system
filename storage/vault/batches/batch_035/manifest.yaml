@@ -1,0 +1,75 @@
+batch_id: batch_035
+round: 34
+direction: gap_acceptance_structure
+direction_md_ref: vault/directions/gap_acceptance_structure.md
+batch_goal: 'T001 + T003 + T004 baseline: probe pure sign-interaction acceptance (gap_sign
+  × body_sign) at 10/20/60d windows on csi1000; test TR-via-realized-vol normalization
+  against F003; seed turnover-weighted acceptance and a gap_magnitude × body_sign
+  hybrid for orthogonality check against F003/F009/F010.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T17:05:06Z'
+frozen_at: '2026-04-23T17:05:06Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    20)
+  canonical: Mean(Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1)))),20)
+  rationale: 'T001 main line @ paper''s 20d: pure sign-interaction (gap direction
+    × intraday body direction), 20d mean aggregation. Sign() strips magnitude → avoids
+    bar-position mono_sign_flip trap from intraday_price_formation T001. Tests paper''s
+    Rank IC 0.0744 signal localized to csi1000. T004 window baseline (20d).'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    10)
+  canonical: Mean(Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1)))),10)
+  rationale: 'T001 + T004 short-window probe: 10d aggregation tests if short memory
+    preserves signal (paper-style 20d may over-smooth on noisier small-caps). Same
+    sign product as C001.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    60)
+  canonical: Mean(Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1)))),60)
+  rationale: 'T001 + T004 long-window probe: 60d tests if longer aggregation stabilizes
+    acceptance on small-caps where daily sign is noisy. Pair with C001/C002 to pin
+    down sweet spot.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    $turnover_rate), 20)
+  canonical: Mean(Mul($turnover_rate,Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),20)
+  rationale: 'T002 liquidity-weighted acceptance: weight each day''s sign-product
+    by daily turnover_rate → high-participation gap days get more weight (paper''s
+    Gap_IntradayAcceptance_VolWeighted, Rank IC 0.0606). Turnover weighting avoids
+    $volume scale issues and is orthogonal direction to F007 turnover-body (F007 lacks
+    cross-session sign).'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Sub($open, Ref($close, 1)), Std(Sub($close, Ref($close, 1)), 20))
+  canonical: Div(Sub($open,Ref($close,1)),Std(Sub($close,Ref($close,1)),20))
+  rationale: T003 gap magnitude normalized by 20d realized-vol of daily price change
+    (NOT by Mean($high,N) — that whole family is F003 near_duplicate corr=0.999).
+    Paper GapZ10_Overnight_vs_TR uses true-range norm; we substitute realized-vol-of-ΔP
+    (a distinct quantum from $high rolling mean). If corr vs F003 < 0.7 → new axis,
+    else relegate to Known Failures and close this sub-space.
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($open, Ref($close, 1)), Mean($high, 5)), Sign(Sub($close,
+    $open))), 20)
+  canonical: Mean(Mul(Div(Sub($open,Ref($close,1)),Mean($high,5)),Sign(Sub($close,$open))),20)
+  rationale: 'Hybrid: F003''s gap-magnitude-normalized × intraday body sign, aggregated
+    20d. Tests whether signed gap magnitude (F003 × acceptance sign) gives different
+    cross-sectional ranking than either F003 alone or C001 pure sign. Use F003''s
+    denominator for numerator continuity; the Sign(body) outside it is the orthogonalizing
+    axis. High corr vs F003 or C001 → relegate; low corr → genuine hybrid alpha.'

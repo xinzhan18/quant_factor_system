@@ -1,0 +1,62 @@
+batch_id: batch_038
+round: 37
+direction: log_value_liquidity
+direction_md_ref: vault/directions/log_value_liquidity.md
+batch_goal: 'T001+T002 baseline: probe log-compressed value × liquidity composites
+  — pb/ps/pe rank multiplied by log(abnormal amount/turnover/volume). Direct application
+  of batch_036 F013 meta-pattern to value_liquidity_interaction''s previously-disproven
+  linear DSL space. F002 corr is the gating audit; max_corr<0.7 to admit, 0.7-0.85
+  reserve, ≥0.85 reject as near_dup.'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T18:35:43Z'
+frozen_at: '2026-04-23T18:35:43Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mul(CsRank($pb_ratio), Log(Div($amount, Mean($amount, 20))))
+  canonical: Mul(CsRank($pb_ratio),Log(Div($amount,Mean($amount,20))))
+  rationale: 'T001 baseline: cross-section pb rank × log abnormal amount. CsRank stabilizes
+    value (PB raw has cross-section heteroskedasticity), log compresses amount tails.
+    Compare to F002''s linear `Div($pb_ratio, Mean($amount, 20))`.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mul(CsRank($pb_ratio), Log(Div($turnover_rate, Mean($turnover_rate,
+    20))))
+  canonical: Mul(CsRank($pb_ratio),Log(Div($turnover_rate,Mean($turnover_rate,20))))
+  rationale: 'T001 turnover variant: same as C001 but turnover_rate (scale-free liquidity
+    proxy). Tests whether liquidity-axis choice matters under log compression.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mul(CsRank($ps_ratio), Log(Div($amount, Mean($amount, 20))))
+  canonical: Mul(CsRank($ps_ratio),Log(Div($amount,Mean($amount,20))))
+  rationale: 'T002 ps variant: cross-section ps rank × log abnormal amount. PS is
+    income-statement value; PB is balance-sheet. Different value channel.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mul(CsRank($pe_ratio), Log(Div($turnover_rate, Mean($turnover_rate,
+    20))))
+  canonical: Mul(CsRank($pe_ratio),Log(Div($turnover_rate,Mean($turnover_rate,20))))
+  rationale: 'T002 pe variant: pe rank × log abnormal turnover. PE is earnings-yield
+    value (low PE = cheap); pair with turnover normalization to test value × log liquidity
+    in the earnings channel.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(CsRank($pb_ratio), Log(Div($volume, Mean($volume, 20))))
+  canonical: Mul(CsRank($pb_ratio),Log(Div($volume,Mean($volume,20))))
+  rationale: 'T001 volume variant: pb rank × log abnormal volume (vs amount/turnover).
+    Tests if abnormal share volume (vs abnormal RMB volume) carries different information
+    when log-compressed.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Mul(CsRank($pb_ratio), Log(Div($amount, Mean($amount, 20)))), 5)
+  canonical: Mean(Mul(CsRank($pb_ratio),Log(Div($amount,Mean($amount,20)))),5)
+  rationale: 'T001 smoothed version of C001: 5d mean for noise reduction (paper''s
+    signals all have rolling aggregation). Tests whether smoothing improves rank-order
+    vs raw daily value.'

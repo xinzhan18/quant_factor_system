@@ -1,0 +1,74 @@
+batch_id: batch_031
+round: 30
+direction: microstructure_illiquidity
+direction_md_ref: vault/directions/microstructure_illiquidity.md
+batch_goal: T001+T004 深化：探 Amihud residualization（除以 realized_vol / mean_turnover
+  / CsZscore）能否把 CP04 style_r² 从 0.47 降到 <0.25、alpha_survival 推到 >0.7；测 5d return
+  Amihud horizon 变体；测 PB/Amihud 非对称 Div 结构（避开 Mul 量纲吞噬陷阱）打开 illiquidity × value 第三维。目标
+  1+ admit。
+active_threads_referenced:
+- T001
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T11:47:18Z'
+frozen_at: '2026-04-23T11:47:18Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount), 10)
+  canonical: Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),10)
+  rationale: 'T001 horizon 短窗变体：10d Amihud（对照 batch_030 C001 20d / C002 60d）。若 10d
+    信号比 20d 更强则 illiquidity premium 是短周期事件效应；若弱则 20d 平滑噪声更优。完成 10/20/60 三点 horizon
+    扫描。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Div(Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount), 20),
+    Std(Div(Delta($close, 1), Ref($close, 1)), 20))
+  canonical: Div(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20),Std(Div(Delta($close,1),Ref($close,1)),20))
+  rationale: 'T001 vol-residualize：Amihud 除以 realized_volatility。目标把 C001 dom=turnover_20d+vol_20d
+    双吞噬的 vol 维度显式除掉，看 alpha_survival 能否从 0.44 升到超过 0.7。若成立说明 Amihud 的 alpha 存在于相对于
+    vol 的异常 price-impact 维度。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount), 20),
+    Mean($turnover_rate, 20))
+  canonical: Div(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20),Mean($turnover_rate,20))
+  rationale: 'T001 turnover-residualize：Amihud 除以 mean_turnover。同 C002 思路但对 turnover_20d
+    style 显式除。C001 dom=turnover_20d (7.78) 是首要吞噬，这个变体直接针对 primary alpha killer。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: CsZscore(Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount),
+    20))
+  canonical: CsZscore(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20))
+  rationale: 'T001 cs-normalize：Amihud 的 cross-section z-score。Barra 暴露依赖于因子在截面上的
+    scale，若 CsZscore 能降低 max_corr @ F002 (当前 0.754 high) 则说明冗余来自 scale 差异而非机制共享。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Div(Abs(Div(Delta($close, 5), Ref($close, 5))), $amount), 20)
+  canonical: Mean(Div(Abs(Div(Delta($close,5),Ref($close,5))),$amount),20)
+  rationale: 'T001 horizon 变体：用 5d return (Delta 5d) 替代 1d return 做 Amihud 分子。捕捉 5d
+    累计 price-impact 除以 dollar，与 C001 (1d) 对比揭示 illiquidity 信号是短周期点单效应还是多日累积效应。
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Div($pb_ratio, Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))),
+    $amount), 20))
+  canonical: Div($pb_ratio,Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20))
+  rationale: 'T004 cross-field：PB 除以 Amihud 的非对称 Div 结构。F002 (pb/amount) 测估值 times
+    流动性水平；本候选测估值 times 流动性冲击——用 Amihud (price-impact) 作分母把价值因子按流动性冲击归一。避开 value_liquidity_interaction
+    方向教训 Mul(A, B) 量纲吞噬陷阱。
+
+    '

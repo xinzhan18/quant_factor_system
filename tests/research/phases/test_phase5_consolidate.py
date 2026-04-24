@@ -126,7 +126,7 @@ class TestPrepackConsolidation:
         assert "lessons" in packets
         assert "direction:vol" in packets
         assert "direction:mom" in packets
-        assert "index" in packets
+        assert "index" not in packets
         for p in packets.values():
             assert p.exists()
             assert "# Consolidation Packet" in p.read_text(encoding="utf-8")
@@ -341,16 +341,16 @@ class TestRunPhase5:
         )
         result = run_phase5_consolidation(inputs)
 
-        # targets include lessons + direction:vol + index
+        # targets include LLM rewrite targets plus Python-refreshed INDEX
         assert "lessons" in result.targets
         assert "direction:vol" in result.targets
         assert "index" in result.targets
 
-        # rewrite_callback fired for lessons, direction:vol, and index
+        # rewrite_callback fired only for LLM-owned targets; INDEX is Python-owned.
         kinds = [k for _, k in written]
         assert "lessons" in kinds
         assert "direction" in kinds
-        assert "index" in kinds
+        assert "index" not in kinds
 
         # State counter was reset
         final = StateFile(paths.state_file).read()

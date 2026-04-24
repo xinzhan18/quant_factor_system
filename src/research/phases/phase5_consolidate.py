@@ -1,7 +1,7 @@
 """Phase 5 CONSOLIDATION orchestrator.
 
-Rewrites the LLM-maintained markdown (lessons.md, directions/*.md,
-INDEX.md upper half) on a periodic schedule when one of the trigger
+Rewrites the LLM-maintained markdown (lessons.md, directions/*.md)
+on a periodic schedule when one of the trigger
 conditions fires (refactor_plan §9):
 
 * ``rounds_since_last_consolidation >= auto_triggers.rounds_since_last``
@@ -16,14 +16,12 @@ precondition below):
 1. **Pre-checks** — state.current_batch must be None, git tree clean,
    no subagent failures outstanding.
 2. **Pre-pack** — build ``_consolidation/packet_{target}.md`` files
-   for each rewrite target (one per direction + one for lessons +
-   one for INDEX upper half).
+   for each rewrite target (one per direction + one for lessons).
 3. **Subagent rewrites** — parallel dispatch via the injected
    ``rewrite_callback``. Each callback invocation receives one packet
    and writes one markdown file.
-4. **INDEX upper half** — a dependent synchronous rewrite that reads
-   the freshly-rewritten directions (handled by the same callback
-   with a special ``target="INDEX"`` key).
+4. **INDEX refresh** — Python regenerates the MOC/cockpit skeleton and
+   preserves the valid HOT-TOPICS-LLM block.
 5. **Commit** — single ``[consolidate] round N`` commit + state update
    (``mark_consolidated`` resets the counter).
 
@@ -47,6 +45,13 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from research.archive.commit import CommitResult, create_commit, stage_files
+from research.memory.finding_filter import (
+    FindingMeta,
+    findings_for_direction,
+    findings_for_lessons,
+    load_findings,
+    touched_directions,
+)
 from research.memory.index_refresher import refresh_index
 from research.storage.paths import StoragePaths
 from research.storage.state import StateFile
@@ -58,9 +63,25 @@ logger = logging.getLogger(__name__)
 # - packet_text: the full _consolidation/packet_{...}.md string
 # - packet_path: where the packet lives (single input)
 # - output_path: where to write the rewritten md
-# - target_kind: "lessons" | "direction" | "index" — lets the subagent
+# - target_kind: "lessons" | "direction" — lets the subagent
 #   apply different rewrite templates
 RewriteCallback = Callable[[str, Path, Path, str], None]
+
+# specialist_callback(packet_text, packet_path, findings_dir, specialist_name)
+#
+# - Used for Phase-5 Stage-A distillation. The subagent reads the packet
+#   and writes one or more ``F00N.md`` files into ``findings_dir``. Return
+#   value is ignored — orchestrator re-scans the dir afterward.
+# - ``specialist_name`` is one of ``pattern_analyst``, ``library_gap``,
+#   ``calibration``, ``hypothesis_promoter``.
+SpecialistCallback = Callable[[str, Path, Path, str], None]
+
+SPECIALIST_NAMES: tuple[str, ...] = (
+    "pattern_analyst",
+    "library_gap",
+    "calibration",
+    "hypothesis_promoter",
+)
 
 
 class Phase5PreconditionError(RuntimeError):
@@ -77,12 +98,21 @@ class ConsolidationTrigger:
 
 @dataclass
 class Phase5Inputs:
-    """Everything Phase 5 needs."""
+    """Everything Phase 5 needs.
+
+    Backward-compatible: if ``specialist_callback`` is ``None`` the
+    orchestrator runs the **legacy single-stage flow** (all directions
+    rewritten, one packet per). When ``specialist_callback`` is provided,
+    the new **two-stage flow** runs: 4 distillation specialists first
+    produce ``_consolidation/findings/*.md``, then writer dispatch is
+    scoped to only the directions those findings touch.
+    """
 
     paths: StoragePaths
     repo_root: Path
     trigger: ConsolidationTrigger
     rewrite_callback: RewriteCallback | None = None
+    specialist_callback: SpecialistCallback | None = None
     do_commit: bool = True
 
 
@@ -91,6 +121,7 @@ class Phase5Result:
     targets: list[str]
     packets: list[Path]
     rewritten: list[Path]
+    findings: list[Path] = field(default_factory=list)
     commit: CommitResult | None = None
 
 
@@ -149,54 +180,227 @@ def check_triggers(
 # ---------------------------------------------------------------------------
 
 
-def _build_packet_for_lessons(paths: StoragePaths) -> str:
-    """Simple inline packer — grows more elaborate in follow-up work."""
+def _findings_section(findings: list[FindingMeta]) -> str:
+    """Inline the full body of each finding into a packet section.
+
+    Writers consume findings as prose — frontmatter is machine metadata.
+    Emit ``## Related findings`` only when the list is non-empty so
+    packets for directions without findings stay tight.
+    """
+    if not findings:
+        return ""
+    chunks = ["## Related findings (from distillation specialists)\n"]
+    for f in findings:
+        # Read body directly from disk so the section shows exactly what
+        # the specialist subagent wrote.
+        try:
+            raw = f.path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        chunks.append(f"### {f.finding_id} · severity={f.severity}\n")
+        chunks.append(raw)
+        chunks.append("")
+    return "\n".join(chunks)
+
+
+def _build_packet_for_lessons(
+    paths: StoragePaths, findings: list[FindingMeta] | None = None
+) -> str:
+    """Packet for the lessons writer — may include distilled findings."""
     body = ""
     if paths.vault_lessons_file.exists():
         body = paths.vault_lessons_file.read_text(encoding="utf-8")
+    findings_block = _findings_section(findings or [])
     return (
         "# Consolidation Packet — lessons.md\n\n"
         "## Current content\n\n"
         f"{body}\n\n"
-        "## Instructions\n\n"
+        + (findings_block + "\n\n" if findings_block else "")
+        + "## Instructions\n\n"
         "Rewrite `vault/lessons.md` to remove redundant lessons and "
         "promote stable facts. Preserve Data Facts, Operator Registry, "
-        "Path Selection, and Structural Constraints sections. Target "
-        "length < 400 lines.\n"
+        "Path Selection, and Structural Constraints sections. If "
+        "'Related findings' is present, integrate each finding's "
+        "`suggested_lesson_text` (if any) into the appropriate existing "
+        "section — do not create a new section just for findings. "
+        "Target length < 400 lines.\n"
     )
 
 
-def _build_packet_for_direction(paths: StoragePaths, direction: str) -> str:
+def _build_packet_for_direction(
+    paths: StoragePaths,
+    direction: str,
+    findings: list[FindingMeta] | None = None,
+) -> str:
+    """Packet for one direction writer. Optionally includes related findings."""
     md_path = paths.direction_file(direction)
     body = md_path.read_text(encoding="utf-8") if md_path.exists() else ""
+    findings_block = _findings_section(findings or [])
     return (
         f"# Consolidation Packet — directions/{direction}.md\n\n"
         "## Current content\n\n"
         f"{body}\n\n"
-        "## Instructions\n\n"
+        + (findings_block + "\n\n" if findings_block else "")
+        + "## Instructions\n\n"
         "Rewrite this direction md to compress long narrative logs, "
         "dedupe threads, and preserve Hypothesis + active Threads + "
-        "Narrative Log (truncated to most recent 20 entries). Do not "
-        "touch the frontmatter — Python manages that.\n"
+        "Narrative Log (truncated to most recent 20 entries). If "
+        "'Related findings' is present, use it to decide which narrative "
+        "entries to promote / remove (e.g. a high-severity finding that "
+        "names this direction implies the related failure should be "
+        "upgraded to Hypothesis ⚠️). Do not touch the frontmatter — "
+        "Python manages that.\n"
     )
 
 
-def _build_packet_for_index(paths: StoragePaths) -> str:
-    body = (
-        paths.vault_index_file.read_text(encoding="utf-8")
-        if paths.vault_index_file.exists()
-        else ""
+# --- Specialist packets (Stage A of 2-stage flow) -------------------------
+
+def _recent_judge_bodies(paths: StoragePaths, limit: int = 10) -> str:
+    """Concatenate recent judge.md bodies for specialist packets.
+
+    Returns an empty string if no batches exist yet. Caller embeds this
+    block into the specialist packet — kept as raw markdown so the LLM
+    can navigate the judge structure it already knows.
+    """
+    if not paths.batches_dir.exists():
+        return ""
+    batch_dirs = sorted(
+        (d for d in paths.batches_dir.glob("batch_*") if d.is_dir()),
+        key=lambda d: d.name,
     )
+    recent = batch_dirs[-limit:] if limit > 0 else batch_dirs
+    chunks: list[str] = []
+    for d in recent:
+        judge = d / "judge.md"
+        if not judge.exists():
+            continue
+        chunks.append(f"### {d.name}\n")
+        chunks.append(judge.read_text(encoding="utf-8"))
+        chunks.append("")
+    return "\n".join(chunks)
+
+
+def _all_direction_bodies(paths: StoragePaths) -> str:
+    """Concatenate all direction.md bodies (frontmatter + body) for
+    the hypothesis_promoter / pattern_analyst specialists."""
+    if not paths.directions_dir.exists():
+        return ""
+    chunks: list[str] = []
+    for md in sorted(paths.directions_dir.glob("*.md")):
+        chunks.append(f"### {md.stem}")
+        chunks.append(md.read_text(encoding="utf-8"))
+        chunks.append("")
+    return "\n".join(chunks)
+
+
+def _all_factor_yaml_summary(paths: StoragePaths) -> str:
+    """Compact summary of admitted factors — name + expression per line."""
+    if not paths.factors_dir.exists():
+        return ""
+    lines: list[str] = ["| factor_id | name | expression |", "|---|---|---|"]
+    import yaml as _yaml
+
+    for y in sorted(paths.factors_dir.glob("F*.yaml")):
+        try:
+            data = _yaml.safe_load(y.read_text(encoding="utf-8")) or {}
+        except Exception:
+            continue
+        lines.append(
+            f"| {y.stem} | {data.get('name') or ''} "
+            f"| `{data.get('expression') or ''}` |"
+        )
+    return "\n".join(lines)
+
+
+def _build_specialist_packet_pattern_analyst(paths: StoragePaths) -> str:
     return (
-        "# Consolidation Packet — INDEX.md (upper half)\n\n"
-        "## Current content\n\n"
-        f"{body}\n\n"
-        "## Instructions\n\n"
-        "Rewrite the upper half of `vault/INDEX.md` (everything ABOVE "
-        "the `<!-- BEGIN AUTO-SECTION -->` marker). Summarize active "
-        "directions and recent highlights. Do NOT touch the lower half "
-        "— Python regenerates the stats table on every archive.\n"
+        "# Distillation Packet — pattern_analyst\n\n"
+        "## Task\n\n"
+        "Scan recent judge.md bodies + all direction bodies. Identify "
+        "**cross-direction patterns** that recur (same dominant_style "
+        "absorption, same rejection mechanism, same failure mode). Each "
+        "pattern you surface must become one `F{NNN}.md` in "
+        "`storage/vault/_consolidation/findings/` with the frontmatter "
+        "shape:\n\n"
+        "```yaml\n---\n"
+        "finding_id: F001\nspecialist: pattern_analyst\n"
+        "severity: high|medium|low\n"
+        "affected_directions: [...]\n"
+        "touches_lessons: true|false\n"
+        "batches_referenced: [...]\nsuggested_lesson_text: \"...\"\n"
+        "---\n```\n\n"
+        "## Recent judge.md bodies\n\n"
+        f"{_recent_judge_bodies(paths)}\n\n"
+        "## All direction bodies\n\n"
+        f"{_all_direction_bodies(paths)}\n"
     )
+
+
+def _build_specialist_packet_library_gap(paths: StoragePaths) -> str:
+    return (
+        "# Distillation Packet — library_gap\n\n"
+        "## Task\n\n"
+        "Inspect admitted factors + recent reject patterns. Identify "
+        "**signal families that are structurally missing** from the "
+        "library (e.g. 'all admitted factors are single-window; "
+        "multi-horizon blends never tried'). Each gap becomes one "
+        "`F{NNN}.md` finding.\n\n"
+        "## Admitted factors\n\n"
+        f"{_all_factor_yaml_summary(paths)}\n\n"
+        "## Recent judge.md bodies\n\n"
+        f"{_recent_judge_bodies(paths)}\n"
+    )
+
+
+def _build_specialist_packet_calibration(paths: StoragePaths) -> str:
+    return (
+        "# Distillation Packet — calibration\n\n"
+        "## Task\n\n"
+        "Scan recent judge.md `阈值校准诊断` sections. Identify "
+        "**threshold tuning proposals** with concrete evidence (which "
+        "threshold, current value, proposed value, which reserve "
+        "candidates would have flipped). Each proposal becomes one "
+        "`F{NNN}.md` finding with severity reflecting how many candidates "
+        "would have been affected.\n\n"
+        "## Recent judge.md bodies\n\n"
+        f"{_recent_judge_bodies(paths)}\n"
+    )
+
+
+def _build_specialist_packet_hypothesis_promoter(paths: StoragePaths) -> str:
+    return (
+        "# Distillation Packet — hypothesis_promoter\n\n"
+        "## Task\n\n"
+        "Scan direction bodies (especially `dead` / `saturated` statuses) "
+        "for **hypothesis elements worth promoting to `lessons.md`** "
+        "(reusable across future directions). Each promotion becomes one "
+        "`F{NNN}.md` finding with `touches_lessons: true` and a concrete "
+        "`suggested_lesson_text` (the exact prose to integrate).\n\n"
+        "## All direction bodies\n\n"
+        f"{_all_direction_bodies(paths)}\n"
+    )
+
+
+_SPECIALIST_BUILDERS: dict[str, Callable[[StoragePaths], str]] = {
+    "pattern_analyst": _build_specialist_packet_pattern_analyst,
+    "library_gap": _build_specialist_packet_library_gap,
+    "calibration": _build_specialist_packet_calibration,
+    "hypothesis_promoter": _build_specialist_packet_hypothesis_promoter,
+}
+
+
+def prepack_specialists(paths: StoragePaths) -> dict[str, Path]:
+    """Write 4 distillation packets to ``_consolidation/``. Pure I/O."""
+    consolidation_dir = paths.vault_meta_dir.parent / "_consolidation"
+    consolidation_dir.mkdir(parents=True, exist_ok=True)
+    (consolidation_dir / "findings").mkdir(exist_ok=True)
+
+    out: dict[str, Path] = {}
+    for name in SPECIALIST_NAMES:
+        pkt = consolidation_dir / f"packet_specialist_{name}.md"
+        pkt.write_text(_SPECIALIST_BUILDERS[name](paths), encoding="utf-8")
+        out[name] = pkt
+    return out
 
 
 def prepack_consolidation(
@@ -206,7 +410,7 @@ def prepack_consolidation(
     """Write all consolidation packets to ``_consolidation/`` and return paths.
 
     The returned dict maps ``target_kind`` (``"lessons"``,
-    ``"direction:{name}"``, ``"index"``) to the packet path.
+    ``"direction:{name}"``) to the packet path.
     """
     consolidation_dir = paths.vault_meta_dir.parent / "_consolidation"
     consolidation_dir.mkdir(parents=True, exist_ok=True)
@@ -229,11 +433,6 @@ def prepack_consolidation(
             _build_packet_for_direction(paths, d), encoding="utf-8"
         )
         packets[f"direction:{d}"] = pkt
-
-    # INDEX (synchronous, runs after directions in the orchestrator)
-    index_pkt = consolidation_dir / "packet_index.md"
-    index_pkt.write_text(_build_packet_for_index(paths), encoding="utf-8")
-    packets["index"] = index_pkt
 
     return packets
 
@@ -340,57 +539,167 @@ def run_phase5_consolidation(inputs: Phase5Inputs) -> Phase5Result:
             "phase5 preconditions failed: " + "; ".join(failures)
         )
 
-    # --- Step 2: Pre-pack ---
+    # Two-stage mode when a specialist callback is present; otherwise the
+    # legacy single-stage flow (all directions rewritten).
+    if inputs.specialist_callback is not None:
+        return _run_two_stage(inputs, state_file, backup_dir)
+    return _run_legacy(inputs, state_file, backup_dir)
+
+
+def _run_legacy(
+    inputs: Phase5Inputs, state_file: StateFile, backup_dir: Path
+) -> Phase5Result:
+    """Legacy single-stage flow: all directions rewritten. Kept for
+    backward-compat; no findings, no per-direction filtering."""
+    paths = inputs.paths
     packet_map = prepack_consolidation(paths)
 
-    # Build the list of targets (paths we're about to overwrite) for backup.
     all_targets: list[Path] = []
     for target_key in packet_map:
-        if target_key == "index":
-            all_targets.append(paths.vault_index_file)
-        else:
-            output_path, _ = _output_for(paths, target_key)
-            all_targets.append(output_path)
+        output_path, _ = _output_for(paths, target_key)
+        all_targets.append(output_path)
     backup_map = _backup_targets(paths, all_targets)
 
-    # --- Step 3 + 4: Dispatch rewrites (restore-on-failure) ---
     rewritten: list[Path] = []
     try:
         if inputs.rewrite_callback is not None:
-            # Directions + lessons first; INDEX runs after (barrier).
             for target_key, pkt_path in packet_map.items():
-                if target_key == "index":
-                    continue
                 output_path, kind = _output_for(paths, target_key)
                 pkt_text = pkt_path.read_text(encoding="utf-8")
                 inputs.rewrite_callback(pkt_text, pkt_path, output_path, kind)
                 rewritten.append(output_path)
-
-            # INDEX upper half (synchronous — depends on all directions)
-            idx_pkt = packet_map["index"]
-            idx_text = idx_pkt.read_text(encoding="utf-8")
-            inputs.rewrite_callback(
-                idx_text, idx_pkt, paths.vault_index_file, "index"
-            )
-            rewritten.append(paths.vault_index_file)
     except Exception:
         logger.exception("phase5 rewrite failed — restoring from backup")
         _restore_from_backup(backup_map)
         raise
 
-    # --- INDEX lower half auto-section refresh ---
-    # The rewrite_callback handled the upper half; now Python refreshes
-    # the stats block so the two halves are consistent.
-    current_state = state_file.read()
-    refresh_index(paths, round_counter=current_state.round)
+    return _finalize_consolidation(
+        inputs,
+        state_file,
+        backup_dir,
+        target_keys=list(packet_map.keys()),
+        packet_paths=list(packet_map.values()),
+        rewritten=rewritten,
+        findings_files=[],
+    )
 
-    # --- Step 5: state update BEFORE commit so state.yaml is atomically
-    # staged in the same commit.
+
+def _run_two_stage(
+    inputs: Phase5Inputs, state_file: StateFile, backup_dir: Path
+) -> Phase5Result:
+    """Stage A (4 specialists → findings) + Stage B (writers, scoped by
+    findings.affected_directions). See Phase5Inputs docstring for flow
+    rationale."""
+    paths = inputs.paths
+    consolidation_dir = paths.vault_meta_dir.parent / "_consolidation"
+    findings_dir = consolidation_dir / "findings"
+
+    # --- Stage A: specialists --------------------------------------------
+    specialist_packets = prepack_specialists(paths)
+    try:
+        for name, pkt_path in specialist_packets.items():
+            pkt_text = pkt_path.read_text(encoding="utf-8")
+            # specialist_callback is guaranteed non-None (caller dispatched here)
+            assert inputs.specialist_callback is not None
+            inputs.specialist_callback(pkt_text, pkt_path, findings_dir, name)
+    except Exception:
+        logger.exception(
+            "phase5 specialist dispatch failed — no writer targets touched "
+            "yet, so no restoration needed"
+        )
+        # Findings dir may contain partial files but vault is untouched.
+        # Leave findings for post-mortem; orchestrator's backup guard
+        # catches any re-run attempt.
+        raise
+
+    findings: list[FindingMeta] = load_findings(findings_dir)
+
+    # --- Stage B: compute writer targets from findings -------------------
+    touched = touched_directions(findings)
+    write_lessons = bool(findings_for_lessons(findings))
+
+    # Backup only what we're about to overwrite.
+    all_targets: list[Path] = []
+    if write_lessons:
+        all_targets.append(paths.vault_lessons_file)
+    for d in touched:
+        all_targets.append(paths.direction_file(d))
+    backup_map = _backup_targets(paths, all_targets)
+
+    # Pack writer packets with their filtered findings.
+    writer_packets: dict[str, Path] = {}
+    if write_lessons:
+        lessons_pkt = consolidation_dir / "packet_lessons.md"
+        lessons_pkt.write_text(
+            _build_packet_for_lessons(
+                paths, findings=findings_for_lessons(findings)
+            ),
+            encoding="utf-8",
+        )
+        writer_packets["lessons"] = lessons_pkt
+    for d in touched:
+        pkt = consolidation_dir / f"packet_direction_{d}.md"
+        pkt.write_text(
+            _build_packet_for_direction(
+                paths, d, findings=findings_for_direction(d, findings)
+            ),
+            encoding="utf-8",
+        )
+        writer_packets[f"direction:{d}"] = pkt
+    rewritten: list[Path] = []
+    try:
+        if inputs.rewrite_callback is not None:
+            for target_key, pkt_path in writer_packets.items():
+                output_path, kind = _output_for(paths, target_key)
+                pkt_text = pkt_path.read_text(encoding="utf-8")
+                inputs.rewrite_callback(pkt_text, pkt_path, output_path, kind)
+                rewritten.append(output_path)
+    except Exception:
+        logger.exception("phase5 writer dispatch failed — restoring")
+        _restore_from_backup(backup_map)
+        raise
+
+    findings_files = [f.path for f in findings]
+    return _finalize_consolidation(
+        inputs,
+        state_file,
+        backup_dir,
+        target_keys=list(writer_packets.keys()),
+        packet_paths=(
+            list(specialist_packets.values()) + list(writer_packets.values())
+        ),
+        rewritten=rewritten,
+        findings_files=findings_files,
+    )
+
+
+def _finalize_consolidation(
+    inputs: Phase5Inputs,
+    state_file: StateFile,
+    backup_dir: Path,
+    *,
+    target_keys: list[str],
+    packet_paths: list[Path],
+    rewritten: list[Path],
+    findings_files: list[Path],
+) -> Phase5Result:
+    """Common post-rewrite steps: refresh index, mark consolidated, commit,
+    cleanup. Used by both legacy and two-stage flows so they share a single
+    definition of 'what a successful consolidation commit looks like'."""
+    paths = inputs.paths
+    current_state = state_file.read()
+    index_path = refresh_index(paths, round_counter=current_state.round)
+    rewritten_with_index = list(rewritten)
+    if index_path not in rewritten_with_index:
+        rewritten_with_index.append(index_path)
+
     state_file.mark_consolidated()
 
     commit_result: CommitResult | None = None
-    if inputs.do_commit and rewritten:
-        files_to_stage: list[Path] = list(rewritten) + [paths.state_file]
+    if inputs.do_commit and rewritten_with_index:
+        files_to_stage: list[Path] = (
+            list(rewritten_with_index) + list(findings_files) + [paths.state_file]
+        )
         staged = stage_files(inputs.repo_root, files_to_stage)
         message = (
             f"[consolidate] round {current_state.round}: "
@@ -398,14 +707,14 @@ def run_phase5_consolidation(inputs: Phase5Inputs) -> Phase5Result:
         )
         commit_result = create_commit(inputs.repo_root, message, staged)
 
-    # --- Cleanup: drop backup dir on success ---
     if backup_dir.exists():
         shutil.rmtree(backup_dir, ignore_errors=True)
 
     return Phase5Result(
-        targets=list(packet_map.keys()),
-        packets=list(packet_map.values()),
-        rewritten=rewritten,
+        targets=target_keys + (["index"] if "index" not in target_keys else []),
+        packets=packet_paths,
+        rewritten=rewritten_with_index,
+        findings=findings_files,
         commit=commit_result,
     )
 

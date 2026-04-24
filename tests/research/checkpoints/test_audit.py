@@ -696,14 +696,13 @@ class TestCheck14DirectionMdUpdated:
 
 
 # ---------------------------------------------------------------------------
-# Check 15 — INDEX.md direction section mentions batch
+# Check 15 — INDEX.md is Python-owned and ignored by judge audit
 # ---------------------------------------------------------------------------
 
 
 class TestCheck15IndexMdUpdated:
-    def test_missing_direction_heading_fails(self, tmp_path: Path) -> None:
+    def test_malformed_index_does_not_fail_judge_audit(self, tmp_path: Path) -> None:
         bdir = _write_batch(tmp_path, candidate_ids=["C001"])
-        # INDEX.md has no direction heading at all
         bad_index = """---
 generated_at: '2026-04-18T00:00:00Z'
 ---
@@ -711,40 +710,9 @@ generated_at: '2026-04-18T00:00:00Z'
 # INDEX
 
 (no direction headings)
-
-<!-- BEGIN AUTO-SECTION -->
-(auto)
-<!-- END AUTO-SECTION -->
 """
-        with pytest.raises(JudgeAuditError, match="missing '### \\[\\[directions"):
-            _run_audit(tmp_path, bdir, ["C001"], index_md=bad_index)
-
-    def test_direction_section_missing_batch_id_fails(self, tmp_path: Path) -> None:
-        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
-        bad_index = _good_index_md().replace(
-            "Last run: batch_042.", "Last run: batch_xxx."
-        )
-        with pytest.raises(JudgeAuditError, match="does not mention 'batch_042'"):
-            _run_audit(tmp_path, bdir, ["C001"], index_md=bad_index)
-
-    def test_batch_reference_only_in_auto_section_fails(self, tmp_path: Path) -> None:
-        """Batch mention in the Python auto section doesn't count for c15."""
-        bdir = _write_batch(tmp_path, candidate_ids=["C001"])
-        bad_index = """---
-generated_at: '2026-04-18T00:00:00Z'
----
-
-# INDEX
-
-### [[directions/fp_divergence|Example]] `exploring` `medium`
-No recent updates.
-
-<!-- BEGIN AUTO-SECTION -->
-Last batch: batch_042
-<!-- END AUTO-SECTION -->
-"""
-        with pytest.raises(JudgeAuditError, match="does not mention 'batch_042'"):
-            _run_audit(tmp_path, bdir, ["C001"], index_md=bad_index)
+        parsed = _run_audit(tmp_path, bdir, ["C001"], index_md=bad_index)
+        assert parsed.judge.frontmatter["batch_id"] == "batch_042"
 
 
 # ---------------------------------------------------------------------------

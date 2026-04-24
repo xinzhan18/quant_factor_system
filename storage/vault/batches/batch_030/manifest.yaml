@@ -1,0 +1,58 @@
+batch_id: batch_030
+round: 29
+direction: microstructure_illiquidity
+direction_md_ref: vault/directions/microstructure_illiquidity.md
+batch_goal: 测试 microstructure 层 illiquidity 维度——Amihud 20d/60d、HHI(amount/turnover)
+  时序集中度、TsEntropy(amount)——是否能在 F001(amount CV) / F002(pb×amount) / vol_20d Barra
+  basis 外提供独立 alpha。三个自定义 DSL 算子在 29 批历史从未使用。
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-22T17:43:43Z'
+frozen_at: '2026-04-22T17:43:43Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount), 20)
+  canonical: Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)
+  rationale: T001 Amihud 20d 基准：Mean(|daily_return| / $amount, 20)，Amihud (2002) illiquidity
+    ratio。测 microstructure 层 price-impact per dollar 是否是独立于 F001 dispersion 与 vol_20d
+    magnitude 的 alpha 维度。
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount), 60)
+  canonical: Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),60)
+  rationale: T001 Amihud 60d horizon scan：相对 C001 检测 illiquidity premium 的 horizon
+    稳定性。若 20d 胜 60d 说明短窗信号更强，若 60d 胜则长窗平滑噪声有优势。
+- candidate_id: C003
+  source_type: dsl
+  expression: HHI($amount, 20)
+  canonical: HHI($amount,20)
+  rationale: T002 amount 时序 Herfindahl 指数：Σ(p_i²) where p_i = amount_i / Σamount。与
+    F001(Std/Mean) 代数独立——HHI 对单日极值敏感，Std/Mean 对均值偏离敏感。高 HHI = 信息事件驱动集中成交。
+- candidate_id: C004
+  source_type: dsl
+  expression: HHI($turnover_rate, 20)
+  canonical: HHI($turnover_rate,20)
+  rationale: T002 turnover 集中度孪生：检测是否 amount HHI 效应能迁移到 turnover_rate 字段。turnover_structural_signal
+    direction 已 reject CV 与 AutoCorr，但 HHI 未测——是该方向的剩余空间。
+- candidate_id: C005
+  source_type: dsl
+  expression: TsEntropy($amount, 20)
+  canonical: TsEntropy($amount,20)
+  rationale: T003 HHI 代数孪生对比：-Σp_i log p_i，与 HHI 符号反转（低 entropy = 高集中）。如果 HHI 与 Entropy
+    同时通过 CP 则维度稳健；若只 HHI 过则说明单日极值驱动；若都失败则 'amount 时序集中度' 整个机制封闭。
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $turnover_rate),
+    20)
+  canonical: Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$turnover_rate),20)
+  rationale: T001 分母替换稳健性：用 $turnover_rate 替 $amount。turnover_rate 已自带 shares_outstanding
+    归一化，若 Amihud 结构仍成立说明 price-impact 机制与 scale-normalization 选择无关。与 C001 对比可揭示'amount
+    dollar-scaled'与'turnover share-scaled'哪个是更优 illiquidity 尺度。

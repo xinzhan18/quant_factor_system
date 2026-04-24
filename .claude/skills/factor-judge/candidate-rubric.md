@@ -12,11 +12,11 @@ description: Phase 3 JUDGE — single-candidate judging manual (subagent only)
 | 来源 | 必读 | 说明 |
 |---|---|---|
 | 本文件 `candidate-rubric.md` | ✓ | 本手册，判决标尺 |
-| `_hints.yaml` 里 `per_candidate.{CID}` 块 | ✓ | Python 已预拍平所有 rubric 数值 + 每个 hard gate 的独立结果 + MT 预算 |
+| `Bash: PYTHONPATH=src python3 -m research hints {BATCH_ID} candidate {CID}` | ✓ | stdout ~200 行 YAML——Python 已预拍平所有 rubric 数值 + 每个 hard gate 的独立结果 + MT 预算；**self-contained**，含 batch 级 mt_counts |
 | `directions/{DIRECTION}.md` | ✓ | 方向 hypothesis + 活跃 threads（CP02 用） |
 | `factors/{nearest_factor_id}.md` | 可选 | 仅当 `metrics.cp05.nearest_factor_id` 非 null 时，用于 CP02/CP05 近邻机制对比 |
 
-你**不读**：`result.yaml` / `lessons.md` / 父 `skill.md`。所有数字都在 `_hints.yaml` 里。
+你**不读**：`_hints.yaml` 文件（用 `research hints` CLI 投影代替）/ `result.yaml` / `lessons.md` / 父 `skill.md`。所有数字都在 CLI stdout 里。
 
 ## 你写什么
 
@@ -56,9 +56,9 @@ hard_gate fail: {hints.hard_gate.reasons 的第一条}
 
 ---
 
-## `_hints.yaml` 数据结构
+## `research hints ... candidate {CID}` stdout 数据结构
 
-子代理读 `per_candidate.{CID}` 下这棵树：
+子代理从 Bash CLI 获取的 YAML 结构（含 batch 级 `batch_id` / `direction` / `candidate_id` / `mt_counts` 在顶层，其后的字段与 `_hints.yaml.per_candidate.{CID}` 相同）：
 
 ```yaml
 expression: "Std($close, 20)"
@@ -301,7 +301,7 @@ Body 是否必提：若有任何一条触发"需警觉"则 verdict 段必须明�
 candidate_id: C001                  # 必填，与文件名一致
 batch_id: batch_009                 # 必填
 direction: timing_signals           # 必填
-expression: "Std($close, 20)"       # 必填（照抄 _hints.yaml.per_candidate.{CID}.expression）
+expression: "Std($close, 20)"       # 必填（照抄 `research hints ... candidate {CID}` stdout 顶层 expression）
 verdict: admit                      # 必填：admit | reserve | reject（replace 枚举保留但 DEPRECATED，不用）
 thread_id: T001                     # 必填；必须对应 direction.md 里 `### T001` H3（audit c16 交叉校验）
 factor_id: null                     # admit 时留 null，Phase 4 分配

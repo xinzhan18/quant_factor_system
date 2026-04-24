@@ -460,3 +460,113 @@ def build_hints(
 def write_hints(path: str | Path, hints: dict[str, Any]) -> None:
     """Atomically write *hints* to *path* as YAML (parent dirs created)."""
     save_yaml(path, hints)
+
+
+def _build_verdict_hint(entry: dict[str, Any]) -> str:
+    """Give the main agent a one-word preview of where this candidate likely lands.
+
+    Not a substitute for subagent judgement — the full 6-CP reasoning still
+    happens per-candidate. This is only so the main agent can scan the summary
+    and spot 'this whole batch is wall-to-wall reject' without reading details.
+    """
+    gate = entry.get("hard_gate") or {}
+    if not gate.get("passed"):
+        return "reject_candidate"
+    cp03 = (entry.get("metrics") or {}).get("cp03") or {}
+    cp04 = (entry.get("metrics") or {}).get("cp04") or {}
+    cp05 = (entry.get("metrics") or {}).get("cp05") or {}
+    ic_oos = cp03.get("ic_oos")
+    icir_oos = cp03.get("icir_oos")
+    alpha_surv = cp04.get("alpha_survival_ratio")
+    max_corr = cp05.get("max_lib_corr")
+    if ic_oos is None or icir_oos is None:
+        return "unclear"
+    if max_corr is not None and abs(max_corr) > 0.7:
+        return "near_duplicate_risk"
+    if alpha_surv is not None and alpha_surv < 0.3:
+        return "alpha_surv_weak"
+    if abs(icir_oos) >= 0.3 and (alpha_surv or 0) >= 0.4:
+        return "admit_candidate"
+    return "borderline"
+
+
+def _build_key_metric_oneliner(entry: dict[str, Any]) -> str:
+    """A single-line digest of the strongest signals for this candidate.
+
+    Format stays roughly ~80 chars so it renders well in the main agent's
+    summary skim. Fields missing emit ``-``.
+    """
+    gate = entry.get("hard_gate") or {}
+    if not gate.get("passed"):
+        reasons = gate.get("reasons") or ["unknown"]
+        return f"hard_gate_fail: {reasons[0]}"
+    cp03 = (entry.get("metrics") or {}).get("cp03") or {}
+    cp04 = (entry.get("metrics") or {}).get("cp04") or {}
+    cp05 = (entry.get("metrics") or {}).get("cp05") or {}
+
+    def _fmt(v: Any, nd: int = 3) -> str:
+        if v is None:
+            return "-"
+        try:
+            return f"{float(v):.{nd}f}"
+        except (TypeError, ValueError):
+            return str(v)
+
+    return (
+        f"ic_oos={_fmt(cp03.get('ic_oos'))} "
+        f"icir_oos={_fmt(cp03.get('icir_oos'), 2)} "
+        f"ls_t={_fmt(cp03.get('ls_tstat_oos'), 2)} "
+        f"alpha_surv={_fmt(cp04.get('alpha_survival_ratio'), 2)} "
+        f"max_corr={_fmt(cp05.get('max_lib_corr'), 2)}"
+        f"@{cp05.get('nearest_factor_id') or '-'}"
+    )
+
+
+def build_hints_summary(hints: dict[str, Any]) -> dict[str, Any]:
+    """Project a full hints payload down to the ~30-line main-agent view.
+
+    Per-candidate metrics (~180 lines each) collapse to 4 fields:
+    ``expression``, ``hard_gate_passed``, ``verdict_hint``, ``key_metric``.
+    Pure function — never persists to disk; exposed via
+    ``research hints <batch> summary``.
+    """
+    per_candidate_summary: dict[str, Any] = {}
+    for cid, entry in (hints.get("per_candidate") or {}).items():
+        per_candidate_summary[cid] = {
+            "expression": entry.get("expression"),
+            "hard_gate_passed": bool(
+                (entry.get("hard_gate") or {}).get("passed")
+            ),
+            "verdict_hint": _build_verdict_hint(entry),
+            "key_metric": _build_key_metric_oneliner(entry),
+        }
+    return {
+        "batch_id": hints.get("batch_id"),
+        "direction": hints.get("direction"),
+        "generated_at": hints.get("generated_at"),
+        "mt_counts": hints.get("mt_counts"),
+        "per_candidate": per_candidate_summary,
+    }
+
+
+def build_hints_for_candidate(
+    hints: dict[str, Any], candidate_id: str
+) -> dict[str, Any] | None:
+    """Project the hints payload down to one candidate's self-contained view.
+
+    The returned dict carries batch-level identity (``batch_id`` / ``direction``
+    / ``mt_counts``) at the top so a subagent consuming it can judge without
+    reading any sibling file. Returns ``None`` when the candidate is absent.
+    Pure function — never persists to disk; exposed via
+    ``research hints <batch> candidate <CID>``.
+    """
+    entry = (hints.get("per_candidate") or {}).get(candidate_id)
+    if entry is None:
+        return None
+    return {
+        "batch_id": hints.get("batch_id"),
+        "direction": hints.get("direction"),
+        "candidate_id": candidate_id,
+        "mt_counts": hints.get("mt_counts") or {},
+        **entry,
+    }

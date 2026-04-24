@@ -1,0 +1,25 @@
+\section{Problem Setup}
+\paragraph{Alpha Mining}
+The alpha mining task aims to learn an alpha factor $f$ from a market feature tensor $\mathbf{X}\in\mathbb{R}^{N\times T\times D}$ for a stock universe $\mathcal{S}=\{s_1,\ldots,s_N\}$ and a time horizon $\mathcal{T}=\{t_1,\ldots,t_T\}$. 
+At each time $t\in\mathcal{T}$, the factor produces a signal from the feature slice $\mathbf{X}_t\in\mathbb{R}^{N\times D}$ that is used to predict the cross-sectional return $\mathbf{y}_{t+1}\in\mathbb{R}^{N}$.
+In notation, an alpha can be written as $f(\mathbf{X}_t)\rightarrow \mathbf{y}_{t+1}$, where $\mathbf{y}_{t+1}$ denotes the realized returns at time $t+1$. Accordingly, we formulate alpha mining as the following optimization problem:
+\begin{equation}
+f^{*}=\arg\max_{f\in\mathcal{F}}\ \mathcal{L}\big(f(\mathbf{X}),\mathbf{y}\big)-\lambda\mathcal{R}(f),
+\label{eq:alpha_mining}
+\end{equation}
+where $\mathcal{F}$ denotes the space of all possible factor expressions, $\mathbf{y}$ is the ground-truth return target (e.g., next-day returns), $\mathcal{L}(\cdot)$ measures predictive effectiveness, $\mathcal{R}(\cdot)$ is a regularization term that encourages simplicity and novelty of the expression, and $\lambda$ balances utility and regularization.
+\paragraph{Alpha Mining Trajectory}
+Distinct from purely data-driven pipelines, we introduce market hypotheses $h\in\mathcal{H}$ to guide LLM-based factor construction. 
+Each alpha mining run follows an end-to-end workflow from hypothesis generation to factor generation and backtesting evaluation (see Section~\ref{sec:4.1}). 
+We represent each run by a mining trajectory, defined as an ordered sequence $\tau=(s_0,a_0,s_1,a_1,\ldots,s_n)$, where $s_0$ denotes the initial mining context (e.g., market context and optional user-provided seeds), $a_i$ is the action taken at step $i$ by the multi-agent system, and $s_n$ is the terminal state containing the evaluated result of this run. The quality of a trajectory is measured by its terminal reward:
+\begin{equation}
+R(\tau)=\mathcal{L}\big(f_{\tau}(\mathbf{X}),\mathbf{y}\big)-\lambda\mathcal{R}(f_{\tau}),
+\label{eq:traj_reward}
+\end{equation}
+where $f_{\tau}$ denotes the factor produced by trajectory $\tau$.
+\paragraph{Objective} Our objective is to find a trajectory generation mechanism $\pi$ for the multi-agent system that maximizes the expected terminal reward of the generated mining trajectory: 
+\begin{equation}
+\pi^{*}=\arg\max_{\pi}\ \mathbb{E}_{\tau\sim \pi}\bigl[R(\tau)\bigr],
+\label{eq:objective_policy}
+\end{equation}
+where $\tau\sim\pi$ denotes the trajectory induced by repeatedly applying $\pi$ from the initial state $s_0$.

@@ -1,0 +1,75 @@
+batch_id: batch_037
+round: 36
+direction: trend_quality_gated
+direction_md_ref: vault/directions/trend_quality_gated.md
+batch_goal: 'T001/T002/T003 baseline: probe whether momentum gated by abnormal amount
+  (T001 linear/log), low return-vol (T002 Sharpe-like), or joint (T003 composite)
+  survives csi1000 small-cap 2023 regime where raw momentum was disproven in return_momentum_acceleration/asymmetric_momentum
+  dead directions. Paper Channel 3 CleanTrend/OrderlyTrend signals, applied via log-compression
+  meta-pattern from F013.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T18:12:55Z'
+frozen_at: '2026-04-23T18:12:55Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($close, Ref($close, 10)), Ref($close, 10)), Div($amount,
+    Mean($amount, 20))), 5)
+  canonical: Mean(Mul(Div($amount,Mean($amount,20)),Div(Sub($close,Ref($close,10)),Ref($close,10))),5)
+  rationale: 'T001 baseline: 10d price momentum × abnormal amount linear ratio × 5d
+    smoothing. Tests paper''s OrderlyTrend_x_Absorption (10D/5D/20D windows) signal.
+    Linear version expected weak per batch_036 pattern but gives control for T002
+    log.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($close, Ref($close, 10)), Ref($close, 10)), Log(Div($amount,
+    Mean($amount, 20)))), 5)
+  canonical: Mean(Mul(Div(Sub($close,Ref($close,10)),Ref($close,10)),Log(Div($amount,Mean($amount,20)))),5)
+  rationale: 'T001 log variant: same as C001 but LOG compression on amount weight.
+    Applies F013''s log-compression meta-pattern to momentum × amount. If C001 dies
+    and C002 survives, confirms log compression is cross-direction meta-pattern, not
+    gap-specific.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Div(Div(Sub($close, Ref($close, 10)), Ref($close, 10)), Std(Div(Sub($close,
+    Ref($close, 1)), Ref($close, 1)), 20)), 5)
+  canonical: Mean(Div(Div(Sub($close,Ref($close,10)),Ref($close,10)),Std(Div(Sub($close,Ref($close,1)),Ref($close,1)),20)),5)
+  rationale: 'T002 Sharpe-like: 10d momentum / 20d daily-return std. Paper CleanTrend
+    Continuation core structure — momentum strength measured in residual-vol units.
+    High momentum IN LOW VOL regime amplifies; low or same with high vol compresses.
+    Dimensionless (return/return), A-share scale-free.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($close, Ref($close, 10)), Ref($close, 10)), Div(Log(Div($amount,
+    Mean($amount, 20))), Std(Div(Sub($close, Ref($close, 1)), Ref($close, 1)), 20))),
+    5)
+  canonical: Mean(Mul(Div(Log(Div($amount,Mean($amount,20))),Std(Div(Sub($close,Ref($close,1)),Ref($close,1)),20)),Div(Sub($close,Ref($close,10)),Ref($close,10))),5)
+  rationale: 'T003 composite: momentum × (log abnormal amount / 20d return std) =
+    trend × (participation / noise). Paper''s dual-gated orderly trend structure unified.
+    Expected to dominate if both gates add independent alpha. If C002 + C003 both
+    hit but C004 doesn''t, interaction is redundant.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Div(Div(Sub($close, Ref($close, 5)), Ref($close, 5)), Std(Div(Sub($close,
+    Ref($close, 1)), Ref($close, 1)), 20)), 5)
+  canonical: Mean(Div(Div(Sub($close,Ref($close,5)),Ref($close,5)),Std(Div(Sub($close,Ref($close,1)),Ref($close,1)),20)),5)
+  rationale: 'T002 shorter horizon: 5d momentum / 20d return std (vs C003''s 10d/20d).
+    csi1000 small-caps may need shorter momentum window for ''clean trend'' since
+    mean reversion dominates longer horizons. Horizon ablation vs C003.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Mul(Div(Sub($close, Ref($close, 10)), Ref($close, 10)), Div($turnover_rate,
+    Mean($turnover_rate, 20))), 5)
+  canonical: Mean(Mul(Div($turnover_rate,Mean($turnover_rate,20)),Div(Sub($close,Ref($close,10)),Ref($close,10))),5)
+  rationale: 'T001 turnover variant: momentum × abnormal turnover_rate (vs C001''s
+    abnormal $amount). Paper''s OrderlyTrend uses dollar volume (≈ amount); we probe
+    whether turnover_rate participation captures similar gating. Also tests if momentum
+    × (scale-free turnover) matches F013''s design.'

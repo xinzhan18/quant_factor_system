@@ -1,0 +1,67 @@
+batch_id: batch_039
+round: 38
+direction: pv_covariance
+direction_md_ref: vault/directions/pv_covariance.md
+batch_goal: 'T001+T002 first pass on Cov(.,.,N) form not yet in library: 4 pairs ×
+  2 windows × daily return/body variants. Explore whether turnover-return / amount-body
+  / volume-body / amount-ret covariance captures orthogonal info vs F009 overnight
+  spread (also a covariance derivative). Critical gate: max_corr@F009 < 0.70 else
+  near_duplicate.'
+active_threads_referenced:
+- T001
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-23T19:02:30Z'
+frozen_at: '2026-04-23T19:02:30Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Cov($turnover_rate, Div(Sub($close, Ref($close, 1)), Ref($close, 1)),
+    20)
+  canonical: Cov($turnover_rate,Div(Sub($close,Ref($close,1)),Ref($close,1)),20)
+  rationale: 'T001 baseline: 20d cov of daily turnover and daily return. Positive
+    = volume-price co-movement (pileup). Negative = divergence (distribution). Paper
+    inspired by Institutional_Momentum_Score (Case Study factor) uses DELTA(close)/close
+    × DELTA(volume)/volume — we replicate the conceptual structure with DSL-native
+    Cov over turnover_rate.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Cov($amount, Sub($close, $open), 20)
+  canonical: Cov($amount,Sub($close,$open),20)
+  rationale: 'T002 amount × body: covariance of daily RMB amount with daily bar body
+    (close-open, sign-directional). Captures institutional footprint — big-amount
+    days with strong positive bodies (accumulation) vs big-amount with negative bodies
+    (distribution).'
+- candidate_id: C003
+  source_type: dsl
+  expression: Cov($turnover_rate, Div(Sub($close, Ref($close, 1)), Ref($close, 1)),
+    60)
+  canonical: Cov($turnover_rate,Div(Sub($close,Ref($close,1)),Ref($close,1)),60)
+  rationale: 'T001 long window: 60d cov (vs C001 20d). Longer horizon smooths idiosyncratic
+    days, exposes structural volume-price regime.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Cov($volume, Sub($close, Ref($close, 1)), 20)
+  canonical: Cov($volume,Sub($close,Ref($close,1)),20)
+  rationale: 'T002 volume × dClose: share-count-based cov with daily price change.
+    Different from C002 (amount) as small-cap may have share-volume vs RMB-volume
+    info asymmetry.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Cov(Div($amount, Ref($amount, 1)), Div(Sub($close, Ref($close, 1)),
+    Ref($close, 1)), 20)
+  canonical: Cov(Div($amount,Ref($amount,1)),Div(Sub($close,Ref($close,1)),Ref($close,1)),20)
+  rationale: 'T001 ratio variant: cov of amount-change-ratio and return. Stationary
+    vs C001/C003 which use raw turnover (less stationary on small-caps with large
+    structural turnover changes).'
+- candidate_id: C006
+  source_type: dsl
+  expression: Cov($turnover_rate, Sub($close, $open), 20)
+  canonical: Cov($turnover_rate,Sub($close,$open),20)
+  rationale: 'T001 turnover × body: different from C001 (turnover × full return).
+    Body = close-open is intraday move; turnover × intraday-body cov isolates intraday
+    volume-price co-movement vs overnight gap effects.'

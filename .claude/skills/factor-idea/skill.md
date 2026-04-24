@@ -70,6 +70,23 @@ PYTHONPATH=src python3 -m research memory snapshot --recent 10
 
 每个候选字段见 §Manifest schema `candidates[]`。**不看 validation 数据设计候选** — 基于 hypothesis + 先验知识，不基于回测结果。
 
+### Step 4.5 — LLM: inline anti-recapitulation check
+
+完成 Step 4 的候选设计后、提交 Step 5 Python validate 之前，在本 `/factor-idea` context 内做一次轻量自检；**不生成 packet，不调用独立 `/adversary`，不写 `_meta/*` 文件**。
+
+对每个候选，在 rationale 或旁注里确认：
+
+1. **当前 direction 已知失败**：是否重演本 direction `## Known Failures` / `[✗ DISPROVEN]` thread 的同构机制？
+2. **邻近方向失败**：Step 2.3 adjacent scan 读到的 dead/saturated direction 里，是否已有相同 formula family × data family 被证伪？
+3. **HOT-TOPICS-LLM 警示**：是否撞上 INDEX 里当前跨批 hot topic（如同一 dominant_style 吸收、同一 ratio/magnitude 家族反复失败、同一 nearest factor 饱和）？
+4. **绕开理由**：若有重叠，必须说明本候选如何真正绕开：换字段族、换条件、换算子结构、或推进不同 active thread。只换窗口长度 / 浅层 estimator 名称，不算有效绕开。
+
+判定规则：
+
+- 明显同构且无绕开理由 → 改写或撤掉候选后再进入 Step 5
+- 弱重叠但有明确机制差异 → 可保留，并在 rationale 中写明差异
+- 无重叠 → 直接进入 Step 5
+
 ### Step 5 — Python: validate
 - **DSL 候选**：§DSL whitelist 检查算子/字段、表达式嵌套深度 ≤ 10；canonical 去重（交换律算子参数字典序排序）对比 admitted factors + 同 batch 内其他候选（retired 可重投）
 - **Python 候选**：§Python contract 检查 AST import + 模块契约

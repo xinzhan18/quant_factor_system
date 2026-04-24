@@ -319,7 +319,6 @@ def assess(paths: StoragePaths, config: dict[str, Any] | None = None) -> Cockpit
     a.pending_papers = _collect_pending_papers(paths)
     a.pending_paper_slugs = [paper.slug for paper in a.pending_papers]
     a.zero_admit_streak = _compute_zero_admit_streak(paths)
-
     cfg = config if config is not None else (load_yaml(paths.config_file) or {})
     a.consolidation_triggers = _check_consolidation_triggers(
         paths, cfg, a.rounds_since_consolidation, a.active_directions

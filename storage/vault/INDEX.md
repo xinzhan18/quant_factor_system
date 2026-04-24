@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-04-24T02:48:36Z
+generated_at: 2026-04-24T16:56:22Z
 round: 44
 total_active_directions: 13
 total_factors_admitted: 13
@@ -17,15 +17,18 @@ last_consolidation_round: null
 > [!note]+ 🧭 LLM Cockpit
 > **状态** · round=**44** · phase=`null` (idle) · no batch in flight
 > **上一批** · [[batches/batch_044/judge|batch_044]] → [[directions/quantile_shape_signals]] · admit=**0**/6 (reserve=5, reject=1) · direction.status=`dead`
-> **健康** · rounds_since_consolidation=**10** · active_directions=**13** · zero-admit streak=**4**
-> **⚠️ 预警** · consolidation 触发: rounds_since_last=10 ≥ 10
+> **健康** · rounds_since_consolidation=**0** · active_directions=**13** · zero-admit streak=**4**
 >
 > **🎯 下一步（按优先级）**
-> 1. 📚 **触发 consolidation**：rounds_since_last=10 ≥ 10 → 先调 `/factor-consolidate`，再进 Phase 1
-> 2. 🧪 **阈值校准**：连续 4 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
-> 3. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
+> 1. 🧪 **阈值校准**：连续 4 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
+
+<!-- BEGIN HOT-TOPICS-LLM -->
+> [!warning]- 🔥 Hot Topics（LLM 维护）
+> 当前无活跃跨批模式。`/pattern-scout` 只允许改写本块。
+<!-- END HOT-TOPICS-LLM -->
 
 <!-- BEGIN INSIGHT -->
 > [!tip] 💡 最近洞察 · 2026-04-23 round 29（trigger: manual — 首次 consolidation，deferred at batch_021）

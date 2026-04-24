@@ -5,7 +5,7 @@ New schema (post-graph-refactor):
 * ``batches/batch_N/judge.md`` — batch-level summary (verdict table + observations)
 * ``batches/batch_N/candidates/C{id}.md`` — per-candidate 6-CP deep analysis
 * ``directions/{direction}.md`` — per-direction hypothesis + threads + narrative
-* ``INDEX.md`` — MOC; LLM-maintained upper half must reference the batch
+* ``INDEX.md`` — Python-owned MOC / cockpit; Phase 3 no longer hand-edits it
 
 The audit is batch-scoped: runs once after all candidate MDs + judge.md +
 direction.md update + INDEX.md update are written. It targets **structure**,
@@ -35,8 +35,7 @@ not semantics — "did the LLM reason correctly?" is out of scope.
 14. direction.md body updated: evidence trail per non-hard-gate-reject candidate,
     Known Failures per reject candidate, Narrative Log entry mentions this batch,
     and all wikilinks are vault-root
-15. INDEX.md upper half (above ``<!-- BEGIN AUTO-SECTION -->``) for this direction
-    mentions the current batch_id
+15. INDEX.md is not audited here; ``research audit index`` owns INDEX structure
 16. each C{id}.md ``thread_id`` resolves to ``### T{n}`` H3 header in direction.md
 17. judge.md body has ``## Thread 进展`` section (when >1 thread or >1 candidate)
 18. judge.md body has ``## 跨候选对比`` section (when >1 candidate)
@@ -504,42 +503,14 @@ def _c15_index_md_references_batch(
     direction: str,
     batch_id: str,
 ) -> list[str]:
-    """Verify INDEX.md LLM upper half mentions the current batch for this direction.
+    """No-op compatibility check.
 
-    Looks at everything above ``<!-- BEGIN AUTO-SECTION -->`` (or the full
-    body if the sentinel is absent). Requires:
-    * the direction's ``### [[directions/{direction}`` heading exists
-    * the batch_id appears somewhere in that section (the direction's H3
-      block — bounded by the next ``###`` or EOF)
+    INDEX.md is now a Python-owned cockpit/MOC with one LLM-owned hot-topics
+    block. Batch-specific direction narrative lives in ``directions/{tag}.md``;
+    INDEX structural integrity is checked by ``research audit index``.
     """
-    errs: list[str] = []
-    if index_doc is None:
-        errs.append("INDEX.md missing or unreadable (c15)")
-        return errs
-
-    body = index_doc.body
-    upper, _, _ = body.partition(AUTO_SECTION_BEGIN)
-
-    direction_marker = f"[[directions/{direction}"
-    pattern = re.compile(
-        rf"^###\s+[^\n]*{re.escape(direction_marker)}[^\n]*\n(.*?)(?=^###\s+|\Z)",
-        re.MULTILINE | re.DOTALL,
-    )
-    m = pattern.search(upper)
-    if not m:
-        errs.append(
-            f"INDEX.md LLM upper half missing '### {direction_marker}...' heading "
-            f"(direction={direction!r})"
-        )
-        return errs
-
-    section = m.group(1)
-    if batch_id not in section:
-        errs.append(
-            f"INDEX.md direction section for {direction!r} does not mention "
-            f"{batch_id!r} in its 1-3 line narrative"
-        )
-    return errs
+    _ = (index_doc, direction, batch_id)
+    return []
 
 
 def _c16_thread_id_resolves(

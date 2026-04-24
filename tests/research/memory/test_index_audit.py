@@ -9,8 +9,10 @@ import pytest
 from research.memory.index_audit import (
     IndexFormatError,
     audit_index_format,
+    audit_index_format_or_repair,
     audit_index_format_or_raise,
 )
+from research.memory.index_refresher import HOT_TOPICS_BEGIN, HOT_TOPICS_END
 from research.memory.index_narrative import INSIGHT_BEGIN, INSIGHT_END
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import save_yaml
@@ -86,6 +88,7 @@ def _seed_minimal_vault(tmp_path: Path) -> StoragePaths:
         "![[_bases/directions.base]]\n"
         "![[_bases/factors.base]]\n"
         "![[_bases/recent_batches.base]]\n\n"
+        f"{HOT_TOPICS_BEGIN}\n> [!warning]- 🔥 Hot Topics（LLM 维护）\n> none\n{HOT_TOPICS_END}\n\n"
         f"{INSIGHT_BEGIN}\n> body\n{INSIGHT_END}\n",
         encoding="utf-8",
     )
@@ -146,6 +149,16 @@ class TestAuditCatches:
         report = audit_index_format(paths)
         assert any("_bases/directions.base" in e for e in report.errors)
         assert any("insight sentinels" in e for e in report.errors)
+        assert any("hot-topics" in e for e in report.errors)
+
+    def test_missing_hot_topics_block_fails(self, tmp_path: Path) -> None:
+        paths = _seed_minimal_vault(tmp_path)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        start = text.index(HOT_TOPICS_BEGIN)
+        end = text.index(HOT_TOPICS_END) + len(HOT_TOPICS_END)
+        paths.vault_index_file.write_text(text[:start] + text[end:], encoding="utf-8")
+        report = audit_index_format(paths)
+        assert any("hot-topics" in e for e in report.errors)
 
     def test_state_round_mismatch(self, tmp_path: Path) -> None:
         paths = _seed_minimal_vault(tmp_path)
@@ -175,3 +188,19 @@ class TestAuditOrRaise:
         with pytest.raises(IndexFormatError) as exc:
             audit_index_format_or_raise(paths)
         assert "factors.base" in str(exc.value)
+
+
+class TestAuditRepair:
+    def test_repair_regenerates_missing_hot_topics_block(self, tmp_path: Path) -> None:
+        paths = _seed_minimal_vault(tmp_path)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        start = text.index(HOT_TOPICS_BEGIN)
+        end = text.index(HOT_TOPICS_END) + len(HOT_TOPICS_END)
+        paths.vault_index_file.write_text(text[:start] + text[end:], encoding="utf-8")
+
+        report = audit_index_format_or_repair(paths)
+
+        assert report.ok, report.errors
+        repaired = paths.vault_index_file.read_text(encoding="utf-8")
+        assert HOT_TOPICS_BEGIN in repaired
+        assert HOT_TOPICS_END in repaired

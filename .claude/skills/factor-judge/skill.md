@@ -13,7 +13,15 @@ user_invocable: true
 **一候选 = 一 markdown**。每个 candidate 产出 `batches/{batch_id}/candidates/C{id}.md`（6 CP 深度分析）。batch 层面的 `judge.md` 做汇总 + 跨候选反思 + 方向级洞察。全部文件用 vault-root 相对 wikilink 互连，形成可导航知识图。
 
 ```
-result.yaml ──(Python pre-hint)──▶ _hints.yaml（curated 数值 + gate 明细 + MT + nearest expr）
+result.yaml ──(Python pre-hint)──▶ _hints.yaml (唯一持久化源, ~1200 行)
+                                           │
+                          ┌────────────────┼────────────────┐
+                          ▼                ▼                ▼
+                 research hints    research hints    research hints
+                   {batch} summary   {batch}           {batch} full
+                                     candidate {CID}
+                  (主 agent Bash)   (subagent Bash)   (audit / debug)
+                  stdout ~30 行     stdout ~200 行    stdout 全量
                                            │
                                            ▼
                                (并行 subagents 各写一个 C{id}.md)
@@ -25,26 +33,34 @@ result.yaml ──(Python pre-hint)──▶ _hints.yaml（curated 数值 + gate
                          (主 agent 汇总 → 写 judge.md)
                                            │
                                            ▼
-                 (主 agent 更新 direction.md + INDEX.md 上半段)
+                 (主 agent 更新 direction.md；INDEX 由 Python refresh/audit 维护)
                                            │
                                            ▼
                       Python audit (16 checks) → Pass
 ```
 
-## 数据边界（Why `_hints.yaml`）
+## 数据边界（Why CLI projection）
 
-`result.yaml` 每 batch 几百 KB，含原始时序数组；rubric 真正用到的只是 ~12 个 scalar。Python pre-hint 把这些字段**扁平化**到 `_hints.yaml.per_candidate.{id}.metrics`，外加 8 项 hard gate 独立结果、MT budget、nearest factor expression。R3 单一数据源 + R4 不重算，LLM 端只跟 hints 打交道。
+`result.yaml` 每 batch 几百 KB，含原始时序数组；rubric 真正用到的只是 ~12 个 scalar。Python pre-hint 一次性扁平化 + 加 hard gate 独立结果 + MT budget → 写到 `_hints.yaml`（唯一持久化源）。**LLM 不直接读 `_hints.yaml`**——改用 `research hints` CLI 的 stdout 投影；遵守 R3 单一数据源，避免冗余落盘。
 
-- **主 agent 读**：`_hints.yaml` 全文 + `directions/{direction}.md`
-- **Subagent 读**（见 rubric.md）：rubric.md + 自己那块 `per_candidate.{CID}` + direction.md + 可选 factors/{nearest}.md
-- **都不读**：result.yaml / lessons.md / 父 skill.md
+| CLI 调用 | 谁用 | stdout 行数 |
+|---|---|---|
+| `research hints {batch} summary` | 主 agent——批次级 mt_counts + 每候选 4 字段 (expression / hard_gate_passed / verdict_hint / key_metric) | ~30 |
+| `research hints {batch} candidate {CID}` | 对应 subagent——单候选 self-contained（hard_gate / mt_budget / metrics + batch-level mt_counts） | ~200 |
+| `research hints {batch} full` | audit / debug | ~1200 |
+
+R3 单一数据源 + R4 不重算 + 迭代隔离三者叠加：主 agent hints 开销 1200 行 → 30 行；subagent 1200 行 → 200 行。
+
+- **主 agent 读**：`Bash(PYTHONPATH=src python3 -m research hints {batch} summary)` + `directions/{direction}.md`
+- **Subagent 读**（见 rubric.md）：rubric.md + `Bash(research hints {batch} candidate {CID})` + direction.md + 可选 factors/{nearest}.md
+- **都不读**：`_hints.yaml` 文件本身 / result.yaml / lessons.md / 父 skill.md
 
 ## 职责分工
 
 | 角色 | 职责 |
 |---|---|
-| **Python CLI** | 扫历史 batches + hard gates + MT + 扁平化 rubric → 写 `_hints.yaml`；最终批量 audit |
-| **主 agent** | 并行派发 subagent；收集 verdicts；写 `judge.md`（4 层反思）；更新 `direction.md` + `INDEX.md` |
+| **Python CLI** | 扫历史 batches + hard gates + MT + 扁平化 rubric → 写 `_hints.yaml`（唯一持久化源）；`research hints` 提供 summary / candidate / full 投影；最终批量 audit |
+| **主 agent** | 并行派发 subagent；收集 verdicts；写 `judge.md`（4 层反思）；更新 `direction.md` |
 | **Subagent（并行）** | 按 rubric.md 对单个候选做 6 CP 推理 → 写 `candidates/C{id}.md`，返回结构化摘要 |
 
 ## 流程
@@ -55,13 +71,17 @@ result.yaml ──(Python pre-hint)──▶ _hints.yaml（curated 数值 + gate
 PYTHONPATH=src python3 -m research judge batch_{N} pre-hint
 ```
 
-产出 `storage/vault/batches/batch_{N}/_hints.yaml`。前置：Phase 2 已写 result.yaml。
+产出 `_hints.yaml`（唯一持久化源）。前置：Phase 2 已写 result.yaml。投影由 `research hints` 按需产生，不落盘。
 
 ### Step 2 — 主 agent: 读全局
 
-Read：
-- `storage/vault/batches/batch_{N}/_hints.yaml`（全文——批次级 `mt_counts` + 每候选 hard_gate/metrics 一览）
-- `storage/vault/directions/{direction}.md`（hypothesis + 活跃 threads）
+```bash
+PYTHONPATH=src python3 -m research hints batch_{N} summary
+```
+
+Bash stdout ~30 行——批次级 `mt_counts` + 每候选 4 字段 (expression / hard_gate_passed / verdict_hint / key_metric)。另 Read `storage/vault/directions/{direction}.md`（hypothesis + 活跃 threads）。
+
+**不 Read `_hints.yaml` 文件**——用 CLI 投影。详细指标在 subagent 的 `research hints ... candidate {CID}` 里。
 
 ### Step 3 — 主 agent: 并行派发 subagents
 
@@ -73,11 +93,11 @@ Read：
 完整判决手册：.claude/skills/factor-judge/candidate-rubric.md
 
 按该手册的"你读什么 / 你写什么 / 返回格式 / 自我校验"执行：
-- 读手册全文 + storage/vault/batches/{BATCH_ID}/_hints.yaml 里的 per_candidate.{CID} 块 + storage/vault/directions/{DIRECTION}.md
-- 写一份 storage/vault/batches/{BATCH_ID}/candidates/{CID}.md（唯一产出；不跑 Bash）
+- 读手册全文 + `Bash(PYTHONPATH=src python3 -m research hints {BATCH_ID} candidate {CID})` stdout (~200 行，self-contained，含 mt_counts) + storage/vault/directions/{DIRECTION}.md
+- 写一份 storage/vault/batches/{BATCH_ID}/candidates/{CID}.md（唯一产出；除了上面的 hints 投影 Bash 外不跑其它 Bash）
 - 返回结构化摘要（非一行，非整份 md）给主 agent——主 agent 会直接把这段拼进 judge.md，素材要够
 
-所有数值都在 _hints.yaml 里，直接抄，不要自己算。rubric 未覆盖的额外规范不要加。
+所有数值都在 `research hints ... candidate {CID}` 的 stdout 里，直接抄，不要自己算。不要去 Read `_hints.yaml` 文件——用 CLI 投影。rubric 未覆盖的额外规范不要加。
 ```
 
 **为什么 dispatch prompt 只是占位符壳子**：rubric.md 是 subagent 的单一真理来源。若此处复制一份，两边漂移 = audit 红灯。
@@ -92,15 +112,15 @@ Read：
 4. **方向级反思**：本方向的 edge 还够不够？下轮往哪走？何时该 saturated？
 
 信息来源：
-- Step 2 已读的 `_hints.yaml`（含 mt_counts）
+- Step 2 已读的 `research hints {batch} summary` stdout（含 mt_counts + 6 候选 verdict_hint）
 - subagent 返回的结构化摘要
 - 必要时 Read 个别 `candidates/C{id}.md` 的 **frontmatter**（不读 body，避免 context 膨胀）
 
 模板见 §judge.md Template。
 
-### Step 5 — 主 agent: 更新 `direction.md` + `INDEX.md`
+### Step 5 — 主 agent: 更新 `direction.md`
 
-按 §Direction.md 更新 把本轮结果写进 Threads / Known Failures / Narrative Log，同步 INDEX.md 上半段对应方向条目。**必做**——audit c14/c15/c16 硬校验。所有 wikilink 用 **vault-root**（禁 `../` 前缀）。
+按 §Direction.md 更新 把本轮结果写进 Threads / Known Failures / Narrative Log。**必做**——audit c14/c16/c20 硬校验。所有 wikilink 用 **vault-root**（禁 `../` 前缀）。`INDEX.md` 是 Python-owned MOC/cockpit；不要在 Phase 3 手写 INDEX。
 
 ### Step 6 — Python: audit
 
@@ -188,9 +208,9 @@ Audit c13 要求 body 里每个 candidate 都有 `[[batches/{batch_id}/candidate
 
 ---
 
-## Direction.md 更新（audit c14/c15/c16 强制）
+## Direction.md 更新（audit c14/c16/c20 强制）
 
-必须在跑 `judge audit` **之前**把 `directions/{direction}.md` 和 `INDEX.md` 更新好。wikilink **vault-root**（禁 `[[../...]]`）。
+必须在跑 `judge audit` **之前**把 `directions/{direction}.md` 更新好。wikilink **vault-root**（禁 `[[../...]]`）。`INDEX.md` 结构另由 `research audit index --repair` 保证。
 
 ### 1. Threads — evidence trail（callout 排版 · c20 硬检查）
 
@@ -254,48 +274,9 @@ Audit c13 要求 body 里每个 candidate 都有 `[[batches/{batch_id}/candidate
 - 首次 admit → `status: exploring → productive`
 - 连续 2+ batch reject > 80% → `status: productive → saturated`
 
-### 5. INDEX.md 上半段（统一三段式）
+### 5. INDEX.md 边界
 
-LLM 维护的上半段**固定三个 H2 段**，风格统一避免视觉混乱。三块 Python 专管，LLM 绝不动：
-- frontmatter（首块 YAML）
-- `## 因子库` 内的 `<!-- BEGIN/END FACTOR-LIBRARY -->` 块
-- 末尾 `<!-- BEGIN/END AUTO-SECTION -->` 块
-
-```markdown
-# Factor Research Index
-
-> MOC (Map of Content)：所有研究方向和 admitted 因子的总览。
-> 上半段由 LLM 维护；下半段由 Python 自动刷新。
-
-## 活跃方向
-
-### [[directions/{tag}|{中文名}]] `{status}` `{priority}`
-{2-3 句：最近发现 + 当前阻塞 + 下一步议题。须引用 `[[batches/batch_{N}/judge|batch_{N}]]`}
-
-### [[directions/{tag2}|...]] ...
-（每个 status ≠ dead/merged 的方向一段。dead/merged 不列。）
-
-## 最近 Batch
-
-- [[batches/batch_{N}/judge|batch_{N}]] ({direction}): {N} 候选 → {admit/reserve/reject 数}。{1 句核心发现}
-- [[batches/batch_{N-1}/judge|batch_{N-1}]] (...): ...
-（按时间倒序，保留最近 3-5 个）
-
-## 因子库
-
-> Python 自动维护 —— 请勿手改 sentinel 之间内容。
-
-<!-- BEGIN FACTOR-LIBRARY -->
-<!-- END FACTOR-LIBRARY -->
-```
-
-**风格硬约束**：
-- 三段标题固定中文（`活跃方向 / 最近 Batch / 因子库`），不要翻译或重命名
-- `活跃方向` 用 `###` + 段落（多段叙事），不是 bullet
-- `最近 Batch` 是 bullet list，每行一个项
-- `因子库` 块内容由 Python `refresh_index()` 从 `factors/F*.yaml` + `F*.md` 自动渲染；LLM 只能保留 sentinel 对（`<!-- BEGIN/END FACTOR-LIBRARY -->`），内部行不要碰，不要写 `pending F{id}` 占位
-- status / priority 用 ``backtick``，直接取 frontmatter 当前值（不写 `exploring→productive` 过程态）
-- 所有数字用当前 frontmatter / judge / factor.yaml 实际值，不留占位符或过期快照
+Phase 3 **不手写 INDEX.md**。INDEX 是 Python-owned MOC/cockpit，由 `research memory refresh-index` 和 `research audit index --repair` 维护。唯一允许 LLM 直接维护的 INDEX 区域是 `/pattern-scout` 的 `HOT-TOPICS-LLM` sentinel 块，和本 `/factor-judge` 无关。
 
 ---
 
@@ -319,7 +300,7 @@ LLM 维护的上半段**固定三个 H2 段**，风格统一避免视觉混乱�
 | 12 | 候选集一致 | judge frontmatter candidate_id 集 == candidates/*.md 文件名集 |
 | 13 | judge body 链接 | 每个 candidate 有 `[[batches/{batch}/candidates/{cid}]]` |
 | 14 | direction.md 更新 | evidence trail + Narrative Log + Known Failures 到位，wikilink vault-root |
-| 15 | INDEX 方向条目 | 对应方向 `###` 段后 1–3 行提到 `{batch_id}` |
+| 15 | INDEX 结构 | 不在 judge audit 中检查；由 `research audit index --repair` 负责 |
 | 16 | thread_id 交叉 | C{id}.frontmatter.thread_id 在 direction.md 以 `### T{n}` 存在 |
 | 17 | judge.md Thread 进展段 | 多 candidate/多 thread 时 body 有 `## Thread 进展` |
 | 18 | judge.md 跨候选对比段 | `>1` candidate 时 body 有 `## 跨候选对比` |
@@ -333,6 +314,7 @@ LLM 维护的上半段**固定三个 H2 段**，风格统一避免视觉混乱�
 audit 失败按违规分类处理：
 
 - **C{id}.md 违规**（c5-c11, c16）→ 重派该候选 subagent，prompt 末尾加"上一轮 audit 失败：{violations}，针对性修正"
-- **judge.md / direction.md / INDEX.md 违规**（c1-c4, c12-c15）→ 主 agent 自己重写
+- **judge.md / direction.md 违规**（c1-c4, c12-c14, c16-c20）→ 主 agent 自己重写
+- **INDEX 结构违规** → 跑 `research audit index --repair`；不要在本流程手改 INDEX
 
 重跑 audit。最多 3 轮；超过 → 挂起，报系统级错误。

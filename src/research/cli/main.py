@@ -126,6 +126,46 @@ def main() -> None:
         help="For batches section: cap to last N entries (default: unlimited)",
     )
 
+    # ── hints (stdout projections of _hints.yaml for LLM consumers) ──
+    h_p = sub.add_parser(
+        "hints",
+        help="Project the batch's _hints.yaml onto stdout for LLM "
+        "consumers (main agent summary / per-candidate block / full). "
+        "No files written — pure projection.",
+    )
+    h_p.add_argument("batch_id", help="Batch id, e.g. batch_044")
+    h_sub = h_p.add_subparsers(dest="hints_cmd", required=True)
+    h_sub.add_parser(
+        "summary",
+        help="~30-line main-agent view: mt_counts + per-candidate "
+        "verdict_hint + key_metric",
+    )
+    hc_p = h_sub.add_parser(
+        "candidate",
+        help="Self-contained per-candidate view for a subagent "
+        "(hard_gate + mt_budget + full CP metrics + batch mt_counts)",
+    )
+    hc_p.add_argument("candidate_id", help="e.g. C001")
+    h_sub.add_parser(
+        "full",
+        help="Full _hints.yaml payload (for audit / debugging, not "
+        "for judge-time LLM consumers)",
+    )
+
+    # ── pattern-scout (Phase 0 cross-batch pattern scan) ─────────────
+    ps_p = sub.add_parser(
+        "pattern-scout",
+        help="Write a packet listing recent judge excerpts + active "
+        "direction frontmatter for a Pattern Scout subagent to "
+        "consume. Does not call an LLM.",
+    )
+    ps_p.add_argument(
+        "--recent",
+        type=int,
+        default=10,
+        help="How many most-recent batches to include (default: 10)",
+    )
+
     # ── phase1 (freeze manifest) ──────────────────────────────────────
     p1_p = sub.add_parser("phase1", help="Phase 1 START+DESIGN helpers")
     p1_sub = p1_p.add_subparsers(dest="phase1_cmd", required=True)
@@ -216,6 +256,10 @@ def _dispatch(args: argparse.Namespace) -> None:
         _cmd_doctor(args)
     elif cmd == "memory":
         _cmd_memory(args)
+    elif cmd == "hints":
+        _cmd_hints(args)
+    elif cmd == "pattern-scout":
+        _cmd_pattern_scout(args)
     elif cmd == "phase1":
         _cmd_phase1(args)
     elif cmd == "holdout-review":
@@ -887,6 +931,62 @@ def _cmd_memory(args: argparse.Namespace) -> None:
             else (args.section,)
         )
         print(render_snapshot(paths, sections=sections, recent_batches=args.recent))
+
+
+def _cmd_hints(args: argparse.Namespace) -> None:
+    """Project _hints.yaml onto stdout. Pure projection — no files written."""
+    import yaml as _yaml
+
+    from research.checkpoints.hints import (
+        build_hints_for_candidate,
+        build_hints_summary,
+    )
+    from research.storage.paths import StoragePaths
+    from research.storage.yaml_io import load_yaml_unsafe
+
+    paths = StoragePaths()
+    hints_path = paths.batches_dir / args.batch_id / "_hints.yaml"
+    if not hints_path.exists():
+        print(
+            f"hints: _hints.yaml missing for {args.batch_id} at "
+            f"{hints_path} — run `research judge {args.batch_id} "
+            f"pre-hint` first",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    hints = load_yaml_unsafe(hints_path)
+    if args.hints_cmd == "summary":
+        payload = build_hints_summary(hints)
+    elif args.hints_cmd == "candidate":
+        payload = build_hints_for_candidate(hints, args.candidate_id)
+        if payload is None:
+            print(
+                f"hints: candidate {args.candidate_id} not found in "
+                f"{args.batch_id}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    elif args.hints_cmd == "full":
+        payload = hints
+    else:
+        print(f"hints: unknown subcommand {args.hints_cmd}", file=sys.stderr)
+        sys.exit(1)
+    _yaml.safe_dump(
+        payload, sys.stdout, default_flow_style=False, sort_keys=False, allow_unicode=True
+    )
+
+
+def _cmd_pattern_scout(args: argparse.Namespace) -> None:
+    from research.memory.pattern_scout import write_packet, hot_topics_target
+    from research.storage.paths import StoragePaths
+
+    paths = StoragePaths()
+    packet_path = write_packet(paths, recent=args.recent)
+    print(f"Pattern Scout packet written: {packet_path}")
+    print(
+        "Subagent should update only the HOT-TOPICS-LLM block in: "
+        f"{hot_topics_target(paths)}"
+    )
 
 
 def _cmd_phase1(args: argparse.Namespace) -> None:

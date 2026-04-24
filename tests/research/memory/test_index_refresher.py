@@ -6,6 +6,8 @@ from pathlib import Path
 
 from research.memory.direction_updater import update_direction_frontmatter
 from research.memory.index_refresher import (
+    HOT_TOPICS_BEGIN,
+    HOT_TOPICS_END,
     INSIGHT_BEGIN,
     INSIGHT_END,
     collect_admitted_factors,
@@ -110,6 +112,9 @@ class TestRefreshIndex:
         # Insight sentinel
         assert INSIGHT_BEGIN in text
         assert INSIGHT_END in text
+        # LLM-owned hot topics sentinel
+        assert HOT_TOPICS_BEGIN in text
+        assert HOT_TOPICS_END in text
         # System status footer
         assert "> [!abstract]- 系统状态" in text
 
@@ -125,6 +130,23 @@ class TestRefreshIndex:
         assert stripped.sub("generated_at: X", first) == stripped.sub(
             "generated_at: X", second
         )
+
+    def test_preserves_llm_hot_topics_block(self, tmp_path: Path) -> None:
+        paths = _bootstrap(tmp_path)
+        paths.vault_index_file.write_text(
+            "---\nround: 1\nlast_batch: batch_001\n---\n\n"
+            "# Old INDEX\n\n"
+            f"{HOT_TOPICS_BEGIN}\n"
+            "> [!warning]+ 🔥 Hot Topics（LLM 维护）\n"
+            "> - 🔴 **P001 keep me** · dirs: vol → avoid duplicate\n"
+            f"{HOT_TOPICS_END}\n",
+            encoding="utf-8",
+        )
+        refresh_index(paths, round_counter=1)
+        text = paths.vault_index_file.read_text(encoding="utf-8")
+        assert "P001 keep me" in text
+        assert text.count(HOT_TOPICS_BEGIN) == 1
+        assert text.count(HOT_TOPICS_END) == 1
 
     def test_frontmatter_counts_match_sources(self, tmp_path: Path) -> None:
         paths = _bootstrap(tmp_path)

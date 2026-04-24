@@ -82,13 +82,15 @@ def run_phase3_prehint(inputs: Phase3PreHintInputs) -> Phase3PreHintResult:
         factors_dir=inputs.factors_dir,
     )
     write_hints(inputs.hints_path, hints)
+    # Projection (summary / per-candidate views) is served by the
+    # ``research hints`` CLI on demand — no additional persistence here.
     n_failed = sum(
         1 for e in hints["per_candidate"].values()
         if not e.get("hard_gate", {}).get("passed")
     )
     n_total = len(hints["per_candidate"])
     logger.info(
-        "phase3 pre-hint: %s: %d/%d hard-gate fails; hints written to %s",
+        "phase3 pre-hint: %s: %d/%d hard-gate fails; hints → %s",
         inputs.batch_id,
         n_failed,
         n_total,

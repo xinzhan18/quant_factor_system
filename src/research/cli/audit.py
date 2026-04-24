@@ -105,6 +105,11 @@ def register_audit_subcommand(subparsers: argparse._SubParsersAction) -> None:
         "index",
         help="Verify INDEX.md format + base file / frontmatter coverage",
     )
+    idx.add_argument(
+        "--repair",
+        action="store_true",
+        help="Regenerate INDEX.md once with Python if the structure is invalid",
+    )
     idx.set_defaults(func=_run_audit_index)
 
     from research.cli.audit_reserves import register_audit_reserves
@@ -118,13 +123,21 @@ def _run_mt_budget(args: argparse.Namespace) -> None:
 
 
 def _run_audit_index(args: argparse.Namespace) -> None:
-    from research.memory.index_audit import audit_index_format
+    from research.memory.index_audit import (
+        audit_index_format,
+        audit_index_format_or_repair,
+    )
 
     storage_root = Path(getattr(args, "storage_root", "storage"))
     paths = StoragePaths(storage_root)
-    report = audit_index_format(paths)
+    report = (
+        audit_index_format_or_repair(paths)
+        if getattr(args, "repair", False)
+        else audit_index_format(paths)
+    )
     if report.ok:
-        print("INDEX.md audit: OK")
+        suffix = " (repaired if needed)" if getattr(args, "repair", False) else ""
+        print(f"INDEX.md audit: OK{suffix}")
         return
     print(f"INDEX.md audit: {len(report.errors)} issue(s)", file=sys.stderr)
     for err in report.errors:
