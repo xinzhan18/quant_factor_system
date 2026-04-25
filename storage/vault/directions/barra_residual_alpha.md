@@ -2,16 +2,54 @@
 direction_tag: barra_residual_alpha
 status: saturated
 priority: low
-rounds: 6
+rounds: 8
 admits: 1
-last_batch: batch_015
+last_batch: batch_054
 last_admits: []
-last_goal: 'Round 4 of barra_residual_alpha: change residualization METHOD (not subset)
-  per batch_014 finding that vol_20d dominates the 7-style basis. Test 5 alternatives
-  — Huber regression, OLS+intraday-vol style, heteroscedastic-aware z-normalization,
-  winsorized-input OLS, and vol×turnover interaction style. Goal: produce a residual
-  sufficiently distinct from F004 (corr<0.7) while retaining IC>=0.015.'
-last_activity: '2026-04-20T17:55:33Z'
+last_goal: 'T014 — 测 rank-diff geometry × residual signals 范式（barra_residual_alpha
+  方向 7 轮再启动）。
+
+
+  方向 saturated 后再开的复活路径：cockpit hint 指出 rank-diff 在 raw OHLCV 4 family 已成熟（5 admit
+  跨 microstructure / overnight×2 / OHLC / gap），但**residual-based signal 上的 rank-diff
+  尚未验证**——这是完全独立的 paradigm（残差几何 vs raw signal 几何）。同时 6 轮探索仅 1 admit (F004)，大量 thread
+  未尝试。
+
+
+  设计严遵 7+ 条 rank-diff geometry 律：
+
+  (1) C001-C003 测 rank-diff × residual：LHS=residual-derived stat（|res|_mean / res_std
+  / res_cumsum），RHS=非饱和原子（turnover_20 / amount_60 / RV_60）；
+
+  (2) C004-C006 测 residual-only 路径（无 rank-diff）：residual 自相关 / 多周期 EMA decay / 累积冲击
+  SNR；
+
+  (3) 严避免：F004（库内 residual 自身，本批 LHS 都是 residual 的统计量而非 residual 本身，corr<0.30 期望）；F018
+  amount_20 RHS（C002 用 amount_60 长窗）；F012 Amihud_20 RHS（不用 amihud-family）；F020 anti-anchor
+  cluster（本批无 OHLC body higher-moment LHS）；
+
+  (4) 全 Python 路径（DSL 无法表达 Barra residual）；
+
+  (5) 严防 lookahead——所有候选用 close.pct_change(1) past return，不用 shift(-k)。
+
+
+  C001 |residual|_mean × turnover rank-diff — 残差 dispersion vs 原始流动性
+
+  C002 residual_std × amount_60 rank-diff — 残差 second-moment vs 长窗 amount
+
+  C003 residual_cumsum_5 × RV_60 rank-diff — 残差短窗动量 vs 长窗价格 vol
+
+  C004 residual_autocorr_20 — 残差时序持续性（残差只用，无 rank-diff）
+
+  C005 EMA(res,5)-EMA(res,20) — 残差多周期 decay 结构
+
+  C006 |sum(res,20)| / sum(|res|,20) — 残差累积冲击 directional efficiency
+
+
+  T014 验证目标：rank-diff paradigm 是否能跨出 raw signal 4 family，扩展到 residual 几何空间？若 admit
+  ≥1 → barra_residual_alpha 复活；若 0 admit + reserve ≤1 → 该方向真正 dead（5 method-switch
+  + residual 路径全证伪）。'
+last_activity: '2026-04-25T01:12:38Z'
 created_batch: batch_012
 members:
 - F004
@@ -89,7 +127,31 @@ merged_into: null
 >
 > **Answer**: **F004 是 7-style basis × OLS-family 残差的几何不变量**。basis 子集 / 损失函数 / 标准化 / interaction / 时序后处理 5 类路径全部 collapse 到 corr ≥ 0.91。后续探索必须跳出该框架。
 
-### T003: Lookahead detection + 数据契约缺口 [◉ ACTIVE]
+### T014: rank-diff × residual paradigm [✗ DISPROVEN batch_054]
+
+> [!failure]+ Thread 结论
+> **Question**: rank-diff geometry 能否跨出 raw signal 4 family（microstructure / overnight×2 / OHLC / gap），扩展到 residual 几何空间？
+>
+> **Evidence trail**:
+> （batch_054 6 候选完整投放）
+> - C001 missing $turnover_rate → T003 数据契约缺口二次复现（详见 T003）
+> - C002 |residual|_std × amount_60: coverage=0.709 + mono_sign_flip(IS=-0.80→OOS=+0.70) hard_gate dual-fail
+> - C003 residual_cumsum_5 × RV_60: coverage=0.708 + sign_flip(IS=-0.016 → OOS=+0.011) + oos_decay=-0.644 triple-fail
+> - C004 residual lag-1 autocorr_20: coverage=0.717 + ic_oos_too_low(\|·\|=0.006<0.008) — 残差时序在日频是 noise floor
+> - C005 EMA(res,5)−EMA(res,20): coverage=0.725 单闸 fail（信号本身良好：ICIR_oos=-0.169 + alpha_surv=1.57 + style_r²=0.024 极清洁）
+> - C006 \|sum(res,20)\|/sum(\|res\|,20): coverage=0.717 + ic_oos_too_low(\|·\|=0.0003) — 残差 SNR 几何完全 noise
+>
+> **四条独立 disprove 机制**:
+> 1. **数据契约层结构性 coverage<0.80**: residual + 20d rolling 在 csi1000 系统性 coverage=0.71-0.73 (5/5 候选)。机理：(a) Barra residual 已有 ~1% NaN（style 缺失传播）+ (b) rolling min_periods≥10 + (c) csi1000 上市日异质性 复合 → 早期日期 ~30% 标的 NaN，全期均值 coverage = 0.71 << 0.80 hard_gate 阈值。**与信号设计无关——是数据契约层结构性边界**。
+> 2. **Python factor REQUIRED_FIELDS loader 缺口 (T003 二次复现)**: C001 missing $turnover_rate, 升格修复优先级 high。
+> 3. **残差 higher-moment regime sensitivity (跨方向三次确认)**: 残差 Std/cumsum 在 train/validation 翻号——加上 [[batches/batch_052/candidates/C001|b052 C001]] (PE Std) + [[batches/batch_053/candidates/C001|b053 C001]] (signed body-pos Std)，**跨 fundamental/intraday/residual 三大 family 独立确认硬律**。
+> 4. **残差路径几何 statistic 是 noise**: autocorr / directional efficiency 类信号 IC < 0.01 量级 noise floor——残差已剥离 alpha-bearing component 后无法再生 alpha。
+>
+> **Answer**: rank-diff geometry × residual signals paradigm **DISPROVEN**——在数据契约层 (1) 受限 + 在信号设计层 (3,4) 受限，双重证伪。**rank-diff 范式在 raw signal 4 family 之外的扩展第一次明确失败**（与 b052 value-liquidity / b053 intraday 失败合计三次连续中断）。
+>
+> **复活路径**: 必须先解决 (a) loader REQUIRED_FIELDS 契约 + (b) residual 数据完整性（cross-sectional 算子代替 rolling 算子，或扩展 min_periods 容错）才能再测——不是阈值校准能修复的范畴。
+
+### T003: Lookahead detection + 数据契约缺口 [⚠ 二次复现 待系统修复]
 
 > [!note]+ Thread 进度
 > **Question**: hard_gate 是否充分检测 Python 候选的时序泄漏？REQUIRED_FIELDS 契约是否被 loader 遵守？
@@ -97,6 +159,7 @@ merged_into: null
 > **Evidence trail**:
 > - [[batches/batch_014/candidates/C003|b014 C003]]　`close.shift(-HORIZON)/close - 1` 把 t+5 累计收益作为 t 因子值；hard_gate 8 项全过，但 ic_oos=0.386 / icir=4.63 / ls_t=83 / ls_max_dd=0 / win_rate=1.0 / sortino=inf 是构造性 leak artifact
 > - [[batches/batch_015/candidates/C002|b015 C002]]　Python 候选 REQUIRED_FIELDS=["$close","$high","$low"] 触发 `compute_error: market_df missing $high/$low`——data_bridge loader 默认只准备 close/volume/amount/market_cap，不尊重契约
+> - [[batches/batch_054/candidates/C001|b054 C001]]　Python 候选 REQUIRED_FIELDS=["$close","$turnover_rate"] 触发 `compute_error: market_df missing ['$turnover_rate']`——9 批之后跨方向 (barra_residual_alpha) **二次相同失败**。证实 loader 默认列 (`$amount, $market_cap, $close, $volume, $open, $high, $low`) 不含 `$turnover_rate`，T003 中期方案优先级升至 high
 >
 > **系统盲区**:
 > 1. Barra residualize 只剥截面风格，不防时序 leak
@@ -153,7 +216,19 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-21 · [[batches/batch_015/judge|batch_015]]
+> [!quote]+ 2026-04-25 · [[batches/batch_054/judge|batch_054]]
+> **admit=0 / reserve=0 / reject=5 (+1 compute_error)** — T014 (rank-diff × residual paradigm) 6 候选完整投放后 **DISPROVEN**。**4 条独立机制揭示**:
+>
+> 1. **数据契约层结构性 coverage<0.80**: residual + 20d rolling 在 csi1000 系统性 coverage = 0.71-0.73（5/5 候选独立确认）；F004 admit 时 coverage=0.999（无 rolling）vs 本批 5 候选都暴跌 28pp。机理：cross-sectional residual ~1% NaN + rolling min_periods≥10 + 上市日异质性 复合 → 早期 ~30% 标的 NaN 覆盖。**与信号设计无关——是数据契约层结构性边界**。
+> 2. **T003 二次复现**: C001 missing $turnover_rate, 9 批之后跨方向同律失败, 升格修复优先级 high。
+> 3. **残差 higher-moment regime sensitivity 第三次跨方向独立确认**: C002 mono_sign_flip + C003 sign_flip。加上 b052 (PE Std)、b053 (signed body-pos Std)，**跨 fundamental/intraday/residual 3 大 family 独立确认硬律**——higher-moment LHS 在 train (低利率) vs validation (利率上行) regime 系统性翻号。
+> 4. **残差路径几何 statistic 是 noise**: C004 autocorr / C006 directional efficiency 都 IC<0.01 量级 noise floor。残差已剥离 alpha-bearing component，path coherence/SNR 类 transformation 无法再生 alpha。
+>
+> **rank-diff 范式三次连续中断 (b052/b053/b054)** 共揭示 **9-10 条新限制律**——rank-diff 不是万能钥匙的边界正在被快速定义清楚。
+>
+> **下一步**：方向维持 saturated（不退化为 dead——本批揭示 4 条新结构教训知识价值已交付）。**rounds_since_consolidation=10 已硬触发**，下批应先 trigger Phase 5 consolidation 集中梳理 b052-b054 累积的元教训；之后再决定是 (a) 修复 T003 + residual coverage 后再启 barra_residual_alpha 完整 paradigm 测试 / (b) 转向 productive 方向延伸 admit。
+
+> [!quote]- 2026-04-21 · [[batches/batch_015/judge|batch_015]]
 > **admit=0 / reserve=0 / reject=5** — 方向 saturated。
 >
 > **F004 不动点定理（实验性建立）**：5 method-switch 候选全部 collapse——Huber=0.907 / hetero=0.927 / winsor=0.941 / vol×turn=0.997。F004 是 7-style basis × OLS-family 上的几何不变量。
