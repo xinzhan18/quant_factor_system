@@ -1,0 +1,184 @@
+batch_id: batch_049
+round: 48
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 'T008 rank-diff 第四波兑现——测 rank-diff 范式跨 direction LHS 多元化泛化边界。
+
+  batch_048 C003 admit F017 (overnight_5 × turnover_5 rank-diff) 成为 rank-diff 范式跨家族
+
+  第 3 次兑现；若本批再有 1 admit = 第 4 次兑现可触发 Phase 5 consolidation 升格 lessons.md。
+
+  cockpit 硬约束"每个候选 LHS 必须不同"——本批 6 候选 LHS 全部唯一且各来自独立 signal family：
+
+  (C001) Mean|ret|(Amihud-style illiquidity w/o $amount) × overnight——LHS=Mean(Abs(daily_ret),20)，
+
+  RHS=overnight_5；(C002) pb × overnight——LHS=Mean($pb_ratio,20)；
+
+  (C003) turnover_cv × |intraday|——C006-rerun 非 overnight LHS，LHS=Std($turnover,20)/Mean($turnover,20)，
+
+  RHS=|intraday|_5；(C004) volume HHI × overnight——LHS=Sum((volume/Sum(volume,20))²,20)
+  自算 HHI 纯 DSL；
+
+  (C005) L2 RealizedVol × overnight——LHS=Power(Sum(Power(daily_ret,2),20),0.5)，RHS=overnight_5；
+
+  (C006) overnight_sign_freq × amount——LHS=Mean(Sign(overnight),20) 首探 direction.md
+  复活条件 "overnight sign frequency"，
+
+  RHS=amount_20。避开死模式：LHS 全唯一；不用 ratio；不 CsRank 外包已入库 raw-diff；
+
+  不共享 raw numerator/denominator；无同字段跨窗口差。
+
+  技术注释：所有 CsRank 内层使用**标准 qlib DSL 算子** (Mean/Abs/Sum/Power/Sign/Div/Sub/Ref)，
+
+  避免 custom op (AmihudIlliq/HHI/RealizedVol) 的 __str__ 类名悬挂导致 CsRank 重建 cross-sectional
+
+  cache 时找不到算子的 latent bug (见 operators.py:428 _build_cs_cache 调用 D.features 重新 parse)。
+
+  目标 ≥1 candidate 满足 max_corr@lib<0.70 + alpha_surv>0.40 + ls_t>2 + incremental_ic>0.010。'
+active_threads_referenced:
+- T005
+- T008
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T20:53:32Z'
+frozen_at: '2026-04-24T20:53:32Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Abs(Div(Sub($close,Ref($close,1)),Ref($close,1))),20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  canonical: Sub(CsRank(Mean(Abs(Div(Sub($close,Ref($close,1)),Ref($close,1))),20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  rationale: 'T008 rank-diff 第 4 波：LHS=Mean(|daily_ret|,20) = Amihud illiquidity proxy
+    (无 $amount 分母,
+
+    纯波动 magnitude), RHS=CsRank(overnight_5)。raw 字段 independent (LHS 用 $close/Ref($close,1)
+
+    daily return; RHS 用 $open/Ref($close,1) overnight); 都 scale-free (pct)。
+
+    与库因子对比: F015 LHS=Mean(Div(Abs(daily_ret),$amount),20) classical Amihud 带 $amount
+
+    分母, 本候选 LHS 不带 $amount, 仅纯 magnitude; F001 Std(ret,20) = L2 vol, 本候选 = L1 vol
+    (Mean|ret|),
+
+    数学路径 L1 vs L2 在 skewed/kurt 样本上数值差异显著。预期 max_corr@F015<0.5, max_corr@F001<0.7。
+
+    与 C005 (L2 vol) 同批: 若 mutual corr >0.7 则 anchor LHS vol-family 共享最多 admit 1——
+
+    但 L1 vs L2 不同路径预期 corr 0.6-0.8 在边界。假设: 高 |ret| (illiquid noisy) + 高 overnight
+
+    = 信号压力释放在 overnight, rank-diff 捕捉 overnight 超越 vol noise 的 pure alpha。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean($pb_ratio,20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  canonical: Sub(CsRank(Mean($pb_ratio,20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  rationale: 'T008 跨 direction rank-diff——LHS=pb_ratio_20 (fundamental value), RHS=overnight_5
+    (technical)。
+
+    两端 raw 字段完全独立 (fundamental vs price), 跨 direction (fundamental_momentum vs overnight)。
+
+    库因子 F034/F038/F040 pb 相关但不是 rank-diff 形式, LHS 结构独立。
+
+    假设: 高 pb (成长) + 高 overnight = 市场定价确认成长预期; 低 pb + 低 overnight = 价值股被遗弃——
+
+    rank-diff 捕捉 fundamental 与 overnight 情绪错位/共振。风险: pb 与 Barra Value/Growth 高度相关,
+
+    alpha_survival 可能 <0.30; 若 max_corr@F010<0.5 且 library 空间独立 <0.3 则即使 alpha_survival
+
+    低仍有库增值 (参考校准原则)。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Div(Std($turnover_rate,20),Add(Mean($turnover_rate,20),0.001))),CsRank(Abs(Mean(Div(Sub($close,$open),$open),5))))
+  canonical: Sub(CsRank(Div(Std($turnover_rate,20),Add(0.001,Mean($turnover_rate,20)))),CsRank(Abs(Mean(Div(Sub($close,$open),$open),5))))
+  rationale: 'T008 asymmetric rank-diff 非 overnight LHS 重测——LHS=turnover_cv_20, RHS=|intraday|_5
+    magnitude。
+
+    batch_048 C006 (overnight × |intraday|) reserve 因 LHS 共享 overnight 让位; 本候选把 LHS
+    换成
+
+    turnover_cv, 保留 RHS=|intraday| magnitude 端, 测 signed×magnitude 异质结构在非 overnight
+    LHS
+
+    能否独立兑现。两端 raw 字段独立 ($turnover vs $close/$open), 跨 direction, 都 scale-free。
+
+    LHS 与 F016 RHS turnover_cv 结构重合 (F016=Sub(CsRank(Amihud),CsRank(turnover_cv)),
+
+    本候选 LHS=F016 RHS), 但整体 Sub 两端非反向对偶 (本 RHS=|intraday|, F016 LHS=Amihud), 预期
+
+    max_corr@F016<0.5。假设: 高 turnover_cv (liquidity 不稳定) + 低 |intraday| magnitude (日内平稳)
+
+    = 非典型组合, overnight/inter-session 结构性差异。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Sum(Power(Div($volume,Sum($volume,20)),2),20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  canonical: Sub(CsRank(Sum(Power(Div($volume,Sum($volume,20)),2),20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  rationale: 'T008 rank-diff, LHS=volume HHI (Herfindahl index) 纯 DSL 自算=Sum((v_t/Σv)²,20),
+    20 天内
+
+    volume 集中度——高值 = 少数几天放巨量 (event-driven); 低值 = 平稳连续交易。RHS=overnight_5。
+
+    两端 raw 字段独立 ($volume vs $open/Ref($close,1)), 跨 direction (volume concentration
+    vs
+
+    overnight), 两端 scale-free (HHI 无量纲, overnight pct)。库中 F010 是 hhi_vol_20 realized_vol
+
+    领域的 HHI (不是 $volume HHI), 作用 level 不同。假设: HHI 高 (event-driven) + overnight 高
+
+    = news-driven overnight 确认; HHI 低 + overnight 低 = quiet stocks, rank-diff 捕捉 news-driven
+
+    alpha。预期 max_corr@F010<0.3 (不同 input), max_corr@F009<0.5 (RHS 共享)。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Power(Sum(Power(Div(Sub($close,Ref($close,1)),Ref($close,1)),2),20),0.5)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  canonical: Sub(CsRank(Power(Sum(Power(Div(Sub($close,Ref($close,1)),Ref($close,1)),2),20),0.5)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  rationale: 'T008 L2 RealizedVol × overnight rank-diff——LHS=sqrt(Σret²,20) = RealizedVol
+    L2 norm 纯 DSL
+
+    自算, RHS=overnight_5。与 C001 L1 (Mean|ret|) 对照: L2 在高 skew/kurt tail 样本上放大权重,
+
+    L1 线性平均; 数学路径正交但 corr 预期 0.6-0.8。与 F001 Std(ret,20) 对比: Std = sqrt(Var) =
+
+    sqrt(E[ret²] - E[ret]²), RealizedVol = sqrt(E[ret²])·sqrt(N) 或 sqrt(Σret²) 未去均值——
+
+    在日频 daily return 近零均值下差异极小, 预期 max_corr@F001>0.85 可能触发 near_duplicate。
+
+    风险警示: 若 F001 吸收则 reject 并升格"L2 vol 不 escape Std family"。
+
+    假设: 高 RealizedVol + 高 overnight = vol-state overnight premium 释放, rank-diff 捕捉
+
+    vol-state overnight alpha。同批 C001+C005 LHS vol-family 共享 mutual_corr 若 >0.7 →
+    anchor rule
+
+    最多 admit 1。
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),20)),CsRank(Mean($amount,20)))
+  canonical: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),20)),CsRank(Mean($amount,20)))
+  rationale: 'T008 **direction.md hypothesis 复活条件 "overnight sign frequency" 首次探测**——
+
+    LHS=Mean(Sign(overnight),20), 20 天内 overnight 上涨比例-下跌比例 ∈ [-1,1], RHS=amount_20
+
+    liquidity。与 F009/F010/F011 overnight magnitude 聚合正交——本候选捕捉 direction consistency
+
+    而非 magnitude。两端 raw 字段独立 (sign of $open-Ref($close,1) vs $amount), 跨 direction,
+
+    两端 scale-free。假设: 高 overnight_sign_freq + 高 amount = 机构持续 overnight accumulation
+
+    在大盘股; 低 sign_freq + 低 amount = 冷门股连续 overnight 下跌。与 F010 Mean(overnight_pct,5)
+
+    的正交性: Sign() 完全丢弃 magnitude 只保留方向, 预期 max_corr@F010<0.4。若 >0.70 则 sign
+
+    aggregation 不 escape magnitude aggregation, 升格教训。
+
+    '

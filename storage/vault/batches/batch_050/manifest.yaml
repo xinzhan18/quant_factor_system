@@ -1,0 +1,160 @@
+batch_id: batch_050
+round: 49
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: 'T010 rank-diff 第 5 次跨家族泛化——测 OHLC scale-invariant 特征族 × 非 OHLC basis
+  的 rank-diff 几何。
+
+  ohlc_temporal_aggregation 3 admit 稳定但 last_admit=batch_020 已 4 批未进展 (saturated)。
+
+  当前 rank-diff 4 次跨家族兑现 (F015 amihud×amount_cv microstructure / F016 amihud×turnover_cv
+  microstructure /
+
+  F017 overnight×turnover overnight / F018 overnight_sign×amount overnight)——全部发生在
+  overnight
+
+  或 microstructure 家族。本批测：rank-diff paradigm 能否在 OHLC 5d aggregation 家族内部兑现？
+
+  若 admit 则 consolidation tipping point 正式确认 (5 跨家族)；若 reject 则揭示 OHLC scale-free
+  signals
+
+  的 rank-diff 饱和边界。
+
+  cockpit 硬约束：每候选 LHS 唯一 + 避开 F017(turnover_5)/F018(amount_20) RHS / 避免 CsRank 外
+
+  包 AmihudIlliq/HHI/RealizedVol (operators.py:428 bug)。所有 CsRank 内层使用标准 qlib DSL 算子
+
+  (Mean/Std/Abs/Sub/Div/Sign/Ref)。直接满足复活条件 (a) 新 OHLC 原子维度 max_corr<0.50@F006/F007
+  + (c)
+
+  与非 OHLC 维度 (liquidity/fundamental/price-vol) rank-diff 交互。
+
+  (C001) body_ratio × turnover_20——LHS=Mean(|C-O|/(H-L),5) 纯 OHLC body magnitude；
+
+  RHS=CsRank(Mean($turnover,20)) 20d 流动性 basis 避开 F017 turnover_5。
+
+  (C002) close_over_high × amount_10——LHS=Mean($close/$high,5) 价格端点比 OHLC；
+
+  RHS=CsRank(Mean($amount,10)) 10d amount 避开 F018 amount_20。
+
+  (C003) intraday_return × volume_20——LHS=Mean(($close-$open)/Ref($close,1),5) 纯 intraday
+  return；
+
+  RHS=CsRank(Mean($volume,20)) volume basis，分离 overnight F010/F011。
+
+  (C004) gap_to_range × pb_60——LHS=Mean(($open-Ref($close,1))/(H-L),5) 跨日 gap 归一化
+  intraday range；
+
+  RHS=CsRank(Mean($pb_ratio,60)) 基本面 value basis 60d。
+
+  (C005) body_ratio_std × price_vol——LHS=Std(|C-O|/(H-L),20) body 分布 dispersion (higher
+  moment)；
+
+  RHS=CsRank(Mean(Std($close,5),20)) 价格 vol 聚合 basis，区别 liquidity/fundamental。
+
+  (C006) body_sign × pb_20——LHS=Mean(Sign($close-$open),5) sign 聚合 (非 magnitude) 复刻
+  b049 C006 成功结构；
+
+  RHS=CsRank(Mean($pb_ratio,20)) 基本面。与 F018 差别：F018 LHS=overnight_sign; C006 LHS=body_sign
+  (intraday)。
+
+  避开死模式：LHS 唯一 / 不共享 raw fields 结构 / 不用 CsRank 外包 custom op / 标准 DSL。
+
+  目标 ≥1 admit 满足 max_corr@lib<0.70 + alpha_surv>0.40 + ls_t>2 + incremental_ic>0.010。'
+active_threads_referenced:
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T21:36:34Z'
+frozen_at: '2026-04-24T21:36:34Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),5)),CsRank(Mean($turnover_rate,20)))
+  canonical: Sub(CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),5)),CsRank(Mean($turnover_rate,20)))
+  rationale: 'LHS=Mean(body_ratio,5) 纯 OHLC magnitude，b018 C002 standalone 被 reject
+    (magnitude-only) 但在
+
+    rank-diff 几何中转为 rank-order aggregator 是全新结构；RHS=turnover_20 避开 F017 turnover_5。
+
+    预期 max_corr@F006/F007<0.5 (F006=upper_shadow Mean, body_ratio 正交 upper/lower shadow);
+
+    max_corr@F017<0.6 (不同 LHS 家族 + 不同 RHS 窗口)。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div($close,$high),5)),CsRank(Mean($amount,10)))
+  canonical: Sub(CsRank(Mean(Div($close,$high),5)),CsRank(Mean($amount,10)))
+  rationale: 'LHS=Mean($close/$high,5) 价格端点比 OHLC，非 F006 的 (H-C)/(H-L)——$close/$high
+    不受 $low 影响
+
+    而 F006 受 $low 影响，几何独立；RHS=amount_10 避开 F018 amount_20 (10d 而非 20d)。
+
+    预期 max_corr@F006<0.4 (algebraic independence)。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,$open),Ref($close,1)),5)),CsRank(Mean($volume,20)))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,$open),Ref($close,1)),5)),CsRank(Mean($volume,20)))
+  rationale: 'LHS=Mean(intraday_return,5) 纯 intraday 部分 (非 overnight F010/F011)，scale-free
+    因 /Ref($close,1)
+
+    归一化；RHS=volume_20 区别 turnover/amount。intraday return 是 direction.md hypothesis
+    复活条件 (a)
+
+    "新 OHLC 原子维度"——OHLC 三段之外的 open-close 收益率分量。预期 max_corr@F010<0.4 (时间分离 overnight
+    vs
+
+    intraday)。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),5)),CsRank(Mean($pb_ratio,60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),5)),CsRank(Mean($pb_ratio,60)))
+  rationale: 'LHS=Mean(gap_to_intraday_range,5)——跨日 gap 归一化 intraday range，是 OHLC×overnight
+    跨家族
+
+    novel 原子维度 (hypothesis 复活条件 c)。与 F010 差别：F010 gap/Ref($close,1) pct；C004 gap/(H-L)
+
+    range 归一化 — 量纲不同。RHS=pb_60 fundamental value 长窗口。预期 max_corr@F010<0.5。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),20)))
+  canonical: Sub(CsRank(Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),20)))
+  rationale: 'LHS=Std(body_ratio,20) body 分布 dispersion，与 C001 Mean(body_ratio,5)
+    函数形式不同 (higher moment)；
+
+    RHS=Mean(Std($close,5),20) 价格 vol 聚合 basis — 区别 turnover/amount/pb，纯 price-vol
+    维度。
+
+    预期 LHS vs C001 LHS corr<0.5 (不同 moment); max_corr@F001<0.6 (F001=amount_cv 不是
+    price_vol)。
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Sign(Sub($close,$open)),5)),CsRank(Mean($pb_ratio,20)))
+  canonical: Sub(CsRank(Mean(Sign(Sub($close,$open)),5)),CsRank(Mean($pb_ratio,20)))
+  rationale: 'LHS=Mean(Sign(close-open),5) intraday body sign 聚合 — 复刻 b049 C006 成功结构
+    (sign 聚合 geometric
+
+    orthogonal to magnitude)。与 F018 差别：F018 LHS=overnight_sign (open-Ref($close,1));
+    C006 LHS=
+
+    intraday_body_sign (close-open)。b017 C003 standalone body-sign reject (与 C005
+    镜像 reserve) 但在
+
+    rank-diff 几何中重新展开。RHS=pb_20 fundamental。预期 max_corr@F018<0.5 (overnight vs intraday
+    sign
+
+    几何独立)。
+
+    '

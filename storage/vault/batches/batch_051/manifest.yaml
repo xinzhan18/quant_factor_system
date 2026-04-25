@@ -1,0 +1,165 @@
+batch_id: batch_051
+round: 50
+direction: gap_acceptance_structure
+direction_md_ref: vault/directions/gap_acceptance_structure.md
+batch_goal: "T013 rank-diff 范式第 6 次跨家族泛化——测 gap-based scale-invariant signals × 非\
+  \ overnight/turnover/amount RHS 的 rank-diff 几何。\n\n当前 rank-diff 5 admit 跨 4 family\
+  \ (microstructure×2 / overnight×2 / OHLC×1 = F015/F016/F017/F018/F019)。\ngap_acceptance_structure\
+  \ 仅 F013 (log_amount_weighted sign aggregation)，max_corr=0.085 整库低集中度，rank-diff\n\
+  paradigm 完全未测。本批检验：gap LHS 能否在 rank-diff 几何中独立兑现？若 admit 则 6 跨家族 tipping point\n\
+  正式确认 (Phase 5 consolidation 几乎必然触发)。\n\n设计硬约束：\n(1) 每候选 LHS 唯一 — 6 LHS 全不同 atomic\
+  \ gap 表达；\n(2) 严避免 F010/F011 的 Mean(gap_ret, 3/5) 同形 — 用不同 normalizer (gap/(H-L)\
+  \ 而非 gap/Ref(close,1)) 或不同 moment (Std vs Mean) 或不同时窗 (60d);\n(3) RHS 端避开 RHS 共振饱和律已标\
+  \ endpoints (overnight_5/turnover_5/amount_20)，选 RV_60 / body_ratio_20 / amount_60\
+  \ / pb_60 / price_vol / |return|_60 等非饱和 basis;\n(4) 不用 CsRank 外包 AmihudIlliq/HHI/RealizedVol\
+  \ (operators.py:428 bug)；CsRank 内层全标准 DSL (Mean/Std/Abs/Sub/Div/Sign/Ref);\n(5)\
+  \ 不重演 T001 disproven (sign(gap)*sign(body) pure aggregation) 也不重演 T003 disproven\
+  \ (gap magnitude 分母变体 → corr@F003=0.96);\n(6) 不重演 b049/b050 disproven random walk\
+  \ LHS (intraday body sign / intraday return mean).\n\nC001 gap_acceptance_ratio_20\
+  \ × RV_60 — LHS=Mean(($open-Ref($close,1))/($high-$low), 20) gap 归一化 intraday range\n\
+  \  (与 F003 不同：F003 LHS 是 |gap|/Mean($high,5)，本 C001 用 (H-L) 同期 range 而非历史 high mean)；\n\
+  \  RHS=CsRank(RealizedVol($close,60)) 长窗 price vol basis，区别 amount/turnover/overnight。\n\
+  \  预期 max_corr@F010<0.4 (overnight pct vs gap range-norm 量纲不同) + max_corr@F003<0.5\
+  \ (5d high vs 1d range).\n\nC002 gap_return_volatility_20 × body_ratio_20 — LHS=Std(($open-Ref($close,1))/Ref($close,1),\
+  \ 20) higher moment\n  of gap return (vs F010/F011 Mean 是不同 moment family，b050 教训\
+  \ \"Mean vs Std of same atomic 不冗余\")；\n  RHS=CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20))\
+  \ body_ratio_20 OHLC structural basis。\n  预期 max_corr@F010/F011<0.4 (Std vs Mean\
+  \ independent) + max_corr@F019<0.5 (F019 LHS=Std(body_ratio), 本 C002 LHS=Std(gap_ret)).\n\
+  \nC003 abs_gap_magnitude_60 × amount_60 — LHS=Mean(Abs(Sub($open,Ref($close,1))),\
+  \ 60) absolute gap magnitude\n  长窗 (60d 非 20d，不是 sign 也不是 ratio，是 raw |gap| 长期均值)；\n\
+  \  RHS=CsRank(Mean($amount,60)) amount 长窗 basis 避开 F018 amount_20。\n  预期 max_corr@F003<0.5\
+  \ (F003 是 |gap|/range 标准化，C003 是 raw |gap| 无标准化 + 长窗 60d).\n\nC004 gap_to_body_cross_ratio\
+  \ × pb_60 — LHS=Mean(Div(Abs(Sub($open,Ref($close,1))), Add(Abs(Sub($close,$open)),0.0001)),\
+  \ 20)\n  跨日 gap 相对 intraday body 的相对幅度 (cross-session magnitude ratio, 0.0001 防\
+  \ zero division 不构成 hack\n  因为是确定性常数偏置，不依据数据)；RHS=CsRank(Mean($pb_ratio,60)) fundamental\
+  \ value 长窗。\n  预期 max_corr@F003/F010<0.4 (cross-ratio 完全新 atomic 表达).\n\nC005 gap_acceptance_ratio_5\
+  \ × price_vol_20 — LHS=Mean(($open-Ref($close,1))/($high-$low), 5) C001 short-window\n\
+  \  对照 (5d vs 20d, 测 window-window covariance with rank-diff geometry)；\n  RHS=CsRank(Mean(Std($close,5),20))\
+  \ 价格 vol 聚合 basis (F019 的 RHS 复用，但 LHS 完全不同)。\n  预期 max_corr@F019<0.4 (LHS gap vs\
+  \ body_ratio std 完全不同 atomic).\n\nC006 long_window_gap_vol × abs_return_60 — LHS=Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),\
+  \ 60) 长窗 60d\n  gap return vol (与 C002 的 20d Std 不同窗口 — 测 gap_vol 在 60d 是否仍独立)；\n\
+  \  RHS=CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)) abs daily return\
+  \ mean 60d (Amihud 分子部分,\n  不是 amount/turnover —— 全新 RHS 维度)。\n  预期 max_corr@F015\
+  \ (amihud_cv) <0.4 (RHS 是 |return|_60 而非 amihud cv)."
+active_threads_referenced:
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T22:24:21Z'
+frozen_at: '2026-04-24T22:24:21Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),60)))
+  rationale: 'LHS=Mean(gap/(H-L),20) — gap 归一化 intraday range，与 F010/F011 用 Ref(close,1)
+    归一化不同；与 F003 的 Mean($high,5) 历史 high 分母不同 (同期 range vs 历史 high)。
+
+    RHS=Mean(Std($close,5),60) 长窗 price vol 聚合 basis (替换原 RealizedVol 因 operators.py:428
+    bug — 标准 DSL 复刻同 semantics，不外包 custom op)，区别 amount/turnover/overnight 共振 RHS。
+
+    预期 max_corr@F010/F011<0.4 (量纲分母不同) + max_corr@F003<0.5 (5d high vs 1d range)
+    + max_corr@F004 (std_vol_20)<0.5 (RHS 60d agg vs F004 20d single window)。
+
+    推进 T005 rank-diff × gap 第 6 次跨家族泛化。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)),CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)),CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)))
+  rationale: 'LHS=Std(gap_ret,20) — higher moment of F010/F011 atomic (b050 T012 教训：Mean
+    vs Std of same
+
+    atomic 是 rank-diff LHS 设计独立轴，corr structure 完全不同)。Std(gap_ret) 不是 F010/F011
+
+    的 Mean 同形。RHS=Mean(body_ratio,20) OHLC body magnitude basis，非 amount/turnover/overnight。
+
+    预期 max_corr@F010/F011<0.4 (Std vs Mean independent) + max_corr@F019<0.5 (F019
+    LHS=Std(body_ratio,20),
+
+    本 C002 LHS=Std(gap_ret,20) 完全不同 atomic 即使同 moment Std)。
+
+    推进 T005 + 验证 b050 T012 higher-moment LHS 在 gap 家族复现。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Abs(Sub($open,Ref($close,1))),60)),CsRank(Mean($amount,60)))
+  canonical: Sub(CsRank(Mean(Abs(Sub($open,Ref($close,1))),60)),CsRank(Mean($amount,60)))
+  rationale: 'LHS=Mean(|gap|,60) — raw absolute gap magnitude 长窗 60d。与 F003 (|gap|/Mean($high,5)
+    标准化版) 不同：
+
+    C003 无标准化 + 60d 长窗。与 F010/F011 不同：F010/F011 是 signed gap_ret，C003 是 |gap| absolute。
+
+    与 T003 disproven 不同：T003 是 |gap| 除以 Std(ret) 分母 corr=0.96@F003，C003 是无分母 raw |gap|。
+
+    RHS=Mean($amount,60) 长窗 amount，避开 F018 amount_20 (60d vs 20d 窗口分离 + LHS 完全不同)。
+
+    预期 max_corr@F003<0.5 (有无分母差异 + 窗口差异) + max_corr@F018<0.4 (60d vs 20d + LHS 不同).
+
+    推进 T005 + 测 raw |gap| 长窗在 rank-diff 几何里的角色。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Abs(Sub($open,Ref($close,1))),Add(Abs(Sub($close,$open)),0.0001)),20)),CsRank(Mean($pb_ratio,60)))
+  canonical: Sub(CsRank(Mean(Div(Abs(Sub($open,Ref($close,1))),Add(0.0001,Abs(Sub($close,$open)))),20)),CsRank(Mean($pb_ratio,60)))
+  rationale: 'LHS=Mean(|gap|/(|body|+0.0001),20) — 跨日 gap 相对 intraday body 的相对幅度 (cross-session
+    magnitude
+
+    ratio). 0.0001 偏置纯防 zero division 常数 (不依据数据). 这是 OHLC 结构内 gap-body 比例的全新 atomic
+
+    表达，无库内同构 (F003 是 gap/Mean(high), 不涉 body; F006/F007 是 shadow/range 不涉 gap).
+
+    RHS=Mean($pb_ratio,60) fundamental value 长窗，非 amount/turnover/overnight RHS。
+
+    预期 max_corr@F003<0.4 (cross-ratio 全新) + max_corr@F006/F007<0.4 (shadow vs gap-body
+    ratio).
+
+    推进 T005 + 测 cross-session magnitude ratio 在 rank-diff 几何首次。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),5)),CsRank(Mean(Std($close,5),20)))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),5)),CsRank(Mean(Std($close,5),20)))
+  rationale: 'LHS=Mean(gap/(H-L),5) — C001 短窗对照 (5d vs 20d). 用于测 rank-diff 范式 window-window
+    covariance
+
+    under same LHS atomic. 与 C001 LHS 几何同 atomic 但窗口不同 — Python validate 同 batch canonical
+
+    去重不会触发 (5 vs 20 raw expr 不同). RHS=Mean(Std($close,5),20) 价格 vol 聚合 basis (F019
+    RHS
+
+    复用但 LHS 完全不同 — F019 LHS=Std(body_ratio,20), C005 LHS=Mean(gap/(H-L),5) gap × short
+    window).
+
+    预期 max_corr@F019<0.4 (LHS atomic 完全不同) + max_corr@F010/F011<0.4 (gap/(H-L) 而非
+    gap/Ref(close,1)).
+
+    推进 T005 + 测短窗 gap acceptance + window 敏感度 (与 C001 配对).
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),60)),CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),60)),CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)))
+  rationale: 'LHS=Std(gap_ret,60) — C002 长窗对照 (60d vs 20d). 测 gap return vol 长窗是否仍
+    rank-diff geometry 独立。
+
+    RHS=Mean(|daily_return|,60) — abs daily return mean 长窗。这是 Amihud 分子 (|return|)
+    但无 amount
+
+    分母 — 全新 RHS 维度 (非 amount/turnover/overnight/RV/body/pb)。
+
+    预期 max_corr@F015 (amihud_cv_rank_diff_20)<0.4 (RHS 是 |return|_60 而非 amihud_cv;
+
+    LHS 是 gap_ret_std 而非 amihud); max_corr@F010/F011<0.3 (Std vs Mean + 60d).
+
+    推进 T005 + 验证 |return| basis 在 rank-diff RHS 端的兼容性 (新 RHS 类目).
+
+    '

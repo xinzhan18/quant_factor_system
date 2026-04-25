@@ -1,0 +1,100 @@
+batch_id: batch_048
+round: 47
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 方向 saturated 后测试 T007 rank-diff 范式 (microstructure 两批 admit 升格) 在 overnight
+  家族 的跨方向泛化 + T004 overnight/intraday ratio 悬挂复活。batch_047 升格教训：rank-diff 结构 alpha
+  = signal-family 组合几何性质，约束 (1) 两端 scale-free (2) raw 字段独立不共振 (3) 两端不被单一库因子主导吸收 (4)
+  Sub 反向对偶同批 dedup。本批六候选按此范式覆盖：(C001) rank-diff 核心——CsRank(overnight_5d mean) − CsRank(intraday_5d
+  mean)，overnight vs intraday 是结构 complement (分子 Δ 字段不同 + 分母字段不同)， 测 CsRank 外包是否 escape
+  F009 spread 的 raw-diff aggregation 吸收；(C002) 同家族跨窗口跨 norm rank-diff ——F010 overnight
+  3d persistence (prev_close 分母) vs F003 overnight gap normalized (MeanHigh 分母)； (C003)
+  跨 direction rank-diff——overnight 5d × turnover_rate 5d，两端独立 direction 且不共享 raw field，
+  测 overnight signal × liquidity signal 是否产新 alpha；(C004) T004 悬挂复活——Div(overnight_5,
+  |intraday_5|) 非 rank 形式 ratio，signal-to-noise 结构；(C005) overnight horizon-diff——CsRank(20d
+  mean) − CsRank(5d mean)， 捕捉 overnight 长短期 acceleration (类 MACD)；(C006) asymmetric
+  rank-diff——CsRank(overnight_5) − CsRank(|intraday_5|)， signed vs magnitude 函数结构异质。避开死模式：Sub
+  反向对偶 (不测 B−A); 两端共享 raw 分母 (C002 分母 Ref($close,1) vs Mean($high,1) 独立); rank-preserving
+  DSL 变换 (本批无纯保序候选)。目标 ≥1 candidate 满足 max_corr@lib <0.70 + alpha_surv >0.40 + ls_t
+  >2 + incremental_ic >0.010，兑现"rank-diff 是通用几何性质"在 overnight 家族的二次泛化。
+active_threads_referenced:
+- T004
+- T005
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T20:08:44Z'
+frozen_at: '2026-04-24T20:08:44Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)),CsRank(Mean(Div(Sub($close,$open),$open),5)))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)),CsRank(Mean(Div(Sub($close,$open),$open),5)))
+  rationale: T005 rank-diff 范式核心候选——CsRank(overnight_5d) 减 CsRank(intraday_5d)。两端都
+    pct scale-free，raw 字段级独立 (overnight 分子 open-prev_close / 分母 prev_close; intraday
+    分子 close-open / 分母 open)。对照 F009 spread=Mean(overnight-intraday,5) 的 raw-diff
+    aggregation： CsRank 外包后是否 escape F009 吸收？假设：F009 spread 是 raw-level 加减，CsRank
+    改 rank 级比较 = cross-section relative position, 对 raw magnitude 不敏感，预期 max_corr@F009
+    < 0.70。 若 admit 则 rank-diff 是 raw-diff aggregation 的几何互补。风险：F009 ls_t=5.18 已近似线性在
+    5d 上， rank 化后仍高度共线 → max_corr > 0.85 则 reject。
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),3)),CsRank(Div(Sub($open,Ref($close,1)),Mean($high,1))))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),3)),CsRank(Div(Sub($open,Ref($close,1)),Mean($high,1))))
+  rationale: T005 跨窗口跨 norm rank-diff——CsRank(F010 overnight_3d persistence) 减 CsRank(F003
+    overnight_gap_normalized)。分子均为 $open-Ref($close,1) 相同，但分母不同 (prev_close vs MeanHigh)
+    +一端 3d mean 一端 single-day：两者在 rank 空间的位置差 = 捕捉"持续性"与"单日强度"的差异。 风险警示：分子共享 raw Δ
+    字段，若 Sub 数值抵消严重则 ic 接近 noise——这是 batch_047 C002 $amount 共分母抵消律 的 overnight 版对照检验。若通过
+    hard_gate 且 max_corr < 0.70 则证"分子共享但分母结构异质"仍可开辟独立 rank-diff 空间； 若 hard_gate fail
+    则确认"共享 raw 字段 (numerator or denominator 任一) 就足以抵消"，本批独立升格教训。
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)),CsRank(Mean($turnover_rate,5)))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)),CsRank(Mean($turnover_rate,5)))
+  rationale: T005 跨 direction 独立字段 rank-diff——CsRank(overnight_5d) 减 CsRank(turnover_rate_5d)。
+    两端 raw 字段完全独立 (overnight 用 open/prev_close, turnover_rate 独立 field), 完全独立 direction
+    (overnight_intraday_split vs 新字段), 都 scale-free (pct vs ratio). 假设：高 overnight
+    return 同时高 turnover 的个股 = informed buying (机构 pre-market accumulation 伴随放量确认)，rank-diff
+    捕捉 overnight signal 超越 liquidity confound 的纯信息。 batch_047 C003 跨 direction 失败是因为一端被库因子
+    F001 (amount_CV) 主导吸收; 本候选 turnover 5d mean 是新测度 (库内无直接 turnover signal), 不会被
+    F001 / F015 / F016 (都是 amount/Amihud 体系) 主导吸收。 预期 max_corr@F010 约 0.4-0.6, max_corr@turnover-family
+    < 0.4。
+- candidate_id: C004
+  source_type: dsl
+  expression: Div(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5),Add(Abs(Mean(Div(Sub($close,$open),$open),5)),0.001))
+  canonical: Div(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5),Add(0.001,Abs(Mean(Div(Sub($close,$open),$open),5))))
+  rationale: T004 悬挂复活——overnight/|intraday| signal-to-noise ratio。非 rank 形式, 测 direction.md
+    复活条件 (c) "正交 aggregation" ratio 路径。Add(..,0.001) 防除零。 假设：ratio 形式携带不同于 F009 spread
+    (差值) 的信息——spread 是绝对差, ratio 是相对比。 若 overnight 5d mean 远大于 |intraday 5d mean|
+    则净信号强 (低噪声); 相反则信号被日内噪声淹没。 batch_027 disproven 的是 "pure intraday mean 是 F009 线性组合"——本候选是
+    overnight 相对 intraday noise 的 signal-to-noise ratio, 非线性 Div 形式 + Abs magnitude
+    分母, 与 F009 数学结构完全不同。 风险：Abs + 小值加项可能在 intraday ≈ 0 时数值不稳，hard_gate 覆盖度可能偏低。 若通过且
+    max_corr@F009 < 0.70 则 T004 ratio 条件复活兑现。
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)))
+  rationale: T006 overnight horizon-diff——CsRank(overnight_20d mean) 减 CsRank(overnight_5d
+    mean)， 长期 overnight trend 相对短期 overnight trend 的 rank 位置差。类 MACD signal。 两端共享
+    raw field 但不同窗口——与 batch_047 C002 不同之处：C002 是两端不同因子共享分母字段 (不同 signal families
+    共 $amount 尾巴), 本候选是同一因子不同 aggregation 窗口的 rank-diff (时间 scale 差异而非结构差异)。 假设：overnight
+    5d 持续性 (F010) 已入库, 但 20d 长期 trend 是否独立于 5d? 若独立, rank-diff 即捕捉 "overnight trend
+    acceleration/deceleration"——近期 overnight 强于长期 = 加速 (预期 continuation), 近期弱于长期 =
+    减速 (预期 reversal)。这是 direction.md 复活条件 "更长 horizon" 的探测。 风险：windows 共享 raw 字段 +
+    Sub 抵消 = noise; 若 hard_gate fail 则升格教训"同因子跨窗口 rank-diff 不 escape raw 抵消律"。预期 max_corr@F010
+    约 0.5-0.7。
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)),CsRank(Abs(Mean(Div(Sub($close,$open),$open),5))))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)),CsRank(Abs(Mean(Div(Sub($close,$open),$open),5))))
+  rationale: 'T005 asymmetric rank-diff——CsRank(overnight_5d signed) 减 CsRank(|intraday_5d|)。
+    两端函数结构异质 (signed pct vs magnitude |pct|), 都 scale-free。与 C001 成对照: C001 两端都 signed,
+    C006 intraday 端取 Abs magnitude——测 overnight 方向信号相对 intraday 活动强度 (非方向) 的 rank
+    差。 假设：高 overnight return + 低 intraday magnitude = "平稳 overnight gains" (机构 overnight
+    accumulation 但日内未反转), 比 C001 (高 overnight - 高 intraday = net pos) 更窄的条件但更纯信号。
+    风险：分子仍共享 $open (overnight 用 open-prev_close, intraday 用 close-open)——但分母独立 + 一端
+    Abs 非线性, Sub 不会线性抵消。max_corr@F009 < 0.70 则兑现 "signed × magnitude rank-diff" 独立维度;
+    若 > 0.85 则 signed×magnitude 组合仍被 F009 线性吸收。'

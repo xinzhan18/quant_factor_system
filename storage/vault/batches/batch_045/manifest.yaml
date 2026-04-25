@@ -1,0 +1,78 @@
+batch_id: batch_045
+round: 44
+direction: range_structure
+direction_md_ref: vault/directions/range_structure.md
+batch_goal: T001 shape 路径重启（round 2）：测 Kurt 4 阶矩 / Quantile 尾部(0.9) / Quantile 尾-中位差
+  / Skew 120d 长窗 / sign-gated Skew / IQR-to-median 六种 shape 统计量是否在 csi1000 上逃离 vol_20d
+  连续 std 空间且 mono_is 达 0.6+ 稳健性下界；追认 batch_043 C004 paradox 教训 — 避免 IS/OOS mono 巨幅放大型非稳健候选。硬闸
+  max_corr@F001/F012/F013<0.7 防液性簇吸收，目标 ≥1 候选 alpha_survival>0.4 且 dominant_style≠vol_20d。
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T17:41:32Z'
+frozen_at: '2026-04-24T17:41:32Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Kurt(Div(Sub($high, $low), $close), 60)
+  canonical: Kurt(Div(Sub($high,$low),$close),60)
+  rationale: 'Kurt = 60d (H-L)/C 的 4 阶中心矩（超额峰度）。与 batch_043 C004 Skew 同为 shape 统计但测尾部厚度（不区分左右偏）。经济直觉：极端
+    range 日频率 / 正常日 range 平静度的''事件集中强度''。与 vol_20d（二阶矩）数学上正交（shape vs magnitude）。Adjacent
+    scan: return_distribution_signals dead 但测的是 return 的 Kurt 非 range 的 Kurt；stochastic_position
+    saturated 测 close 在 range 中位置非 range shape。Expected mono_is ≥ 0.5 if tail-concentration
+    premium exists。'
+  parent_batch: batch_043
+  parent_candidate_id: C004
+  transformation: switch_3rd_moment_to_4th_moment
+- candidate_id: C002
+  source_type: dsl
+  expression: Quantile(Div(Sub($high, $low), $close), 60, 0.9)
+  canonical: Quantile(Div(Sub($high,$low),$close),60,0.9)
+  rationale: 90 分位 (H-L)/C — 60d 窗口内 range 分布的上尾代表值。与 mean/std（vol_20d 吸收）不同的 robust
+    高分位估计量，捕获'最极端 10% 日的 range 幅度典型值'。虽仍是 scale 测度但 non-linear robust，信息不等价于 std。风险：可能与
+    vol_20d corr 偏高；mitigation 是 quantile 对整体分布尾部更敏感（std 对均值偏离平方根）。首次测试 Quantile 算子在本方向的适用性。
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(Quantile(Div(Sub($high, $low), $close), 60, 0.9), Med(Div(Sub($high,
+    $low), $close), 60))
+  canonical: Sub(Quantile(Div(Sub($high,$low),$close),60,0.9),Med(Div(Sub($high,$low),$close),60))
+  rationale: Q90 - Median 的 (H-L)/C — 尾部极值 vs 中位值的 asymmetric spread，robust 非对称性指标。机制：测量'少数极端
+    range 日 - 典型 range 日'的绝对差，与 Skew 同向信息但基于 quantile 而非 moment（对 outlier 稳健）。与 C001(Kurt)/C002(Q90)
+    形成三角对照：C001 测 tail 厚度，C002 测 tail 典型值，C003 测 tail 相对 center 偏离。Expected 与 F001
+    amount_cv 正交（F001 是 amount CV 非 range 量）。
+- candidate_id: C004
+  source_type: dsl
+  expression: Skew(Div(Sub($high, $low), $close), 120)
+  canonical: Skew(Div(Sub($high,$low),$close),120)
+  rationale: 延续 batch_043 C004 (60d Skew) 的 120d 长窗变体。paradox 诊断为 mono_is 弱（0.30）+
+    mono_oos 夸张（1.00），非稳健 alpha。长窗 120d 可降低样本噪声、平均期内 regime 切换，如果 Skew 机制真实，长窗应提升
+    mono_is 到 0.6+。风险：120d 窗口减少有效样本日数、延迟信号；但若机制是结构性的（事件股 shape premium），长窗应增强 signal-to-noise。T001
+    shape 路径最直接的修复测试。
+  parent_batch: batch_043
+  parent_candidate_id: C004
+  transformation: extend_lookback_60d_to_120d
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(Sign(Sub($close, Ref($close, 5))), Skew(Div(Sub($high, $low), $close),
+    60))
+  canonical: Mul(Sign(Sub($close,Ref($close,5))),Skew(Div(Sub($high,$low),$close),60))
+  rationale: Sign-gated Skew — 将 60d Skew 乘上近 5d 方向（sign of close - close_ref_5）。破除纯
+    shape 的方向对称性：正偏度 × 上涨 5d = 事件股在上升途中（潜在延续），正偏度 × 下跌 5d = 事件股在回调（潜在反转）。若 shape 与
+    momentum 交互有独立 alpha，会体现为 Skew 单用之外的增量。风险：sign interaction 在 csi1000 有 regime
+    flip 先例（gap_acceptance_structure batch_035 pure sign 被证伪），但本候选不是 pure sign——Skew
+    是 magnitude-bearing shape 量，5d ret Sign 仅作 gate 不丢 magnitude。与 C001/C004 机制区分明确。
+- candidate_id: C006
+  source_type: dsl
+  expression: Div(Sub(Quantile(Div(Sub($high, $low), $close), 60, 0.8), Quantile(Div(Sub($high,
+    $low), $close), 60, 0.2)), Med(Div(Sub($high, $low), $close), 60))
+  canonical: Div(Sub(Quantile(Div(Sub($high,$low),$close),60,0.8),Quantile(Div(Sub($high,$low),$close),60,0.2)),Med(Div(Sub($high,$low),$close),60))
+  rationale: (Q80 - Q20) / Median — 60d window 内 robust IQR 相对中位值的 scale-free 比值。**不是
+    T002 DISPROVEN 的 short/long ratio**（T002 测的是 Mean(5) / Mean(60) 的时间窗 ratio，本候选是
+    **within-window** 的 quantile spread 归一化）。机制：测 range 分布的 relative dispersion —
+    当 IQR/Med 高时，股票在事件日 vs 平静日差异大（shape-sensitive）；低时 range 分布均匀（近 log-normal）。Scale-free
+    属性应降低 vol_20d 吸收。与 F012 amihud（流动性冲击）不同；与 F001 amount_cv（amount CV）维度正交（本候选测 range
+    不测 amount）。

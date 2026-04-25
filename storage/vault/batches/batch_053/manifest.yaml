@@ -1,0 +1,69 @@
+batch_id: batch_053
+round: 52
+direction: intraday_price_formation
+direction_md_ref: vault/directions/intraday_price_formation.md
+batch_goal: 'T013 rank-diff geometry × intraday_price_formation: 测 6 个 LHS 都是 novel
+  intraday scale-invariant atoms (signed-ret-pos/vwap-dev/true-range-norm/body-mom-signed)
+  × RHS 严避 b052 揭示的 4 死区 (overnight_5/turnover_5/amount_20/body_ratio_20)，验证 rank-diff
+  第 7 次跨家族泛化能否在 b011 标 saturated 的 intraday 字段空间复活'
+active_threads_referenced:
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-25T00:00:23Z'
+frozen_at: '2026-04-25T00:00:23Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($close,$open),Sub($high,$low)),20)),CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($close,$open),Sub($high,$low)),20)),CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)))
+  rationale: LHS=signed body-position (close-open)/(high-low) higher moment 20d——区别于
+    F019 (Abs(close-open)/(high-low) Std) 的非签号 atom + 区别于 b010 C002 的 Mean level (mono_sign_flip
+    死区)；RHS=Mean|ret|,60 (Amihud-numerator 60d) 全新 RHS basis 类目，与 b052 4 死区零重叠。Thread=T003
+    (rank-diff 跨家族泛化) — 验证 rank-diff geometry 能否激活 b010 标 dead 的日内身体形成机制
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,Div(Add(Add($open,$high),Add($low,$close)),4)),Sub($high,$low)),20)),CsRank(Div(Std($amount,60),Mean($amount,60))))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,Div(Add(Add($close,$low),Add($high,$open)),4)),Sub($high,$low)),20)),CsRank(Div(Std($amount,60),Mean($amount,60))))
+  rationale: 'LHS=VWAP-proxy deviation: (close - OHLC4-mean)/range, mean 20d——novel
+    atom 整库零相关 (b010-011 未测过 OHLC4-center)；RHS=amount_cv_60 长窗 (区别于 F001 amount_cv_10——长窗稀释
+    vol_20d 共振)。Thread=T003 — VWAP-proxy 系统在 vwap_proxy_signals 已 admit F014 (短窗 spread)，本候选探长窗
+    mean-deviation 是否独立于 F014'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($high,$low),Ref($close,1)),20)),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($high,$low),Ref($close,1)),20)),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),60)))
+  rationale: LHS=true_range/prev_close (intraday volatility proxy, 区别于 (H-L)/close
+    的 range_structure 已测) Mean 20d level signal; RHS=Amihud_60 长窗 (区别于 F012 Amihud_20)，60d
+    窗口 + LHS 不同 atom 双重去 cluster。Thread=T003 — 探日内振幅 level 在 rank-diff 中能否避免与 F012
+    cluster (long-window RHS shift away from F012 atomic window)
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$low),Ref($close,1)),20)),CsRank(Mean(Std($close,5),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$low),Ref($close,1)),20)),CsRank(Mean(Std($close,5),60)))
+  rationale: LHS=true_range/prev_close higher moment 20d (与 C003 同 atom 不同 transform——第二次试
+    Std vs Mean 是否在 rank-diff 中冗余，复现 b050 T012 'Mean vs Std of same atomic 不冗余' 律)；RHS=RV_60
+    (Mean(Std($close,5),60) realized vol 60d, b051 admit C002 同款 RHS — 验证 RV_60 能否再支撑一次
+    admit, 同时已知 b051 C006 长窗 Std 60d sign_flip 风险——本候选窗口控制在 20d). Thread=T003 — Mean
+    vs Std 双轨 (C003+C004) 复测 b050/b051 律
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,$open),$close),20)),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,$open),$close),20)),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),60)))
+  rationale: LHS=signed intraday return (close-open)/close, Mean 20d——区别于 F010/F011
+    overnight return atomic (open-prev_close)/prev_close, 这是日内 (close-open) 而非隔夜，atomic
+    上完全互补于 overnight family；RHS=Amihud_60 (与 C003 共享 RHS 测共振——若 C003+C005 同时 admit
+    则证 LHS 多元化是 admit 关键, 若 C005 admit C003 reject 则 signed > level)。Thread=T003 —
+    日内方向 vs 振幅在 rank-diff 中是否双轨独立
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($close,$open),$close),20)),CsRank(Mean(Std($close,5),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($close,$open),$close),20)),CsRank(Mean(Std($close,5),60)))
+  rationale: 'LHS=signed intraday return higher moment 20d (与 C005 atom 同, transform
+    升 Std——再次 Mean vs Std 双轨)；RHS=RV_60 同 C004 (与 C004 共享 RHS 测共振 + LHS atomic 不同对照:
+    true_range vol vs intraday_ret vol)。Thread=T003 — 完整 2x2 设计: {true_range, intraday_ret}
+    × {Mean, Std} = C003/C004/C005/C006, 系统测 atomic 与 transform 的独立性 + 双 RHS (Amihud_60
+    / RV_60) 交叉对比避 RHS 共振饱和律'

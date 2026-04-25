@@ -1,0 +1,123 @@
+batch_id: batch_047
+round: 46
+direction: microstructure_illiquidity
+direction_md_ref: vault/directions/microstructure_illiquidity.md
+batch_goal: 'T007 rank-diff 范式泛化 + T005 短窗 sign-conditional 重试。batch_046 admit F015
+  (CsRank(Amihud_20) - CsRank(amount_CV_10))
+
+  兑现 rank-diff 结构 alpha 源，升格教训：两端 signal family 必须都 scale-invariant (CV / ratio /
+  correlation) 才独立。
+
+  本批按此范式在其他 scale-free signal 对上泛化：(1) CsRank(Amihud_20) - CsRank(turnover_rate_CV_20)
+  换分母 CV 字段
+
+  测 amount vs turnover dispersion 对 Amihud 的正交性；(2) CsRank(pb_amount_ratio) - CsRank(Amihud)
+  跨方向 value×liquidity
+
+  rank-diff，两端都 scale-free；(3) CsRank(amount_CV_10) - CsRank(overnight_gap_20) amount×pct-signal，两端完全独立
+  direction；
+
+  (4) 反转对 CsRank(turnover_CV) - CsRank(Amihud) 测 rank-diff 方向对称性。(5)(6) T005 短窗 ≤5d
+  sign-conditional 重试
+
+  避开 batch_046 确认的 "20d mean aggregation 抹平 day-level sign gate" 失败律。目标 ≥ 1 candidate
+  同时满足 max_corr@admitted < 0.50 + alpha_survival > 0.40 + ls_t > 2。'
+active_threads_referenced:
+- T007
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-24T19:27:13Z'
+frozen_at: '2026-04-24T19:27:13Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)),CsRank(Div(Std($turnover_rate,20),Mean($turnover_rate,20))))
+  canonical: Sub(CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)),CsRank(Div(Std($turnover_rate,20),Mean($turnover_rate,20))))
+  rationale: 'T007 rank-diff 泛化 — F015 `CsRank(Amihud_20) - CsRank(amount_CV_10)`
+    的 turnover CV 变体。两端都 scale-invariant (Amihud 是 |ret|/amount 比例，turnover_CV 是 Std/Mean
+    比例)。
+
+    假设：turnover-CV 与 amount-CV 虽同源 dispersion 家族但不等价（turnover 按流通股归一，amount 按金额），rank-diff
+    位置可能开辟 F015 之外的独立维度。
+
+    若 max_corr@F015 < 0.70 且 incremental_ic > 0.01 → 证实 "rank-diff 结构对分母字段选择敏感"，泛化第一锤；若
+    max_corr@F015 > 0.90 → amount/turnover CV 在 rank 空间等价，rank-diff 结构只依赖 Amihud 端。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Div($pb_ratio,Mean($amount,20))),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)))
+  canonical: Sub(CsRank(Div($pb_ratio,Mean($amount,20))),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)))
+  rationale: 'T007 rank-diff 跨 direction 泛化 — CsRank(F002 pb_amount_ratio_20) 减 CsRank(F012
+    Amihud_20d)。两端都是 ratio / pct 结构 scale-free (pb/amount 是估值×流动性 ratio, Amihud 是
+    |ret|/amount ratio)。
+
+    假设：value×liquidity 的 rank 位置与 microstructure illiquidity 的 rank 位置之差携带 signed
+    alpha — 高 = 估值高且流动性充足但 illiquidity 低 (blue-chip 估值分位 > 流动性冲击分位)，低 = 小票估值低但 illiquidity
+    高。
+
+    预期 max_corr@F002 约 0.4-0.6（F002 有贡献）与 max_corr@F015 可能中等（都含 Amihud 端）。若同时独立则 rank-diff
+    结构真能跨 direction 生产 alpha。风险：分子 pb_amount_ratio 含 1/amount，可能与 Amihud 分母共振。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Div(Std($amount,10),Mean($amount,10))),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)))
+  canonical: Sub(CsRank(Div(Std($amount,10),Mean($amount,10))),CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)))
+  rationale: 'T007 rank-diff 跨 direction 最远泛化 — CsRank(F001 amount_CV_10) 减 CsRank(F010
+    overnight_gap_20)。两端 direction 完全独立 (amount_volatility_signal vs overnight_intraday_split)，两端都
+    scale-free (CV 比例 vs pct gap)。
+
+    假设：若 rank-diff 结构是通用 alpha 源而非 microstructure-specific 现象，跨 direction 独立 signal
+    家族之间的 rank-diff 也应产出独立 alpha。
+
+    这是 T006 升格教训的最严苛检验——若 C003 admit，证实 "rank-diff 结构 alpha 是 signal-family 组合的几何性质"而非
+    illiquidity 特定；若 reject 但 C001/C002 admit，证实 "rank-diff 在 microstructure family
+    内部有效，跨 family 无效"，缩小范式边界。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Div(Std($turnover_rate,20),Mean($turnover_rate,20))),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)))
+  canonical: Sub(CsRank(Div(Std($turnover_rate,20),Mean($turnover_rate,20))),CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)))
+  rationale: 'T007 rank-diff 方向对称性测试 — 对 C001 翻转：CsRank(turnover_CV_20) 减 CsRank(Amihud_20)。
+
+    预期：若 C001/C004 都 admit 且 max_corr 互为 -1 → rank-diff 是对称反号结构，择一 admit；若 C001 admit
+    而 C004 被吸收 → F015 已占 "Amihud-为主减 dispersion-为辅" 范式，反向结构冗余；若 C001 reject 而 C004
+    admit → 分母端字段 CV 的符号位权重大于 Amihud，说明 illiquidity 不是主要 alpha 载体。
+
+    这是对 "rank-diff Sub 操作是否有方向性" 硬问题的闭环检验。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Div(If(Gt(Delta($close,1),0),Div(Delta($close,1),Ref($close,1)),0),$amount),5)
+  canonical: Mean(Div(If(Gt(Delta($close,1),0),Div(Delta($close,1),Ref($close,1)),0),$amount),5)
+  rationale: 'T005 短窗 sign-conditional 重试 — up-day Amihud 5d 窗口。复活条件 (a) ≤5d 短窗减少对称化抹平机会。
+
+    batch_046 C001 (20d up-day) max_corr=0.942 near_dup F012，升格教训 "day-level sign
+    gate + 20d mean aggregation 抹平 sign asymmetry"。
+
+    本候选按教训用 5d 窗口，若散户恐慌抛售假说在短 horizon 上有效 → max_corr@F012 应显著下降（<0.80）且 IC sign 分化；若仍
+    near_dup → 证实 "即使短窗 sign asymmetry 也在 A 股 csi1000 日频不存在"，T005 复活条件 (a) 硬证伪。
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(TsMax(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),5),TsMin(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),5))
+  canonical: Sub(TsMax(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),5),TsMin(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),5))
+  rationale: 'T005 非 mean aggregation 短窗 asymmetry 测度 — range-based illiq asymmetry
+    5d。直接取 5d 窗口内的 Amihud max - min，度量 "流动性冲击波动幅度"。
+
+    区别于 mean 聚合：mean 抹平极值 asymmetry，max-min 保留 tail 差异。若单股 5d 内 Amihud range 大 = illiq
+    波动剧烈 → 高风险/高 alpha 要求。
+
+    预期：max_corr@F012 应 < 0.80 因 range 结构与 mean 独立；若 admit 则打开 "illiq volatility of
+    volatility" 新轴；若 reject 则证 "A 股短窗 Amihud range 与 mean 同构"，T005 复活条件 (a) 二次证伪。非
+    scale-free（range level 量纲）——承担范式外风险测试。
+
+    '

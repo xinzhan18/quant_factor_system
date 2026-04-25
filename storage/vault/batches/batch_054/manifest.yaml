@@ -1,0 +1,145 @@
+batch_id: batch_054
+round: 53
+direction: barra_residual_alpha
+direction_md_ref: vault/directions/barra_residual_alpha.md
+batch_goal: 'T014 — 测 rank-diff geometry × residual signals 范式（barra_residual_alpha
+  方向 7 轮再启动）。
+
+
+  方向 saturated 后再开的复活路径：cockpit hint 指出 rank-diff 在 raw OHLCV 4 family 已成熟（5 admit
+  跨 microstructure / overnight×2 / OHLC / gap），但**residual-based signal 上的 rank-diff
+  尚未验证**——这是完全独立的 paradigm（残差几何 vs raw signal 几何）。同时 6 轮探索仅 1 admit (F004)，大量 thread
+  未尝试。
+
+
+  设计严遵 7+ 条 rank-diff geometry 律：
+
+  (1) C001-C003 测 rank-diff × residual：LHS=residual-derived stat（|res|_mean / res_std
+  / res_cumsum），RHS=非饱和原子（turnover_20 / amount_60 / RV_60）；
+
+  (2) C004-C006 测 residual-only 路径（无 rank-diff）：residual 自相关 / 多周期 EMA decay / 累积冲击
+  SNR；
+
+  (3) 严避免：F004（库内 residual 自身，本批 LHS 都是 residual 的统计量而非 residual 本身，corr<0.30 期望）；F018
+  amount_20 RHS（C002 用 amount_60 长窗）；F012 Amihud_20 RHS（不用 amihud-family）；F020 anti-anchor
+  cluster（本批无 OHLC body higher-moment LHS）；
+
+  (4) 全 Python 路径（DSL 无法表达 Barra residual）；
+
+  (5) 严防 lookahead——所有候选用 close.pct_change(1) past return，不用 shift(-k)。
+
+
+  C001 |residual|_mean × turnover rank-diff — 残差 dispersion vs 原始流动性
+
+  C002 residual_std × amount_60 rank-diff — 残差 second-moment vs 长窗 amount
+
+  C003 residual_cumsum_5 × RV_60 rank-diff — 残差短窗动量 vs 长窗价格 vol
+
+  C004 residual_autocorr_20 — 残差时序持续性（残差只用，无 rank-diff）
+
+  C005 EMA(res,5)-EMA(res,20) — 残差多周期 decay 结构
+
+  C006 |sum(res,20)| / sum(|res|,20) — 残差累积冲击 directional efficiency
+
+
+  T014 验证目标：rank-diff paradigm 是否能跨出 raw signal 4 family，扩展到 residual 几何空间？若 admit
+  ≥1 → barra_residual_alpha 复活；若 0 admit + reserve ≤1 → 该方向真正 dead（5 method-switch
+  + residual 路径全证伪）。'
+active_threads_referenced:
+- T014
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-25T00:43:31Z'
+frozen_at: '2026-04-25T00:43:31Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_054/python_candidates/C001.py
+  rationale: 'LHS=CsRank(Mean(|residual_ret|, 20)) — 残差 dispersion 水平在截面排名。
+
+    RHS=CsRank(Mean($turnover_rate, 20)) — 流动性原子 20 窗口（不是 amount/Amihud，避开 F012/F018
+    anchor cluster）。
+
+    rank-diff 几何 LHS-RHS：高残差离散度 + 低流动性 = idiosyncratic illiquid 异常 → 期望正 alpha。
+
+    与 F004 不同：F004 是 residual 本身（forward shift），本 C001 是过去残差的 rolling dispersion 统计量；预期
+    corr@F004<0.30。
+
+    推进 T014 rank-diff × residual 第 1 候选。
+
+    '
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_054/python_candidates/C002.py
+  rationale: 'LHS=CsRank(Std(residual_ret, 20)) — 残差 second-moment（higher-moment）在截面。
+
+    RHS=CsRank(Mean($amount, 60)) — amount 长窗 60d 避开 F018 amount_20 cluster。
+
+    残差 higher-moment vs 长窗 amount — 测 b050 教训"Mean vs Std of same atomic 不冗余"在残差域复现。
+
+    预期 corr@F004<0.30 + corr@F018<0.40 (60d vs 20d + LHS 完全不同 atomic)。
+
+    推进 T014 rank-diff × residual 第 2 候选（higher-moment 路径）。
+
+    '
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_054/python_candidates/C003.py
+  rationale: 'LHS=CsRank(Sum(residual_ret, 5)) — 残差短窗动量（5d cumsum）。
+
+    RHS=CsRank(Mean(Std($close, 5), 60)) — RV_60（与 F019 / b051 admit C002 同 RHS）。
+
+    rank-diff 几何：残差 momentum vs 系统价格波动 — 测残差短期 directional 是否独立于 idiosyncratic vol
+    暴露。
+
+    预期 corr@F004<0.30 + corr@F019<0.40 (LHS 完全不同 atomic 即使共享 RHS) + corr@F010/F011<0.30
+    (residual cumsum 不是 raw return persistence)。
+
+    推进 T014 rank-diff × residual 第 3 候选（cumulative momentum 路径）。
+
+    '
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_054/python_candidates/C004.py
+  rationale: '纯残差路径：每只标的 20 日残差自相关（lag-1）。
+
+    高自相关 = 残差具持续性（idiosyncratic momentum），低/负 = 反转。测残差时序结构是否携带截面 alpha。
+
+    与 F004 不同：F004 是 residual level，本 C004 是 residual 时序结构。
+
+    与 b015 C002 (Python missing $high/$low) 不同：本 C004 严守 REQUIRED_FIELDS=[$close]。
+
+    预期 corr@F004<0.20 (level vs autocorr 完全正交) + corr@库内任何 factor<0.40。
+
+    推进 T014 residual-only persistence 路径（避 rank-diff 假设若 rank-diff 全失败仍有 fallback）。
+
+    '
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_054/python_candidates/C005.py
+  rationale: '纯残差路径：EMA(res, span=5) - EMA(res, span=20)，残差多周期 decay 结构（短期减长期 = 残差动量加速）。
+
+    与 b014 C002 (vol-keep + 3d EMA → corr=0.987@F004) 不同：那是对 residual 本身做 EMA（时序平滑不动
+    cross-section rank），本 C005 是两个不同 span EMA 的差（dual-period structure）。
+
+    预期 corr@F004<0.30 (差结构 vs level 不同) + corr@库内 momentum factor (F009/F010/F011)<0.40。
+
+    推进 T014 residual-only multi-period decay 路径。
+
+    '
+- candidate_id: C006
+  source_type: python
+  path: storage/vault/batches/batch_054/python_candidates/C006.py
+  rationale: '纯残差路径：|Sum(res,20)| / Sum(|res|,20)，残差累积冲击的 directional efficiency（[0,1]
+    范围）。
+
+    接近 1 = 强 directional 残差冲击，接近 0 = 残差噪声主导。SNR 几何完全独立于 level / std / autocorr 几何。
+
+    预期 corr@F004<0.20 (signal-to-noise ratio vs raw level 完全正交) + corr@库内 factor<0.40。
+
+    推进 T014 residual-only directional efficiency 路径——纯几何独立 atomic。
+
+    '

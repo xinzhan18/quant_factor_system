@@ -71,6 +71,12 @@ PYTHONPATH=src python3 -m research execute batch_{N}
 
 校验：`state.current_batch_phase == "judged"`。
 
+**⚠️ 执行约束（历史踩坑）**：
+
+- **禁止 `run_in_background=true`**。Subagent 一旦返回，runtime 会杀掉它启动的后台 shell——compute 进程连带死亡，state 卡在 `executing`，result.yaml 不生成。**必须在一次 Bash 同步调用里跑完**（Bash `timeout: 1800000` = 30min，配合 `BASH_MAX_TIMEOUT_MS=1800000` 环境变量；如未配置请先读 `~/.claude/settings.json`）。
+- **禁止返回 interim summary**。Agent 调用契约是"完成任务一次性返回"——不要返回"Phase 2 仍在跑，稍后 check back"这种中间状态，主 agent 没有 `SendMessage` 可以恢复你。必须在同一轮 invocation 里跑完 Phase 1/2/3/4，才返回。
+- **若 Phase 2 compute 超过 30min**（极少数宽窗 rolling Skew/Kurt 的边界情形）→ 不 run_in_background，而是拆分调用（例如先跑前 3 候选再跑后 3 候选，只要 Python CLI 支持 subset 参数；目前 `research execute` 不支持，那就只能单次长 bash）。真出现 >30min 需要用户手动介入的系统级情形，**summary 报 `phase_reached=failed_at_phase_2` + 异常摘要**，让 orchestrator 决定。
+
 ### Phase 3 — /factor-judge
 
 按 `/factor-judge` 全流程执行：
