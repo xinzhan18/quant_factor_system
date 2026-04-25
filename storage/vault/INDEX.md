@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-24T23:56:36Z
-round: 52
+generated_at: 2026-04-25T00:37:03Z
+round: 53
 total_active_directions: 13
 total_factors_admitted: 19
-last_batch: batch_052
+last_batch: batch_053
 last_consolidation_round: null
 ---
 
@@ -15,9 +15,9 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**52** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_052/judge|batch_052]] → [[directions/value_liquidity_interaction]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`saturated`
-> **健康** · rounds_since_consolidation=**8** · active_directions=**13** · zero-admit streak=**1**
+> **状态** · round=**53** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_053/judge|batch_053]] → [[directions/intraday_price_formation]] · admit=**0**/6 (reserve=1, reject=5) · direction.status=`saturated`
+> **健康** · rounds_since_consolidation=**9** · active_directions=**13** · zero-admit streak=**2**
 > **⚠️ 预警** · 空 factor.md: F015
 >
 > **🎯 下一步（按优先级）**
@@ -70,7 +70,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **52** · Admitted: **19** · Active directions: **13**
-> - Last batch: **batch_052**
+> - Round: **53** · Admitted: **19** · Active directions: **13**
+> - Last batch: **batch_053**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
