@@ -33,6 +33,9 @@ merged_into: null
 >
 > **升格经验**　**sign-conditional daily return 拆分** 在 daily 频率天然放大 regime 敏感度；无条件聚合（对照：F010 `overnight_return_persistence_5d` ls_t = ==7.50== 整库最强）才稳定。后续 direction 设计应避开任何基于 daily return 正负号的条件拆分。
 
+> [!warning]+ Hypothesis ⚠️ 跨方向元教训（F004 / F300 升格）
+> **Rate / delta / ratio 形式在 csi1000 cross-section 不携独立 alpha**——本方向是该律的 5 个独立证据之一（fundamental_momentum / return_momentum_acceleration / asymmetric_momentum / return_distribution_signals / liquidity_acceleration）。sign-conditional daily 拆分本质属于 ratio/conditional aggregation 形式，与 PE rate / 5d-20d spread / Q90-Q10 同类。**Level 形式（F010 ls_t=7.50, F001 ICIR=-0.716, F013 log-amount）保留稳定结构**；rate/conditional 形式默认 skip。详见 [[lessons]] Forbidden Patterns。
+
 ---
 
 ## Threads
@@ -65,6 +68,9 @@ merged_into: null
 - 🟡 [[overnight_intraday_split]] `saturated` — 无条件聚合路径成功（F010 ls_t = 7.50），反例对照
 - 🟡 [[ohlc_temporal_aggregation]] `saturated`
 - 🔴 [[return_momentum_acceleration]] `dead` — return 变化率亦失败，同族教训
+- 🔴 [[fundamental_momentum]] `dead` — PE/PB/PS rate 亦败，rate 律同源
+- 🔴 [[return_distribution_signals]] `dead` — 高阶矩/Q-range 同失，归 vol_20d
+- 🟡 [[liquidity_acceleration]] `saturated` — turnover/amount rate 被 F001 吸收
 
 ---
 

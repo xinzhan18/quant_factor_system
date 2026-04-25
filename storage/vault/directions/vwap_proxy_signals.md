@@ -18,9 +18,9 @@ merged_into: null
 # vwap_proxy_signals
 
 > [!abstract]+ 方向概要
-> - **状态**　🟢 `productive` · priority `medium` · rounds = 1 · admits = 1 (F014)
-> - **最近**　[[batches/batch_040/judge|batch_040]] · 2026-04-24 · 1/0/5（首批即 admit C004 → F014 vwap_overnight_spread）
-> - **一句话**　Synthesized VWAP=`$amount/$volume` 在跨 session 维度 (vs prev close) 解锁独立 alpha；同 session VWAP-close 偏离没有 rank-order
+> - **状态**　🟢 `productive` · priority `medium` · rounds = 2 · admits = 1 (F014)
+> - **最近**　[[batches/batch_042/judge|batch_042]] · 2026-04-24 · 0/3/3（T003 五子路径撞墙：HLC-位置类与 F014 79–89% 重合）
+> - **一句话**　Synthesized VWAP=`$amount/$volume` 在跨 session 维度 (vs prev_close) 解锁独立 alpha；同 session / daily-anchor VWAP 形态被 A 股 10% 涨跌幅约束夹紧，rank-order 与 F014 高度共动
 
 ---
 
@@ -41,13 +41,19 @@ merged_into: null
 - 与 F002 pb_amount_ratio 都用 $amount，但 F002 未涉及 $volume
 - 小盘股 $volume 低，$amount/$volume 方差大，可能 noise
 
+> [!warning]+ ⚠️ 结构性约束（来自 distillation F005 · medium）
+> **A 股 10% 涨跌幅 + OHLC algebraic mirror 双律**——daily-anchor VWAP 派生量（HLC 位置 / 范围中点 / VWAP-MeanVWAP 均值回归）在 cross-section 上与 F014 (VWAP-prev_close) 79–89% rank 共动。机制：H、L、prev_close 三个 reference point 都被 ±10% 涨跌幅夹紧，相互之间存在 affine-like 共变。
+> **设计准则**：未来 VWAP 候选起手前必做：
+> (a) 是否与 F014 在 H-L / prev_close / OHLC4 维度存在 affine 等价 → max_corr ≥ 0.85 必为 cluster；
+> (b) 是否仿射常数等价（如 b042 C002 = C001 - 0.5 → metrics 六位小数恒等）；
+> (c) 优先走 **跨 session VWAP** (F014 路径) 而非 daily-anchor，或 **orthogonalize by F014 / vol_20d** 残差路径。
+
 ---
 
 ## Current Focus
 
-- 首批 6 候选覆盖 4 个 spread 形态 + 2 个聚合
-- T001 测 raw spread；T002 测 normalized spread；T003 测 aggregated
-- 关键审计：max_corr@F003 / @F009 < 0.7 防 near_dup
+- T003 已挂起：剩余唯一路径是"orthogonalize by F014 / vol_20d 后的 VWAP 残差"，需 barra_residual_signal / orthogonalize 算子工具链
+- 短期方向冷藏，等待 orthogonalize 工具或外部 paper 启发新形态
 
 ---
 
@@ -75,22 +81,23 @@ merged_into: null
 > - [[batches/batch_040/candidates/C003|batch_040 C003]]　20d agg of C001, IC=+0.018 alpha_surv=0.32 → **reject**
 > - [[batches/batch_040/candidates/C006|batch_040 C006]]　VWAP/close ratio 20d, IC=+0.018 → **reject** (与 C003 加法常数等价)
 
-### T003: 独立 VWAP 形态（HLC 位置 / 范围中点 / signed 持久性 / 均值回归 / 方向一致性）[◉ ACTIVE]
+### T003: 独立 VWAP 形态（HLC 位置 / 范围中点 / signed 持久性 / 均值回归 / 方向一致性）[⏸ SUSPENDED batch_042]
 
 > [!note]+ Thread 当前
-> **Question**: F014 (VWAP-prev_close) 之外，是否存在其它 VWAP 形式携带独立 alpha？探五类锚点——HLC 位置 / 范围中点 / signed 持久性 / 均值回归 / 方向一致性。
+> **Question**: F014 (VWAP-prev_close) 之外，是否存在其它 VWAP 形式携带独立 alpha？
+> **Status**: 挂起。5 子路径中 4 类已部分证伪（HLC 位置 stat-space 重合 / signed-Sign agg 稀疏 / VWAP 均值回归 rank 崩 / sign×sign 失效）。剩 1 条"orthogonalize by F014 / vol_20d 后的 VWAP 残差"路径阻塞于工具链。
 >
 > **Evidence trail**:
 > - [[batches/batch_042/candidates/C001|batch_042 C001]]　(VWAP-L)/(H-L) — IC=0.032 ls_t=2.72 但 **max_corr@F014=0.887**，stat-space 重合 → **reserve**
-> - [[batches/batch_042/candidates/C002|batch_042 C002]]　(VWAP-midHL)/(H-L) — **与 C001 仿射等价**（C002=C001-0.5）metrics 恒等 → **reserve**（建议未来 freeze 做 canonical 去重）
-> - [[batches/batch_042/candidates/C003|batch_042 C003]]　Mean(Sign(VWAP-prev_close), 5) — Sign 使 85.7% 压零，ls_t=-0.67 反转 → **reserve**
+> - [[batches/batch_042/candidates/C002|batch_042 C002]]　(VWAP-midHL)/(H-L) — **与 C001 仿射等价**（C002=C001-0.5）metrics 恒等 → **reserve**
+> - [[batches/batch_042/candidates/C003|batch_042 C003]]　Mean(Sign(VWAP-prev_close), 5) — Sign 使 85.7% 压零，ls_t=-0.67 → **reserve**
 > - [[batches/batch_042/candidates/C004|batch_042 C004]]　(VWAP-MeanVWAP20)/MeanVWAP20 — mono 0.9→-0.3 翻号 style_r²=0.68 吞噬 → **reject**
 > - [[batches/batch_042/candidates/C005|batch_042 C005]]　Mean(Sign(body)×Sign(VWAP-prev_close), 5) — sign×sign 丢 magnitude, cum_mdd=-70 → **reject**
-> - [[batches/batch_042/candidates/C006|batch_042 C006]]　C001 的 5d agg — alpha_surv=0.29 poor + 同样 max_corr=0.894@F014 → **reject**
+> - [[batches/batch_042/candidates/C006|batch_042 C006]]　C001 的 5d agg — alpha_surv=0.29 + max_corr=0.894@F014 → **reject**
 >
-> **本批发现**：5 子路径中 4 类已部分证伪（HLC 位置 stat-space 重合 / signed-Sign agg 稀疏 / VWAP 均值回归 rank 崩 / sign×sign 失效）。C001/C002 机制层面独立但实证 79–89% 与 F014 重合——**A 股 10% 涨跌幅约束** 使 HLC range 与 prev_close 尺度共动。
+> **关键发现**: A 股 10% 涨跌幅约束使 HLC range 与 prev_close 尺度共动——"daily-anchor VWAP" 在 cross-section 上无法实证独立于 "cross-session VWAP" (F014)。已沉淀为 distillation F005。
 >
-> **Next probes**: 阻塞——剩余唯一路径是"orthogonalize by F014 / vol_20d 后的 VWAP 残差"，需 barra_residual_signal / orthogonalize 算子工具链。方向短期挂起。
+> **Next probes**: orthogonalize by F014 / vol_20d 残差路径（需工具链）。
 
 ---
 
@@ -98,22 +105,23 @@ merged_into: null
 
 | Candidate | Expression | Reject Reason |
 |---|---|---|
-| [[batches/batch_040/candidates/C001\|C001]] | `(VWAP - close)/close` raw | weak mono 0.10 + ls_t<2 (Q1 一桨驱动) |
-| [[batches/batch_040/candidates/C002\|C002]] | C001 5d agg | IC↓ ls_t↓ alpha_surv↓ |
-| [[batches/batch_040/candidates/C003\|C003]] | C001 20d agg | weak mono + alpha_surv=0.32 poor |
-| [[batches/batch_040/candidates/C005\|C005]] | (VWAP - open) 5d | mono=-0.90 但 incr=-0.013 (F012 reducer) |
-| [[batches/batch_040/candidates/C006\|C006]] | (VWAP/close) 20d | 与 C003 加法常数等价 |
-| [[batches/batch_042/candidates/C004\|C004]] | `(VWAP - MeanVWAP20)/MeanVWAP20` | mono_flip IS→OOS, style_r²=0.68 vol_20d 吞噬, cum_mdd=-73 |
-| [[batches/batch_042/candidates/C005\|C005]] | `Mean(Sign(body)×Sign(VWAP-prev_close), 5)` | sign×sign 丢 magnitude, cum_ic_mdd=-70, edge 近 3 年衰减 |
-| [[batches/batch_042/candidates/C006\|C006]] | `Mean((VWAP-L)/(H-L), 5)` | alpha_surv=0.29 poor + max_corr=0.894@F014 high |
+| [[batches/batch_040/candidates/C001\|b040 C001]] | `(VWAP - close)/close` raw | weak mono 0.10 + ls_t<2 (Q1 一桨驱动) |
+| [[batches/batch_040/candidates/C002\|b040 C002]] | C001 5d agg | IC↓ ls_t↓ alpha_surv↓ |
+| [[batches/batch_040/candidates/C003\|b040 C003]] | C001 20d agg | weak mono + alpha_surv=0.32 poor |
+| [[batches/batch_040/candidates/C005\|b040 C005]] | (VWAP - open) 5d | mono=-0.90 但 incr=-0.013 (F012 reducer) |
+| [[batches/batch_040/candidates/C006\|b040 C006]] | (VWAP/close) 20d | 与 C003 加法常数等价 |
+| [[batches/batch_042/candidates/C004\|b042 C004]] | `(VWAP - MeanVWAP20)/MeanVWAP20` | mono_flip IS→OOS, style_r²=0.68 vol_20d 吞噬, cum_mdd=-73 |
+| [[batches/batch_042/candidates/C005\|b042 C005]] | `Mean(Sign(body)×Sign(VWAP-prev_close), 5)` | sign×sign 丢 magnitude, cum_ic_mdd=-70, edge 近 3 年衰减 |
+| [[batches/batch_042/candidates/C006\|b042 C006]] | `Mean((VWAP-L)/(H-L), 5)` | alpha_surv=0.29 poor + max_corr=0.894@F014 high |
 
 ---
 
 ## Related
 
-- 🟡 [[overnight_intraday_split]] `saturated` — F009 overnight-intraday spread；本方向 VWAP proxy 也含日内/日间结构，max_corr 重点测试
-- 🟡 [[intraday_price_formation]] `saturated` — F003 gap magnitude；VWAP gap 是本方向 candidate 之一
-- 🟡 [[ohlc_temporal_aggregation]] `saturated` — F006-F008 shadow shape；VWAP 是 OHLC 的另一种聚合
+- 🟡 [[overnight_intraday_split]] `saturated` — F009 overnight-intraday spread；本方向 VWAP proxy 也含日内/日间结构
+- 🟡 [[intraday_price_formation]] `saturated` — F003 gap magnitude；F005 双律共同作用方向
+- 🟡 [[ohlc_temporal_aggregation]] `saturated` — F006-F008 shadow shape；OHLC algebraic mirror 出处
+- 🟡 [[gap_acceptance_structure]] `productive` — F005 关联方向，10% 涨跌幅 cluster 共享
 - 📖 [[lessons#Operator Registry]] — `$vwap` 全零，本方向用 `$amount/$volume` 合成
 
 ---
@@ -129,7 +137,7 @@ merged_into: null
 > - C004 VWAP 20d 均值回归 mono_flip + style_r²=0.68 vol_20d 吞噬 → reject
 > - C005 sign×sign 丢 magnitude + cum_ic_mdd=-70 edge 近 3 年衰减 → reject
 > - C006 C001 5d agg alpha_surv=0.29 poor → reject
-> - **结构发现**：A 股 10% 涨跌幅约束使 HLC range 与 prev_close 尺度共动，"daily-anchor VWAP" 无法实证独立于"cross-session VWAP"——T003 的 4/5 子路径在这个约束下一并失败
+> - **结构发现**：A 股 10% 涨跌幅约束使 HLC range 与 prev_close 尺度共动，"daily-anchor VWAP" 无法实证独立于"cross-session VWAP"——T003 的 4/5 子路径在这个约束下一并失败（已沉淀至 distillation F005）
 > - MT budget cumulative 204 → **210** · direction 6 → **12** · bucket `high`（封顶 search_adjusted 推回 `medium`）
 >
 > **Operations**　`priority: medium → low`（T003 剩余路径阻塞于 orthogonalize 工具链；方向短期挂起）· `status: productive` 保持（2 rounds 不足判 saturated）

@@ -31,9 +31,10 @@ merged_into: null
 > **原假设**：`$open/$high/$low/$close` 纯价格信号与资金流（amount/volume）正交，可避开前三个方向撞到的 `vol_20d` 天花板。四条路径：(1) K线身体比；(2) 收盘位置；(3) 波动率锚定 Std/Mean；(4) 缺口信号。
 >
 > **证伪信号（≥3）**：
-> 1. 日内价格比率类（身体比 / 收盘位置 / 上影线比 / close-open Corr）系统性 `mono_sign_flip` — 日内多空在中长期持有中对称抵消
-> 2. 波动率锚定 Std/Mean 路径 `sign_flip + oos_decay` — 与 amount CV 同源，未逃脱 vol_20d 耦合
+> 1. 日内价格比率类（身体比 / 收盘位置 / 上影线比 / close-open Corr）系统性 `mono_sign_flip` — 日内多空在中长期持有中对称抵消（升格 [[lessons#OHLC Family Defaults]]，跨 stochastic_position 复现）
+> 2. 波动率锚定 Std/Mean 路径 `sign_flip + oos_decay` — 与 amount CV 同源，未逃脱 vol_20d 耦合（升格 [[lessons#Structural Constraints]]，8 方向共证）
 > 3. EMA 趋势（close 相对 EMA 偏差 / EMA 本身）`alpha_surv=0.085 + incr_ic=-0.022` — 单均线已被库内因子覆盖
+> 4. rank-diff geometry 在本 family 三重锁死：F020 anti-anchor LHS 同源几何 / F012 anchored RHS 窗口家族 / vol_20d 在 intraday OHLC 字段层不可剥离（升格 [[lessons#Rank-Diff Geometry]] 边界证据）
 >
 > **存活部分**：隔夜缺口（open 对前 close 的跳空）——F003 入库后扩展窗口（Ref2-5 × MeanHigh2-10）全 reject，`corr=0.999` near_duplicate 证明 F003 是该形状**唯一局部最优**。
 
@@ -71,22 +72,27 @@ merged_into: null
 > **Question**: rank-diff 范式 `Sub(CsRank(LHS_intraday), CsRank(RHS_basis))` 第 7 次跨家族泛化能否在 b011 标 saturated 的 intraday 字段空间复活？
 >
 > **Evidence trail**:
-> - [[batches/batch_053/candidates/C001|b053 C001]]　signed body-pos higher-moment × Amihud_60 → ic_oos=+0.046 mono=1.0/1.0 ls_Sharpe=2.45 **但 max_corr=-0.694@F020 + alpha_surv=0.37 + incr_ic=0.0096 三 borderline → reserve**
-> - [[batches/batch_053/candidates/C002|b053 C002]]　VWAP-proxy OHLC4-mean dev × amount_cv_60 → **hard_gate quad-fail**（OHLC algebraic mirror 律 multi-field 形态）
+> - [[batches/batch_053/candidates/C001|b053 C001]]　signed body-pos higher-moment × Amihud_60 → ic_oos=+0.046 mono=1.0/1.0 ls_Sharpe=2.45 **但 max_corr=-0.694@F020 + alpha_surv=0.37 + incr_ic=0.0096 三 borderline → reserve**（"Barra-clean ≠ library-clean" 律典型, 见 [[lessons#Threshold Calibration]]）
+> - [[batches/batch_053/candidates/C002|b053 C002]]　VWAP-proxy OHLC4-mean dev × amount_cv_60 → **hard_gate quad-fail**（OHLC algebraic mirror 律 multi-field 形态：4-field arithmetic mean ≈ close → 派生量 ≈ noise）
 > - [[batches/batch_053/candidates/C003|b053 C003]]　true_range_norm × Amihud_60 → mono=-1.0/-1.0 完美但 **max_corr=-0.732@F012 超 0.70 红线 + style_r²=0.66 vol_20d 极重**
-> - [[batches/batch_053/candidates/C004|b053 C004]]　true_range_norm Std × RV_60 → mono_oos=-0.3 失稳 + ls_t=-0.14 PnL flat + IS over-fit 8.53→0.14
+> - [[batches/batch_053/candidates/C004|b053 C004]]　true_range_norm Std × RV_60 → mono_oos=-0.3 失稳 + ls_t=-0.14 PnL flat + IS over-fit 8.53→0.14（higher-moment LHS regime sign-flip 律）
 > - [[batches/batch_053/candidates/C005|b053 C005]]　signed intraday ret × Amihud_60 → mono=-0.9/-1.0 强但 **max_corr=-0.692@F012 + 5 因子 cluster -0.55+ + incr_ic=-0.020 库减值**
 > - [[batches/batch_053/candidates/C006|b053 C006]]　signed intraday ret Std × RV_60 → **alpha_surv=0.17 严重 vol_20d (=53.62 系数) 吸收 + mono 双侧无结构**
 >
-> **Conclusion**: rank-diff geometry 不是 intraday family 的钥匙。三机制 disproven：(a) F020 anti-anchor cluster 锁死 LHS 同源几何 (C001)；(b) F012 anchored RHS 窗口家族 cluster (C003+C005 双独立 LHS)；(c) vol_20d 在 intraday OHLC 字段层固化, CsRank ordinal-化无法剥离 (C003/C006)。**rank-diff 范式两次连续中断 (b052+b053)**, 揭示边界正在被定义清楚。
+> **Conclusion**: rank-diff geometry 不是 intraday family 的钥匙。三机制 disproven：(a) F020 anti-anchor cluster 锁死 LHS 同源几何 (C001)；(b) F012 anchored RHS 窗口家族 cluster (C003+C005 双独立 LHS)；(c) vol_20d 在 intraday OHLC 字段层固化, CsRank ordinal-化无法剥离 (C003/C006)。**rank-diff 范式两次连续中断 (b052+b053)** 共揭示 rank-diff geometry 7 条硬约束的边界（升格 [[lessons#Rank-Diff Geometry]]）。
 
 ---
 
 ## Lessons Upgraded
 
-- **日内对称抵消默认律**：K线身体比 / 收盘位置 / close-open Corr 等日内价格比率类，`mono_sign_flip` 是默认失效模式——日内多空力量在中长期持有中对称抵消。
+- **日内对称抵消默认律**（升格 [[lessons#OHLC Family Defaults]]）：K线身体比 / 收盘位置 / close-open Corr 等日内价格比率类，`mono_sign_flip` 是默认失效模式——日内多空力量在中长期持有中对称抵消。跨 stochastic_position 独立复现。
 - **corr=0.999 near_duplicate 信号**：扩展窗口候选与已入库因子近乎完全相关，即证该形状唯一最优，关闭同形状变体搜索空间。
 - **Std/Mean 与 amount CV 同源**：价格实现波动率不构成与资金流正交的新字段空间。
+- **vol_20d 在 intraday OHLC 字段层固化**（升格 [[lessons#Structural Constraints]]，8 方向共证）：CsRank ordinal-化无法剥离 LHS 字段层固化的 style exposure（C003 style_r²=0.66; C006 vol_20d 系数=53.62）。逃脱路径只有 Barra residual / minute-tick / sign 聚合 / overnight 分解。
+- **OHLC algebraic mirror 律 multi-field 形态**（升格 [[lessons#Data Facts]]）：4-field arithmetic mean (O+H+L+C)/4 在 csi1000 ≈ close, 任何 (close - OHLC4_mean)/range ≈ 0 + noise（b053 C002 hard_gate quad-fail）。
+- **rank-diff geometry 边界证据**（升格 [[lessons#Rank-Diff Geometry]]）：本方向是 saturated family 的边界证伪源——saturated 方向的 anchor factor (F020 anti-anchor / F012 RHS 窗口家族) 形成 ±0.69~0.73 cluster，rank-diff 几何无法绕开。
+- **Higher-moment LHS regime sign-flip**（升格 [[lessons#Forbidden Patterns]]）：intraday signed Std (C004 true_range_norm Std + C006 signed ret Std) 在 train/val regime 翻号；与 fundamental b052 + residual b054 三 family 独立确认。安全例外是 scale-free OHLC ratio 单层 20d (F019 body_ratio Std / F020 gap_ret Std)。
+- **Barra-clean ≠ library-clean**（升格 [[lessons#Threshold Calibration]]）：C001 alpha_surv=0.37 borderline + max_corr=-0.694@F020 anti-anchor → reserve（不 admit），证 CP04 alpha_survival 与 CP05 library independence 必须联合判断。
 
 ---
 
@@ -101,16 +107,12 @@ merged_into: null
 | [[batches/batch_010/candidates/C006\|b010 C006]] | `Div(Sub($close,EMA($close,5)), EMA($close,20))` | mono_sign_flip |
 | [[batches/batch_010/candidates/C007\|b010 C007]] | `Div(Sub($high,$close), Sub($high,$low))` | mono_sign_flip |
 | [[batches/batch_010/candidates/C008\|b010 C008]] | `Corr($close,$open,20)` | ic_oos_too_low + mono_sign_flip |
-| [[batches/batch_011/candidates/C001\|b011 C001]] | `Div(Sub($open,Ref($close,2)), Mean($high,2))` | ic_oos_too_low + mono_sign_flip |
-| [[batches/batch_011/candidates/C002\|b011 C002]] | `Div(Sub($open,Ref($close,3)), Mean($high,3))` | mono_sign_flip |
-| [[batches/batch_011/candidates/C003\|b011 C003]] | `Div(Sub($open,Ref($close,5)), Mean($high,5))` | mono_sign_flip |
-| [[batches/batch_011/candidates/C004\|b011 C004]] | `Div(Sub($open,Ref($close,2)), Mean($high,10))` | ic_oos_too_low + mono_sign_flip |
-| [[batches/batch_011/candidates/C005\|b011 C005]] | `Div(Sub($open,Ref($close,1)), Mean($high,5))` | near_duplicate F003 (corr=0.999) |
-| [[batches/batch_011/candidates/C006\|b011 C006]] | `Div(Sub($open,Ref($close,1)), EMA($high,5))` | near_duplicate F003 (corr=0.999) |
+| [[batches/batch_011/candidates/C001\|b011 C001-C004]] | F003 扩展窗口 (Ref2-5 × MeanHigh2-10) | ic_oos_too_low / mono_sign_flip |
+| [[batches/batch_011/candidates/C005\|b011 C005]] / [[batches/batch_011/candidates/C006\|C006]] | open-prev_close gap variants | near_duplicate F003 (corr=0.999) |
 | [[batches/batch_011/candidates/C007\|b011 C007]] | `EMA($close,5)` | alpha_surv=0.085 + incr_ic=-0.022 |
 | [[batches/batch_011/candidates/C008\|b011 C008]] | `Div(Sub($close,EMA($close,10)), EMA($close,10))` | mono_sign_flip |
-| [[batches/batch_053/candidates/C002\|b053 C002]] | `Sub(CsRank(Mean((close-OHLC4_mean)/(H-L),20)), CsRank(amount_cv_60))` | hard_gate quad-fail (sign_flip + ic_oos_too_low + mono_sign_flip + oos_decay) |
-| [[batches/batch_053/candidates/C003\|b053 C003]] | `Sub(CsRank(Mean((H-L)/prev_close,20)), CsRank(Amihud_60))` | max_corr=-0.732@F012 (>0.70 red-line) + style_r²=0.66 vol_20d high crowding |
+| [[batches/batch_053/candidates/C002\|b053 C002]] | `Sub(CsRank(Mean((close-OHLC4_mean)/(H-L),20)), CsRank(amount_cv_60))` | hard_gate quad-fail (OHLC algebraic mirror multi-field) |
+| [[batches/batch_053/candidates/C003\|b053 C003]] | `Sub(CsRank(Mean((H-L)/prev_close,20)), CsRank(Amihud_60))` | max_corr=-0.732@F012 (>0.70 红线) + style_r²=0.66 vol_20d high crowding |
 | [[batches/batch_053/candidates/C004\|b053 C004]] | `Sub(CsRank(Std((H-L)/prev_close,20)), CsRank(RV_60))` | mono_oos=-0.3 失稳 + ls_t=-0.14 + IS over-fit (-8.53→-0.14) |
 | [[batches/batch_053/candidates/C005\|b053 C005]] | `Sub(CsRank(Mean((C-O)/close,20)), CsRank(Amihud_60))` | max_corr=-0.692@F012 + incr_ic=-0.020 + 5 因子 cluster -0.55+ |
 | [[batches/batch_053/candidates/C006\|b053 C006]] | `Sub(CsRank(Std((C-O)/close,20)), CsRank(RV_60))` | alpha_surv=0.17 + vol_20d=53.62 吸收 + mono 双侧无结构 (0.3) |
@@ -119,18 +121,24 @@ merged_into: null
 
 ## Revival Conditions
 
-1. **Python Barra residual 路径**（跳出 DSL 白名单，剥离市值/波动率暴露后再测价格形状）
+1. **Python Barra residual 路径**（跳出 DSL 白名单，剥离市值/波动率暴露后再测价格形状）—— 注意先解决 coverage<0.80 系统性边界（barra_residual_alpha 方向 F010 finding）
 2. **隔夜-日内收益分解**（见 [[overnight_intraday_split]]）——F003 生态位横向延伸
 3. **日内分钟 / tick 数据**引入（当前日频 OHLCV 已穷尽）
-4. OHLCV 与其他字段的**非显然交互**（需避开 value_liquidity / amount_volatility 已覆盖区）
+4. OHLCV 与其他字段的**非显然交互**（需避开 value_liquidity / amount_volatility 已覆盖区，且严禁 intraday signed Std 候选）
+5. C001 reserve 等待 "factor-anchored cluster RHS 动态律" Phase 5 升格后复评
 
 ---
 
 ## Related
 
-- 📖 [[lessons#Structural Constraints]] — 市值代理红线 / 向量化约束
-- 🟡 [[amount_volatility_signal]] `saturated` — vol_20d 天花板教训，本方向在 OHLCV 字段重演
+- 📖 [[lessons#Structural Constraints]] — vol_20d 8 方向结构性吸收 / 市值代理红线 / 向量化约束
+- 📖 [[lessons#Rank-Diff Geometry]] — 7 条硬约束 + 5 律边界（本方向是边界证伪源）
+- 📖 [[lessons#OHLC Family Defaults]] — 单日对称抵消默认律 + algebraic mirror trap
+- 📖 [[lessons#Forbidden Patterns]] — intraday signed higher-moment regime sign-flip
+- 🟡 [[amount_volatility_signal]] `saturated` — vol_20d 天花板教训源头，本方向 OHLCV 字段重演
 - 🔵 [[overnight_intraday_split]] — F003 隔夜缺口的横向延伸生态位
+- 🟡 [[value_liquidity_interaction]] `saturated` — rank-diff 边界证伪姊妹方向（F002 anchor cluster）
+- 🟡 [[barra_residual_alpha]] `saturated` — rank-diff 边界 + residual 路径 coverage 限制
 
 ---
 
@@ -146,7 +154,8 @@ merged_into: null
 > T003 rank-diff geometry × intraday family 第 7 次跨家族泛化 **DISPROVEN**。三机制揭示：(a) F020 anti-anchor cluster 锁死同源 LHS 几何 (C001 max_corr=-0.694)；(b) F012 anchored RHS 窗口家族 cluster (C003+C005 双独立 LHS, max_corr=-0.69~-0.73)；(c) vol_20d 在 intraday OHLC 字段层固化 (C003 style_r²=0.66, C006 vol_20d 系数=53.62)。C001 reserve 等待 anti-anchor 律 Phase 5 升格后复评。
 >
 > - C002 揭示 OHLC algebraic mirror 律 multi-field 形态 (4-field arithmetic mean ≈ close → noise)
-> - rank-diff 范式两次连续中断 (b052+b053) 共揭示 6 条新限制——边界正在被定义清楚
+> - C004/C006 命中 intraday signed higher-moment regime sign-flip (跨 fundamental b052 + residual b054 三 family 独立确认)
+> - rank-diff 范式两次连续中断 (b052+b053) 共揭示 7 条硬约束——边界正在被定义清楚
 > - MT budget cumulative 276 → **282** · direction 16 → **22** · bucket `high`
 >
 > **Operations**　`status: saturated → saturated`（维持）· priority high → medium（rank-diff 路径 disproven 后本方向短期无角度）

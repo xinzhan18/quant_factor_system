@@ -21,21 +21,21 @@ merged_into: null
 > [!abstract]+ 方向概要
 > - **状态**　🟡 `saturated` · priority `low` · rounds = 1 · admits = 0
 > - **最近**　[[batches/batch_004/judge|batch_004]] · 2026-04-19 · admit=0 / reserve=1 / reject=4
-> - **一句话**　⚠️ 换手率二阶结构首批即证伪，5/5 候选撞 vol_20d 风格天花板——"换 field ≠ 换维度"。
+> - **一句话**　⚠️ 换手率二阶结构首批即证伪，5/5 候选撞 vol_20d 风格天花板——"换 field ≠ 换维度"。本方向已成为 [[lessons|F001 vol_20d 结构性吸收]] 与 [[lessons|F304 DSL Div ≠ orthogonalization]] 的核心证据点。
 
 ---
 
 ## Hypothesis
 
-> [!failure]+ ⚠️ 证伪后 Hypothesis（batch_004 · 4/5 失败 → 改写）
+> [!failure]+ ⚠️ 证伪后 Hypothesis（batch_004 · 4/5 失败 → 改写；F001 + F304 二证升格）
 > **原假设**：`$turnover_rate` 自带规模归一化，其二阶结构（持久性 / 加速度 / 方向耦合 / 排名稳定性）可落在 `amount_volatility_signal` 之外的 Barra 风格空间（turnover_20d / str_1m / 残差）。
 >
-> **证伪结论**：Barra basis（vol_20d / turnover_20d / str_1m）在日频 DSL 层**同时覆盖** `$amount` 与 `$turnover_rate` 派生量——"换 field 逃出 vol_20d 天花板"在 Barra 分解下不成立。5/5 候选 `dominant_style=vol_20d`，IC 被吞 40%–55%。
+> **证伪结论**：Barra basis（vol_20d / turnover_20d / str_1m）在日频 DSL 层**同时覆盖** `$amount` 与 `$turnover_rate` 派生量——"换 field 逃出 vol_20d 天花板"在 Barra 分解下不成立。5/5 候选 `dominant_style=vol_20d`，IC 被吞 40%–55%。本方向是 [[lessons|F001 vol_20d 结构性吸收]]（跨 8 方向）的核心证据之一，亦是 [[lessons|F304 DSL Div ≠ Python residual]] 的同源失败：T003 CsRank Std 反而最大化 vol_20d 暴露。
 >
 > **仅存一线**（T002）：加速度比值 `Div(Mean(tr,5), Mean(tr,20))` 是唯一突破 alpha_survival dealbreaker 的构造（残差 IC 反增强 = 1.085），提示"变化率"维度可能独立于"水平 + 波动率"维度——但 Q5 一桨驱动 + cum_ic_mdd=-73.7 削弱实盘价值，只能 reserve。
 >
 > **复活条件**
-> 1. **Python 逃生口**：对 turnover 派生量做 vol_20d Barra residual 回归后取残差（见 [[barra_residual_alpha]]）
+> 1. **Python 逃生口**：对 turnover 派生量做 vol_20d Barra residual 回归后取残差（见 [[barra_residual_alpha]]）——⚠️ 受 F304 coverage<0.80 hard_gate 限制，需先解决数据契约层
 > 2. **换频率 / 换字段**：intraday / tick-level turnover 微结构（日频 DSL 无法表达）
 > 3. 在现有日频 OHLCV + turnover 字段上再试任何 DSL 组合已**无 ROI**。
 
@@ -53,7 +53,7 @@ merged_into: null
 >
 > **Partial Answer**: 方向内唯一突破 alpha_survival dealbreaker 的构造。"变化率"维度似乎独立于"水平 + 波动率"维度。但 Q5 一桨驱动 + 深期回撤削弱实盘价值。
 >
-> **Next probes**: Python 逃生口做 C003 的 vol_20d Barra residual；或改 window 组合 (3/10, 10/60) 看加速度结构的尺度稳定性。
+> **Next probes**: Python 逃生口做 C003 的 vol_20d Barra residual（先验 coverage）；或改 window 组合 (3/10, 10/60) 看加速度结构的尺度稳定性。
 
 ### T001: Turnover 持久性（AutoCorr）[✗ DISPROVEN batch_004]
 
@@ -65,7 +65,7 @@ merged_into: null
 >
 > **Conclusion**: AutoCorr 数值上独立于 F001，但 Barra 分解后 48% IC 被 vol_20d 吞——持久性维度不独立于波动率维度。
 
-### T003+T005: Turnover 结构稳定性（CV / Rank-Std 同类合并）[✗ DISPROVEN batch_004]
+### T003+T005: Turnover 结构稳定性（CV / Rank-Std 同类合并）[✗ DISPROVEN batch_004 · F304 二证]
 
 > [!failure]+ Thread 结论
 > **Question**: 两种"结构稳定性"构造——CV（Std/Mean）与 CsRank 时序 Std——能否借"换手率自带规模归一"脱离 F001 与 vol_20d？
@@ -74,7 +74,7 @@ merged_into: null
 > - [[batches/batch_004/candidates/C001|C001]]　`Div(Std(tr,10), Mean(tr,10))` → **corr=0.955@F001** → reject `hard_gate near_dup`
 > - [[batches/batch_004/candidates/C005|C005]]　`Std(CsRank(tr), 20)` → ICIR_OOS=-0.238 · ls_t=**-0.64** · decay=0.46 · vol_20d=**41.4**（方向最高） → reject `soft_CP + unstable`
 >
-> **Conclusion**: A 股 10d 窗口下 turnover CV ≡ amount CV（shares 短窗近常数，相除抵消 price 波动维度）；CsRank 嵌套 Std 反而产出方向最高 vol_20d 暴露（讽刺反向）。**规模归一优势在"相除 / 排名"结构下被抹掉**。
+> **Conclusion**: A 股 10d 窗口下 turnover CV ≡ amount CV（shares 短窗近常数，相除抵消 price 波动维度）；CsRank 嵌套 Std 反而产出方向最高 vol_20d 暴露（讽刺反向）。**规模归一优势在"相除 / 排名"结构下被抹掉**——此为 F304「DSL Div / rank-preserving 不替代真 orthogonalization」的同源失败证据。
 
 ### T004: Turnover-return 方向耦合 [✗ DISPROVEN batch_004]
 
@@ -101,18 +101,21 @@ merged_into: null
 
 ## 升格经验（direction-level lessons）
 
-1. **"换 field"不等于"换维度"**：Barra basis（vol_20d / turnover_20d / str_1m）在日频 DSL 层覆盖了所有流动性-波动率派生量，`$amount` 与 `$turnover_rate` 在风格空间上高度共线——脱此天花板必走 **Python residual 逃生口** 或 **新频率 / 新字段**。
-2. **规模归一优势易在二阶算子下抹掉**：turnover CV ≡ amount CV（10d 窗口相除抵消）；CsRank 嵌套 Std 反而最大化 vol_20d 暴露。
+1. **"换 field"不等于"换维度"**：Barra basis（vol_20d / turnover_20d / str_1m）在日频 DSL 层覆盖了所有流动性-波动率派生量，`$amount` 与 `$turnover_rate` 在风格空间上高度共线——脱此天花板必走 **Python residual 逃生口** 或 **新频率 / 新字段**。本方向是 **F001 跨 8 方向 vol_20d 结构性吸收律** 的核心证据点。
+2. **规模归一优势易在二阶算子下抹掉**：turnover CV ≡ amount CV（10d 窗口相除抵消）；CsRank 嵌套 Std 反而最大化 vol_20d 暴露。属 **F304 DSL Div / rank-preserving ≠ 真 orthogonalization** 的同源失败。
 3. **首批 alpha_survival < 0.60 率 > 50% → 立即触发"方向底层 hypothesis 检讨"**，不要继续在同 basis 内换表达式。
 4. **"变化率"维度是仅存希望**：T002 加速度比值 alpha_survival=1.085 是唯一突破点——提示比值 / 差分 / 残差类构造可能独立于"水平 + 波动率"维度。
+5. **Python residual 路径有 coverage 前提**：F304 / batch_034 / batch_054 显示 csi1000 系统性 coverage 0.71-0.73 < 0.80 hard_gate；T002 的 Python 逃生口必须先验数据契约。
 
 ---
 
 ## Related
 
-- 🟡 [[amount_volatility_signal]] `saturated` — 方向级 vol_20d 天花板教训的上游；本方向"换 field 逃出"失败，证实 Barra basis 吞噬是跨 field 现象
-- 🟡 [[value_liquidity_interaction]] `saturated` — 同批开辟的替代路径（基本面 × 流动性交互）
-- 🟡 [[barra_residual_alpha]] `saturated` — 本方向"复活条件"指向的 Python residual 逃生口
+- 🟡 [[amount_volatility_signal]] `saturated` — 方向级 vol_20d 天花板教训的上游；本方向"换 field 逃出"失败，证实 Barra basis 吞噬是跨 field 现象（F001 共证）
+- 🟡 [[value_liquidity_interaction]] `saturated` — 同批开辟的替代路径；F304 共证（batch_034 5/5 死于 coverage<0.80）
+- 🟡 [[barra_residual_alpha]] `saturated` — 本方向"复活条件"指向的 Python residual 逃生口；F304 coverage 边界共证
+- 🟡 [[microstructure_illiquidity]] — F304 Rank-preserving + Div-residualize 双证伪源
+- 🟢 [[lessons]] — F001 vol_20d 结构性吸收律 + F304 DSL Div ≠ Python orthogonalization 的元教训承载
 
 ---
 
@@ -128,3 +131,8 @@ merged_into: null
 > - **MT budget**　cumulative X→X+5 · direction 0→5 · bucket `turnover_structural`
 >
 > **Operations**　`status: exploring → saturated` · priority `high → low` · 下轮暂停本方向，batch_005 开辟 `value_liquidity_interaction`
+
+> [!info]+ 2026-04-25 · Phase 5 consolidation · F001 + F304 升格引用
+> 本方向被 **F001（pattern_analyst, severity=high, 跨 8 方向）** 列为 vol_20d 结构性吸收律核心证据点之一——"换 field ≠ 换维度"已升格为系统级 Structural Constraint。
+> 同时被 **F304（hypothesis_promoter, severity=medium, 跨 4 方向）** 列为「DSL Div / rank-preserving ≠ 真 orthogonalization」的同源失败：T003 CsRank Std 反而 vol_20d 暴露最高（41.4，方向最高）。
+> Hypothesis 与 T003+T005 thread 已加入二证 cross-reference；T002 复活条件已附 F304 coverage<0.80 警示。下批不再尝试同 basis DSL 构造，仅在 (a) Python residual + 解决 coverage 后 / (b) 新频率 新字段 时重启。

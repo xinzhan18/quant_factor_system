@@ -23,10 +23,10 @@ merged_into: null
 > - **最近**　[[batches/batch_039/judge|batch_039]] · 2026-04-24 · 0/0/6（首批即方向证伪）
 > - **一句话**　Cov(.,.,N) 形态在 csi1000 归簇 F001/F009/F012 三个已有反转簇因子 — 第 4 次跨方向重现 volume × direction 反转簇
 
-> [!warning] ⚠️ Hypothesis 完全证伪（batch_039）
+> [!warning] ⚠️ Hypothesis 完全证伪（batch_039）+ F004 升格律
 > 原假设：Cov 形态与已有 Std/Mean/Div/Mul 形态正交，在 csi1000 探明新 family。
 > 实测：6/6 IC_OOS 负 (-0.042 至 -0.051)、incr_ic 全负 (-0.025 至 -0.032)，无论 x/y 配对、20d/60d 窗口都归簇 F001 amount_cv / F009 overnight spread / F012 amihud。
-> **元教训**：第 4 次跨方向重现 "volume × direction 复合" 归簇 F001/F009/F012 反转 family —— 升格至 lessons.md（下次 consolidation）：**csi1000 上 volume/turnover × return/body 各种 DSL 形态（Cov / 线性 Mul / log-compressed Mul）都是同一个反转簇载体**。
+> **元教训（F004 升格）**：本方向是第 4 次跨方向重现 "volume × direction 复合 → 反转簇" 载体（前 3：trend_quality_gated / log_value_liquidity / b032 liquidity_acceleration）。**csi1000 上 volume/turnover × return/body 各种 DSL 形态（Cov / 线性 Mul / log-compressed Mul）都是同一个反转簇载体**。同时触及 **Meta-pattern 跨方向机械迁移风险**：结构相同 ≠ 语义相同，Cov 在美股 trend family 工作不代表迁到 csi1000 + volume×direction 配对仍工作。
 
 ---
 
@@ -45,9 +45,7 @@ merged_into: null
 
 ## Current Focus
 
-- 首批 6 候选覆盖 (turnover, ret) / (amount, ret) / (amount, body_ratio) / (turnover, body_ratio) 四组合 + 20d/60d 两窗口
-- 若 T001 命中 → T002 探长窗变体；若全 reject → 方向 dead
-- 严格 max_corr@F009 < 0.7 否则 near_duplicate
+方向 dead，无后续 batch 计划。仅作为反例存档：未来任何 "volume/turnover × return/body 配对" 候选必须先读 F004 finding 与本 direction 证据链，明确为何不会再次归簇 F001/F009/F012。
 
 ---
 
@@ -93,7 +91,9 @@ merged_into: null
 - 🟡 [[gap_acceptance_structure]] `saturated` — F013 来源；本方向避开 sign × sign 形态，直接探 Cov
 - 🟡 [[overnight_intraday_split]] `saturated` — F009 spread 是协动的隐式形式；max_corr 防 near_dup
 - 🟡 [[amount_volatility_signal]] `saturated` — F001 amount_cv 是 Std/Mean，与 Cov 形态正交但同源数据
-- 📖 [[lessons#Structural Constraints]]
+- 🔴 [[trend_quality_gated]] `dead` — 同属 Meta-pattern 机械迁移失败族（前序第 1 次）
+- 🔴 [[log_value_liquidity]] `dead` — 同属 Meta-pattern 机械迁移失败族（前序第 2 次）
+- 📖 [[lessons#Structural Constraints]] · 待升格 F004 "rate/delta/ratio + Meta-pattern 迁移" 双律
 
 ---
 

@@ -23,10 +23,11 @@ merged_into: null
 > - **最近**　[[batches/batch_038/judge|batch_038]] · 2026-04-24 · 0/0/6（首批即 hypothesis 反向证伪）
 > - **一句话**　Meta-pattern 跨方向迁移失败：log-compression 在 value × liquidity 维度变成 overnight-intraday 反转簇载体，6/6 reject
 
-> [!warning] ⚠️ Hypothesis 完全证伪（batch_038）
-> 原假设：log-compression 元教训从 gap_acceptance_structure (F013) 迁移到 value × liquidity 解锁新 alpha。
-> 实测：6/6 候选 IC_OOS 全负 (-0.023 至 -0.034)，mono ≈ 0 或负，incr_ic 全负 (-0.016 至 -0.029)，max_corr@F009 0.22-0.26 是 overnight-intraday 反转簇载体而非 value × liquidity。
-> **元教训**：(1) Meta-pattern 跨方向迁移**不能机械复用**，log 在 sign × body 工作是因 sign 已是规整二值，log 在 value × liquidity 工作不了因为 value 通道在 csi1000 小盘已失效；(2) csi1000 PB/PS/PE rank 不载独立 value alpha，与 value_liquidity_interaction T001/T003 同结论。
+> [!warning] ⚠️ Hypothesis 完全证伪（batch_038, 1 批 6/6）
+> 原假设：log-compression 元教训从 [[gap_acceptance_structure]] (F013) 迁移到 value × liquidity 解锁新 alpha。
+> 实测：6/6 候选 IC_OOS 全负 (-0.023 ~ -0.034)，mono ≈ 0 或负，incr_ic 全负 (-0.016 ~ -0.029)，max_corr@F009 0.22-0.26 → 真实承载体是 overnight-intraday 反转簇的 value-weighted 包装，而非 value × liquidity。
+> **元教训 (升格自 F303)**：(1) Meta-pattern 跨方向迁移**不能机械复用**——log 在 sign × body 工作是因 sign 已是规整二值（噪声集中在 magnitude 尾部），log 救不了 value × liquidity 是因 value 通道在 csi1000 小盘已独立失效；(2) csi1000 PB/PS/PE rank 不载独立 value alpha，与 [[value_liquidity_interaction]] T001/T003 同结论；(3) 设计 hedge bet（"复用上批成功 trick"）必须先独立验证底层信号 alive，否则 meta-pattern 任何包装都救不回。
+> **关联系统级反模式 (F004)**：本方向与 [[trend_quality_gated]] (b037) + [[pv_covariance]] (b039) 共同构成 "meta-pattern 机械迁移连续 3 批全败" 证据链——跨方向结构相同 ≠ 跨方向语义相同。
 
 ---
 
@@ -43,13 +44,7 @@ merged_into: null
 - `gap_acceptance_structure` (saturated)：log 形态只用在 sign×sign 上，没碰 value
 - 本方向：value × log(abnormal liquidity) 联合形态，**直接复用 batch_036 元教训**
 
----
-
-## Current Focus
-
-- 首批聚焦 T001（pb 类 log 变体）+ T002（ps/pe 类 log 变体）
-- 若 T001 命中且与 F002 corr<0.7 → 沉淀第 2 个 value × liquidity 因子；若 corr≥0.7 则结束
-- 风险：log-compression 在 value 维度可能 noise—— pb/ps/pe 已是 ratio，再 log 对 value 端不带来新信息；只对 liquidity 端 log 是核心
+> Hypothesis 保留（仅 1 批证伪，未达 ≥3 批阈值）但已被 batch_038 正面反驳；结论与教训详见上方 ⚠️ callout。
 
 ---
 
@@ -60,13 +55,13 @@ merged_into: null
 > [!failure]+ Thread 结论
 > **Question**: pb_ratio × log(abnormal $amount or $turnover_rate) 是否产生独立于 F002 的 alpha？
 >
-> **Answer**: 否。4 个 pb 变体 (C001/C002/C005/C006) 全部 IC_OOS 负，与 F009 反转簇 -0.22 至 -0.26 共振，库 reducer。
+> **Answer**: 否。4 个 pb 变体 (C001/C002/C005/C006) 全部 IC_OOS 负，与 F009 反转簇 -0.22 ~ -0.26 共振，库 reducer。
 >
 > **Evidence trail**:
-> - [[batches/batch_038/candidates/C001|batch_038 C001]]　pb × log(amt/mean) IC_OOS=-0.029 incr=-0.029 → **reject**
-> - [[batches/batch_038/candidates/C002|batch_038 C002]]　pb × log(turnover/mean) IC_OOS=-0.028 → **reject**
-> - [[batches/batch_038/candidates/C005|batch_038 C005]]　pb × log(vol/mean) IC_OOS=-0.028 → **reject**
-> - [[batches/batch_038/candidates/C006|batch_038 C006]]　pb × log(amt/mean) + 5d smooth IC_OOS=-0.023 → **reject**
+> - [[batches/batch_038/candidates/C001|C001]] pb × log(amt/mean) IC_OOS=-0.029, incr=-0.029 → reject
+> - [[batches/batch_038/candidates/C002|C002]] pb × log(turnover/mean) IC_OOS=-0.028 → reject
+> - [[batches/batch_038/candidates/C005|C005]] pb × log(vol/mean) IC_OOS=-0.028 → reject
+> - [[batches/batch_038/candidates/C006|C006]] pb × log(amt/mean) + 5d smooth IC_OOS=-0.023 → reject
 
 ### T002: PS / PE × log abnormal liquidity [✗ DISPROVEN batch_038]
 
@@ -76,8 +71,8 @@ merged_into: null
 > **Answer**: 否。ps × log(amt) (C003) 与 pe × log(turnover) (C004) 同病，IC_OOS=-0.032 / -0.034，机制承载与 pb 变体一致。
 >
 > **Evidence trail**:
-> - [[batches/batch_038/candidates/C003|batch_038 C003]]　ps × log(amt/mean) IC_OOS=-0.032 → **reject**
-> - [[batches/batch_038/candidates/C004|batch_038 C004]]　pe × log(turnover/mean) IC_OOS=-0.034 → **reject**
+> - [[batches/batch_038/candidates/C003|C003]] ps × log(amt/mean) IC_OOS=-0.032 → reject
+> - [[batches/batch_038/candidates/C004|C004]] pe × log(turnover/mean) IC_OOS=-0.034 → reject
 
 ---
 
@@ -96,10 +91,12 @@ merged_into: null
 
 ## Related
 
-- 🟡 [[value_liquidity_interaction]] `saturated` — F002 线性除法是 value × liquidity 唯一存活；本方向探 log 非线性是否解锁第 2 个 admit
-- 🟡 [[gap_acceptance_structure]] `saturated` — F013 来源；log-compression meta-pattern 提供方
+- 🟡 [[value_liquidity_interaction]] `saturated` — F002 线性除法是 value × liquidity 唯一存活；本方向探 log 非线性失败 → 第 2 个 admit 通道关闭
+- 🟡 [[gap_acceptance_structure]] `saturated` — F013 log-compression meta-pattern 提供方；同款变换在本方向反向证伪
+- 🔴 [[trend_quality_gated]] `dead` — meta-pattern 机械迁移连续失败案例（b037, paper → csi1000 + gated）
+- 🔴 [[pv_covariance]] `dead` — meta-pattern 机械迁移连续失败案例（b039, Cov 形态归 F001/F009/F012 反转簇）
 - 🟡 [[amount_volatility_signal]] `saturated` — F001 amount_cv_10；本方向避免与 amount-vol 组合直接重叠
-- 📖 [[lessons#Structural Constraints]]
+- 📖 [[lessons#Meta-pattern Transfer]] · [[lessons#Structural Constraints]]
 
 ---
 
@@ -108,15 +105,15 @@ merged_into: null
 > [!quote]+ 2026-04-24 · [[batches/batch_038/judge|batch_038]]
 > **首批即 hypothesis 反向证伪 → status: exploring → dead** · admit=0 / reserve=0 / reject=6
 >
-> - 6/6 IC_OOS 全负 (-0.023 至 -0.034)，mono ≈ 0 或负，incr_ic 全负 → 库 reducer
+> - 6/6 IC_OOS 全负 (-0.023 ~ -0.034)，mono ≈ 0 或负，incr_ic 全负 → 库 reducer
 > - 真实承载体：overnight-intraday 反转簇（max_corr@F009 0.22-0.26）的 value-weighted 包装
 > - 元教训：meta-pattern 跨方向迁移**不能机械复用**——log-compression 在 sign × body 工作 ≠ 在 value × liquidity 工作
 > - csi1000 PB/PS/PE rank 不载独立 value alpha（与 value_liquidity_interaction T001/T003 同结论）
 > - MT budget cumulative 186 → **192** · direction 0 → **6** · bucket `medium`
 >
-> **Operations**　`status: exploring → dead` · `priority: medium → low` · 元教训进 lessons.md（下次 consolidation）
+> **Operations**　`status: exploring → dead` · `priority: medium → low` · 元教训 (F303) 进 lessons.md「Meta-pattern Transfer」新段
 
-> [!quote]- 2026-04-24 · meta-pattern transfer
+> [!quote]- 2026-04-24 · meta-pattern transfer (origin)
 > **方向由 batch_036 F013 admit + log-compression meta-pattern 推断得出** · rounds = 0
 >
 > - 核心洞察：log-compression 修好了 csi1000 sign × body acceptance 的 mono barbell 问题（0.30 → 0.60）

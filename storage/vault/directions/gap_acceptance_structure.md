@@ -57,28 +57,36 @@ merged_into: null
 # gap_acceptance_structure
 
 > [!abstract]+ 方向概要
-> - **状态**　🟡 `saturated` · priority `medium` · rounds = 1 · admits = 0
-> - **最近**　[[batches/batch_035/judge|batch_035]] · 2026-04-24 · 0/1/5（首批即 T001/T003/T004 三 thread 封闭）
-> - **一句话**　paper CSI 300 大盘结果不 transfer 到 csi1000；唯一生路 T002 turnover 加权（C004 reserve），需变体对照确认
+> - **状态**　🟢 `productive` · priority `high` · rounds = 4 · admits = 3 (F013 / F020 / + log-amt path)
+> - **最近**　[[batches/batch_051/judge|batch_051]] · 2026-04-25 · 1/1/4（T005 admit 触发 6 跨 5 family rank-diff tipping point）
+> - **一句话**　pure paper-sign 不 transfer (T001 证伪)；存活两路：log(abnormal $amount) 加权 acceptance (F013) + rank-diff geometry × higher-moment gap LHS (F020)；下一步守 F002/F305 7 律 + F200/F203 阈值
 
 ---
 
 ## Hypothesis
 
-> [!warning] ⚠️ Hypothesis 部分证伪（batch_035）
-> 原假设"sign(gap) × sign(body) 的 20d 聚合在 csi1000 上携带独立 alpha"**被硬性证伪**——pure sign interaction 在 10/20/60d 三个窗口同步 sign_flip + ic_oos_too_low，2015-2020 全正 → 2021-2023 全负，regime 转折把符号吸收律从 "持续性" 翻成 "反转"。paper CSI 300 大盘 Rank IC 0.0744 不可迁移。
+> [!warning] ⚠️ Hypothesis 部分证伪（batch_035）+ 升格律
+> 原假设"sign(gap) × sign(body) 的 20d 聚合在 csi1000 上携带独立 alpha"**被硬性证伪**——pure sign interaction 在 10/20/60d 三个窗口同步 sign_flip + ic_oos_too_low，2015-2020 全正 → 2021-2023 全负，regime 转折把符号吸收律从 "持续性" 翻成 "反转"。paper CSI 300 大盘 Rank IC 0.0744 不可迁移到 csi1000 小盘（[[lessons#Paper Transferability|F302/F006]] 已升格为 default 律，跨 trend_quality_gated 二次确认）。
 >
-> **存活**：turnover 加权的 acceptance（T002）—— C004 通过全部 hard gate，9 年 IC 同号全正，库独立 max_corr=0.054@F002，但 rank-order 为 "avoid worst barbell"（Q1 极负、Q5 也负、Q2-Q4 正），mono=0.3，非 monotonic alpha。方向唯一剩余探索角度。
+> **存活两路**：
+> 1. **log(abnormal $amount) 加权 acceptance**（T002 → F013）—— mono_OOS 0.30 → 0.60，IC_OOS=0.0094 ~8x paper 衰减但结构稳；线性 ratio / CsRank / 40d 窗口 5/5 全 reject。
+> 2. **rank-diff geometry × higher-moment gap LHS**（T005 → F020）—— `Sub(CsRank(Std(gap_ret,20)), CsRank(Mean(body_ratio,20)))`，IC_OOS=-0.040 mono=-1.0/-1.0 完美 + 9/9 年同号 + max_corr=0.246@F016 整库唯一<0.30，是 [[lessons#Rank-Diff Geometry|F305]] "higher-moment LHS independence axis" 在 gap 家族的 family-agnostic 复现。
 >
-> **元教训**：A 股日频 pure sign 乘积在小盘 universe 普遍存在 regime 翻号风险；需量能（turnover / $amount / abnormal vol）加权把噪声天数权重压低才有可能留住 edge。
+> **元教训汇编**（已升格 lessons.md）：
+> - **A 股日频 sign aggregation 需 underlying drift 支持**（[[lessons#Sign Aggregation Drift|F006]]）：overnight 有 institutional accumulation drift（F018 admit），intraday body / gap sign 在 csi1000 是 random walk → pure sign 必死，需 log(amount) drift proxy 加权才可救。
+> - **rank-diff 设计 7 硬约束**（[[lessons#Rank-Diff Geometry|F002/F305]]）：两端 scale-invariance / raw field 独立 / 同字段跨窗口禁止 / Sub 对偶 dedup / 同批 LHS anchor 至多 1 admit / RHS 共振饱和动态（已 dead RHS endpoints: overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20）/ saturated 方向 anchor cluster（F002/F012/F020）锁死。
+> - **A 股 10% 涨跌幅 + OHLC algebraic mirror 双律**（[[lessons#OHLC Family Defaults|F005/F306]]）：gap 分母变体 (H-L / prev_close / Std(ret,20)) 都被 F003 主导（corr 0.79–0.96）；本方向 candidates 起手前必做 affine-equivalence 检查 + 避 H-L 分母 + 避 prev_close 分母组合，用 body_ratio_20 / |return|_60 等非 OHLC-co-moving RHS。
+> - **Meta-pattern 跨方向迁移先验底层 alive**（[[lessons#Meta-pattern Transfer|F303]]）：log-compression 救 F013 是因 sign 已规整二值 + 噪声集中 magnitude 尾部；同款 log 在 value × liquidity 6/6 fail（底层 PB/PS/PE rank 已死）。本方向新 sign-based 候选必须先验 underlying field 的 rolling mean drift 显著非零。
+> - **Threshold 校准**（[[lessons#Threshold Calibration|F200/F203]]）：rank-diff geometry candidates 因 structural vol_20d exposure 在 alpha_surv 0.30–0.40 区间是真实 alpha + 必然 style coupling，alpha_surv_min.rank_diff=0.30；max_corr ∈ [0.30, 0.70] borderline 时 incr_ic ≥ 0.015 才有 admit 资格。
 
 ---
 
 ## Current Focus
 
-- 方向生路仅剩 T002：C004 已证 `$turnover_rate` 直接加权可过 hard gate 但 mono=0.3；下一批对照 `$amount / Mean($amount, 20)` 加权 / `$volume / Mean($volume, 20)` 加权 / normalized turnover 三变体，择优替换 C004 reserve
-- 若 T002 后续 ≥2 批 0 admit 且对比变体全部 mono < 0.5，方向从 exploring 直接转 saturated；若 T002 变体中出现 mono_oos ≥ 0.5 且 Q5 转正 → 方向 pivot 为 turnover-weighted acceptance 专线
-- 不再探 T001 纯 sign / T003 分母变体 / T004 窗口扫描——三个 thread 首批已封闭
+- **rank-diff 路径继续**：T007（cross-ratio LHS Barra 吸收律）active —— C004 alpha_surv=0.005 极端 collapse 揭示 ratio of two raw OHLC magnitudes 在 rank-diff 几何中是 style projection 的 rank rotation；下批可探 ratio of two **rank-transformed** magnitudes 是否同病、或 ratio + sign 复合是否破解
+- **新 RHS 设计空间**：body_ratio_20 已被 F020 占用（dead RHS endpoint），下批寻找新 non-vol-class non-OHLC-co-moving RHS（候选：CsRank(Mean(|return|, 60)) Amihud 分子 / fundamental higher-moment / cross-stock dispersion 等）
+- **避开已封 thread**：T001 纯 sign / T003 分母变体 / T004 窗口扫描 / T006 60d 长窗——四个 thread 已封闭；新候选起手须 pre-check 7 条 rank-diff 硬约束 + alpha_surv ≥ 0.30 + incr_ic ≥ 0.015 (max_corr borderline) 双门
+- **F013 路径已 harvest**：T002 完成；新 sign-based 候选必须先验 underlying drift 才入候选集
 
 ---
 
@@ -89,7 +97,7 @@ merged_into: null
 > [!failure]+ Thread 结论
 > **Question**: `sign(open - prev_close) × sign(close - open)` 的 20d 均值（或波动率归一版本）是否在 csi1000 上携带独立于 F009 spread / F010 persistence / F003 magnitude 的 cross-sectional alpha？
 >
-> **Answer**: 否。pure sign interaction 在 10d/20d/60d 三窗口同步 sign_flip——2015-2020 IC 全正、2021-2023 IC 全负，`ic_by_year` 展示 clean regime break。csi1000 小盘 universe 上 gap 符号本身在 2021 后噪声过大，符号对称抵消律**反向**（不是相消到零，是反号）。
+> **Answer**: 否。pure sign interaction 在 10d/20d/60d 三窗口同步 sign_flip——2015-2020 IC 全正、2021-2023 IC 全负，`ic_by_year` 展示 clean regime break。csi1000 小盘 universe 上 gap 符号本身在 2021 后噪声过大，符号对称抵消律**反向**（不是相消到零，是反号）。已升格 [[lessons#Sign Aggregation Drift|F006]]。
 >
 > **Evidence trail**:
 > - [[batches/batch_035/candidates/C001|batch_035 C001]]　20d pure sign, IC_OOS=-0.0033 sign_flip + oos_decay=-0.47 → **reject (hard_gate)**
@@ -102,7 +110,7 @@ merged_into: null
 > [!success]+ Thread 结论
 > **Question**: 将 T001 的 acceptance 信号加权 `$amount / Mean($amount, 20)` 或 `$volume / Mean($volume, 20)`（strong participation 加重），是否比纯 acceptance 提供 incremental alpha？
 >
-> **Answer**: 是，**但仅在 log 非线性压缩下**。线性 ratio 加权（amount / volume / turnover TS-norm）在 csi1000 上全部 fail OOS（2021 regime break 把线性权重变成噪声放大器）；CsRank 变体把 magnitude 信息压平，也 fail。**log(abnormal_amount) 压缩尾部后** mono_OOS 从 0.30 翻倍到 0.60，IC_OOS=0.0094 通过阈值，9 年 8/9 年 IC 同号，anti-decay=1.36（OOS > IS）。
+> **Answer**: 是，**但仅在 log 非线性压缩下**。线性 ratio 加权（amount / volume / turnover TS-norm）在 csi1000 上全部 fail OOS（2021 regime break 把线性权重变成噪声放大器）；CsRank 变体把 magnitude 信息压平，也 fail。**log(abnormal_amount) 压缩尾部后** mono_OOS 从 0.30 翻倍到 0.60，IC_OOS=0.0094 通过阈值，9 年 8/9 年 IC 同号，anti-decay=1.36（OOS > IS）。教训已升格 [[lessons#Meta-pattern Transfer|F303]] —— log-compression 救 sign×body 是因 sign 已规整二值，跨方向不能机械复用。
 >
 > **Evidence trail**:
 > - [[batches/batch_035/candidates/C004|batch_035 C004]]　`$turnover_rate` 直加权 20d acceptance, IC_OOS=0.0082 ls_t=3.90 mono_OOS=0.30 max_corr=0.054@F002 incr_ic=0.0098 → **reserve**（rank-order "avoid worst barbell"，非 monotonic）
@@ -118,26 +126,38 @@ merged_into: null
 > [!failure]+ Thread 结论
 > **Question**: `Div(Sub($open, Ref($close,1)), ...)` 系列以"非 Mean($high,N)"分母（paper 的 true range 归一，我们用 Std(ret,20) 代理）与 F003 的 cross-sectional corr 是否 < 0.7？
 >
-> **Answer**: 否。C005 用 `Std($close - Ref($close,1), 20)` 分母（与 F003 `Mean($high, 5)` 量纲正交），实测 corr=0.964@F003——gap magnitude 的分母量纲变体都会被 F003 的"分子主导"结构吸收。子空间 definitively closed。
+> **Answer**: 否。C005 用 `Std($close - Ref($close,1), 20)` 分母（与 F003 `Mean($high, 5)` 量纲正交），实测 corr=0.964@F003——gap magnitude 的分母量纲变体都会被 F003 的"分子主导"结构吸收。子空间 definitively closed。已升格 [[lessons#OHLC Family Defaults|F005]] 10% 涨跌幅 + OHLC algebraic mirror 双律。
 >
 > **Evidence trail**:
 > - [[batches/batch_035/candidates/C005|batch_035 C005]]　Std(ret,20) 分母，max_corr=0.9635@F003 → **reject (hard_gate near_duplicate)**
+
+### T004: 窗口敏感性与小盘 universe 特性 [✗ DISPROVEN batch_035]
+
+> [!failure]+ Thread 结论
+> **Question**: Paper 在 CSI 300 用 20d 聚合得到 Rank IC 0.0744，但 csi1000 小盘股流动性不足可能导致 gap 符号本身噪声过大 — 20d 是否仍是最优窗口？10d / 40d / 60d 如何？
+>
+> **Answer**: 窗口扫描无 "sweet spot"——10d / 20d / 60d 同步 hard_gate fail。csi1000 上 pure sign interaction 不是窗口问题，是**机制问题**（T001 同步 disproven）。长窗 60d 反而放大 regime 反号（C003 oos_decay=-1.03 最严重），短窗 10d 也无短记忆回救。
+>
+> **Evidence trail**:
+> - [[batches/batch_035/candidates/C001|batch_035 C001]]　20d, hard_gate fail (与 T001 同源)
+> - [[batches/batch_035/candidates/C002|batch_035 C002]]　10d, hard_gate fail (短窗同病)
+> - [[batches/batch_035/candidates/C003|batch_035 C003]]　60d, hard_gate fail (长窗最重)
 
 ### T005: rank-diff 范式 × gap 家族第 6 次跨家族泛化 [✓ ANSWERED batch_051]
 
 > [!success]+ Thread 结论
 > **Question**: rank-diff geometry (CsRank(LHS) - CsRank(RHS)) 在前 4 family 5 admit (microstructure×2 / overnight×2 / OHLC×1) 后能否在 gap 家族独立兑现？若 admit → 6 跨家族 tipping point 正式确认 → Phase 5 consolidation 升格 lessons.md "rank-diff geometry" 通用规则.
 >
-> **Answer**: **是**。C002 (`Sub(CsRank(Std(gap_ret,20)), CsRank(Mean(body_ratio,20)))`) admit 为 F{next} `gap_vol_body_ratio_rank_diff_20` — IC_OOS=-0.040 ICIR=-0.49 ls_t(IS)=-9.68 mono=-1.0/-1.0 完美 + 9/9 年同号负 + max_corr=**0.246@F016** 整库唯一 <0.30 + 与 5 admitted rank-diff (F015-F019) 全 |corr|<0.25 + 与同字段 F010/F011 corr 仅 -0.076/-0.073. **6 跨 5 family tipping point 确认** (microstructure×2 + overnight×2 + OHLC×1 + gap×1).
+> **Answer**: **是**。C002 (`Sub(CsRank(Std(gap_ret,20)), CsRank(Mean(body_ratio,20)))`) admit 为 F020 `gap_vol_body_ratio_rank_diff_20` — IC_OOS=-0.040 ICIR=-0.49 ls_t(IS)=-9.68 mono=-1.0/-1.0 完美 + 9/9 年同号负 + max_corr=**0.246@F016** 整库唯一 <0.30 + 与 5 admitted rank-diff (F015-F019) 全 |corr|<0.25 + 与同字段 F010/F011 corr 仅 -0.076/-0.073. **6 跨 5 family tipping point 确认** (microstructure×2 + overnight×2 + OHLC×1 + gap×1). 已升格 [[lessons#Rank-Diff Geometry|F305]] 五律 + F002 7 条硬约束。
 >
 > **三个关键 admit 维度同时满足**:
 > 1. **higher-moment LHS** (Std vs F010/F011 Mean) — 验证 b050 T012 "Mean vs Std of same atomic 不冗余" 律在 gap 家族复现. **higher-moment LHS independence axis 横跨 family 兑现**.
-> 2. **新 RHS 安全类目 body_ratio_20** — 扩展 RHS 共振饱和律白名单, body_ratio (OHLC structural) 非 vol-class basis 可脱 cluster.
+> 2. **新 RHS 安全类目 body_ratio_20** — 扩展 RHS 共振饱和律白名单, body_ratio (OHLC structural) 非 vol-class basis 可脱 cluster（注：F020 admit 后 body_ratio_20 已成 dead RHS endpoint，b052 C002 复用即 cluster）.
 > 3. **窗口适中 20d** 在 signal_half_life 内 (vs C006 的 60d sign_flip).
 >
 > **Evidence trail**:
 > - [[batches/batch_051/candidates/C001|batch_051 C001]]　Mean(gap/(H-L),20) × Mean(Std($close,5),60), IC_OOS=+0.049 ls_t=3.75 mono=1.0/1.0 max_corr=0.55@F018 → **reserve** (rank-diff cluster co-resonance + incr_ic=0.008 边际)
-> - [[batches/batch_051/candidates/C002|batch_051 C002]]　**Std(gap_ret,20) × Mean(body_ratio,20), IC_OOS=-0.040 mono=-1.0/-1.0 max_corr=0.246@F016 incr=-0.013** → **admit → [[factors/F{next}]]**
+> - [[batches/batch_051/candidates/C002|batch_051 C002]]　**Std(gap_ret,20) × Mean(body_ratio,20), IC_OOS=-0.040 mono=-1.0/-1.0 max_corr=0.246@F016 incr=-0.013** → **admit → [[factors/F020]]**
 > - [[batches/batch_051/candidates/C005|batch_051 C005]]　Mean(gap/(H-L),5) × price_vol_20, IC_OOS=+0.049 但 max_corr=**0.696@F017** + incr_ic=0.003 → **reject** (短窗 LHS+RHS 加剧 cluster 共振)
 
 ### T006: gap 家族长窗 60d 边界律 [✗ DISPROVEN batch_051]
@@ -160,24 +180,12 @@ merged_into: null
 > [!info]+ Thread 进行中
 > **Question**: cross-ratio LHS (|gap|/|body| 跨 OHLC magnitude 比) 在 rank-diff geometry 下能否避开 Barra style 吸收?
 >
-> **Answer (initial)**: 不能. C004 (`Mean(|gap|/(|body|+0.0001),20) × pb_60`) **alpha_survival=0.005 极端 collapse** (本批最低, 整库罕见) — 两个 OHLC magnitude 折叠后投影完全在 Barra book-to-price + vol_20d 子空间. **rank-diff geometry 不替代 Barra orthogonality**.
+> **Answer (initial)**: 不能. C004 (`Mean(|gap|/(|body|+0.0001),20) × pb_60`) **alpha_survival=0.005 极端 collapse** (本批最低, 整库罕见) — 两个 OHLC magnitude 折叠后投影完全在 Barra book-to-price + vol_20d 子空间. **rank-diff geometry 不替代 Barra orthogonality** (与 [[lessons#Threshold Calibration|F007]] "Barra-clean ≠ library-clean" 律对偶——该候选 Barra-dirty 而非 library-cluster).
 >
 > **新失败模式**: ratio of two raw magnitudes (cross-session 或 within-session) 在 rank-diff 几何中是 style projection 的 rank rotation, 非新 alpha. 下批可探: ratio of two **rank-transformed** magnitudes 是否同病; 或 ratio + sign 复合是否破解.
 >
 > **Evidence trail**:
 > - [[batches/batch_051/candidates/C004|batch_051 C004]]　Mean(\|gap\|/(\|body\|+0.0001),20) × pb_60, alpha_surv=**0.005** + incr_ic=0.002 → **reject** (Barra 完全吸收 + F019 已捕获 92%)
-
-### T004: 窗口敏感性与小盘 universe 特性 [✗ DISPROVEN batch_035]
-
-> [!failure]+ Thread 结论
-> **Question**: Paper 在 CSI 300 用 20d 聚合得到 Rank IC 0.0744，但 csi1000 小盘股流动性不足可能导致 gap 符号本身噪声过大 — 20d 是否仍是最优窗口？10d / 40d / 60d 如何？
->
-> **Answer**: 窗口扫描无 "sweet spot"——10d / 20d / 60d 同步 hard_gate fail。csi1000 上 pure sign interaction 不是窗口问题，是**机制问题**（T001 同步 disproven）。长窗 60d 反而放大 regime 反号（C003 oos_decay=-1.03 最严重），短窗 10d 也无短记忆回救。
->
-> **Evidence trail**:
-> - [[batches/batch_035/candidates/C001|batch_035 C001]]　20d, hard_gate fail (与 T001 同源)
-> - [[batches/batch_035/candidates/C002|batch_035 C002]]　10d, hard_gate fail (短窗同病)
-> - [[batches/batch_035/candidates/C003|batch_035 C003]]　60d, hard_gate fail (长窗最重)
 
 ---
 
@@ -204,35 +212,38 @@ merged_into: null
 
 ## Related
 
-- 🟡 [[overnight_intraday_split]] `saturated` — F009 spread / F010-F011 persistence 已占 overnight aggregation；本方向填 T004 SUSPENDED 留下的"第三种函数形式"空缺（sign interaction），但该空缺经 batch_035 证实**在 csi1000 上不存在 alpha**
-- 🟡 [[intraday_price_formation]] `saturated` — F003 gap magnitude baseline；T003 验证了 "gap 分母量纲变体皆 near_duplicate F003" 的普适结论
-- 🟡 [[ohlc_temporal_aggregation]] `saturated` — F007 已测过 turnover-weighted body 被 reject（corr=0.579@F007），本方向 T002 C004 与 F007 不同是 **含跨 session gap 符号**；C004 max_corr=0.054@F002、F007 相关=0.026 确认正交
-- 🔴 [[vol_shock_signals]] `dead` — magnitude-based vol 信号全 collapse 到 vol_20d；本方向 6/6 candidates dominant_style=vol_20d，但 style_r² 全在 0.02-0.05 低段，不是主阻断
-- 🔵 [[microstructure_illiquidity]] `saturated` — F012 amihud_illiq_20d
-- 📖 [[papers/arxiv_2602_07085v2]] — paper intake 种子；**T001 结果反证 paper CSI 300 → csi1000 transfer 失败**
-- 📖 [[lessons#Structural Constraints]] — 市值代理红线 / 向量化约束 / Barra residual 基线
+- 🟢 [[overnight_intraday_split]] `productive` — F009 spread / F010-F011 persistence / F017/F018 rank-diff；本方向 T005 与 F018 (Mean(Sign(overnight)) × amount) 共享 sign aggregation drift dependency 律（F006），F020 与 F017/F018 全 |corr|<0.25 正交
+- 🟡 [[intraday_price_formation]] `saturated` — F003 gap magnitude baseline + F020 anti-anchor 锁死 LHS 同源几何（b053 C001 max_corr=-0.694@F020）；T003 + T007 共同验证 OHLC 派生 candidate 的 affine cluster trap
+- 🟢 [[ohlc_temporal_aggregation]] `productive` — F019 (Std body_ratio × price_vol) 是 higher-moment LHS independence axis 在 OHLC 家族首例；本方向 F020 在 gap 家族复现，跨 family 验证 family-agnostic 律
+- 🔵 [[microstructure_illiquidity]] `productive` — F015/F016 rank-diff 起点；F020 max_corr=0.246@F016 是 rank-diff cluster 内最低集中度
+- 🟡 [[value_liquidity_interaction]] `saturated` — F002 anchor cluster 边界律来源；本方向 RHS 设计须避 PB/PS 长窗类（C004 pb_60 + alpha_surv=0.005 验证）
+- 🔴 [[trend_quality_gated]] `dead` — paper Channel 3 transfer 失败二次确认；与本方向 T001 Channel 1 失败一起升格 F302 paper transferability default 律
+- 🔴 [[log_value_liquidity]] `dead` — meta-pattern 跨方向失败对照；F303 验证 log-compression 救 F013 不能机械复用
+- 🔴 [[vol_shock_signals]] `dead` — magnitude-based vol 信号全 collapse 到 vol_20d；本方向 candidates dominant_style 多为 vol_20d 但 style_r² 低（F020 ≈0.30），rank-diff structural exposure 而非主阻断
+- 📖 [[papers/arxiv_2602_07085v2]] — paper intake 种子；T001 反证 paper CSI 300 → csi1000 transfer 失败，T002/T005 找出两条本地存活路径
+- 📖 [[lessons#Paper Transferability]] · [[lessons#Sign Aggregation Drift]] · [[lessons#Rank-Diff Geometry]] · [[lessons#OHLC Family Defaults]] · [[lessons#Meta-pattern Transfer]] · [[lessons#Threshold Calibration]] — 本方向贡献 / 引用的 6 个 lessons 段
 
 ---
 
 ## Narrative Log
 
 > [!quote]+ 2026-04-25 · [[batches/batch_051/judge|batch_051]]
-> **T005 ANSWERED · 第二个 admit：gap_vol_body_ratio_rank_diff_20** · admit=1 (C002) / reserve=1 (C001) / reject=4
+> **T005 ANSWERED · 第二个 admit：F020 gap_vol_body_ratio_rank_diff_20** · admit=1 (C002) / reserve=1 (C001) / reject=4
 >
 > - **rank-diff 范式第 6 次跨家族泛化兑现 — gap_acceptance_structure 首次 in family**: C002 LHS=Std(gap_ret,20) higher-moment + RHS=body_ratio_20 新 basis, IC_OOS=-0.040 ICIR=-0.49 ls_t(IS)=-9.68 mono=**-1.0/-1.0 完美** + 9/9 年同号负 + max_corr=**0.246@F016** 整库唯一<0.30 + 与 5 admitted rank-diff (F015-F019) 全 |corr|<0.25
-> - **6 跨 5 family tipping point 已超 b050 标记的 5-family**: microstructure×2 (F015/F016) + overnight×2 (F017/F018) + OHLC×1 (F019) + gap×1 (F{next}) — Phase 5 consolidation 升格 lessons.md "rank-diff geometry" 通用规则的硬证据完整, **consolidation_trigger ON**
+> - **6 跨 5 family tipping point 已超 b050 标记的 5-family**: microstructure×2 (F015/F016) + overnight×2 (F017/F018) + OHLC×1 (F019) + gap×1 (F020) — Phase 5 consolidation 升格 lessons.md "Rank-Diff Geometry" 段（F002 7 条硬约束 + F305 五律 + F200 alpha_surv_min.rank_diff=0.30 阈值 + F203 incr_ic_min_when_corr_borderline=0.015 阈值）
 > - **higher-moment LHS independence axis 横跨 family 兑现**: b050 在 OHLC 家族 (F019 Std body_ratio) 验证, 本批在 gap 家族 (C002 Std gap_ret) 复现 — Std vs Mean of same atomic 的 corr structure 完全不同律是 family-agnostic
-> - **新 RHS 安全类目 body_ratio_20**: 扩展 RHS 共振饱和律白名单, body_ratio (OHLC structural) 非 vol-class basis 可脱 cluster — RHS 设计空间扩展
-> - **新 dead RHS 类目 price_vol_20**: C005 max_corr=0.696@F017 与 F017/F010/F011 短窗 cluster 共振 — 加入 RHS 共振饱和律 endpoints
-> - **C001 reserve 而非 admit**: rank-diff cluster co-resonance + incr_ic=0.008 边际, 留待 C002 admit 后控制 F{next} 重测
+> - **新 RHS 安全类目 body_ratio_20 → 退化为 dead endpoint**: F020 admit 后 body_ratio_20 进入 RHS 共振饱和黑名单（b052 C002 复用即 cluster 验证）
+> - **新 dead RHS 类目 price_vol_20**: C005 max_corr=0.696@F017 与 F017/F010/F011 短窗 cluster 共振
+> - **C001 reserve 而非 admit**: rank-diff cluster co-resonance + incr_ic=0.008 边际, alpha_surv=0.31 正落 F200 新阈值 0.30 上方但 incr_ic 不达 F203 0.015 标准
 > - **T006 disproven (gap 60d 长窗双失效)**: C003 raw |gap| 60d ic≈0 + C006 Std(gap_ret) 60d sign_flip — **Std 算子比 Mean 算子对窗口长度更敏感**
 > - **T007 active (cross-ratio LHS Barra 吸收律)**: C004 alpha_surv=0.005 极端 collapse — rank-diff geometry 不替代 Barra orthogonality
 > - MT budget　cumulative 264 → **270** · direction 12 → **18** · bucket `high` (search_adjusted → medium)
 >
-> **Operations**　direction `saturated → productive` 重启 + `priority: medium → high` (admit=2 后扩展) · T005 `[新建] → [✓ ANSWERED batch_051]` · T006 `[新建] → [✗ DISPROVEN batch_051]` · T007 `[◉ ACTIVE]` 留作下批 follow-up · Python 在 Phase 4 backfill F{id} 链接
+> **Operations**　direction `saturated → productive` 重启 + `priority: medium → high` (admit=2 后扩展) · T005 `[新建] → [✓ ANSWERED batch_051]` · T006 `[新建] → [✗ DISPROVEN batch_051]` · T007 `[◉ ACTIVE]` 留作下批 follow-up · Python 在 Phase 4 backfill F020 链接
 
 > [!quote]- 2026-04-24 · [[batches/batch_036/judge|batch_036]]
-> **T002 ANSWERED · 首个 admit：log_amount_weighted_acceptance_20** · admit=1 (C004) / reserve=0 / reject=5
+> **T002 ANSWERED · 首个 admit：F013 log_amount_weighted_acceptance_20** · admit=1 (C004) / reserve=0 / reject=5
 >
 > - log(abnormal $amount) 非线性压缩是关键：mono_OOS 从 batch_035 C004 的 0.30 翻倍到 **0.60**，IC_OOS=0.0094 · ls_t=3.23 · anti-decay=1.36（OOS > IS，极罕见）
 > - 5 reject 候选覆盖 (amount / volume / turnover TS-norm / CsRank / 40d window) 五个正交变体 → T002 future_probes preemptively closed
@@ -240,7 +251,7 @@ merged_into: null
 > - paper 0.0744 Rank IC (CSI 300) → 我们 0.0094 (csi1000)，~8x 衰减，但结构稳健（mono + 9 年同号 + anti-decay）足以 admit
 > - MT budget　cumulative 174 → **180** · direction 6 → **12** · bucket `medium`（C004 search_adjusted raw `high` → adjusted `medium`）
 >
-> **Operations**　T002 `[◉ ACTIVE] → [✓ ANSWERED batch_036]` · Python 在 Phase 4 会写 status 并 backfill F{id} 链接 · 方向维持 `saturated`（T001/T003/T004 早封闭 + T002 admit 单果）
+> **Operations**　T002 `[◉ ACTIVE] → [✓ ANSWERED batch_036]` · Python 在 Phase 4 会写 status 并 backfill F013 链接 · 方向维持 `saturated`（T001/T003/T004 早封闭 + T002 admit 单果）
 
 > [!quote]- 2026-04-24 · [[batches/batch_035/judge|batch_035]]
 > **首批即完成 T001/T003/T004 三 thread 信息性封闭** · admit=0 / reserve=1 (C004) / reject=5

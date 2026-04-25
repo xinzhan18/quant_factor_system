@@ -49,13 +49,20 @@ A 股本地化（csi1000 小盘）：
 - `liquidity_acceleration` (saturated)：流动性自身变化，不与 momentum 结合
 - **本方向**：momentum **作为信号** + 流动性/残差波动率 **作为 gate** 的联合结构
 
+> [!danger] 🛑 升格教训（来自 distillation findings F004 / F006 / F302）
+> 本方向已被三条独立 finding 标注为 "升格元教训" 来源，未来同类 paper-driven gate hypothesis 起手前必读：
+>
+> - **F004** rate/delta/ratio + Meta-pattern 机械迁移风险：log-compression 在 sign×body (F013) 工作 ≠ 在 momentum gate 工作（本方向 6/6 IC_OOS 负）≠ 在 value × liquidity 工作（log_value_liquidity 6/6 负）。**结构相同 ≠ 语义相同**——csi1000 小盘反转簇会把所有"量×方向复合"形态吸收为同一载体。
+> - **F006** Paper CSI 300 → csi1000 transfer 普遍失败 + sign aggregation drift 依赖：本方向是该律的第二次独立验证（首次为 gap_acceptance 8x 衰减）；csi1000 小盘 momentum/continuation 是反转载体，gate 形式不能翻号。
+> - **F302** Paper transfer default 律：复刻 paper alpha 必须先在 csi1000 重测原始 raw signal 是否同号；翻号或单调性破坏 → 方向直接 dead，不要再用 gate / 加权抢救。建议本方向 `dead → archived`。
+
 ---
 
 ## Current Focus
 
-- 首批聚焦 T001（trend × amount 吸收 gate）+ T002（trend × 低 vol_20d gate）
-- 若 T001 hit → T003 log-compressed 版本；若 T002 hit → T003 联合 gate（trend × 流动性 × 低残差噪声）
-- 预期：无 gate 的 momentum 已被 dead 方向证伪，这里的 edge 完全来自 gate
+- 方向已 dead，无 active focus
+- 元教训已通过 F004 / F006 / F302 三条 finding 流向 lessons.md（待下次 consolidation 升格 `## Paper Transferability` 子段）
+- future "paper Channel 4/5" 类 intake 起手前必读 F006 + F302
 
 ---
 
@@ -110,13 +117,15 @@ A 股本地化（csi1000 小盘）：
 
 ## Related
 
-- 🔴 [[return_momentum_acceleration]] `dead` — 无 gate 动量在 csi1000 失效，本方向通过 gate 试图绕开
-- 🔴 [[asymmetric_momentum]] `dead` — 方向性动量拆分失效，本方向不做方向拆分
+- 🔴 [[return_momentum_acceleration]] `dead` — 无 gate 动量在 csi1000 失效，本方向通过 gate 试图绕开（同被 F004 援引）
+- 🔴 [[asymmetric_momentum]] `dead` — 方向性动量拆分失效，本方向不做方向拆分（同被 F004 援引）
+- 🔴 [[log_value_liquidity]] `dead` — F013 log-compression meta-pattern 同样机械迁移失败（F004 三方向并列证据）
+- 🔴 [[pv_covariance]] `dead` — 第三个 meta-pattern 迁移失败方向（F004 三方向并列证据）
+- 🟡 [[gap_acceptance_structure]] `productive` — F006 援引：paper CSI 300 → csi1000 transfer 律的第一次独立验证（8x 衰减）；本方向是第二次（翻号）
 - 🟡 [[intraday_price_formation]] `saturated` — 日内价格形状，与本方向的跨日 trend 正交
 - 🟡 [[liquidity_acceleration]] `saturated` — 流动性自身变化，本方向用作 gate
-- 🟡 [[gap_acceptance_structure]] `saturated` — log-compression meta-pattern 来源，本方向 T001 log 变体沿用
 - 📖 [[papers/arxiv_2602_07085v2]] — paper intake 种子（Channel 3: CleanTrend_Continuation + OrderlyTrend_x_Absorption）
-- 📖 [[lessons#Structural Constraints]]
+- 📖 [[lessons#Structural Constraints]]（F004 / F006 / F302 升格目标段落，待下次 consolidation）
 
 ---
 

@@ -44,6 +44,11 @@ csi1000 特征：
 - (high-low)/close 与 vol_20d 的 corr 可能 > 0.6（历史已知事实）；本方向需关注**结构化 transformation**后的 residual
 - F012 amihud_illiq_20d 已占据"流动性"空间；timing/freq 需独立
 
+> [!warning]+ ⚠️ Hypothesis 修正条款（来自 Phase 5 distillation F001 / F005 / F301）
+> - **F001 / F301 vol_20d 吸收律**（high severity, 5+ 次跨方向独立确认）：daily-bar 上任意 magnitude / ratio / power-mean / Std / Quantile / IQR 形态——无论作用于 return / range / amount / turnover——cross-section 均坍缩为 vol_20d 的 monotone derivative，alpha_survival 典型 0.08–0.30。本方向 T002 (range 短长比 + 变化率) 与 batch_045 C002/C003 (Q90 / Q90-Med) 已是该律的本地数据点。**判别规则**：dominant_style=vol_20d + style_r²>0.30 + alpha_survival<0.30 三者同立 = 直接 reject 并切换设计轴，不再尝试同形变体。
+> - **F005 OHLC algebraic 共动律**（medium severity）：(H-L)/C 与 prev_close gap / OHLC4_mean 在 csi1000 上 affine 共动；任何"H-L 分母 / prev_close 分母"组合候选起手前必做 algebraic 等价检查（max_corr ≥ 0.85 → cluster；4-field mean ≈ close 退化）。
+> - **逃离路径仅四条**（F001 列举）：(a) Python Barra residual orthogonalize（受 coverage<0.80 限制 / 工具链阻塞）；(b) 非 daily-bar 数据（minute / tick）；(c) 非 magnitude 几何——higher-moment 单层 (Kurt) 仅当 mono_is ≥ 0.6 + scale-free RHS；(d) overnight 段独立分解。本方向当前唯一活路 = (c) Kurt-centric。
+
 ---
 
 ## Current Focus
@@ -52,6 +57,8 @@ csi1000 特征：
 - 已封闭路径：**timing (IdxMax) / freq-high (Gt threshold) / magnitude Quantile (Q90/Q90-Med) / Skew 60d/120d / sign-gated Skew / scale-free (Q80-Q20)/Med**——不再尝试
 - 设计纪律：**mono_is 硬下界 0.6**（batch_043 C004 paradox 教训，batch_045 C004 命中纪律产生 reject 验证有效）
 - 硬闸 max_corr@F012 / F001 / F013 < 0.7；目标 dominant_style ≠ `vol_20d` + alpha_survival > 0.4
+- **F001 + F005 修正**：next_goal 排除 H-L 分母 / prev_close 分母 / Quantile-of-range / IQR-of-range 设计；Kurt RHS 必须 scale-free（避免再次进入 vol_20d 簇）
+- **退出准则**：round 3 仍 0 admit + Kurt 长窗也复现 mono paradox → 转 `saturated`（剩余 Kurt-only 设计空间将耗尽）
 
 ---
 
@@ -76,7 +83,7 @@ csi1000 特征：
 >
 > **累积发现**（2 batches, 11 candidates）:
 > - **shape 路径仅 C001 Kurt60 partial 成功**（reserve）——Kurt 4 阶矩比 Skew 3 阶矩在 range 分布上更稳健
-> - **magnitude Quantile (Q90 / Q90-Med) 确认进入 vol_20d 吸收簇**——与 mean/std 同空间
+> - **magnitude Quantile (Q90 / Q90-Med) 确认进入 vol_20d 吸收簇**——与 mean/std 同空间（**F001 本地数据点**）
 > - **Skew 60d + 120d 均产出 mono_is paradox** → Skew 在 (H-L)/C 样本噪声敏感，不再尝试
 > - **升格 mono_is ≥ 0.6 硬下界纪律首次执行**（C004 reject）—— 纪律有效
 >
@@ -93,7 +100,7 @@ csi1000 特征：
 > - [[batches/batch_043/candidates/C005|batch_043 C005]]　Div(Mean((H-L)/C, 5), Mean((H-L)/C, 60)) 短长比 — IC_OOS=-0.038 本批最强 mono=-0.9 ls_t=-2.18 但 **incr_ic=-0.025 NEGATIVE** + vol_20d exp=27.7 + cum_mdd=-82 → **reserve**（orthogonalize 路径待工具链）
 > - [[batches/batch_043/candidates/C006|batch_043 C006]]　Delta(Mean((H-L)/C, 20), 5) 变化率 — ls_t=-2.74 但 mono_is=-0.7→mono_oos=-0.10 崩塌 + **incr_ic=-0.017 NEGATIVE** → **reserve**（Q5 一桨驱动 + 库负冗余）
 >
-> **元教训**：**第 3 次跨方向独立确认**（stochastic_position / vwap_proxy_signals / range_structure）——csi1000 的 cross-section 几何被 vol_20d 主导 2nd-moment 空间，magnitude/ratio 形态全部坍缩到 vol 簇。**升格至 lessons**（下次 consolidation）。
+> **元教训**：本 thread 是 F001 / F301 **vol_20d 吸收律**的第 3 次跨方向独立确认（+stochastic_position / +vwap_proxy_signals），已升格 lessons.md。
 
 ---
 
@@ -112,40 +119,38 @@ csi1000 特征：
 ## Narrative Log
 
 > [!quote]+ 2026-04-25 · [[batches/batch_045/judge|batch_045]]
-> **shape 路径首次 partial breakthrough：Kurt60 reserve** · admit=0 / reserve=1 (C001 Kurt60) / reject=5
+> **shape 路径首次 partial breakthrough：Kurt60 reserve** · admit=0 / reserve=1 (C001) / reject=5
 >
-> - **C001 Kurt60 → reserve**：mono_is=0.90 + mono_oos=0.90 双高 + style_r²=0.074 clean + max_corr=0.105 + incr_ic=0.0153 + cum_mdd=-1.42 极浅 + ls_t=3.08 strong；但 alpha_surv=0.17 poor + ic_oos=0.0113 moderate 阻止 admit。**Kurt 4 阶矩比 Skew 3 阶矩在 (H-L)/C 上更稳健**——T001 shape 路径首次 partial breakthrough。
-> - **C002/C003 magnitude Quantile → reject**：Q90、Q90-Median 确认进入 vol_20d 吸收簇（exposure 44-47, style_r² 0.46-0.60, incr_ic 严重负）。**robust 分位估计仍在二阶矩空间**——hypothesis 正向验证。
-> - **C004 Skew120 → reject**：长窗修复意图失败（mono_is 仍 0.50 < 0.6），**完美复现 batch_043 C004 mono paradox**（0.5→1.0 dramatic scaling）。**升格的 mono_is ≥ 0.6 硬下界纪律首次执行命中，有效阻止非稳健 reserve**。
-> - **C005 sign-gated Skew → reject**：ls_t IS/OOS 符号翻转 + str_1m exp=2.49 拖向短反转空间——sign-gated shape 在 csi1000 不稳健。
-> - **C006 (Q80-Q20)/Median → reject**：scale-free 归一化**部分成功**（vol_20d exp 44→20 减半，alpha_surv 0.35→0.70），但 mono_is=-1.0 / mono_oos=-0.30 **OOS 崩塌** + Q5 一桨——scale-free 不能单独撑起稳健 rank-order。
+> - **C001 Kurt60 → reserve**：mono_is=0.90 + mono_oos=0.90 + style_r²=0.074 clean + max_corr=0.105 + incr_ic=0.0153 + cum_mdd=-1.42 + ls_t=3.08；alpha_surv=0.17 + ic_oos=0.0113 阻止 admit。**Kurt 4 阶矩 > Skew 3 阶矩在 (H-L)/C 上**——T001 shape 路径首次 partial breakthrough。
+> - **C002/C003 Q90/Q90-Med → reject**：vol_20d exp 44–47, style_r² 0.46–0.60, incr_ic 严重负——**robust 分位估计仍在二阶矩空间**（F001 本地数据点）。
+> - **C004 Skew120 → reject**：mono_is=0.50 < 0.6 + 复现 batch_043 C004 mono paradox（0.5→1.0）。**升格的 mono_is ≥ 0.6 硬下界纪律首次执行命中**。
+> - **C005 sign-gated Skew → reject**：ls_t IS/OOS 符号翻转 + str_1m exp=2.49——sign-gated shape 在 csi1000 不稳健。
+> - **C006 (Q80-Q20)/Median → reject**：scale-free 归一化 vol_20d exp 44→20 减半 + alpha_surv 0.35→0.70，但 mono_is=-1.0 / mono_oos=-0.30 OOS 崩塌——scale-free 不能单独撑起稳健 rank-order。
 > - MT budget cumulative 228 → **234** · direction 6 → **12** · bucket `high` (adjusted `medium`)
 >
-> **Thread 进展**:
-> - T001: C001 Kurt60 reserve（partial breakthrough）；shape 路径存活但需收缩到 Kurt-centric
-> - T002: 保持 DISPROVEN 状态（本批未新增 ratio 候选）
+> **下一步**：收缩到 Kurt-centric（Kurt90/Kurt120 长窗 + Kurt × non-vol RHS orthogonalize）；不再尝试 Skew/Quantile/IQR-ratio 变体；round 3 仍 0 admit → 转 `saturated`。
 >
-> **下一步**：收缩到 Kurt-centric（Kurt90/Kurt120 长窗稳健性 + Kurt × non-vol style orthogonalize）；不再尝试 Skew/Quantile/IQR-ratio 变体；若 round 3 仍 0 admit → 考虑 `saturated` 转换。
->
-> **Operations**: `priority: medium → low`（MT 消耗快 + 2 rounds 0 admit + 剩余设计空间收窄至 Kurt 变体）· `status: exploring` 保持（reserve 证明方向仍 productive）
+> **Operations**: `priority: medium → low`（MT 消耗快 + 2 rounds 0 admit + 设计空间收窄至 Kurt 变体）· `status: exploring` 保持
 
 > [!quote]- 2026-04-24 · [[batches/batch_043/judge|batch_043]]
 > **首批分裂结论：magnitude/ratio 全败，shape 存活但悖论组合** · admit=0 / reserve=4 / reject=2
 >
-> - **T002 DISPROVEN**：C005 短长比 + C006 变化率，IC 稳定 9 年同号但 incremental_ic 全负 (-0.025 / -0.017)，vol_20d exposure 13.9–27.7——range ratio/velocity 与 F001/F009 共享反转簇载体。**第 3 次跨方向独立确认**（+stochastic / +vwap_proxy）升格 lessons 元教训
-> - **T001 部分存活**：C001 timing (IdxMax) + C002 freq-high 封闭；C003 freq-low + C004 shape(skew) 存活 reserve
-> - **C004 悖论诊断**：4 个 error-kill 指标全过（max_corr=0.117, incr_ic=+0.014, mono_oos=+1.0, cum_mdd=-2.01 最浅）但 **mono_is=0.30 弱** + alpha_surv=0.14 poor——诊断为**非真错杀**（mono IS→OOS 异常放大不是稳健 alpha），不调阈不追溯；建议升格错杀侦测要件加 mono_is 硬下界 0.6
+> - **T002 DISPROVEN**：C005 短长比 + C006 变化率，IC 稳定 9 年同号但 incr_ic 全负 (-0.025 / -0.017)，vol_20d exp 13.9–27.7——range ratio/velocity 与 F001/F009 共享反转簇载体。**第 3 次跨方向独立确认**（+stochastic / +vwap_proxy）升格 lessons 元教训。
+> - **T001 部分存活**：C001 timing (IdxMax) + C002 freq-high 封闭；C003 freq-low + C004 shape (Skew60) 存活 reserve。
+> - **C004 悖论诊断**：4 个 error-kill 指标全过（max_corr=0.117, incr_ic=+0.014, mono_oos=+1.0, cum_mdd=-2.01 最浅）但 **mono_is=0.30 弱** + alpha_surv=0.14 poor——诊断为**非真错杀**；建议升格错杀侦测要件加 mono_is 硬下界 0.6。
 > - MT budget cumulative 216 → **222** · direction 0 → **6** · bucket `medium`
 >
-> **Operations**　`priority: medium → low`（shape 路径需重新设计 + 工具链阻塞）· `status: exploring` 保持（首批不足判 saturated）
+> **Operations**　`priority: medium → low`（shape 路径需重新设计 + 工具链阻塞）· `status: exploring` 保持
 
 ---
 
 ## Related
 
-- 🔴 [[return_distribution_signals]] `dead` — daily-return skew/kurt/Q-range 全部坍缩到 vol_20d；本方向用 range (high-low) 而非 return，**数学上不同**——关键测试
+- 🔴 [[return_distribution_signals]] `dead` — daily-return skew/kurt/Q-range 全部坍缩到 vol_20d；本方向用 range (high-low) 而非 return，**数学上不同**——关键测试（F301 同源）
 - 🟡 [[stochastic_position]] `saturated` — (close - TsMin) / (TsMax - TsMin) rank-order 崩塌；本方向是 range 大小 & timing 而非 close 在 range 内的位置
-- 🟡 [[intraday_price_formation]] `saturated` — 单日 (close-low)/(high-low) mono_sign_flip；本方向在 N 日窗口而非单日 intrabar
-- 🟡 [[liquidity_acceleration]] `saturated` — 流动性 ratio 全部落入 F001 吸收簇；T002 要看 range ratio 是否同样命运
+- 🟡 [[intraday_price_formation]] `saturated` — 单日 (close-low)/(high-low) mono_sign_flip；本方向在 N 日窗口而非单日 intrabar（F005 algebraic 共动律同源）
+- 🟡 [[liquidity_acceleration]] `saturated` — 流动性 ratio 全部落入 F001 吸收簇；T002 已确认 range ratio 同样命运
+- 🔴 [[quantile_shape_signals]] `dead` — Quantile robust ≠ vol_20d orthogonal（F301 同源）；本方向 batch_045 C002/C003 是该律的本地复现
+- 📖 [[lessons#Structural Constraints]] — F001 / F301 vol_20d 吸收律 + F005 OHLC algebraic 共动律
 - 📖 [[lessons#Data Facts]] — A 股 10% 涨跌幅约束对 range 上限的结构影响
-- 📖 [[lessons#Operator Registry]] — TsSkew / IdxMax 自定义算子，C.kernels=1
+- 📖 [[lessons#Operator Registry]] — TsSkew / IdxMax / Kurt 自定义算子，C.kernels=1
