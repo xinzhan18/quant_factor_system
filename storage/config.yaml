@@ -2,7 +2,6 @@
 # All skills / CLI / pipeline read from here.
 # Edited by hand (rare). Phase 5 consolidation may touch thresholds.
 
-universe: csi1000
 qlib_data_dir: ~/.qlib/qlib_data/cn_data_1d
 
 sample_policy:
@@ -11,11 +10,10 @@ sample_policy:
   holdout_range: [2024-01-01, 2024-12-31]   # Phase 2/3 never see this
 
 universes:
-  primary: csi1000                  # CP01-CP06 only look at this
-  reference:                        # Context only — no verdict impact
+  primary: all_tradable             # CP01–CP06 run on full-market tradable stock-days
+  secondary:                        # Basic metrics only — context for cross-universe robustness
     - csi300
-    - csi500
-    - all                           # full market
+    - csi1000
 
 evaluation:
   primary_horizon: 1                # t+1 to t+5 cumulative return
@@ -27,6 +25,17 @@ preprocess:
   winsorize_mad_scale: 1.4826       # normal-distribution MAD → std
   zscore: true
   neutralize: false                 # keep off — CP04 Barra residual does post-hoc check
+
+tradability:
+  filter_suspend: true
+  filter_limit: true
+  filter_st: true
+  filter_newly_listed: true
+  volume_zero_means_suspended: true
+  amount_zero_means_suspended: true
+  limit_up_tolerance: 0.999
+  limit_down_tolerance: 1.001
+  min_listing_days: 60
 
 thresholds:
   # CP01 Hard Gates
@@ -79,3 +88,56 @@ consolidation:
     total_active_directions: 20
   parallelism:
     max_concurrent_subagents: 6
+
+backtest:
+  defaults:
+    universe: csi1000
+    initial_capital: 10000000
+    signal_recompute: true
+
+    rebalance:
+      freq_days: 5
+      anchor: monday
+
+    portfolio:
+      holdings_n: 50
+      weight_scheme: equal
+      max_single_weight: 0.05
+
+    matching:
+      match_price: open
+      price_adjust: hfq
+
+    cost:
+      stamp_schedule:
+        - {from: 2015-01-01, to: 2023-08-27, sell_bps: 10}
+        - {from: 2023-08-28, to: 9999-12-31, sell_bps: 5}
+      commission_bps: 3
+      slippage_bps: 5
+      min_commission_cny: 5
+
+    capital:
+      allow_intraday_netting: false
+
+    filters:
+      block_st: true
+      block_suspended: true
+      block_limit_up_at_buy: true
+      block_limit_down_at_sell: true
+      cooldown_days_after_unsuspend: 1
+      newly_listed_days: 60
+      stale_position_days_max: 5
+
+    periods:
+      train: [2015-01-01, 2021-12-31]
+      val: [2022-01-01, 2023-12-31]
+      holdout: [2024-01-01, 2024-12-31]
+      run: [train, val, holdout]
+
+    benchmark:
+      kind: csi1000_total_return
+
+    output:
+      save_trades: true
+      save_positions: true
+      figs: [equity, drawdown, monthly_heatmap, layer_decomp, cost_drag, blocked_trades]
