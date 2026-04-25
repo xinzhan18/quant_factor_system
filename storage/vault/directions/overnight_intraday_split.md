@@ -2,23 +2,19 @@
 direction_tag: overnight_intraday_split
 status: productive
 priority: high
-rounds: 8
-admits: 8
-last_batch: batch_058
+rounds: 9
+admits: 9
+last_batch: batch_059
 last_admits:
-- F022
-last_goal: 'T005 sign-aggregation 跨 axis 泛化 + 新 T011 overnight×intraday 非线性交互 (3 axes
-  / 6 candidates)。Axis A: sign-aggregation LHS 扩窗 (Mean(Sign(overnight),60d)) + 新
-  sign atom (Sign(intraday) 即 close-open 符号) 对接长窗 scale-free 几何 RHS (H/L_60 geometric
-  ratio / Mean(H/L,60))。Axis B: intraday close-position-in-range (C-L)/(H-L) 是结构性
-  vol_20d-orthogonal atom (cockpit constraint), 在 20d/60d 双窗下测。Axis C: overnight×intraday
-  sign 共方向频率 (Mean(Sign(o)*Sign(i),N)) 是 T005 future_probe 3 (overnight×intraday 非线性交互)
-  的 sign-space 实例化, 与 F018 单 sign 几何完全不同。RHS 全部避开 6 dead endpoints (overnight_5/body_ratio_20/pb_60/amount_60/price_vol_20/Std($close,5)*60)
-  + F017/F018 共振 anchor (turnover_5/amount_20)。Bug-flag 规避: 不使用 TsKurt/TsSkew 内嵌 CsRank。anti-recap:
-  zero_admit_streak=2 后, 6 候选 LHS atoms 4 类正交 (overnight_sign / intraday_sign / sign_product
-  / close_position), RHS 4 类正交 (H/L_60 geo / Mean(H/L,60) / close/MA60 / amount_5_60_ratio)。预期
-  ≥1 admit 推进 T005 跨 axis 泛化 + T011 共方向交互首兑现。'
-last_activity: '2026-04-25T11:57:23Z'
+- F023
+last_goal: '推进 T011 sign-product 与 T012 close-position 双 active thread。T011: 60d sign-product
+  LHS 用非 F021 cluster RHS (circ_mktcap_60); 20d magnitude-weighted sign-product 救活短窗。T012:
+  center-position(C-mid)/(H-L) 20d 作为 vol_20d 正交 LHS 新 atom,与 F022 close-position
+  / F007 open-position / F006 high-close 全部正交;配 long-window scale-free non-amount
+  RHS (circ_mktcap_60 / pe_5_60_ratio / turnover_5_60_ratio)。规避 saturated RHS endpoint:
+  amount_5/60 (F022)、amount_20 (F018)、turnover_5 (F017)、H/L_60 (F021)、body_ratio_20
+  (F020)。'
+last_activity: '2026-04-25T12:46:42Z'
 created_batch: batch_025
 members:
 - F009
@@ -28,6 +24,7 @@ members:
 - F{next}
 - F018
 - F022
+- F023
 retired_members: []
 merged_into: null
 ---
@@ -141,33 +138,59 @@ merged_into: null
 
 ---
 
-### T011 · overnight×intraday sign 共方向频率 cross-section 几何 [◉ ACTIVE]
+### T011 · overnight×intraday joint magnitude/sign 共方向交互 [✓ ANSWERED batch_059]
 
-> [!note]+ Thread 当前
+> [!success]+ Thread 结论：magnitude-weighted product 救活短窗 — sign-only 路径在 1d primary_horizon 下封闭
+>
 > **Question**: `Mean(Sign(overnight) * Sign(intraday), N)` 共方向频率作为 LHS（非单边 sign 而是 product），在 cross-section rank-diff 几何下能否产生独立于 F009 (overnight-intraday spread magnitude) 与 F018 (overnight 单边 sign) 的新 alpha？窗口长度对 cross-section rank-order 的影响如何？
+>
+> **Answer**: **sign-only 路径在 1d primary_horizon 下根本性受阻** (b058 C003 短窗 mono 退化 + b058 C005 长窗 alpha_surv 不足 + b059 C003 跨 family RHS 1d IC=0.0016 → 20d IC=0.030 horizon mismatch)。**magnitude-weighted product (gap × body 直乘,无 Sign) 在 20d 短窗下兑现 admit** (b059 C004) — magnitude weighting 区分共振强弱日,让 cross-section rank 在 csi1000 1d horizon 显著清洁。**核心律**: `Sign(o)*Sign(i)` 是 long-horizon (10d-20d) 现象,1d 主 horizon 下被 noise 主导;`(o)*(i)` (保 magnitude) 在 1d horizon 下 ls_t=4.89 + mono=1.0 + anti-decay。
 >
 > **Evidence trail**:
 > - [[batches/batch_058/candidates/C003|batch_058 C003]]　Mean(Sign(o)*Sign(i),20) × close/MA60, ic_oos=0.024 ls_t=1.09 **mono_oos=0.40 + Q5 反向**, max_corr=**0.216@F009 (本批最 library-clean)** + incr_ic=0.017 → **reject** (CP03 weak: ls_t<2 + rank-order 破坏；意外 library-clean 但信号强度不足)
 > - [[batches/batch_058/candidates/C005|batch_058 C005]]　Mean(Sign(o)*Sign(i),60) × Mean(H/L,60), ic_oos=0.039 ls_t=1.91 **mono=0.9/0.9 完美** + 9/9 年逐年强化, alpha_surv=0.26<0.30 floor + max_corr=0.49@F021 + incr_ic=0.011<0.015 (F203) → **reserve**
+> - [[batches/batch_059/candidates/C003|batch_059 C003]]　Mean(Sign(o)*Sign(i),60) × circ_mktcap_60, hard_gate fail (ic_oos=0.0016 < 0.008 + oos_decay=0.147), 但 ic_by_horizon 1d=0.0016 → 20d=0.030 + 9/9 年正 + cum_ic_mdd=-3.38 极浅 → **reject** (sign-product 在 1d horizon noise-bound;长 horizon 信号在 evaluation policy 不被 rewarded)
+> - [[batches/batch_059/candidates/C004|batch_059 C004]]　Mean( (o)*(i), 20 ) × Mean(amount,60), ic_oos=**0.044** ICIR=**0.37** ls_t=**4.89** mono=1.0/1.0 + 9/9 年同号 + IC anti-decay (OOS>IS) + cum_ic_mdd=-1.72 库内最浅之一 + worst_quarter=+0.0019 永正 + max_corr=0.575@F012 + incr_ic=**0.018** (远超 F203 0.015) → **admit (gap_body_magnitude_amount_rd_20)**
 >
-> **Key finding**: **20d → 60d 长窗显著清洁 cross-section rank-order**（C003 mono=0.4 + Q5 反向 → C005 mono=0.9 + Q5 单调正）。短窗 sign-product 在 csi1000 cross-section 上噪声大，长窗累积让 rank 稳定。但长窗版本被 F021 cluster co-resonance 锁死。
->
-> **Next probes**: (a) 60d sign-product LHS × 非 H/L_60 RHS（替换 RHS 脱 F021 cluster, 如 amount_5/60 ratio / log(circ_mktcap) / pe_60 等）；(b) magnitude-weighted sign-product (e.g., gap×body 加权而非纯 sign) 是否在 20d 窗口下救活 mono。
+> **Key finding**: **magnitude weighting 是短窗 sign-product 失败的解药** — `(gap)*(body)` 直乘比 `Sign(gap)*Sign(body)` 频率在 csi1000 1d primary_horizon 下信噪比高 ~4×。原 "20d → 60d 长窗清洁 cross-section rank" 律 (b058 发现) 被 b059 C003 反例修正 — 长窗在跨 family RHS 下也未必脱 noise。**新升格 lessons 候选**: "sign-only product LHS 在 csi1000 1d evaluation 下 family-agnostic 不达标;magnitude-weighted product 在 20d 短窗即可 admit"。
 
 ---
 
-### T012 · intraday close-position-in-range Mean LHS [◉ ACTIVE]
+### T012 · intraday close-position-in-range Mean LHS — 仿射变体几何穷尽 [◉ ACTIVE]
 
 > [!note]+ Thread 当前
-> **Question**: `Mean((C-L)/(H-L+ε), N)` close-position-in-range 一阶矩 LHS（与 F006 upper_shadow 5d / F019 body_ratio Std / F021 upper_shadow_disp Std 几何位置不同）能否在 cross-section rank-diff 几何下兑现独立 alpha？vol_20d 正交性是否与窗口长度负相关？
+> **Question**: `Mean((C-L)/(H-L+ε), N)` close-position-in-range 一阶矩 LHS（与 F006 upper_shadow 5d / F019 body_ratio Std / F021 upper_shadow_disp Std 几何位置不同）能否在 cross-section rank-diff 几何下兑现独立 alpha？vol_20d 正交性是否与窗口长度负相关？**仿射变体 (center-position = close-position − 1/2) 是否构成新 atom？sign 离散化 (Sign(C-L vs H-C)) 是否脱 close-position cluster？**
 >
 > **Evidence trail**:
 > - [[batches/batch_058/candidates/C004|batch_058 C004]]　Mean((C-L)/(H-L),20) × amount_5/60_ratio, ic_oos=0.029 ls_t=1.56 **mono_oos=0.6 + Q5 上升 + 9/9 年同号区间窄稳定**, **alpha_surv=0.43 (本批 admit 最高) + style_r²=0.13 (本批最低) + max_corr=0.283@F006 + incr_ic=0.012 + cum_mdd=-1.03 (本批最浅) + worst_quarter 永正** → **admit (close_position_amount_accel_rd_20)**
 > - [[batches/batch_058/candidates/C006|batch_058 C006]]　Mean((C-L)/(H-L),60) × H/L_60_geo, ic_oos=0.044 ls_t=1.52 mono=0.3/0.9, **alpha_surv=0.19 (vol_20d exposure=44.15 本批最高极值) + max_corr=0.47@F021 + incr_ic=0.011<0.015 (F203)** → **reject** (60d 长窗放大 vol_20d 吞噬)
+> - [[batches/batch_059/candidates/C001|batch_059 C001]]　Mean((C-mid)/(H-L),20) × Mean(circ_mktcap,60), hard_gate fail (ic_oos=-0.0004 + oos_decay=0.081), **alpha_surv=23.19 极端 + style_r²=0.57 + log_circ_cap=0.64** → **reject** (RHS=circ_mktcap_60 直接撞 Barra log_circ_cap style 完全吞噬)
+> - [[batches/batch_059/candidates/C002|batch_059 C002]]　Mean((C-mid)/(H-L),20) × amount_60/20 减速比, ic_oos=-0.027 mono_is=0.0 / mono_oos=-1.0 ls_t=-2.24 **9/9 年同号负 + Q5 大幅下跌 "avoid worst" + max_corr=0.349@F006 + 与 F022 corr=0.07 仿射独立** → **reserve** (CP03 borderline + IS mono=0 异常 + cum_ic_mdd=-60 深;**库内首次 negative 方向 close-position rank-diff**)
+> - [[batches/batch_059/candidates/C005|batch_059 C005]]　Mean(Sign((C-L)-(H-C)),20) × turnover_5/60, ic_oos=0.026 ls_t=1.88 mono=0.9/0.7 **max_corr=0.824@F022 (cluster ridge) + incr_ic=0.0049 紧贴 0.005 reserve 决策档下界** → **reserve** (CP05 high 决策档:incr_ic ∈ [0.003, 0.005];**sign 离散化未脱 F022 cluster**——与 b049 sign-magnitude corr=0.37 形成对比,验证 sign vs magnitude 几何正交律不可机械泛化)
+> - [[batches/batch_059/candidates/C006|batch_059 C006]]　Mean((C-mid)/(H-L),20) × turnover_5/60, hard_gate fail (near_dup max_corr=0.933@F022) → **reject** (center=close_pos 仿射,差常数 1/2,CsRank 后等价)
 >
-> **Key finding**: **close-position 短窗 (20d) 是 vol_20d 正交 atom 兑现** — C004 alpha_surv=0.43 vs C006 (60d) alpha_surv=0.19，**窗口翻倍让 vol_20d 吸收翻倍**。这与 T011 sign-product 趋势相反 (sign-product 60d alpha_surv=0.26 比 20d=0.56 衰减)——两个 LHS atom 对窗口扩展的 vol_20d 吞噬响应不对称。**T012 首兑现** F022 candidate close_position_amount_accel_rd_20。
+> **Key finding (b058)**: close-position **20d (alpha_surv=0.43) vs 60d (alpha_surv=0.19)** — 窗口翻倍让 vol_20d 吸收翻倍。
 >
-> **Next probes**: (a) 维持 close-position 20d LHS, RHS 替换探索 (turnover-related / value-related 长窗 ratio); (b) 短窗 close-position 与 OHLC family 是否能形成新 anchor cluster (与 F006 corr=-0.28 已是 mirror).
+> **Key finding (b059)**: **close-position atom 仿射变体几何穷尽** — center-position `(C-mid)/(H-L)` = close-position − 1/2,CsRank 对常数偏移不敏感 (b059 C006 corr=0.933@F022 hard_gate),C001/C002 的 RHS 替换让原始 LHS-RHS 联合 corr 降到 0.07 (与 F022) 但单独 LHS rank-order 信号弱 (C002 IS mono=0 → OOS mono=-1.0 emergent regime),不构成稳健新 atom。**sign 离散化 (Sign(C-L vs H-C))** 在 csi1000 cross-section 上与 close-position-Mean corr=0.82 强相关 (b049 F018 sign-magnitude 0.37 弱相关不可泛化)。**结论**: 当前 close-position atom 几何家族 (continuous Mean / center 仿射 / sign 离散化) **三种变体已穷尽**,新 LHS 突破必须改分母 (跨窗 range normalization 如 (C-L_20d_min)/(H_20d_max-L_20d_min)) 或非线性变换 (Tanh/Sigmoid wrap)。
+>
+> **Next probes**: (a) close-position 跨窗 range normalization (LHS 内置 20d/60d range);(b) close-position × non-linear wrap (Tanh/Sigmoid 把 close-position 压成 [-1,1] 后再 Mean);(c) close-position from-trough vs from-peak 二选一 (取代 (C-L)/(H-L) 的对称性,如 (C-L_20d_min)/(L_20d_max-L_20d_min) 跨日相对位置)。**禁止**: 仅减常数 / 仅取 Sign / 仅换 RHS amount→turnover 同时间结构 — 三种已被本批证伪。
+
+---
+
+### T013 · sign-离散化 cross-section rank 普适性 [◉ ACTIVE] 🆕
+
+> [!note]+ Thread 当前
+> **Question**: csi1000 1d primary_horizon 下,sign-离散化 LHS (Sign(close偏向) / Sign(o)*Sign(i)) 在 cross-section rank-diff 几何下是否普遍未脱 magnitude cluster？b049 F018 (Mean(Sign(overnight)) × amount) 的 sign-magnitude corr=0.37 低相关是否为特定字段组合 (overnight + amount) 的 happy accident,而非 family-agnostic 律？sign 离散化在哪些字段组合下保留正交性,哪些下塌陷为 magnitude 镜像？
+>
+> **Evidence trail**:
+> - [[batches/batch_058/candidates/C003|batch_058 C003]]　Sign(o)*Sign(i) 20d × close/MA60, mono=0.4 reject (sign-product 短窗 cross-section rank 退化)
+> - [[batches/batch_058/candidates/C005|batch_058 C005]]　Sign(o)*Sign(i) 60d × H/L_60, mono=0.9 reserve (长窗清洁但 alpha_surv 不足)
+> - [[batches/batch_059/candidates/C003|batch_059 C003]]　Sign(o)*Sign(i) 60d × circ_mktcap_60, hard_gate fail (1d horizon noise-bound + Barra 吞噬)
+> - [[batches/batch_059/candidates/C005|batch_059 C005]]　Sign((C-L)-(H-C)) 20d × turnover_5/60, **max_corr=0.824@F022 (close-position cluster ridge)** + incr_ic=0.0049 → reserve
+>
+> **Key finding**: **F018 sign-magnitude 0.37 低相关不是家族律** — 不同字段组合下 sign 离散化对 cross-section rank 的影响差异巨大: (a) `Sign(overnight)` × amount: corr 0.37 (b049 F018 admit);(b) `Sign(close-direction)` × turnover: corr 0.82 (b059 C005, 落 F022 cluster);(c) `Sign(o)*Sign(i)` 60d: ls_t<2 在 1d horizon noise-bound。**初步假说**: sign 离散化保留正交性需要 LHS atom 的 underlying drift 在 sign-space 与 magnitude-space 几何位置真实不同 (F018 overnight sign 满足 — sign(overnight) 的 cross-section 主要由 "持续单边消息流" 驱动, magnitude(overnight) 主要由 "消息冲击大小" 驱动, 两者 30% drivers 重叠 70% 不同);本批 close-direction sign 不满足 (sign(C-L vs H-C) 与 close-position 量级在 csi1000 上几乎完全 rank-equivalent)。
+>
+> **Next probes**: (a) 待 F022 退役后重测 b059 C005;(b) **跨 horizon evaluation policy 修订前** (primary_horizon=1) 不再投 sign-product 候选 (T011 sign-only 路径暂时封闭);(c) 试 magnitude × sign 混合形式 (如 |body| × Sign(gap) 部分 magnitude 部分 sign 信息) 是否兑现新独立 alpha;(d) 验证假说: sign 离散化保留正交性需 underlying drift 在 sign-space vs magnitude-space drivers <50% 重叠 (Phase 5 升格候选)。
 
 ---
 
@@ -189,6 +212,9 @@ merged_into: null
 | batch_058 | C002 | `Sub(CsRank(Mean(Sign(close-open),20)),CsRank(Mean($high/$low,60)))` | CP03 weak (ls_t=0.65) + CP04 alpha_surv=0.054 (vol_20d exposure=40 主吸收) — intraday body sign LHS 是 vol/str_1m 载体, T003 disproof sign-space 复现 |
 | batch_058 | C003 | `Sub(CsRank(Mean(Sign(o)*Sign(i),20)),CsRank($close/MA60))` | CP03 weak (ls_t=1.09 + mono_oos=0.4 + Q5 反向) — sign-product 20d cross-section rank 信息退化, 即使 max_corr=0.216 库最 clean 也不救 |
 | batch_058 | C006 | `Sub(CsRank(Mean((C-L)/(H-L),60)),CsRank(H/L_60_geo))` | CP04 alpha_surv=0.19 (vol_20d exposure=44.15 本批最高极值) + F203 cluster (max_corr=0.47@F021 + incr_ic=0.011<0.015) — close-position 60d 长窗放大 vol 吞噬 |
+| batch_059 | C001 | `Sub(CsRank(Mean((C-mid)/(H-L),20)),CsRank(Mean($circ_market_cap,60)))` | hard_gate fail (ic_oos=-0.0004 + oos_decay=0.081) — circ_mktcap_60 RHS 直接撞 Barra log_circ_cap (alpha_surv=23.19 极端) — 升格 dead RHS endpoint 类目 |
+| batch_059 | C003 | `Sub(CsRank(Mean(Sign(o)*Sign(i),60)),CsRank(Mean($circ_market_cap,60)))` | hard_gate fail (ic_oos=0.0016 + oos_decay=0.147) — sign-product 60d 在 csi1000 1d primary_horizon noise-bound (但 20d horizon IC=0.030 显示长 horizon alpha 真实存在) + circ_mktcap RHS Barra 吞噬 |
+| batch_059 | C006 | `Sub(CsRank(Mean((C-mid)/(H-L),20)),CsRank(turnover_5/60))` | hard_gate fail (near_dup max_corr=0.933@F022) — center=(C-mid)/(H-L) 是 close-position 仿射 (差常数 1/2),CsRank 后等价 |
 
 ---
 
@@ -214,7 +240,20 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_058/judge|batch_058]] · 8th admit · T011/T012 双新 thread 启动
+> [!quote]+ 2026-04-25 · [[batches/batch_059/judge|batch_059]] · 9th admit · T011 ANSWERED + T013 新建
+> **9th admit · T011 gap_body_magnitude_amount_rd_20** · admit=1 (C004) / reserve=2 (C002/C005) / reject=3 (C001/C003/C006)
+>
+> - **T011 ANSWERED · magnitude-weighted product 救活短窗**: C004 `Sub(CsRank(Mean((O-Ref(C,1))*(C-O),20)), CsRank(Mean($amount,60)))` ic_oos=**0.044** ICIR=**0.37** ls_t=**4.89** mono=1.0/1.0 完美 + 9/9 年同号正 (0.024-0.050,2023 IC=0.048 近年增强) + IC anti-decay (OOS 0.044 > IS 0.035) + cum_ic_mdd=**-1.72** 库内最浅之一 + worst_quarter_ic=**+0.0019 永正** + max_corr=0.575@F012 + incr_ic=**0.018** 远超 F203 0.015 borderline corr 阈值 → **admit**。**关键转折**: T011 sign-only path 在 b058 短窗 (mono 退化) + b058 长窗 (alpha_surv 不足) + b059 跨 family RHS (1d horizon noise-bound) 三次受阻;**magnitude × magnitude 直乘 (gap × body 乘积保留 magnitude)** 在 20d 短窗下兑现 — 这是 direction 第 9 个 admit + 第一个 second-order interaction (overnight × intraday joint magnitude,与 F009 spread / F018 sign-freq 几何正交)。
+> - **T012 LHS atom 几何穷尽 (3 候选验证)**: center-position `(C-mid)/(H-L)` = close-position − 1/2 仿射,CsRank 后与 F022 corr=0.93 (b059 C006 hard_gate near_dup);仿射变体在 RHS 替换后 (C001 circ_mktcap_60 Barra 撞;C002 amount_60/20 倒置 IS mono=0 异常) 不构成稳健新 atom。**升格 lessons 候选**: "Phase 1 LHS 设计的有效绕开必须改 numerator 结构 / 分母 normalization,不能仅减常数"。
+> - **T013 新建 (sign-离散化 cross-section rank 普适性)**: b059 C005 `Sign(C-L vs H-C) × turnover_5/60` corr=0.824@F022 (反例 b049 F018 sign-magnitude 0.37) → reserve。**关键发现**: F018 sign-magnitude 0.37 低相关不是家族律,是 (overnight + amount) 特定字段组合的 happy accident。sign 离散化保留正交性需 LHS atom 的 underlying drift 在 sign-space vs magnitude-space drivers <50% 重叠。
+> - **新 dead RHS 类目 circ_mktcap_60**: C001 (Barra log_circ_cap exposure=0.64) + C003 (exposure=0.51) 双重验证 — 长窗 scale-free 市值类 RHS 在 rank-diff 几何下直接撞 Barra style → "**Barra-direct 字段不适合 rank-diff RHS**" 升格设计硬约束第 8 条。
+> - **C002 reserve (库内首次 negative 方向 close-position rank-diff)**: ic_oos=-0.027 mono_oos=-1.0 完美 + 9/9 年同号负 + Q5 大幅下跌 "avoid worst" + max_corr=0.349@F006 + 与 F022 corr=0.07 仿射独立。**反向方向多样性候选**,但 IS mono=0 → OOS=-1.0 emergent regime + cum_ic_mdd=-60 深 + ls_t=-2.24 borderline 三压制。等待 RHS 替换 (vol_20d-orthogonal RHS) 后重评估。
+> - **C005 reserve (sign 离散化 vs F022 仿射 cluster)**: max_corr=0.824@F022 + incr_ic=0.0049 落 CP05 high 档 reserve 决策档下界 (0.003-0.005)。验证 T013 假说 (sign 离散化在 close-direction 字段下塌陷为 close-position-Mean cluster)。
+> - **MT budget**: cumulative 312 → **318** · direction 27 → **33** · bucket `high` (search_adjusted=0.505 → medium) · 本批 6 候选全 raw bucket=high (direction.exposure=1.0 满 + family=0.90 高位)
+>
+> **Operations**　direction `productive` 保持 + `priority: high` 保持 (本批 admit 强信号 + 第 9 admit + magnitude-product 新 thread 空间) · T011 `[◉ ACTIVE] → [✓ ANSWERED batch_059]` (sign-only 路径封闭, magnitude-weighted 路径兑现 admit) · T012 evidence trail 追加 (b059 C001/C002/C005/C006) 状态保持 ACTIVE 但 atom 几何已穷尽,需新 normalization 或非线性变换 · T013 新建 ACTIVE (sign-离散化 cross-section rank 普适性) · Python 在 Phase 4 backfill F{next} 链接
+
+> [!quote]- 2026-04-25 · [[batches/batch_058/judge|batch_058]] · 8th admit · T011/T012 双新 thread 启动
 > **8th admit · T012 close_position_amount_accel_rd_20** · admit=1 (C004) / reserve=2 (C001/C005) / reject=3 (C002/C003/C006)
 >
 > - **T012 首兑现 (close-position-in-range × amount accel)**：C004 `Sub(CsRank(Mean((C-L)/(H-L),20)), CsRank(amount_5/60))` IC_OOS=0.029 ICIR=0.36 + alpha_surv=**0.43 (本批 admit 最高)** + style_r²=**0.13 (本批最低)** + max_corr=**0.283@F006 + incr_ic=0.012** + cum_ic_mdd=**-1.03 (本批最浅)** + worst_quarter_ic=+0.0017 **永正** + 9/9 年区间窄稳定 → **admit**。**LHS atom (C-L)/(H-L) 是结构性 vol_20d 正交 atom 兑现** (cockpit constraint)：0-1 normalization 让 alpha 不嵌入 vol 量级。
