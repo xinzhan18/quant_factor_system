@@ -60,7 +60,11 @@ def _parse_frontmatter(path: Path) -> dict[str, Any]:
 
 
 def load_findings(findings_dir: Path) -> list[FindingMeta]:
-    """Load all ``F*.md`` in *findings_dir* into ``FindingMeta`` objects.
+    """Load every finding md under *findings_dir* into ``FindingMeta``.
+
+    Scans recursively to support both layouts:
+      - legacy flat: ``findings/F001.md``
+      - new per-specialist: ``findings/{specialist}/001.md``
 
     Returns empty list when the directory doesn't exist or is empty. Files
     with invalid frontmatter are skipped silently — the specialist subagent
@@ -70,7 +74,7 @@ def load_findings(findings_dir: Path) -> list[FindingMeta]:
     if not findings_dir.exists():
         return []
     out: list[FindingMeta] = []
-    for md in sorted(findings_dir.glob("F*.md")):
+    for md in sorted(findings_dir.rglob("*.md")):
         fm = _parse_frontmatter(md)
         finding_id = str(fm.get("finding_id") or "")
         specialist = str(fm.get("specialist") or "")

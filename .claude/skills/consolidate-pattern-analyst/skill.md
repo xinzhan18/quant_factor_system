@@ -1,6 +1,6 @@
 ---
 name: consolidate-pattern-analyst
-description: Phase 5 Distillation Specialist — 扫最近 judge.md + 所有 direction 找跨方向模式（同一 dominant_style 吸收律 / 同构失败机制），产出 findings/F{NNN}.md
+description: Phase 5 Distillation Specialist — 扫最近 judge.md + 所有 direction 找跨方向模式（同一 dominant_style 吸收律 / 同构失败机制），产出 findings/pattern_analyst/{NNN}.md
 user_invocable: false
 ---
 
@@ -17,11 +17,17 @@ Read `storage/vault/_consolidation/packet_specialist_pattern_analyst.md` 全文�
 
 ## 输出
 
-把发现写成 `storage/vault/_consolidation/findings/F{NNN}.md`，**一个 finding 一个文件**（`NNN` 从 001 递增，若已有占用则接续）。每个文件：
+写到本 specialist 自己的子文件夹：`storage/vault/_consolidation/findings/pattern_analyst/{NNN}.md`，**一个 finding 一个文件**。
+
+- `NNN` 从 `001` 开始，3 位 zero-padded（001 / 002 / ...），若同子文件夹已有占用则接续最大号
+- 子文件夹 = 命名空间，避免和其他 specialist 撞号
+- 路径如不存在请创建（mkdir -p）
+
+每个文件：
 
 ```markdown
 ---
-finding_id: F001
+finding_id: 001
 specialist: pattern_analyst
 severity: high | medium | low
 affected_directions: [stochastic_position, vwap_proxy_signals, range_structure, quantile_shape_signals]
@@ -33,7 +39,7 @@ suggested_lesson_text: |
   逃离路径仅二：(a) Python 残差化工具链 orthogonalize；(b) 非 daily-bar 数据。
 ---
 
-# F001 · vol_20d 吸收 2nd-moment 空间
+# pattern_analyst/001 · vol_20d 吸收 2nd-moment 空间
 
 ## Pattern（1 段描述）
 
@@ -49,6 +55,8 @@ suggested_lesson_text: |
 
 - {affected_directions 每个}：Narrative Log 加 ⚠️，引用本 finding
 ```
+
+`finding_id` 字段只填**纯数字**（如 `001`）；specialist 命名空间靠路径 + frontmatter 的 `specialist` 字段表达。Wikilink 用 `[[_consolidation/findings/pattern_analyst/001]]`。
 
 ## 识别启发
 

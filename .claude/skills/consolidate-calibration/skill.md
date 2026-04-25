@@ -1,6 +1,6 @@
 ---
 name: consolidate-calibration
-description: Phase 5 Distillation Specialist — 扫最近 judge.md 的阈值校准诊断段，提出具体阈值调整建议；产出 findings/F{NNN}.md
+description: Phase 5 Distillation Specialist — 扫最近 judge.md 的阈值校准诊断段，提出具体阈值调整建议；产出 findings/calibration/{NNN}.md
 user_invocable: false
 ---
 
@@ -16,11 +16,15 @@ Read `storage/vault/_consolidation/packet_specialist_calibration.md` 全文—�
 
 ## 输出
 
-`storage/vault/_consolidation/findings/F{NNN}.md`：
+写到本 specialist 自己的子文件夹：`storage/vault/_consolidation/findings/calibration/{NNN}.md`，**一个 finding 一个文件**。
+
+- `NNN` 从 `001` 开始，3 位 zero-padded，已有则接续
+- 子文件夹 = 命名空间，避免和其他 specialist 撞号
+- 路径如不存在请创建（mkdir -p）
 
 ```markdown
 ---
-finding_id: F006
+finding_id: 001
 specialist: calibration
 severity: medium
 affected_directions: [range_structure, quantile_shape_signals]
@@ -34,7 +38,7 @@ suggested_threshold_change:
   candidates_affected_retro: [batch_043/C004, batch_044/C005]
 ---
 
-# F006 · 阈值校准加 mono_is ≥ 0.6 第五要件
+# calibration/001 · 阈值校准加 mono_is ≥ 0.6 第五要件
 
 ## 证据
 

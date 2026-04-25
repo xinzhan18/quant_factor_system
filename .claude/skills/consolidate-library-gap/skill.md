@@ -1,6 +1,6 @@
 ---
 name: consolidate-library-gap
-description: Phase 5 Distillation Specialist — 扫 admitted factors + recent reject patterns 找结构性缺口（未被探索的 signal family），产出 findings/F{NNN}.md
+description: Phase 5 Distillation Specialist — 扫 admitted factors + recent reject patterns 找结构性缺口（未被探索的 signal family），产出 findings/library_gap/{NNN}.md
 user_invocable: false
 ---
 
@@ -17,11 +17,15 @@ Read `storage/vault/_consolidation/packet_specialist_library_gap.md` 全文—�
 
 ## 输出
 
-`storage/vault/_consolidation/findings/F{NNN}.md`：
+写到本 specialist 自己的子文件夹：`storage/vault/_consolidation/findings/library_gap/{NNN}.md`，**一个 finding 一个文件**。
+
+- `NNN` 从 `001` 开始，3 位 zero-padded，已有则接续
+- 子文件夹 = 命名空间，避免和其他 specialist 撞号
+- 路径如不存在请创建（mkdir -p）
 
 ```markdown
 ---
-finding_id: F004
+finding_id: 001
 specialist: library_gap
 severity: medium
 affected_directions: []                    # gap 类 finding 通常不直接"影响"现有方向
@@ -30,7 +34,7 @@ batches_referenced: [batch_030, ..., batch_044]
 suggested_new_direction: "orthogonal_residual_signals"   # 若建议新方向
 ---
 
-# F004 · 所有 admitted 都是 single-window，没有 multi-horizon blend
+# library_gap/001 · 所有 admitted 都是 single-window，没有 multi-horizon blend
 
 ## Observation
 
@@ -42,6 +46,8 @@ suggested_new_direction: "orthogonal_residual_signals"   # 若建议新方向
 
 ...
 ```
+
+`finding_id` 字段填**纯数字**（如 `001`）；specialist 命名空间靠路径 + frontmatter `specialist` 字段表达。Wikilink 用 `[[_consolidation/findings/library_gap/001]]`。
 
 ## 识别启发
 

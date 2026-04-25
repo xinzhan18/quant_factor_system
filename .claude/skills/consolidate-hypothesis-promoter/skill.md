@@ -1,6 +1,6 @@
 ---
 name: consolidate-hypothesis-promoter
-description: Phase 5 Distillation Specialist — 扫所有 direction 找 dead/saturated 方向中值得升格到 lessons.md 的元教训，产出 findings/F{NNN}.md
+description: Phase 5 Distillation Specialist — 扫所有 direction 找 dead/saturated 方向中值得升格到 lessons.md 的元教训，产出 findings/hypothesis_promoter/{NNN}.md
 user_invocable: false
 ---
 
@@ -14,11 +14,15 @@ Read `storage/vault/_consolidation/packet_specialist_hypothesis_promoter.md` 全
 
 ## 输出
 
-`storage/vault/_consolidation/findings/F{NNN}.md`：
+写到本 specialist 自己的子文件夹：`storage/vault/_consolidation/findings/hypothesis_promoter/{NNN}.md`，**一个 finding 一个文件**。
+
+- `NNN` 从 `001` 开始，3 位 zero-padded，已有则接续
+- 子文件夹 = 命名空间，避免和其他 specialist 撞号
+- 路径如不存在请创建（mkdir -p）
 
 ```markdown
 ---
-finding_id: F007
+finding_id: 001
 specialist: hypothesis_promoter
 severity: high
 affected_directions: [return_distribution_signals, asymmetric_momentum, vol_shock_signals]
@@ -33,7 +37,7 @@ suggests_direction_status_change:
   return_distribution_signals: dead → archived   # 经验已升格，方向可归档
 ---
 
-# F007 · Sign-conditional return 拆分放大 regime 敏感度
+# hypothesis_promoter/001 · Sign-conditional return 拆分放大 regime 敏感度
 
 ## 该升格的 narrative 元素
 
