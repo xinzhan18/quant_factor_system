@@ -106,15 +106,15 @@ merged_into: null
 
 ## Promoted Lessons
 
-1. **alpha_survival 是 vol_20d 衍生判别量**：>1.0 = Barra 空间独立载体；<<0.40 = vol 衍生（Mean-base）。**例外**：rank-diff geometry 因 CsRank Sub 必然部分映射到 cross-sectional dispersion，alpha_surv 0.30-0.40 区间是真实信号 + 必然 style coupling，不是 alpha 弱（F019 admit alpha_surv=0.21 仍 admit 即此机制；config 已 codify `alpha_surv_min.rank_diff=0.30`，见 [[F200]]）。
+1. **alpha_survival 是 vol_20d 衍生判别量**：>1.0 = Barra 空间独立载体；<<0.40 = vol 衍生（Mean-base）。**例外**：rank-diff geometry 因 CsRank Sub 必然部分映射到 cross-sectional dispersion，alpha_surv 0.30-0.40 区间是真实信号 + 必然 style coupling，不是 alpha 弱（F019 admit alpha_surv=0.21 仍 admit 即此机制；config 已 codify `alpha_surv_min.rank_diff=0.30`，见 [[_consolidation/findings/calibration/001]]）。
 2. **5d 是 Mean-base OHLC aggregation sweet spot**：单日（intraday saturated）与 20d（vol-coupled）之间。但 **higher-moment 突破 sweet spot 约束**：Std(body_ratio,**20**d) 反而成为独立轴（窗口约束随 moment 阶数变化）。
 3. **信号家族 multi-window 不对称**：upper-shadow [3d, 7d] 稳；open-position 严格 5d-only（3d mono_sign_flip IS=-1.00 OOS=+0.90）；≥10d Mean-base 跨 phase 反转。
 4. **OHLC 三段约束 → algebraic mirror trap**：lower-shadow ≡ -upper-shadow（corr=1.000@F006），signed-range 与 F006 高 corr；三段 ratio 任意两端代数互补。
 5. **Magnitude-only / turnover-wt / discrete count 全部失败**（Mean-base 维度）：signed 方向性是 OHLC Mean 信号必要条件，turnover 不构成独立 OHLC 轴。
-6. **rank-diff × OHLC 兑现两条件**（F019 提取，[[F305]] 升格）：(a) higher-moment LHS（Std/Skew/Kurt vs 库内全 Mean-base, 完全独立轴）+ (b) RHS 跳出 turnover/amount/overnight cluster（price_vol 是新 basis）。两条件单独均不足，叠加才 max_corr<0.30。
+6. **rank-diff × OHLC 兑现两条件**（F019 提取，[[_consolidation/findings/hypothesis_promoter/006]] 升格）：(a) higher-moment LHS（Std/Skew/Kurt vs 库内全 Mean-base, 完全独立轴）+ (b) RHS 跳出 turnover/amount/overnight cluster（price_vol 是新 basis）。两条件单独均不足，叠加才 max_corr<0.30。
 7. **sign aggregation 不可盲目跨字段泛化**（T011 [✗]）：alpha 来自 underlying field 的 persistent drift，非 Sign() 操作几何性质。overnight 有 institutional accumulation drift（F018），intraday body 是 random walk（b017 C003 / b050 C006 双例 reject）。Phase 1 设计 sign 候选必须先核 underlying drift。
-8. **rank-diff geometry 7 条硬约束（系统级，[[F002]]）**：(1) 两端 scale-invariance；(2) raw field 独立；(3) 同字段跨窗口禁止；(4) Sub 方向对偶 dedup；(5) 同批 LHS 共享 anchor rule；(6) RHS 共振饱和（dead endpoints 动态：overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20）；(7) factor-anchored cluster（saturated 方向 anchor 消化新候选）。本方向 b050 C001-C004 reject 全验证。
-9. **incr_ic borderline 死区律（[[F203]]）**：max_corr ∈ [0.30, 0.70] 时 incr_ic 必须 ≥ 0.015 才 admit-eligible；本方向 b050 C001 (incr=0.013, max_corr=0.50) 即在死区。设计期 self-prune 0.008-0.013 incr_ic 候选。
+8. **rank-diff geometry 7 条硬约束（系统级，[[_consolidation/findings/pattern_analyst/002]]）**：(1) 两端 scale-invariance；(2) raw field 独立；(3) 同字段跨窗口禁止；(4) Sub 方向对偶 dedup；(5) 同批 LHS 共享 anchor rule；(6) RHS 共振饱和（dead endpoints 动态：overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20）；(7) factor-anchored cluster（saturated 方向 anchor 消化新候选）。本方向 b050 C001-C004 reject 全验证。
+9. **incr_ic borderline 死区律（[[_consolidation/findings/calibration/004]]）**：max_corr ∈ [0.30, 0.70] 时 incr_ic 必须 ≥ 0.015 才 admit-eligible；本方向 b050 C001 (incr=0.013, max_corr=0.50) 即在死区。设计期 self-prune 0.008-0.013 incr_ic 候选。
 
 ---
 
@@ -147,7 +147,7 @@ merged_into: null
 
 - **T001 多日 smoothed signed body** [✗ DISPROVEN batch_017]：5d (b017 C001) Barra-clean 但 incr_ic=-0.050 cum_dd=-105；20d (b017 C002) r²=0.638 vol-coupled。signed body 本身非独立轴。
 - **T003 多端点 OHLC aggregation** [✓ ANSWERED batch_017-021]：5d aggregation ≥3 独立 admit (F006 upper-shadow + F007 open-position + F008 3d phase)。Window 规律：upper-shadow [3d,7d] 稳但 ≥7d corr 逼近 F006；open-position 严格 5d-only；≥10d 跨 phase 反转。Magnitude-only / discrete / turnover-wt / Donchian 全 fail。Mean-base 维度饱和，admit 率 25%→14%。
-- **T010 rank-diff × OHLC family** [✓ ANSWERED batch_050]：兑现需 (a) higher-moment LHS + (b) RHS 跳出已饱和 cluster。F019 双新维度叠加 → max_corr=0.270 整库最干净 + 与 4 admitted rank-diff 全 <0.25。**rank-diff 范式第 5 次跨家族 tipping point 正式确认**（已升格 Lesson 6 + [[F305]]）。
+- **T010 rank-diff × OHLC family** [✓ ANSWERED batch_050]：兑现需 (a) higher-moment LHS + (b) RHS 跳出已饱和 cluster。F019 双新维度叠加 → max_corr=0.270 整库最干净 + 与 4 admitted rank-diff 全 <0.25。**rank-diff 范式第 5 次跨家族 tipping point 正式确认**（已升格 Lesson 6 + [[_consolidation/findings/hypothesis_promoter/006]]）。
 - **T011 sign aggregation 跨字段泛化** [✗ DISPROVEN batch_050]：alpha 来自 underlying drift 非 Sign() 几何（已升格 Lesson 7）。
 
 ---
@@ -164,7 +164,7 @@ merged_into: null
 | [[batches/batch_021/candidates/C001\|b021 C001]] | 3d open-position Mean | mono_sign_flip（F007 5d-only）|
 | [[batches/batch_021/candidates/C003\|b021 C003]] | turnover-wt body sign 5d | corr=0.579@F007（turnover 非新轴）|
 | [[batches/batch_050/candidates/C002\|b050 C002]] | close/high × amount_10 rank-diff | max_corr=0.611@F018 + alpha_surv=0.27 + vol_20d=53（约束 7 RHS cluster）|
-| [[batches/batch_050/candidates/C004\|b050 C004]] | gap_to_range × pb_60 rank-diff | incr_ic=0.003 < 0.015 borderline 死区（[[F203]]）|
+| [[batches/batch_050/candidates/C004\|b050 C004]] | gap_to_range × pb_60 rank-diff | incr_ic=0.003 < 0.015 borderline 死区（[[_consolidation/findings/calibration/004]]）|
 | [[batches/batch_050/candidates/C006\|b050 C006]] | body_sign × pb_20 rank-diff | hard_gate；intraday body sign random walk（b017 C003 教训复现）|
 
 ---
