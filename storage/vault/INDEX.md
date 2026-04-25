@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-04-25T09:10:22Z
-round: 55
+generated_at: 2026-04-25T10:11:06Z
+round: 56
 total_active_directions: 13
 total_factors_admitted: 20
-last_batch: batch_055
+last_batch: batch_056
 last_consolidation_round: null
 ---
 
@@ -15,13 +15,12 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**55** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_055/judge|batch_055]] → [[directions/range_structure]] · admit=**1**/6 (reserve=0, reject=5) · direction.status=`productive`
-> **健康** · rounds_since_consolidation=**1** · active_directions=**13**
-> **⚠️ 预警** · 空 factor.md: F021
+> **状态** · round=**56** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_056/judge|batch_056]] → [[directions/range_structure]] · admit=**0**/6 (reserve=1, reject=5) · direction.status=`saturated`
+> **健康** · rounds_since_consolidation=**2** · active_directions=**13** · zero-admit streak=**1**
 >
 > **🎯 下一步（按优先级）**
-> 1. ⚠️ **修空报告**：F021 的 `.md` 为空或缺 H1 → 对每个 F{id} 重新 dispatch `/factor-report` subagent
+> 1. 🆕 **选新方向**：`snapshot --recent 10` 从 `status=productive/exploring` 里挑 rounds 最少；或读 `lessons.md` 的 Promising Unexplored
 > 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
@@ -55,7 +54,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **55** · Admitted: **20** · Active directions: **13**
-> - Last batch: **batch_055**
+> - Round: **56** · Admitted: **20** · Active directions: **13**
+> - Last batch: **batch_056**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移

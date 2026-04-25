@@ -1,21 +1,23 @@
 ---
 direction_tag: range_structure
-status: productive
+status: saturated
 priority: medium
-rounds: 5
+rounds: 6
 admits: 2
-last_batch: batch_055
-last_admits:
-- F021
-last_goal: T001 Round 3 Kurt-centric × rank-diff 几何融合：将 b045 C001 reserve 的 Kurt60
-  LHS 升级为 rank-diff 形态以激活 vol_20d 逃离路径 (P002 升格设计轴)，并测 range-derived 高阶矩 LHS × 非饱和
-  RHS basis (volume_60/pe_60/up_freq_20/vwap_60/range_compress_60/circ_mktcap_60)
-  6 候选。LHS 全部 range-structure native 且与 F019(body_ratio Std)/F020(gap_ret Std) anti-anchor
-  (LHS atom 完全异源)；RHS 全避开 saturated endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/Amihud_20)。设计纪律
-  mono_is>=0.6 硬下界 (b045 经验) + 单层 higher-moment + scale-free 三条件 (F019/F020 安全 recipe)。预期
-  ≥1 admit 验证 'higher-moment LHS × 非饱和 RHS' 在 range family 兑现 P002 跨 5 family 第 6
-  admit；range_structure direction 0→1 admit 推进 exploring→productive。
-last_activity: '2026-04-25T09:10:22Z'
+last_batch: batch_056
+last_admits: []
+last_goal: T003 round 1 — 沿 F021 (C005 admit) 衍生 intraday position dispersion family。6
+  LHS 全部为不同 numerator 的 close/open/prev_close 在 H-L 范围内的 position Std 二阶矩 (开盘下/上影位置/return-per-range/gap/range/composite
+  midpoint)，与 F021 atom (H-C)/(H-L) 不同 numerator 且非 affine 等价；F019 (|C-O|/(H-L) Std)
+  与 F020 (gap_ret Std) 也完全异源。RHS 全部 long-window (60d) scale-free fundamental/liquidity
+  几何 ratio (VWAP magnitude/ROE proxy/vwap-close ratio/margin proxy/turn-pb composite/turnover$)，不重叠
+  F021 RHS H/L_60、不在 saturated endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/Amihud_20)、避开
+  size RHS (b055 C006 教训)、避开 sign-aggregation RHS (b055 C003 教训)。设计纪律：mono_is>=0.6
+  硬下界 + 单层 二阶矩 (Std 而非 Skew/Kurt 避 P003 单飞律) + scale-free positive ratio 三条件；规避 TsKurt/TsSkew
+  内嵌 CsRank (operators.py:428 bug)；rank-diff geometry 7 律 max_corr@F021<0.30 + max_corr@all_rank_diff<0.30。预期至少
+  1 admit 验证 intraday position dispersion family 在 F021 之外可扩展，确认 'lower-shadow / open-position
+  / midpoint-deviation 等同 LHS 几何位置 × 不同 RHS basis' 是 range_structure direction 的可挖路径。
+last_activity: '2026-04-25T10:11:06Z'
 created_batch: batch_043
 members:
 - F021
@@ -118,9 +120,14 @@ csi1000 特征：
 > **Question**: 在 C005 admit (Std((H-C)/(H-L), 20) × Mean(H/L, 60)) 验证"intraday position dispersion × long-window scale-free RHS"成功后，该 LHS atom family 是否可扩展？具体试 (C-L)/(H-L) Std (lower-shadow position)、(C-prev_close)/(H-L) Std (gap-anchored position)、Mean(body_position, N) Std 等其它 intraday position atoms × 不同 long-window scale-free RHS。
 >
 > **Evidence trail**:
-> - 待 batch_056 探索
+> - [[batches/batch_056/candidates/C001|batch_056 C001]]　Sub(CsRank(Std((O-L)/(H-L),20)), CsRank(Mean(amount/volume,60))) — open lower-shadow position dispersion × 60d VWAP magnitude — ic_oos=+0.021 + mono_oos=+1.0 完美 + cum_mdd=-4.06 极浅 + incr_ic=+0.0085 库增值 + max_corr=0.50@F019 + 9 年 U-shape 近 3 年同号加强；但 alpha_survival=0.24 < 0.40 + style_r²=0.17 边界 + ICIR=0.17 weak + max_lib_corr=0.50 medium → **reserve**（family 部分扩展验证；C001 真错杀诊断挂起）
+> - [[batches/batch_056/candidates/C002|batch_056 C002]]　Sub(CsRank(Std((H-O)/(H-L),20)), CsRank(Mean(pe/pb,60))) — open upper-shadow position × ROE proxy — hard_gate fail (sign_flip train+0.002 vs val-0.008 + oos_decay=-4.34) → **reject**（IS/OOS 完全反转）
+> - [[batches/batch_056/candidates/C003|batch_056 C003]]　Sub(CsRank(Std((C-prev_C)/(H-L),20)), CsRank(Mean(amount/(close*volume),60))) — daily return-per-range × VWAP/close 60d — mono collapse -0.90→-0.10 + incr=-0.006 + vol_20d=47.2 + max_corr=0.65@F014 → **reject**（hypothesis vol_20d 吸收律完整命中）
+> - [[batches/batch_056/candidates/C004|batch_056 C004]]　Sub(CsRank(Std((O-prev_C)/(H-L),20)), CsRank(Mean(pe/ps,60))) — overnight-gap-per-range × margin proxy — ls_t=4.62 strong + mono=+1.0 完美 但 incr=-0.0024 NEG + alpha_surv=0.27 → **reject**（"strong-mono+strong-ls_t but library reducer" 第 5 次复现）
+> - [[batches/batch_056/candidates/C005|batch_056 C005]]　Sub(CsRank(Std((H-prev_C)/(H-L),20)), CsRank(Mean(turnover/pb,60))) — high-overnight-gap-per-range × turn-pb composite — hard_gate fail (ic_oos=-0.0042 < 0.008 + mono_oos=-0.90 strong-but-weak-IC) → **reject**
+> - [[batches/batch_056/candidates/C006|batch_056 C006]]　Sub(CsRank(Std(((C+O)-(H+L))/(H-L),20)), CsRank(Mean(amount/market_cap,60))) — composite midpoint deviation × turnover-by-value 60d — ic_oos=+0.025 表面 strong 但 alpha_surv=0.0725 极端 + ls_t=0.90 weak + vol_20d=30.67 + incr≈0 → **reject**（"vol_20d IC 假象"诊断典型）
 >
-> **Next probes**: 6 候选优先 intraday position 衍生 + 60d 几何 RHS（H/L Mean / amount/volume Mean / body_position Mean）；避免短窗 + saturated RHS + sign-aggregation RHS；规避 60d Std 长窗 + size RHS（C006 教训）
+> **Next probes (round 2)**: sub-path A — 沿 C001 (O-L)/(H-L) atom 衍生 × 长窗几何 RHS (H/L 60d / 其它 turnover-orthogonal)；sub-path B — (C-L)/(H-L) Std lower-shadow-close-position × C001 同款 RHS。避免：daily return / overnight gap as numerator (b056 C003/C004/C005)、composite midpoint (b056 C006)、pe/pb / pe/ps / turnover/pb 60d 复合 fundamental RHS (b056 C002/C004/C005 三连 reject)。
 
 ### T002: Range 短/长比与变化率是否独立于 F001 amount CV [✗ DISPROVEN batch_043]
 
@@ -153,10 +160,30 @@ csi1000 特征：
 | [[batches/batch_055/candidates/C003\|batch_055 C003]] | `Sub(CsRank(Std(H/L,20)), CsRank(Mean(Sign(Δclose),20)))` | vol_20d exp=58.1 (本批最高) + str_1m exp=3.84 双 style 强吸收 + incr_ic≈0 (库零增值) + ls_t IS-5.23 OOS-1.39 衰减 0.27 — sign-aggregation as RHS basis 路径封闭 |
 | [[batches/batch_055/candidates/C004\|batch_055 C004]] | `Sub(CsRank(Mean((H-L)/prev_close,20)), CsRank(Mean(VWAP,60)))` | mono paradox -1.0→-0.30 第 3 次复现 (b043+b045+b055 C004) + ls_t=-0.65 weak + incr_ic=-0.007 NEG + LHS 触 F005 algebraic mirror |
 | [[batches/batch_055/candidates/C006\|batch_055 C006]] | `Sub(CsRank(Std((H-L)/C,60)), CsRank(Mean(circ_market_cap,60)))` | style_r²=0.75 (本批最高) + log_circ_cap exp=0.586 + alpha_surv=0.71 假象 + mono OOS collapse 0.40→-0.10 + incr_ic=-0.012 NEG — 60d 长窗 Std 未替代 Kurt 稳健性反深陷 vol+size 双吸收 |
+| [[batches/batch_056/candidates/C002\|batch_056 C002]] | `Sub(CsRank(Std((H-O)/(H-L),20)), CsRank(Mean(pe/pb,60)))` | hard_gate fail：sign_flip train +0.002 vs val -0.008 + oos_decay=-4.34 + mono_oos 从 +1.0 崩到 +0.10 + ic_by_year 2015-2018 全正后 2019-2023 全负 regime shift（pe/pb ROE proxy + open upper-shadow 在 csi1000 IS/OOS 完全反转）|
+| [[batches/batch_056/candidates/C003\|batch_056 C003]] | `Sub(CsRank(Std((C-prev_C)/(H-L),20)), CsRank(Mean(amount/(close*volume),60)))` | mono collapse -0.90→-0.10 (Q5 一桨驱动) + incr_ic=-0.006 NEG (与 F014 max_corr=0.65 高) + vol_20d=47.2 极端 + style_r²=0.29 + alpha_surv=0.09 + cum_mdd=-38（daily return-per-range 完整命中 hypothesis vol_20d 吸收律警告）|
+| [[batches/batch_056/candidates/C004\|batch_056 C004]] | `Sub(CsRank(Std((O-prev_C)/(H-L),20)), CsRank(Mean(pe/ps,60)))` | ls_t=4.62 strong + mono=+1.0 完美 但 incr_ic=-0.0024 NEG + alpha_surv=0.27 + dom=vol_20d (exp=12.1) — "strong-mono+strong-ls_t but library reducer" 陷阱第 5 次复现 (b042 C005 / b043 C005-C006 / b045 C006 / b055 C002 / b056 C004)，应升格 lessons.md |
+| [[batches/batch_056/candidates/C005\|batch_056 C005]] | `Sub(CsRank(Std((H-prev_C)/(H-L),20)), CsRank(Mean(turnover/pb,60)))` | hard_gate fail：ic_oos=-0.0042 < 0.008 + mono_oos=-0.90 strong-but-weak-IC + sign_consistency=0.75 — high-overnight-gap-per-range × turn-pb composite RHS 即使 mono 完美 IC 量级不通过门槛 |
+| [[batches/batch_056/candidates/C006\|batch_056 C006]] | `Sub(CsRank(Std(((C+O)-(H+L))/(H-L),20)), CsRank(Mean(amount/market_cap,60)))` | ic_oos=+0.025 表面 strong + mono=+0.90 + cum_mdd=-2.75 极浅 + ic_by_year 9 年单调增强；但 alpha_survival=**0.0725** 极端 poor (本批最低) + vol_20d_exp=30.67 极端 + ls_t_oos=0.90 weak + incr_ic≈0 — "vol_20d IC 假象"诊断典型，alpha_survival << 0.10 比 style_r² 边界更敏感地揭示残余 alpha 几乎为零 |
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_055/judge|batch_055]]
+> [!quote]+ 2026-04-25 · [[batches/batch_056/judge|batch_056]]
+> **T003 round 1：intraday position dispersion family 沿 C005 衍生 0 admit / 1 reserve / 5 reject — 但 C001 (open lower-shadow position × VWAP magnitude) reserve 维持 family 部分可扩展**
+>
+> - **C001 → reserve**：Sub(CsRank(Std((O-L)/(H-L), 20)), CsRank(Mean(amount/volume, 60)))。ic_oos=+0.021 + mono_oos=+1.0 完美 + cum_mdd=-4.06 极浅 + incr_ic=+0.0085 库增值 + 9 年 U-shape 近 3 年同号加强 + max_corr=0.50@F019 medium；但 alpha_survival=0.24 < 0.40 + style_r²=0.17 边界 + ICIR=0.17 weak + max_lib_corr=0.50 阻止 admit。**真错杀诊断挂起**：等待 round 2 沿 (O-L)/(H-L) atom 衍生 1-2 独立 RHS 候选后再判 (Calibration trigger 候选 #1)。
+> - **C002/C005 → reject (CP01 hard_gate fail)**：C002 sign_flip+oos_decay 双失败 (pe/pb ROE proxy + open upper-shadow IS/OOS 完全反转)；C005 ic_oos=-0.0042 < 0.008 (high-overnight-gap-per-range × turn-pb composite RHS 即使 mono 完美 IC 不达门槛)。
+> - **C003 → reject**：daily return-per-range × VWAP/close 60d，mono collapse -0.90→-0.10 + incr=-0.006 + vol_20d=47.2 + max_corr=0.65@F014 — **完整命中 hypothesis vol_20d 吸收律警告**（daily return as numerator 是设计违规）。
+> - **C004 → reject (library reducer 第 5 次复现)**：overnight-gap-per-range × pe/ps margin proxy，ls_t=4.62 strong + mono=+1.0 完美但 incr_ic=-0.0024 + alpha_surv=0.27——"strong-mono+strong-ls_t but library reducer" 陷阱第 5 次独立确认 (b042/b043/b045/b055/b056)，**应升格 lessons.md**。判别要件已稳定：mono_oos≥0.9 + |ls_t_oos|≥3.0 + incr_ic<0 + alpha_surv<0.30。
+> - **C006 → reject (vol_20d IC 假象诊断典型)**：composite midpoint deviation × turnover-by-value 60d，ic_oos=+0.025 表面 strong 但 alpha_survival=**0.0725** 极端 poor + ls_t_oos=0.90 weak + vol_20d_exp=30.67 极端 + incr≈0——揭示 **alpha_survival << 0.10 比 style_r² 边界更敏感地诊断"vol_20d 完全吞噬"**（本案 style_r²=0.21 仅 borderline 但 alpha 几乎全被 style 占走）。
+> - **rank-diff geometry library reducer 第 5 次复现 + alpha_survival 灵敏度细化** 是本批两条结构性发现，应升格 lessons.md
+> - MT budget cumulative 288 → **294** · direction 12 → **18** · bucket `high` (adjusted `medium`)
+>
+> **下一步**: T003 round 2 — sub-path A: 沿 C001 (O-L)/(H-L) atom 衍生 × 不同长窗几何 RHS (H/L 60d / 其它 turnover-orthogonal 长窗 ratio)；sub-path B: (C-L)/(H-L) Std lower-shadow-close-position × C001 同款 RHS。避免：daily return / overnight gap as numerator (b056 C003/C004/C005)、composite midpoint (b056 C006)、pe/pb 60d / pe/ps 60d / turnover/pb 60d 类 fundamental composite RHS (三连 reject)。
+>
+> **Operations**: `status: productive` 保持（C001 reserve 维持 family 可扩展嫌疑 + 库增值数据点）· `priority: medium` 保持（admit=0 但 reserve 数据点真实，未达 saturated 触发）
+
+> [!quote]- 2026-04-25 · [[batches/batch_055/judge|batch_055]]
 > **range family 首 admit！P002 rank-diff geometry 跨 5 family 第 6 admit 兑现** · admit=1 (C005→F{next} upper_shadow_disp_range_compress_rd_20) / reserve=0 / reject=5
 >
 > - **C005 → admit**：Sub(CsRank(Std((H-C)/(H-L), 20)), CsRank(Mean(H/L, 60)))。ic_oos=+0.043 + mono_oos=+1.00 完美 + cum_mdd=-1.14 库内最浅 + ic_by_year 9 年单调增强 (+0.013→+0.046) + max_corr=0.44@F020 反向互补 + incr_ic=+0.008 库增值 + style_crowding=medium (本批 6 候选唯一非 high)。突破点：**LHS 是 close 在 H-L 范围内的 position dispersion 而非 range magnitude**——这是 vol_20d 吸收律之外首条成功路径。
