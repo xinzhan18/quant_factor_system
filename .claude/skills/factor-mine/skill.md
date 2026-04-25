@@ -46,7 +46,7 @@ PYTHONPATH=src python3 -m research doctor
 
 3. **Read `vault/INDEX.md`** 顶部 `<!-- BEGIN COCKPIT -->` 块 + `<!-- BEGIN HOT-TOPICS-LLM -->` 块：state.phase + current_batch + last_batch 摘要 + rounds_since_consolidation + zero_admit_streak + **🎯 下一步**，以及 Phase C Pattern Scout 维护的 **🔥 Hot Topics**。
 
-4. **Pattern Scout 触发**：若 `rounds_since_consolidation ≥ 3` 且 `batches_dir` 有 ≥5 批历史 → 执行 `research pattern-scout --recent 10`（Python 侧写 packet），然后 `Agent(subagent_type=general-purpose, prompt="调用 /pattern-scout skill 读 packet，并只改写 INDEX.md 的 HOT-TOPICS-LLM sentinel 块，返回 ≤10 行 summary")`。拿到 summary 后跑 `research audit index --repair`，再回读 INDEX。首次启动 / 无 pattern 变化时可跳过。
+4. **Pattern Scout 触发**（启动时一次）：若 `rounds_since_consolidation ≥ 3` 且 `batches_dir` 有 ≥5 批历史 → 执行 `research pattern-scout --recent 10`（Python 侧写 packet），然后 `Agent(subagent_type=general-purpose, prompt="调用 /pattern-scout skill 读 packet，并只改写 INDEX.md 的 HOT-TOPICS-LLM sentinel 块，返回 ≤10 行 summary")`。拿到 summary 后跑 `research audit index --repair`。**Loop 内每 3 轮也会重检一次**（见 §Loop step 4），保持 HOT-TOPICS 在 consolidation 之间不停滞。首次启动 / 无 pattern 变化时可跳过。
 
 5. **（按需）Read 上一批相关 direction.md 的 Narrative Log 最新一段**——含 `**下一步**:` 字段，是 /factor-judge 上轮写入的 forward-looking 建议。权威源是 direction.md，不冗余存储。
 
@@ -97,7 +97,18 @@ PYTHONPATH=src python3 -m research doctor
    - 迭代次数达标 → 退出
    - 方向全部 exhausted → 退出
 
-4. 回 1（下一轮启动前 `research memory refresh-index` 让 cockpit 反映最新 state）
+4. `research memory refresh-index` 让 cockpit 反映最新 state
+
+5. **Pattern Scout 周期触发**：读 state.rounds_since_consolidation，若 ≥3
+   且 `rounds_since_consolidation % 3 == 0`（即 3 / 6 / 9）→ 跑 Pattern Scout
+   流程（同 Phase 0 Step 4：`research pattern-scout --recent 10` →
+   dispatch /pattern-scout subagent → `research audit index --repair`）。
+   - 触发点 {3, 6, 9}：consolidation 周期内最多 3 次更新 HOT-TOPICS-LLM
+   - rounds_since=10 时 consolidation 自然触发，HOT-TOPICS 由下次 consolidation
+     重置点（rounds_since=3）刷新
+   - 跳过条件：上一轮已触发过同一点（防 retry 重复刷）
+
+6. 回 1
 ```
 
 **No memo 文件**：本批 finding / next_hint 已经由 /factor-judge 在 Phase 3 写入 direction.md 的 Narrative Log（`**下一步:**` 字段）——那是权威源，orchestrator 按需 Read 即可，不做冗余存储。
