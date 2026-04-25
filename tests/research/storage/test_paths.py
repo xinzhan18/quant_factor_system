@@ -47,10 +47,6 @@ class TestVaultPaths:
         assert sp.factor_md_file("F020") == sp.factors_dir / "F020.md"
         assert sp.factor_assets_dir("F020") == sp.factors_dir / "F020"
 
-    def test_consolidation_log(self, tmp_path: Path) -> None:
-        sp = StoragePaths(tmp_path)
-        assert sp.consolidation_log_file == sp.vault_meta_dir / "consolidation_log.md"
-
     def test_paper_files(self, tmp_path: Path) -> None:
         sp = StoragePaths(tmp_path)
         assert sp.paper_file("factor_miner") == sp.vault_papers_dir / "factor_miner.md"

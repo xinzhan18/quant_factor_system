@@ -79,7 +79,7 @@ Step 9  Python   删 backup + packet files（findings 进 commit 保留）
 ## 原子性保证
 
 - **state.yaml 进同一 commit**：`mark_consolidated()` 必须在 `stage_files` 之前，否则 state 变化漂出 commit，下次 git 仍 dirty
-- **commit 一次成**：rewritten + state + consolidation_log 同在一个 `[consolidate]` commit
+- **commit 一次成**：rewritten + state + findings 同在一个 `[consolidate]` commit
 - **失败回滚**：Python 管从 backup 拷回原文；subagent 不做 git 操作
 
 ## Subagent 沙箱
@@ -171,20 +171,9 @@ git revert --no-edit <consolidate-commit-hash>
 # 用 revert 而非 reset --hard——保留历史且对"commit 不在 HEAD"的情况安全
 ```
 
-## consolidation_log.md
+## 历史轨迹
 
-每次成功 append 一段到 `vault/_meta/consolidation_log.md`，**与主 commit 原子**：
-
-```markdown
-## 2026-04-15 round 45（trigger: rounds_since_last=10）
-
-**Rewrite targets**: lessons.md + 8 directions/*.md + INDEX.md
-
-**Key changes**:
-- lessons.md: 新增 "Rank on denominator 注意"
-- fundamental_price_divergence.md: T001 answered, narrative 6→2 段
-- volume_autocorrelation.md: productive → saturated（归档）
-
-**Commit**: abc1234
-**Rollback**: `git revert --no-edit abc1234`
-```
+每次 consolidation 在 git 留下一个 `[consolidate] round N: ...` commit，
+查询历史用 `git log --oneline --grep='^\[consolidate\]'`。
+每次产出的 24 个 finding 文件本身就是审计案卷，永久保留在
+`vault/_consolidation/findings/{specialist}/{NNN}.md`。无需独立 changelog。

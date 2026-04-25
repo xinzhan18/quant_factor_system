@@ -19,8 +19,8 @@ Checks:
 6. Every ``batches/*/judge.md`` carries required keys for the
    recent-batches base (``batch_id``, ``direction``, ``admit_count``,
    ``reject_count``, ``reserve_count``, ``candidate_count``).
-7. INDEX body contains the three base embeds, ``INSIGHT`` sentinels, and
-   the LLM-owned ``HOT-TOPICS-LLM`` sentinel block.
+7. INDEX body contains the three base embeds and the LLM-owned
+   ``HOT-TOPICS-LLM`` sentinel block.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ from typing import Any
 
 import yaml
 
-from research.memory.index_narrative import INSIGHT_BEGIN, INSIGHT_END
 from research.memory.index_refresher import HOT_TOPICS_BEGIN, HOT_TOPICS_END
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import load_yaml
@@ -148,11 +147,6 @@ def _check_index_body(report: IndexAuditReport, text: str) -> None:
     ):
         if f"![[{target}]]" not in text:
             report.fail(f"INDEX body missing base embed ![[{target}]]")
-    if INSIGHT_BEGIN not in text or INSIGHT_END not in text:
-        report.fail(
-            f"INDEX body missing insight sentinels "
-            f"({INSIGHT_BEGIN!r} / {INSIGHT_END!r})"
-        )
     if text.count(HOT_TOPICS_BEGIN) != 1 or text.count(HOT_TOPICS_END) != 1:
         report.fail(
             f"INDEX body must contain exactly one hot-topics LLM block "

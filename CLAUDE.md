@@ -83,7 +83,6 @@ storage/
     directions/{tag}.md                 ← per-direction hypothesis + threads
     factors/F{id}.{yaml,md}             ← admitted factor metadata + deep report
     batches/batch_{NNN}/                ← immutable archive (manifest/result/judge + _packets/signals)
-    _meta/consolidation_log.md
   cache/                                ← parquet caches (out of vault)
   python_factors/F{id}_{name}.py        ← admitted Python factors
   _holdout_private/ _legacy/            ← LLM forbidden / archived

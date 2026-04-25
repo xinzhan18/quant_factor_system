@@ -11,9 +11,8 @@ touching historical batch artefacts:
    left at ``productive`` despite the ``→ saturated`` batch_027 judge).
 
 2. Call :func:`refresh_index` — picks up the new statuses in the auto-section
-   + regenerates the narrative sentinel blocks (最近 Batch, 活跃方向) via
-   :func:`refresh_narrative`. Also bumps ``round`` / ``last_batch`` in the
-   frontmatter to match ``state.yaml``.
+   + bumps ``round`` / ``last_batch`` in the frontmatter to match
+   ``state.yaml``.
 
 3. Report any orphan factor-report artefacts on disk — they need to be
    committed via ``research commit-report F{id}`` separately (run in the

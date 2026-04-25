@@ -8,8 +8,6 @@ from research.memory.direction_updater import update_direction_frontmatter
 from research.memory.index_refresher import (
     HOT_TOPICS_BEGIN,
     HOT_TOPICS_END,
-    INSIGHT_BEGIN,
-    INSIGHT_END,
     collect_admitted_factors,
     collect_direction_stats,
     count_admitted_factors,
@@ -109,9 +107,6 @@ class TestRefreshIndex:
         assert "![[_bases/directions.base]]" in text
         assert "![[_bases/factors.base]]" in text
         assert "![[_bases/recent_batches.base]]" in text
-        # Insight sentinel
-        assert INSIGHT_BEGIN in text
-        assert INSIGHT_END in text
         # LLM-owned hot topics sentinel
         assert HOT_TOPICS_BEGIN in text
         assert HOT_TOPICS_END in text

@@ -13,7 +13,6 @@ from research.memory.index_audit import (
     audit_index_format_or_raise,
 )
 from research.memory.index_refresher import HOT_TOPICS_BEGIN, HOT_TOPICS_END
-from research.memory.index_narrative import INSIGHT_BEGIN, INSIGHT_END
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import save_yaml
 
@@ -88,8 +87,7 @@ def _seed_minimal_vault(tmp_path: Path) -> StoragePaths:
         "![[_bases/directions.base]]\n"
         "![[_bases/factors.base]]\n"
         "![[_bases/recent_batches.base]]\n\n"
-        f"{HOT_TOPICS_BEGIN}\n> [!warning]- 🔥 Hot Topics（LLM 维护）\n> none\n{HOT_TOPICS_END}\n\n"
-        f"{INSIGHT_BEGIN}\n> body\n{INSIGHT_END}\n",
+        f"{HOT_TOPICS_BEGIN}\n> [!warning]- 🔥 Hot Topics（LLM 维护）\n> none\n{HOT_TOPICS_END}\n",
         encoding="utf-8",
     )
     return paths
@@ -148,7 +146,6 @@ class TestAuditCatches:
         )
         report = audit_index_format(paths)
         assert any("_bases/directions.base" in e for e in report.errors)
-        assert any("insight sentinels" in e for e in report.errors)
         assert any("hot-topics" in e for e in report.errors)
 
     def test_missing_hot_topics_block_fails(self, tmp_path: Path) -> None:

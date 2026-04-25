@@ -201,7 +201,7 @@ def build_packet(paths: StoragePaths, recent: int = 10) -> str:
     lines.append(
         "只替换 `<!-- BEGIN HOT-TOPICS-LLM -->` 到 "
         "`<!-- END HOT-TOPICS-LLM -->` 之间的内容；不要改 INDEX frontmatter、"
-        "COCKPIT、INSIGHT、Bases embed 或其它 sentinel。"
+        "COCKPIT、Bases embed 或其它 sentinel。"
     )
     lines.append("")
     lines.append(
