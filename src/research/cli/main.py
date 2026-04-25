@@ -214,6 +214,26 @@ def main() -> None:
         help="Leave this batch's packets intact (e.g. batch currently dispatching subagents)",
     )
 
+    # ── backtest (Phase 4 diagnostic) ─────────────────────────────────
+    bt_p = sub.add_parser(
+        "backtest",
+        help="Run portfolio backtest on an admitted factor",
+    )
+    bt_p.add_argument("--factor", required=True, help="Factor ID (e.g. F009)")
+    bt_p.add_argument("--rebalance-freq-days", type=int, default=None)
+    bt_p.add_argument("--holdings-n", type=int, default=None)
+    bt_p.add_argument(
+        "--periods",
+        type=str,
+        default=None,
+        help="Comma-separated subset of train,val,holdout (default: all)",
+    )
+    bt_p.add_argument(
+        "--no-signal-recompute",
+        action="store_true",
+        help="Use cached qfq factor values instead of recomputing on hfq",
+    )
+
     # ── parse + dispatch ──────────────────────────────────────────────
     args = parser.parse_args()
     if args.command is None:
@@ -262,6 +282,8 @@ def _dispatch(args: argparse.Namespace) -> None:
         _cmd_pattern_scout(args)
     elif cmd == "phase1":
         _cmd_phase1(args)
+    elif cmd == "backtest":
+        _cmd_backtest(args)
     elif cmd == "holdout-review":
         _cmd_holdout(args)
     elif cmd == "factor":
@@ -1074,3 +1096,18 @@ def _cmd_report(args: argparse.Namespace) -> None:
             print(f"  - {rel}")
     else:
         raise SystemExit(f"unknown report subcommand: {args.report_cmd!r}")
+
+
+def _cmd_backtest(args: argparse.Namespace) -> None:
+    from research.backtest.runner import run_backtest
+
+    cli: dict = {}
+    if args.rebalance_freq_days is not None:
+        cli["rebalance"] = {"freq_days": args.rebalance_freq_days}
+    if args.holdings_n is not None:
+        cli["portfolio"] = {"holdings_n": args.holdings_n}
+    if args.periods is not None:
+        cli["periods"] = {"run": args.periods.split(",")}
+    if args.no_signal_recompute:
+        cli["signal_recompute"] = False
+    run_backtest(args.factor, cli_overrides=cli)
