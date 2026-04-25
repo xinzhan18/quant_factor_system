@@ -1,26 +1,32 @@
 ---
 direction_tag: range_structure
-status: exploring
-priority: low
-rounds: 3
-admits: 0
-last_batch: batch_045
-last_admits: []
-last_goal: T001 shape 路径重启（round 2）：测 Kurt 4 阶矩 / Quantile 尾部(0.9) / Quantile 尾-中位差
-  / Skew 120d 长窗 / sign-gated Skew / IQR-to-median 六种 shape 统计量是否在 csi1000 上逃离 vol_20d
-  连续 std 空间且 mono_is 达 0.6+ 稳健性下界；追认 batch_043 C004 paradox 教训 — 避免 IS/OOS mono 巨幅放大型非稳健候选。硬闸
-  max_corr@F001/F012/F013<0.7 防液性簇吸收，目标 ≥1 候选 alpha_survival>0.4 且 dominant_style≠vol_20d。
-last_activity: '2026-04-24T18:46:45Z'
+status: productive
+priority: medium
+rounds: 5
+admits: 2
+last_batch: batch_055
+last_admits:
+- F021
+last_goal: T001 Round 3 Kurt-centric × rank-diff 几何融合：将 b045 C001 reserve 的 Kurt60
+  LHS 升级为 rank-diff 形态以激活 vol_20d 逃离路径 (P002 升格设计轴)，并测 range-derived 高阶矩 LHS × 非饱和
+  RHS basis (volume_60/pe_60/up_freq_20/vwap_60/range_compress_60/circ_mktcap_60)
+  6 候选。LHS 全部 range-structure native 且与 F019(body_ratio Std)/F020(gap_ret Std) anti-anchor
+  (LHS atom 完全异源)；RHS 全避开 saturated endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/Amihud_20)。设计纪律
+  mono_is>=0.6 硬下界 (b045 经验) + 单层 higher-moment + scale-free 三条件 (F019/F020 安全 recipe)。预期
+  ≥1 admit 验证 'higher-moment LHS × 非饱和 RHS' 在 range family 兑现 P002 跨 5 family 第 6
+  admit；range_structure direction 0→1 admit 推进 exploring→productive。
+last_activity: '2026-04-25T09:10:22Z'
 created_batch: batch_043
-members: []
+members:
+- F021
 merged_into: null
 ---
 # range_structure
 
 > [!abstract]+ 方向概要
-> - **状态**　🔵 `exploring` · priority `low` · rounds = 2 · admits = 0 · reserve = 1
-> - **最近**　batch_045 admit=0 reserve=1 (C001 Kurt60) reject=5 · shape 路径首次 partial breakthrough
-> - **一句话**　high-low range **结构**（timing、frequency、skew、短/长比）是否独立于 vol_20d 的 std-of-return 空间
+> - **状态**　🟢 `productive` · priority `medium` · rounds = 4 · admits = 1 · reserve = 1（历史）
+> - **最近**　[[batches/batch_055/judge|batch_055]] 2026-04-25 admit=1 (C005→F{next} upper_shadow_disp_range_compress_rd_20) reserve=0 reject=5 · **range family 首 admit + P002 跨 5 family 第 6 admit 兑现**
+> - **一句话**　range/intraday position **结构**（timing、frequency、dispersion、shape、shadow-position）通过 rank-diff geometry 在 cross-section 上突破 vol_20d std-of-return 空间——首条成功路径：upper-shadow position Std × long-window range compression rank-diff
 
 ---
 
@@ -53,21 +59,32 @@ csi1000 特征：
 
 ## Current Focus
 
-- **batch_046 (round 3 planning)** 收缩到 Kurt-centric 变体：Kurt90 / Kurt120 长窗稳健性 + Kurt × turnover/momentum orthogonalize（待工具链）
-- 已封闭路径：**timing (IdxMax) / freq-high (Gt threshold) / magnitude Quantile (Q90/Q90-Med) / Skew 60d/120d / sign-gated Skew / scale-free (Q80-Q20)/Med**——不再尝试
-- 设计纪律：**mono_is 硬下界 0.6**（batch_043 C004 paradox 教训，batch_045 C004 命中纪律产生 reject 验证有效）
-- 硬闸 max_corr@F012 / F001 / F013 < 0.7；目标 dominant_style ≠ `vol_20d` + alpha_survival > 0.4
-- **F001 + F005 修正**：next_goal 排除 H-L 分母 / prev_close 分母 / Quantile-of-range / IQR-of-range 设计；Kurt RHS 必须 scale-free（避免再次进入 vol_20d 簇）
-- **退出准则**：round 3 仍 0 admit + Kurt 长窗也复现 mono paradox → 转 `saturated`（剩余 Kurt-only 设计空间将耗尽）
+- **batch_056 (round 5 planning)**：沿 C005 admit 衍生路径——intraday position dispersion 维度 × long-window scale-free RHS 组合
+  - LHS atom 候选：(C-L)/(H-L) Std (lower-shadow position)、(C-prev_close)/(H-L) Std (gap-anchored position)、|C-O|/(H-L) median position 等
+  - RHS basis 候选：H/L 60d Mean (compression, C005 已用)、$amount/$volume 60d (VWAP level)、Skew/Kurt of body_ratio long-window 等不在饱和 endpoints
+- **关键已封闭路径**：
+  - timing (IdxMax) / freq-high (Gt threshold) / magnitude Quantile (Q90/Q90-Med) / Skew 60d/120d / sign-gated Skew / scale-free (Q80-Q20)/Med（b043+b045）
+  - **range Std × short-window or saturated RHS**（b055 C001/C002/C003/C004/C006 全 reject，incremental_ic ≤ 0）
+  - **60d 长窗 range Std + raw size/value RHS**（b055 C006 教训：style_r²=0.75 vol+size 双吸收，alpha_survival=0.71 假象）
+  - **sign-aggregation as RHS basis**（b055 C003：str_1m exp=3.84 RHS 暴露成 short-reversal proxy）
+  - **TsKurt-inside-CsRank**（operators.py:428 bug：D.features 不识别自定义算子，需 Python escape hatch 或修复）
+- 设计纪律：
+  - **mono_is 硬下界 0.6**（b043 C004 paradox / b045 C004 / b055 C004 三次复现验证）
+  - **incremental_ic 必须 > 0**（b055 5/6 reject 由此触发）
+  - LHS 必须是 intraday position 而非 magnitude (C005 admit 关键差分)
+  - RHS 必须 long-window (≥60d) + 几何 ratio + 不在饱和 endpoints
+- **退出准则**：round 5 沿 C005 衍生路径仍 0 admit + 80%+ candidate incremental_ic ≤ 0 → 转 `saturated`
 
 ---
 
 ## Threads
 
-### T001: Range timing/frequency/shape 信号是否独立于 vol_20d [◉ ACTIVE]
+### T001: Range timing/frequency/shape 信号是否独立于 vol_20d [✓ ANSWERED batch_055]
 
-> [!note]+ Thread 当前
-> **Question**: (high-low)/close 的离散结构化 transformation（IdxMax 时序 / Gt-threshold 频率 / Skew shape / Kurt 4 阶矩 / Quantile 分位 / scale-free ratio）在 cross-section 上是否逃离 vol_20d 连续 std 空间，产生独立 forward IC？
+> [!success]+ Thread 结论
+> **Question**: (high-low)/close 的离散结构化 transformation（IdxMax 时序 / Gt-threshold 频率 / Skew shape / Kurt 4 阶矩 / Quantile 分位 / scale-free ratio / **rank-diff geometry**）在 cross-section 上是否逃离 vol_20d 连续 std 空间，产生独立 forward IC？
+>
+> **Answer (b055)**: 是 — 但路径极窄。**rank-diff geometry × intraday position dispersion (NOT range magnitude) × long-window scale-free RHS** 是首条成功路径，由 C005 (Std((H-C)/(H-L), 20) × Mean(H/L, 60)) 兑现首个 admit。其它 6 条已封闭路径（IdxMax timing / freq threshold / magnitude Quantile / Skew shape / sign-gated Skew / scale-free Q-ratio / standalone Kurt / range magnitude rank-diff / sign-aggregation RHS / 60d 长窗 range Std + size RHS）均 disprove。
 >
 > **Evidence trail**:
 > - [[batches/batch_043/candidates/C001|batch_043 C001]]　IdxMax((H-L)/C, 20) timing — mono_oos=-0.90 一桨 Q5, ls_t=-1.40 弱, incr_ic=-0.008 → **reject**（信号太弱）
@@ -80,14 +97,30 @@ csi1000 特征：
 > - [[batches/batch_045/candidates/C004|batch_045 C004]]　**Skew((H-L)/C, 120)** 长窗 — mono_is=0.50 / mono_oos=1.00 **完美复现 batch_043 C004 paradox** + alpha_surv=0.088 极 poor → **reject**（**违反 direction mono_is ≥ 0.6 硬下界纪律，首次执行命中**）
 > - [[batches/batch_045/candidates/C005|batch_045 C005]]　Sign(close-close_{t-5}) × Skew((H-L)/C, 60) — ls_t_IS=+1.75 vs ls_t_OOS=-1.87 **符号翻转** + str_1m exp=2.49 拖向短反转空间 + mono_oos=-0.60 弱 → **reject**（sign-gated shape 在 csi1000 不稳健）
 > - [[batches/batch_045/candidates/C006|batch_045 C006]]　(Q80-Q20)/Median((H-L)/C, 60) scale-free — vol_20d exp 减半 (20.4) + alpha_surv=0.70 good 但 mono_is=-1.0 / mono_oos=-0.30 **崩塌** + incr_ic=-0.010 → **reject**（scale-free 能降吸收但不能单独撑起稳健 rank-order）
+> - [[batches/batch_055/candidates/C001|batch_055 C001]]　rank-diff Sub(CsRank(Std((H-L)/C,20)), CsRank(Mean(volume,60))) — ls_t=-0.40 weak + incr_ic=-0.013 NEG (F012 reducer) + style_r²=0.50 + mono partial flip → **reject**（range Std × volume rank-diff 同 vol+liquidity 簇 reducer）
+> - [[batches/batch_055/candidates/C002|batch_055 C002]]　rank-diff Sub(CsRank(Std((H-L)/(H+L),20)), CsRank(Mean(pe,60))) — mono_oos=-1.0 完美 ls_t=-2.92 但 incr_ic=-0.008 NEG → **reject**（"看似强 alpha 但库减值"陷阱第 4 次复现）
+> - [[batches/batch_055/candidates/C003|batch_055 C003]]　rank-diff Sub(CsRank(Std(H/L,20)), CsRank(Mean(Sign(Δclose),20))) — vol_20d=58.1 (本批最高) + str_1m=3.84 + incr_ic≈0 → **reject**（sign-RHS 未起独立维度 + 双 style 强吸收）
+> - [[batches/batch_055/candidates/C004|batch_055 C004]]　rank-diff Sub(CsRank(Mean((H-L)/prev_close,20)), CsRank(Mean(VWAP,60))) — mono paradox -1.0→-0.30 + ls_t=-0.65 + incr_ic=-0.007 NEG → **reject**（b043/b045 C004 paradox 第 3 次复现 + F005 algebraic mirror trap）
+> - [[batches/batch_055/candidates/C005|batch_055 C005]]　**rank-diff Sub(CsRank(Std((H-C)/(H-L),20)), CsRank(Mean(H/L,60))) — ic_oos=+0.043 + mono_oos=+1.0 完美 + cum_mdd=-1.14 库内最浅 + ic_by_year 9 年单调增强 (+0.013→+0.046) + max_corr=0.44@F020 反向互补 + incr_ic=+0.008 库增值 + style_crowding=medium (本批唯一非 high) → admit → F{next} upper_shadow_disp_range_compress_rd_20**
+> - [[batches/batch_055/candidates/C006|batch_055 C006]]　rank-diff Sub(CsRank(Std((H-L)/C,60)), CsRank(Mean(circ_market_cap,60))) — style_r²=0.75 (本批最高) + alpha_surv=0.71 假象 + mono OOS collapse 0.40→-0.10 + incr_ic=-0.012 NEG → **reject**（60d 长窗 Std 未替代 Kurt 稳健性，反而深陷 vol+size 双 style）
 >
-> **累积发现**（2 batches, 11 candidates）:
-> - **shape 路径仅 C001 Kurt60 partial 成功**（reserve）——Kurt 4 阶矩比 Skew 3 阶矩在 range 分布上更稳健
-> - **magnitude Quantile (Q90 / Q90-Med) 确认进入 vol_20d 吸收簇**——与 mean/std 同空间（**F001 本地数据点**）
-> - **Skew 60d + 120d 均产出 mono_is paradox** → Skew 在 (H-L)/C 样本噪声敏感，不再尝试
-> - **升格 mono_is ≥ 0.6 硬下界纪律首次执行**（C004 reject）—— 纪律有效
+> **累积发现**（3 batches, 17 candidates, 1 admit + 1 reserve + 15 reject）:
+> - **shape 路径仅 C001 Kurt60 reserve + C005 rank-diff admit 兑现**——突破点是 **rank-diff geometry × intraday position 维度**而非 range magnitude
+> - **5/6 b055 candidate incremental_ic ≤ 0** 揭示 **rank-diff geometry 已饱和到组合层 (P005 动态饱和律)**——即使 max_corr<0.55 看似独立，多个独立 RHS 通过 vol_20d common cause 仍构成"组合层冗余"
+> - **C005 admit 4 个关键差分**：(a) LHS atom 是 close 在 H-L 范围内的 position (非 range magnitude)；(b) RHS 是 long-window 几何 ratio (60d H/L)；(c) style_crowding=medium (其它 5 候选 high)；(d) cum_mdd=-1.14 库内罕见
+> - **TsKurt-inside-CsRank 路径阻塞**: operators.py:428 bug 阻止 D.features 识别自定义算子；P002 endorsed 的 higher-moment LHS 升级需 Python escape hatch 或修复 _build_cs_cache
 >
-> **Next probes**: Kurt90 / Kurt120 长窗稳健性；Kurt × turnover/momentum orthogonalize（待 orthogonalize-by-vol_20d 工具链）；不再尝试 Skew/Quantile 系变体
+> **Next probes (T003 接力)**: 沿 C005 衍生 intraday position dispersion 维度——见 [[directions/range_structure#T003]]
+
+### T003: intraday position dispersion 衍生路径是否构成可扩展 alpha family [◉ ACTIVE]
+
+> [!note]+ Thread 当前
+> **Question**: 在 C005 admit (Std((H-C)/(H-L), 20) × Mean(H/L, 60)) 验证"intraday position dispersion × long-window scale-free RHS"成功后，该 LHS atom family 是否可扩展？具体试 (C-L)/(H-L) Std (lower-shadow position)、(C-prev_close)/(H-L) Std (gap-anchored position)、Mean(body_position, N) Std 等其它 intraday position atoms × 不同 long-window scale-free RHS。
+>
+> **Evidence trail**:
+> - 待 batch_056 探索
+>
+> **Next probes**: 6 候选优先 intraday position 衍生 + 60d 几何 RHS（H/L Mean / amount/volume Mean / body_position Mean）；避免短窗 + saturated RHS + sign-aggregation RHS；规避 60d Std 长窗 + size RHS（C006 教训）
 
 ### T002: Range 短/长比与变化率是否独立于 F001 amount CV [✗ DISPROVEN batch_043]
 
@@ -115,10 +148,31 @@ csi1000 特征：
 | [[batches/batch_045/candidates/C004\|batch_045 C004]] | `Skew((H-L)/C, 120)` | mono_is=0.50 违反 direction ≥ 0.6 硬下界纪律 + IS/OOS mono paradox 0.5→1.0 复现 batch_043 C004 + alpha_surv=0.088 极 poor |
 | [[batches/batch_045/candidates/C005\|batch_045 C005]] | `Sign(Δclose_5d) × Skew((H-L)/C, 60)` | ls_t_IS=+1.75 vs ls_t_OOS=-1.87 符号翻转 + str_1m exp=2.49 + mono_oos=-0.60 弱 + incr_ic=-0.013 与 F007 同构 |
 | [[batches/batch_045/candidates/C006\|batch_045 C006]] | `(Q80-Q20)/Med((H-L)/C, 60)` | mono_is=-1.0 / mono_oos=-0.30 OOS 崩塌 + Q5 一桨 + incr_ic=-0.010 + ls_t=-1.65 weak（scale-free 部分成功但 rank-order 不稳健）|
+| [[batches/batch_055/candidates/C001\|batch_055 C001]] | `Sub(CsRank(Std((H-L)/C,20)), CsRank(Mean(volume,60)))` | ls_t_OOS=-0.40 weak + incr_ic=-0.013 NEG (F012 reducer) + style_r²=0.50 vol_20d exp=38.8 + mono partial flip 0.40→-0.50 + ls_t IS+2.42 OOS-0.40 翻号 |
+| [[batches/batch_055/candidates/C002\|batch_055 C002]] | `Sub(CsRank(Std((H-L)/(H+L),20)), CsRank(Mean(pe,60)))` | mono_oos=-1.0 完美 + ls_t=-2.92 strong 但 incr_ic=-0.008 NEG (rank-diff cluster reducer) + cum_mdd=-64.5 9 年负向加深 — "看似强 alpha 但库减值"陷阱第 4 次复现 |
+| [[batches/batch_055/candidates/C003\|batch_055 C003]] | `Sub(CsRank(Std(H/L,20)), CsRank(Mean(Sign(Δclose),20)))` | vol_20d exp=58.1 (本批最高) + str_1m exp=3.84 双 style 强吸收 + incr_ic≈0 (库零增值) + ls_t IS-5.23 OOS-1.39 衰减 0.27 — sign-aggregation as RHS basis 路径封闭 |
+| [[batches/batch_055/candidates/C004\|batch_055 C004]] | `Sub(CsRank(Mean((H-L)/prev_close,20)), CsRank(Mean(VWAP,60)))` | mono paradox -1.0→-0.30 第 3 次复现 (b043+b045+b055 C004) + ls_t=-0.65 weak + incr_ic=-0.007 NEG + LHS 触 F005 algebraic mirror |
+| [[batches/batch_055/candidates/C006\|batch_055 C006]] | `Sub(CsRank(Std((H-L)/C,60)), CsRank(Mean(circ_market_cap,60)))` | style_r²=0.75 (本批最高) + log_circ_cap exp=0.586 + alpha_surv=0.71 假象 + mono OOS collapse 0.40→-0.10 + incr_ic=-0.012 NEG — 60d 长窗 Std 未替代 Kurt 稳健性反深陷 vol+size 双吸收 |
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_045/judge|batch_045]]
+> [!quote]+ 2026-04-25 · [[batches/batch_055/judge|batch_055]]
+> **range family 首 admit！P002 rank-diff geometry 跨 5 family 第 6 admit 兑现** · admit=1 (C005→F{next} upper_shadow_disp_range_compress_rd_20) / reserve=0 / reject=5
+>
+> - **C005 → admit**：Sub(CsRank(Std((H-C)/(H-L), 20)), CsRank(Mean(H/L, 60)))。ic_oos=+0.043 + mono_oos=+1.00 完美 + cum_mdd=-1.14 库内最浅 + ic_by_year 9 年单调增强 (+0.013→+0.046) + max_corr=0.44@F020 反向互补 + incr_ic=+0.008 库增值 + style_crowding=medium (本批 6 候选唯一非 high)。突破点：**LHS 是 close 在 H-L 范围内的 position dispersion 而非 range magnitude**——这是 vol_20d 吸收律之外首条成功路径。
+> - **C001/C002/C003/C004/C006 → reject** (5 全 reject)：incremental_ic 全部 ≤ 0 (-0.013/-0.008/≈0/-0.007/-0.012)——**rank-diff geometry 已饱和到组合层** (P005 动态饱和律)，即使 max_corr<0.55 看似独立，多 RHS 通过 vol_20d common cause 仍构成"组合层冗余"。
+> - **C002 strong-but-negative 陷阱第 4 次复现** (mono_oos=-1.0 完美 ls_t=-2.92 但 incr=-0.008)，与 b042 C005 / b043 C005-C006 / b045 C006 同模式，应升格 lessons.md
+> - **C004 mono paradox 第 3 次复现** (mono_is=-1.0 → mono_oos=-0.30)：与 b043 C004 + b045 C004 同模式，已升格 mono_is>=0.6 硬下界纪律有效但需补充 mono_oos>=0.5 下界
+> - **C003 sign-aggregation as RHS** 路径正式封闭：str_1m exp=3.84 RHS 暴露成 short-reversal proxy，与 LHS vol_20d 双 style 吸收
+> - **C006 60d 长窗 Std + size RHS** 教训：alpha_surv=0.71 假象 vs style_r²=0.75 矛盾——alpha_survival 高仅意味"残差信号还在"，但因子已被 risk model 完全分解为 style 组合
+> - **TsKurt 路径阻塞**：operators.py:428 bug 阻止 D.features 识别自定义算子；P002 endorsed 的 higher-moment LHS 升级 (b045 C001 reserve Kurt60) 在 DSL 下无法 rank-diff 化，需 Python escape hatch 或修复 _build_cs_cache
+> - MT budget cumulative 282 → **288** · direction 6 → **12** · bucket `high` (adjusted `medium`)
+>
+> **下一步**: 沿 C005 衍生 intraday position dispersion 维度——T003 thread 接力。LHS 候选：(C-L)/(H-L) Std (lower-shadow position) / (C-prev_close)/(H-L) Std (gap-anchored position) / body_position Mean Std；RHS 候选：H/L Mean 60d (C005 已用 anchor) / amount/volume Mean 60d / 其它 long-window 几何 ratio。规避：60d 长窗 + size RHS / sign-aggregation as RHS / 短窗 RHS。
+>
+> **Operations**: `status: exploring → productive` (首次 admit) · `priority: low → medium` (admit 验证 direction 仍有可挖空间)
+
+> [!quote]- 2026-04-25 · [[batches/batch_045/judge|batch_045]]
 > **shape 路径首次 partial breakthrough：Kurt60 reserve** · admit=0 / reserve=1 (C001) / reject=5
 >
 > - **C001 Kurt60 → reserve**：mono_is=0.90 + mono_oos=0.90 + style_r²=0.074 clean + max_corr=0.105 + incr_ic=0.0153 + cum_mdd=-1.42 + ls_t=3.08；alpha_surv=0.17 + ic_oos=0.0113 阻止 admit。**Kurt 4 阶矩 > Skew 3 阶矩在 (H-L)/C 上**——T001 shape 路径首次 partial breakthrough。
