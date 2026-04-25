@@ -2,45 +2,23 @@
 direction_tag: overnight_intraday_split
 status: productive
 priority: high
-rounds: 7
-admits: 7
-last_batch: batch_049
+rounds: 8
+admits: 8
+last_batch: batch_058
 last_admits:
-- F018
-last_goal: 'T008 rank-diff 第四波兑现——测 rank-diff 范式跨 direction LHS 多元化泛化边界。
-
-  batch_048 C003 admit F017 (overnight_5 × turnover_5 rank-diff) 成为 rank-diff 范式跨家族
-
-  第 3 次兑现；若本批再有 1 admit = 第 4 次兑现可触发 Phase 5 consolidation 升格 lessons.md。
-
-  cockpit 硬约束"每个候选 LHS 必须不同"——本批 6 候选 LHS 全部唯一且各来自独立 signal family：
-
-  (C001) Mean|ret|(Amihud-style illiquidity w/o $amount) × overnight——LHS=Mean(Abs(daily_ret),20)，
-
-  RHS=overnight_5；(C002) pb × overnight——LHS=Mean($pb_ratio,20)；
-
-  (C003) turnover_cv × |intraday|——C006-rerun 非 overnight LHS，LHS=Std($turnover,20)/Mean($turnover,20)，
-
-  RHS=|intraday|_5；(C004) volume HHI × overnight——LHS=Sum((volume/Sum(volume,20))²,20)
-  自算 HHI 纯 DSL；
-
-  (C005) L2 RealizedVol × overnight——LHS=Power(Sum(Power(daily_ret,2),20),0.5)，RHS=overnight_5；
-
-  (C006) overnight_sign_freq × amount——LHS=Mean(Sign(overnight),20) 首探 direction.md
-  复活条件 "overnight sign frequency"，
-
-  RHS=amount_20。避开死模式：LHS 全唯一；不用 ratio；不 CsRank 外包已入库 raw-diff；
-
-  不共享 raw numerator/denominator；无同字段跨窗口差。
-
-  技术注释：所有 CsRank 内层使用**标准 qlib DSL 算子** (Mean/Abs/Sum/Power/Sign/Div/Sub/Ref)，
-
-  避免 custom op (AmihudIlliq/HHI/RealizedVol) 的 __str__ 类名悬挂导致 CsRank 重建 cross-sectional
-
-  cache 时找不到算子的 latent bug (见 operators.py:428 _build_cs_cache 调用 D.features 重新 parse)。
-
-  目标 ≥1 candidate 满足 max_corr@lib<0.70 + alpha_surv>0.40 + ls_t>2 + incremental_ic>0.010。'
-last_activity: '2026-04-24T21:27:21Z'
+- F022
+last_goal: 'T005 sign-aggregation 跨 axis 泛化 + 新 T011 overnight×intraday 非线性交互 (3 axes
+  / 6 candidates)。Axis A: sign-aggregation LHS 扩窗 (Mean(Sign(overnight),60d)) + 新
+  sign atom (Sign(intraday) 即 close-open 符号) 对接长窗 scale-free 几何 RHS (H/L_60 geometric
+  ratio / Mean(H/L,60))。Axis B: intraday close-position-in-range (C-L)/(H-L) 是结构性
+  vol_20d-orthogonal atom (cockpit constraint), 在 20d/60d 双窗下测。Axis C: overnight×intraday
+  sign 共方向频率 (Mean(Sign(o)*Sign(i),N)) 是 T005 future_probe 3 (overnight×intraday 非线性交互)
+  的 sign-space 实例化, 与 F018 单 sign 几何完全不同。RHS 全部避开 6 dead endpoints (overnight_5/body_ratio_20/pb_60/amount_60/price_vol_20/Std($close,5)*60)
+  + F017/F018 共振 anchor (turnover_5/amount_20)。Bug-flag 规避: 不使用 TsKurt/TsSkew 内嵌 CsRank。anti-recap:
+  zero_admit_streak=2 后, 6 候选 LHS atoms 4 类正交 (overnight_sign / intraday_sign / sign_product
+  / close_position), RHS 4 类正交 (H/L_60 geo / Mean(H/L,60) / close/MA60 / amount_5_60_ratio)。预期
+  ≥1 admit 推进 T005 跨 axis 泛化 + T011 共方向交互首兑现。'
+last_activity: '2026-04-25T11:57:23Z'
 created_batch: batch_025
 members:
 - F009
@@ -49,6 +27,7 @@ members:
 - F017
 - F{next}
 - F018
+- F022
 retired_members: []
 merged_into: null
 ---
@@ -118,11 +97,19 @@ merged_into: null
 
 ---
 
-### T005 · rank-diff 跨 direction 泛化 [✓ ANSWERED batch_048+049, 升格 lessons]
+### T005 · rank-diff 跨 direction 泛化 [✓ ANSWERED batch_049] (升格 lessons; b048 起源 / b058 evidence 追加)
 
 > [!success]+ Thread 结论：rank-diff = signal-family 几何范式（5 family / F015–F020）
-> overnight × turnover_5 → [[F017]] (ic_oos=0.054, ls_t=4.75, incr_ic=0.027, 9/9yr+, max_corr=0.747@F010)；overnight_sign_freq × amount → [[F018]] (ic_oos=+0.051, ls_t=+5.98, incr_ic=+0.015, max_corr=0.616@F012, cum_mdd=-1.53 整库最浅, horizon 1d→20d IC 单调增强 0.051→0.127)。
-> **下一步**: 避开 dead RHS endpoints，sign 聚合 × turnover/pb 泛化 + 20d+ sign_freq + overnight × intraday 非线性交互。
+>
+> **Question**: rank-diff geometry 是否在 overnight_intraday_split 上独立兑现，跨 family 泛化为 6+ admit？sign-aggregation LHS 扩窗（Mean(Sign(overnight),20→60d)）是否产生新的独立 alpha？
+>
+> **Answer**: 是 — F017/F018 admit 即跨家族泛化首兑现；20d→60d 扩窗 (b058 C001) 兑现 OOS IC strong 但触 F203 cluster co-resonance with F018，结构上是 F018 的"长窗+几何 RHS"近镜像而非新独立 alpha。
+>
+> **Evidence trail**:
+> - [[batches/batch_048/candidates/C003|batch_048 C003]]　overnight × turnover_5, ic_oos=0.054 ls_t=4.75 incr_ic=0.027 → **admit → [[factors/F017]]**
+> - [[batches/batch_049/candidates/C006|batch_049 C006]]　overnight_sign_freq × amount, ic_oos=+0.051 ls_t=+5.98 → **admit → [[factors/F018]]**
+> - [[batches/batch_058/candidates/C001|batch_058 C001]]　Mean(Sign(overnight),60) × H/L_60_geo, ic_oos=0.055 ls_t=3.73 mono=1.0/1.0 完美 + 9/9 年逐年强化, **alpha_surv=0.31 仅过 rank_diff floor + max_corr=0.576@F018 borderline + incr_ic=0.008<0.015 (F203)** → **reserve** (60d sign-freq 与 F018 20d 几何位置 ~57% 共享, 等待 F018 退役 / vol_20d Python residual)
+> - [[batches/batch_058/candidates/C002|batch_058 C002]]　Mean(Sign(intraday body),20) × Mean(H/L,60), ic_oos=0.024 ls_t=0.65 alpha_surv=0.054 → **reject** (intraday body sign LHS 是 vol_20d/str_1m 载体, T003 disproof sign-space 实例化撞墙)
 
 ---
 
@@ -154,6 +141,36 @@ merged_into: null
 
 ---
 
+### T011 · overnight×intraday sign 共方向频率 cross-section 几何 [◉ ACTIVE]
+
+> [!note]+ Thread 当前
+> **Question**: `Mean(Sign(overnight) * Sign(intraday), N)` 共方向频率作为 LHS（非单边 sign 而是 product），在 cross-section rank-diff 几何下能否产生独立于 F009 (overnight-intraday spread magnitude) 与 F018 (overnight 单边 sign) 的新 alpha？窗口长度对 cross-section rank-order 的影响如何？
+>
+> **Evidence trail**:
+> - [[batches/batch_058/candidates/C003|batch_058 C003]]　Mean(Sign(o)*Sign(i),20) × close/MA60, ic_oos=0.024 ls_t=1.09 **mono_oos=0.40 + Q5 反向**, max_corr=**0.216@F009 (本批最 library-clean)** + incr_ic=0.017 → **reject** (CP03 weak: ls_t<2 + rank-order 破坏；意外 library-clean 但信号强度不足)
+> - [[batches/batch_058/candidates/C005|batch_058 C005]]　Mean(Sign(o)*Sign(i),60) × Mean(H/L,60), ic_oos=0.039 ls_t=1.91 **mono=0.9/0.9 完美** + 9/9 年逐年强化, alpha_surv=0.26<0.30 floor + max_corr=0.49@F021 + incr_ic=0.011<0.015 (F203) → **reserve**
+>
+> **Key finding**: **20d → 60d 长窗显著清洁 cross-section rank-order**（C003 mono=0.4 + Q5 反向 → C005 mono=0.9 + Q5 单调正）。短窗 sign-product 在 csi1000 cross-section 上噪声大，长窗累积让 rank 稳定。但长窗版本被 F021 cluster co-resonance 锁死。
+>
+> **Next probes**: (a) 60d sign-product LHS × 非 H/L_60 RHS（替换 RHS 脱 F021 cluster, 如 amount_5/60 ratio / log(circ_mktcap) / pe_60 等）；(b) magnitude-weighted sign-product (e.g., gap×body 加权而非纯 sign) 是否在 20d 窗口下救活 mono。
+
+---
+
+### T012 · intraday close-position-in-range Mean LHS [◉ ACTIVE]
+
+> [!note]+ Thread 当前
+> **Question**: `Mean((C-L)/(H-L+ε), N)` close-position-in-range 一阶矩 LHS（与 F006 upper_shadow 5d / F019 body_ratio Std / F021 upper_shadow_disp Std 几何位置不同）能否在 cross-section rank-diff 几何下兑现独立 alpha？vol_20d 正交性是否与窗口长度负相关？
+>
+> **Evidence trail**:
+> - [[batches/batch_058/candidates/C004|batch_058 C004]]　Mean((C-L)/(H-L),20) × amount_5/60_ratio, ic_oos=0.029 ls_t=1.56 **mono_oos=0.6 + Q5 上升 + 9/9 年同号区间窄稳定**, **alpha_surv=0.43 (本批 admit 最高) + style_r²=0.13 (本批最低) + max_corr=0.283@F006 + incr_ic=0.012 + cum_mdd=-1.03 (本批最浅) + worst_quarter 永正** → **admit (close_position_amount_accel_rd_20)**
+> - [[batches/batch_058/candidates/C006|batch_058 C006]]　Mean((C-L)/(H-L),60) × H/L_60_geo, ic_oos=0.044 ls_t=1.52 mono=0.3/0.9, **alpha_surv=0.19 (vol_20d exposure=44.15 本批最高极值) + max_corr=0.47@F021 + incr_ic=0.011<0.015 (F203)** → **reject** (60d 长窗放大 vol_20d 吞噬)
+>
+> **Key finding**: **close-position 短窗 (20d) 是 vol_20d 正交 atom 兑现** — C004 alpha_surv=0.43 vs C006 (60d) alpha_surv=0.19，**窗口翻倍让 vol_20d 吸收翻倍**。这与 T011 sign-product 趋势相反 (sign-product 60d alpha_surv=0.26 比 20d=0.56 衰减)——两个 LHS atom 对窗口扩展的 vol_20d 吞噬响应不对称。**T012 首兑现** F022 candidate close_position_amount_accel_rd_20。
+>
+> **Next probes**: (a) 维持 close-position 20d LHS, RHS 替换探索 (turnover-related / value-related 长窗 ratio); (b) 短窗 close-position 与 OHLC family 是否能形成新 anchor cluster (与 F006 corr=-0.28 已是 mirror).
+
+---
+
 ## Known Failures
 
 | Batch | Candidate | Pattern | 原因 |
@@ -169,6 +186,9 @@ merged_into: null
 | batch_049 | C003 | `Sub(CsRank(turnover_cv_20),CsRank(\|intraday_5\|))` | 信号强度塌缩 noise |
 | batch_049 | C004 | `Sub(CsRank(volume_HHI_20),CsRank(overnight_5))` | RHS 饱和，让位 C006 |
 | batch_049 | C005 | `Sub(CsRank(L2_RealizedVol_20),CsRank(overnight_5))` | 与 C001 同构（L1≈L2 在 csi1000 日频）|
+| batch_058 | C002 | `Sub(CsRank(Mean(Sign(close-open),20)),CsRank(Mean($high/$low,60)))` | CP03 weak (ls_t=0.65) + CP04 alpha_surv=0.054 (vol_20d exposure=40 主吸收) — intraday body sign LHS 是 vol/str_1m 载体, T003 disproof sign-space 复现 |
+| batch_058 | C003 | `Sub(CsRank(Mean(Sign(o)*Sign(i),20)),CsRank($close/MA60))` | CP03 weak (ls_t=1.09 + mono_oos=0.4 + Q5 反向) — sign-product 20d cross-section rank 信息退化, 即使 max_corr=0.216 库最 clean 也不救 |
+| batch_058 | C006 | `Sub(CsRank(Mean((C-L)/(H-L),60)),CsRank(H/L_60_geo))` | CP04 alpha_surv=0.19 (vol_20d exposure=44.15 本批最高极值) + F203 cluster (max_corr=0.47@F021 + incr_ic=0.011<0.015) — close-position 60d 长窗放大 vol 吞噬 |
 
 ---
 
@@ -194,6 +214,18 @@ merged_into: null
 
 ## Narrative Log
 
+> [!quote]+ 2026-04-25 · [[batches/batch_058/judge|batch_058]] · 8th admit · T011/T012 双新 thread 启动
+> **8th admit · T012 close_position_amount_accel_rd_20** · admit=1 (C004) / reserve=2 (C001/C005) / reject=3 (C002/C003/C006)
+>
+> - **T012 首兑现 (close-position-in-range × amount accel)**：C004 `Sub(CsRank(Mean((C-L)/(H-L),20)), CsRank(amount_5/60))` IC_OOS=0.029 ICIR=0.36 + alpha_surv=**0.43 (本批 admit 最高)** + style_r²=**0.13 (本批最低)** + max_corr=**0.283@F006 + incr_ic=0.012** + cum_ic_mdd=**-1.03 (本批最浅)** + worst_quarter_ic=+0.0017 **永正** + 9/9 年区间窄稳定 → **admit**。**LHS atom (C-L)/(H-L) 是结构性 vol_20d 正交 atom 兑现** (cockpit constraint)：0-1 normalization 让 alpha 不嵌入 vol 量级。
+> - **T012 关键发现**：close-position **20d (alpha_surv=0.43) vs 60d (alpha_surv=0.19)** — 窗口翻倍让 vol_20d 吸收翻倍。短窗 close-position 是 vol 正交载体, 长窗放大 vol 吞噬。**Lessons 候选升格**："close-position-in-range Mean LHS 短窗化是 vol_20d 正交 axis"。
+> - **T011 共方向 sign-product 启动（active）**：C003 (20d) **mono_oos=0.40 + Q5 反向 + ls_t=1.09 < 2** reject — sign-product 20d cross-section rank 信息退化；C005 (60d) **mono=0.9/0.9 完美 + 9/9 年逐年强化 + ls_t=1.91 接近 2** 但 alpha_surv=0.26 < rank_diff floor 0.30 + F203 cluster (max_corr=0.49@F021 + incr_ic=0.011<0.015) → **reserve**。**关键发现**：**20d → 60d 长窗显著清洁 sign-product cross-section rank-order**，与 close-position 趋势相反。
+> - **T005 sign-aggregation 60d 扩窗 (C001)**：IC_OOS=0.055 ICIR=0.40 ls_t=3.73 mono=1.0/1.0 完美 + 9/9 年单调强化至 2023 IC=0.060。但 max_corr=0.576@F018 borderline + incr_ic=0.008<0.015 (F203) + alpha_surv=0.31 仅过 rank_diff floor → **reserve**。结构上是 F018 (20d sign-freq) 的"长窗+几何 RHS"近镜像，等待 F018 退役。
+> - **C002 reject (intraday body sign LHS)**：alpha_surv=0.054 vol_20d/str_1m 载体, T003 (intraday 镜像 aggregation DISPROVEN) 的 sign-space 实例化也撞墙 — sign 离散化未脱 F009 吸收。
+> - **zero_admit_streak=2 → 0**（连续两批 zero admit 终结）。**MT budget**：cumulative 306 → **312** · direction 21 → **27** · bucket `high`（封顶 search_adjusted 推回 `medium`）· 本批 6 候选全 high bucket（direction.exposure 已饱和）
+>
+> **Operations**　direction `productive` 保持 + `priority: high` 保持 · T005 evidence 追加 (b058 C001/C002) 状态保持 ANSWERED · T011 + T012 新建 ACTIVE · Python 在 Phase 4 backfill F022 (next id) 链接
+
 > [!quote]- 2026-04-21 [[batches/batch_025/judge|batch_025]] · exploring → productive (DOUBLE ADMIT 首批)
 > admit=2 / reject=1。F009 spread (ic=+0.047, ls_t=5.18) + F010 persistence (**ls_t=7.50 整库最强**)；C003 20d Corr sign_flip。核心：overnight 段携带独立于 intraday 的 persistent signal；aggregation 有效，correlation 不稳。
 
@@ -203,5 +235,5 @@ merged_into: null
 > [!quote]- 2026-04-25 [[batches/batch_048/judge|batch_048]] · saturated → productive（rank-diff 复活）
 > admit=1 / reserve=1 / reject=4。**rank-diff 范式 2 次跨家族兑现**——C003 `CsRank(overnight_5) − CsRank(turnover_5)` → F017 (ic_oos=0.054 incr_ic=0.027 9/9yr+)。同时 T004 ratio + T006 同字段跨窗口 DISPROVEN。**rank-diff 设计硬约束三条升格**（≥1 独立 raw field / 不单一窗口差 / 同批 LHS 共享 anchor rule）。
 
-> [!quote]+ 2026-04-25 [[batches/batch_049/judge|batch_049]] · productive (rank-diff 第 4 次跨家族兑现)
+> [!quote]- 2026-04-25 [[batches/batch_049/judge|batch_049]] · productive (rank-diff 第 4 次跨家族兑现)
 > admit=1 / reject=5。**hypothesis 文字级复活条件 "overnight sign frequency" 首次 ANSWERED**（T010）——C006 → [[F018]] (ic_oos=+0.051 ls_t=+5.98 incr_ic=+0.015 max_corr=0.616@F012 cum_mdd=-1.53 整库最浅 horizon IC 单调增强 0.051→0.127)。Sign 聚合 vs magnitude 聚合**几何正交**（F010 相关仅 0.37）。**T008 rank-diff RHS 共享律 ANSWERED**：四候选共 RHS=overnight_5 全 reject → 硬约束第 4 条扩展（RHS 不在已入库 rank-diff 占位端点）。**T009 DISPROVEN**（signed×magnitude 脱 overnight LHS 塌缩）。**触发 Phase 5 consolidation 升格 lessons.md "Rank-Diff Geometry" section**——4 次跨家族证据链完整（batch_046/047 microstructure + batch_048 overnight×turnover + batch_049 sign_freq×amount，后续 batch_050 OHLC F019 / batch_051 gap F020 加固至 6 family）。
