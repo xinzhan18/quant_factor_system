@@ -443,7 +443,26 @@ def _cmd_archive(args: argparse.Namespace) -> None:
         from report.render import render_factor
 
         manifest = render_factor(factor_id, storage_root=paths.root)
-        return list(manifest.get("charts", {}).keys())
+        chart_keys = list(manifest.get("charts", {}).keys())
+
+        # Phase 4 diagnostic: live-feel backtest. Failures here must NOT block
+        # archive — they only mean the report subagent won't see backtest figs.
+        try:
+            from research.backtest.runner import run_backtest
+
+            run_backtest(factor_id)
+            bt_root = paths.factors_dir / factor_id / "backtest"
+            for period_dir in bt_root.iterdir() if bt_root.exists() else []:
+                figs_dir = period_dir / "figs"
+                if not figs_dir.exists():
+                    continue
+                for png in figs_dir.glob("*.png"):
+                    rel_key = f"backtest/{period_dir.name}/figs/{png.stem}"
+                    chart_keys.append(rel_key)
+        except Exception as exc:
+            print(f"⚠️  backtest skipped for {factor_id}: {exc}", file=sys.stderr)
+
+        return chart_keys
 
     inputs = Phase4Inputs(
         batch_id=batch_id,

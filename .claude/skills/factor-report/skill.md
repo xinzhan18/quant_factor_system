@@ -271,7 +271,71 @@ Alpha waterfall 三段叙事重点：
 {本因子在 batch 中的位置、同批对比因子、决策要点}
 ```
 
-### 11. 批判性审查 + 系统意义 + Graph Links
+### 11. Live-feel Backtest（如有 backtest figs）
+
+> 本节仅在 chart whitelist 含 `backtest/{period}/figs/{name}` 前缀时生成；否则整段省略，**不要编造没有的图**。
+>
+> 说明此段的关键差异：前面的 IC / quintile / L/S 都是**毛信号**层面（每日再平衡、零成本）；这里是引擎在 hfq 价格上加了**真实交易成本（佣金 + 印花税 + 滑点）+ T+1 + 涨跌停 + 停牌过滤**之后的组合层面回测。读者应优先看哪三件事：(1) 周频 Top-K 净值在 train / val / holdout 三段的 Sharpe / MaxDD / 换手 / 成本拖累；(2) Q1-Q5 净值在含成本+被涨跌停拦截后单调性是否还在；(3) blocked_buy / blocked_sell 频率是否暴露因子的可交易性短板（高频涨停信号往往打不进去）。
+
+```markdown
+## Live-feel Backtest
+
+> [!info]- Live-feel Backtest
+> 引擎：A 股状态机（hfq 价格）；持仓 {holdings_n}；每 {freq_days} 日调仓；
+> 成本 = 印花税(时变) + 佣金 3bps 双边 + 滑点 5bps 双边；T+1；涨跌停/ST 拦截
+
+### 净值曲线（Top-K 主策略）
+
+![[F{id}/backtest/holdout/figs/equity.png]]
+
+**第一，{}.** {……}
+**第二，{}.** {……}
+**第三，{}.** {……}
+
+### 回撤分布
+
+![[F{id}/backtest/holdout/figs/drawdown.png]]
+
+{1-2 段：MaxDD 时间窗口、回撤后恢复速度}
+
+### 月度收益热力图
+
+![[F{id}/backtest/holdout/figs/monthly_heatmap.png]]
+
+{1 段：胜负月分布、连亏 / 连胜的最长连续}
+
+### Q1-Q5 分层（成本后）
+
+![[F{id}/backtest/holdout/figs/layer_decomp.png]]
+
+**第一，{Q5 - Q1 单调性是否保留}.** {……}
+**第二，{中间分层是否塌陷}.** {……}
+**第三，{Top-K 与 Q5 的差距 = 选股集中度收益}.** {……}
+
+### 成本拖累
+
+![[F{id}/backtest/holdout/figs/cost_drag.png]]
+
+{1 段：年化 cost_drag_bps、占毛 alpha 的比例}
+
+### 拦截统计
+
+![[F{id}/backtest/holdout/figs/blocked_trades.png]]
+
+{1 段：blocked_buy / blocked_sell 频率与因子可交易性的关系}
+
+### 三段对比表
+
+| 段 | Sharpe | AnnRet | MaxDD | Turnover_ann | Cost_drag_bps |
+|---|---|---|---|---|---|
+| Train (2015-2021) | {} | {} | {} | {} | {} |
+| Val (2022-2023) | {} | {} | {} | {} | {} |
+| Holdout (2024) | {} | {} | {} | {} | {} |
+
+> 数字读 `vault/factors/F{id}/backtest/{period}/metrics.yaml.metrics.full`。
+```
+
+### 12. 批判性审查 + 系统意义 + Graph Links
 
 ```markdown
 ## 批判性审查
