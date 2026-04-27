@@ -5,17 +5,65 @@ source_type: dsl
 admitted_at: '2026-04-23T18:01:01Z'
 admitted_in_batch: batch_036
 status: active
-diagnostics_ref: cache/batch_diagnostics/batch_036/C004
+diagnostics_ref: cache/batch_diagnostics/batch_recompute_v2/F013
 direction: gap_acceptance_structure
 expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
   Log(Div($amount, Mean($amount, 20)))), 20)
 canonical: Mean(Mul(Log(Div($amount,Mean($amount,20))),Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1))))),20)
 validation_metrics:
-  ic_mean: 0.009367869938873261
-  ic_ir: 0.25316748583708903
-  ic_win_rate: 0.6239669421487604
-  monotonicity: 0.6
-  long_short_mean: 0.00035417167902237416
+  coverage: 1.0
+  ic_mean: 0.00883789519191041
+  ic_ir: 0.2259579960678714
+  ic_win_rate: 0.5971074380165289
+  monotonicity: 0.39999999999999997
+  long_short_mean: 0.0002789091456427493
+  long_short_sharpe: 1.7776
+  long_short_tstat: 2.466
+  long_short_max_dd: -0.0286
 risk_metrics:
-  style_r_squared: 0.022623768849684645
-  alpha_survival_ratio: 0.6078
+  style_r_squared: 0.023926051552243588
+  alpha_survival_ratio: 0.5579
+primary_universe: all_tradable
+validation_metrics_by_universe:
+  all_tradable:
+    coverage: 1.0
+    ic_mean: 0.008838
+    ic_ir: 0.226
+    monotonicity: 0.4
+    long_short_sharpe: 1.7776
+  csi300:
+    coverage: 1.0
+    ic_mean: 0.0055
+    ic_ir: 0.0663
+    monotonicity: 0.8
+    long_short_sharpe: 0.65
+  csi1000:
+    coverage: 1.0
+    ic_mean: 0.004089
+    ic_ir: 0.0869
+    monotonicity: 0.3
+    long_short_sharpe: 0.1788
+universe_robustness:
+  icir_min: 0.0663
+  icir_max: 0.226
+  icir_robustness_ratio: 0.2934
+  ic_mean_min: 0.004089
+  ic_mean_max: 0.008838
+  mono_min: 0.3
+  mono_max: 0.8
+  ic_sign_consistent_across_universes: true
+  primary_universe: all_tradable
+recompute_provenance:
+  run_name: library_recompute_v2
+  applied_at: '2026-04-25T17:16:12Z'
+  batch_id: batch_recompute_v2
+  result_relpath: vault/batches/batch_recompute_v2/result.yaml
+recompute_reverdict:
+  old_status: retired
+  new_status: retired
+  reason: all_tradable mono 0.6→0.40, IC_OOS 0.0094 just above floor; signal incoherent
+    under ST/suspend mask
+  transitioned_at: '2026-04-25T15:48:36Z'
+  audit_run: tradable_mask_v1_st
+retired_at: '2026-04-25T15:48:36Z'
+revalidated_in_batch: batch_recompute_v2

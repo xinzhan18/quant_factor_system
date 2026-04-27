@@ -1,0 +1,102 @@
+batch_id: batch_056
+round: 55
+direction: range_structure
+direction_md_ref: vault/directions/range_structure.md
+batch_goal: T003 round 1 — 沿 F021 (C005 admit) 衍生 intraday position dispersion family。6
+  LHS 全部为不同 numerator 的 close/open/prev_close 在 H-L 范围内的 position Std 二阶矩 (开盘下/上影位置/return-per-range/gap/range/composite
+  midpoint)，与 F021 atom (H-C)/(H-L) 不同 numerator 且非 affine 等价；F019 (|C-O|/(H-L) Std)
+  与 F020 (gap_ret Std) 也完全异源。RHS 全部 long-window (60d) scale-free fundamental/liquidity
+  几何 ratio (VWAP magnitude/ROE proxy/vwap-close ratio/margin proxy/turn-pb composite/turnover$)，不重叠
+  F021 RHS H/L_60、不在 saturated endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/Amihud_20)、避开
+  size RHS (b055 C006 教训)、避开 sign-aggregation RHS (b055 C003 教训)。设计纪律：mono_is>=0.6
+  硬下界 + 单层 二阶矩 (Std 而非 Skew/Kurt 避 P003 单飞律) + scale-free positive ratio 三条件；规避 TsKurt/TsSkew
+  内嵌 CsRank (operators.py:428 bug)；rank-diff geometry 7 律 max_corr@F021<0.30 + max_corr@all_rank_diff<0.30。预期至少
+  1 admit 验证 intraday position dispersion family 在 F021 之外可扩展，确认 'lower-shadow / open-position
+  / midpoint-deviation 等同 LHS 几何位置 × 不同 RHS basis' 是 range_structure direction 的可挖路径。
+active_threads_referenced:
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-25T09:21:19Z'
+frozen_at: '2026-04-25T09:21:19Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($amount,$volume),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($amount,$volume),60)))
+  rationale: 'LHS=Std((O-L)/(H-L),20) open lower-shadow position dispersion——numerator
+    O-L 是开盘距 low 的距离（开盘价在范围内的下半位置），与 F021 (H-C)/(H-L) numerator H-C 完全异源；与 F019 |C-O|/(H-L)
+    (numerator |C-O|) 异源；与 F020 gap_ret/prev_close 异源。Std 二阶矩单层 + scale-free [0,1]。RHS=Mean($amount/$volume,60)
+    60d VWAP magnitude——纯 amount/volume 衍生，与 F021 RHS H/L_60 (纯 OHLC 几何) 完全跨字段族；F014
+    vwap_overnight_spread 是 VWAP-prev_close 差值，本批 RHS 是 VWAP level 本身 (level vs spread)。设计意图：测开盘位置分散度
+    × 长期 VWAP magnitude 在 cross-section 上是否构成独立 alpha。预期 max_corr@F021<0.30 (LHS atom
+    异源 + RHS 跨字段族)，max_corr@all_rank_diff<0.30。Anti-recap: F019 LHS body_ratio 不同
+    atom；F020 LHS gap_ret 不同 atom；F021 LHS upper-shadow 不同方向 numerator (O-L 是下方 /
+    H-C 是上方)。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$open),Sub($high,$low)),20)),CsRank(Mean(Div($pe_ratio,$pb_ratio),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$open),Sub($high,$low)),20)),CsRank(Mean(Div($pe_ratio,$pb_ratio),60)))
+  rationale: 'LHS=Std((H-O)/(H-L),20) open upper-shadow position dispersion——numerator
+    H-O 是 high 距开盘的距离，与 F021 numerator H-C (high 距 close) 不同 anchor (开盘 vs 收盘)；非 affine
+    等价 (open ≠ close)。F019 LHS |C-O| 完全异源。Std 二阶矩 + scale-free [0,1]。RHS=Mean($pe_ratio/$pb_ratio,60)
+    ROE proxy 60d——pe/pb = book/earnings inverse ≈ 1/ROE，纯 fundamental 比值；与 F021 RHS
+    H/L (OHLC) 跨字段族；F002 用 pb/amount, 本批用 pe/pb，pe 字段在已 admit RHS 中未单独出现 (F002 中 pb
+    在分子)。Anti-recap: 与 C001 LHS 不同 (O-L vs H-O) — 同样 anchored on open 但方向相反；RHS 与
+    C001 完全不同字段族 (fundamental vs liquidity)。预期 max_corr@F021<0.30, max_corr@all_rank_diff<0.30。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($close,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Div($amount,Mul($close,$volume)),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($close,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Div($amount,Mul($close,$volume)),60)))
+  rationale: 'LHS=Std((C-prev_close)/(H-L),20) daily-return-per-unit-range Std——numerator
+    C-Ref(C,1) 是 daily return，分母 H-L 是 intraday range，整体是 ''return 占 range 比例'' 的
+    dispersion，几何上与 F021 (H-C)/(H-L) 完全不同 (return 是跨日变化，H-C 是日内 close 在范围内位置)；非 affine。F020
+    gap_ret 是 (open-prev_close)/prev_close (分母 prev_close)，本批 LHS 分母是 H-L (range)，分母完全不同。F005
+    algebraic mirror 律警告 daily return 经常出现，但归一化分母从 prev_close 换为 H-L 是关键差分 (range
+    单位 vs price 单位)。Std 二阶矩 + scale-free。RHS=Mean($amount/Mul($close,$volume),60)
+    ≈ vwap/close 60d——amount/(close*volume) = vwap/close，纯几何 ratio；F014 是 vwap-prev_close
+    spread (差值), 本批 RHS 是 vwap/close 比值 (level ratio)，几何完全不同。Anti-recap: 与 C001 RHS
+    amount/volume 区别在多了一个 close 分母 (vwap vs vwap/close, 不同 magnitude scale, rank correlation
+    中等而非高)。'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Div($pe_ratio,$ps_ratio),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Div($pe_ratio,$ps_ratio),60)))
+  rationale: 'LHS=Std((O-prev_close)/(H-L),20) overnight-gap-per-unit-range Std——numerator
+    O-Ref(C,1) 是 overnight gap，分母 H-L 是 intraday range，与 F020 LHS (open-prev_close)/prev_close
+    关键差分在分母 (range 单位 vs price 单位)；与 F021 numerator H-C 完全异源。Std 二阶矩 + scale-free
+    (gap 可正可负, dispersion 度量)。RHS=Mean($pe_ratio/$ps_ratio,60) margin proxy 60d——pe/ps
+    = sales/earnings inverse ≈ 1/(earnings margin)，纯 fundamental 比值；ps_ratio 在已 admit
+    RHS 中未出现，与 C002 RHS pe/pb 共享 pe 但 RHS 整体 = sales/earnings vs book/earnings 是不同维度
+    fundamental 信息。预期 max_corr@C002 RHS<0.50 (共享 pe 但分母字段不同)。Anti-recap: 与 C003 LHS
+    共享 H-L 分母但 numerator 不同 (overnight gap vs daily return); 与 F020 共享 numerator (O-prev_close)
+    但分母不同 (H-L vs prev_close)，几何完全不同。'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Div($turnover_rate,$pb_ratio),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Div($turnover_rate,$pb_ratio),60)))
+  rationale: 'LHS=Std((H-prev_close)/(H-L),20) high-above-prev_close-per-range Std——numerator
+    H-Ref(C,1) 是当日 high 距前收的距离 (代表当日上方 break-out 程度)，分母 H-L 是当日 range；与 F021 numerator
+    H-C (high 距当日 close) 完全异源 (anchor 时间点不同：prev_close vs current_close)；非 affine
+    等价。Std 二阶矩 + scale-free (≥0)。RHS=Mean($turnover_rate/$pb_ratio,60) liquidity-value
+    composite 60d——turnover_rate/pb_ratio 是流动性除以 book-to-price，是 ''liquidity adjusted
+    by valuation'' 的 60d 平均；F002 (pb/amount), F015/F016 (amihud, turnover_cv) 都不是该几何；纯
+    60d scale-free 比值。Anti-recap: 与 C001/C003 LHS 共享 H-L 分母但 numerator 完全不同 (高 vs
+    开/收 vs return)；RHS 与 C002 RHS pe/pb 共享 pb 但 numerator 不同 (turnover vs pe), 是不同维度信息组合。'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub(Add($close,$open),Add($high,$low)),Sub($high,$low)),20)),CsRank(Mean(Div($amount,$market_cap),60)))
+  canonical: Sub(CsRank(Std(Div(Sub(Add($close,$open),Add($high,$low)),Sub($high,$low)),20)),CsRank(Mean(Div($amount,$market_cap),60)))
+  rationale: 'LHS=Std((C+O-H-L)/(H-L),20) composite midpoint deviation Std——numerator
+    (C+O-H-L) = (C-H)+(O-L) = -(H-C)+(O-L)，是 ''close 上方距 high 的距离'' 与 ''open 下方距 low
+    的距离'' 之差，几何上度量 close 和 open 在 range 内的同向性；可正可负，非 affine 等价于 F021 (H-C)/(H-L) (单一
+    numerator) 也非 C001 (O-L)/(H-L) — 是 C001 - F021 的复合。Std 二阶矩 + scale-free。RHS=Mean($amount/$market_cap,60)
+    60d turnover$ (RMB rate)——amount/market_cap 是日成交额占总市值比例 (类 turnover_rate 但 amount-base
+    而非 share-base)；F018 用 amount_20 单字段, F002 用 pb/amount, 本批 RHS 是 amount/market_cap
+    60d 比值，几何上是 ''amount-base liquidity rate''，与所有已 admit 几何完全不同；非 size RHS (market_cap
+    在分母而非 raw level RHS, 规避 b055 C006 size-RHS 60d-Std 教训)。Anti-recap: 复合 numerator
+    (C+O-H-L) 是 6 候选中唯一双 anchor 复合 LHS, 几何最独特；RHS 是 amount-base turnover rate, 与 C003
+    (vwap/close) 和 C001 (vwap magnitude) 都不同。'

@@ -44,7 +44,7 @@ def _cross_sectional_residual(
     n_features = X.shape[2]
     XtX_inv = np.zeros((n_dates, n_features, n_features))
     for p in range(n_dates):
-        XtX_inv[p] = pinv(XtX[p], rcond=1e-15)
+        XtX_inv[p] = pinv(XtX[p], rtol=1e-15)
 
     beta = np.einsum("pij,pj->pi", XtX_inv, Xty)
     residual = y - np.einsum("pdi,pi->pd", X, beta)

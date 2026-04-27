@@ -5,16 +5,56 @@ source_type: dsl
 admitted_at: '2026-04-24T22:15:02Z'
 admitted_in_batch: batch_050
 status: active
-diagnostics_ref: cache/batch_diagnostics/batch_050/C005
+diagnostics_ref: cache/batch_diagnostics/batch_recompute_v2/F019
 direction: ohlc_temporal_aggregation
 expression: Sub(CsRank(Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),20)))
 canonical: Sub(CsRank(Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),20)))
 validation_metrics:
-  ic_mean: 0.039407003291517494
-  ic_ir: 0.28965779890601373
-  ic_win_rate: 0.609504132231405
+  coverage: 0.9998
+  ic_mean: 0.04138319639424283
+  ic_ir: 0.30000005382967904
+  ic_win_rate: 0.6136363636363636
   monotonicity: 0.9999999999999999
-  long_short_mean: 0.0011029904629493493
+  long_short_mean: 0.0010760523658943331
+  long_short_sharpe: 2.0718
+  long_short_tstat: 2.8742
+  long_short_max_dd: -0.1224
 risk_metrics:
-  style_r_squared: 0.2310917764841185
-  alpha_survival_ratio: 0.2067
+  style_r_squared: 0.25256480443779084
+  alpha_survival_ratio: 0.1592
+primary_universe: all_tradable
+validation_metrics_by_universe:
+  all_tradable:
+    coverage: 0.9998
+    ic_mean: 0.041383
+    ic_ir: 0.3
+    monotonicity: 1.0
+    long_short_sharpe: 2.0718
+  csi300:
+    coverage: 0.9998
+    ic_mean: 0.048312
+    ic_ir: 0.2509
+    monotonicity: 0.9
+    long_short_sharpe: 1.8146
+  csi1000:
+    coverage: 0.9997
+    ic_mean: 0.039834
+    ic_ir: 0.2647
+    monotonicity: 1.0
+    long_short_sharpe: 1.6478
+universe_robustness:
+  icir_min: 0.2509
+  icir_max: 0.3
+  icir_robustness_ratio: 0.8363
+  ic_mean_min: 0.039834
+  ic_mean_max: 0.048312
+  mono_min: 0.9
+  mono_max: 1.0
+  ic_sign_consistent_across_universes: true
+  primary_universe: all_tradable
+recompute_provenance:
+  run_name: library_recompute_v2
+  applied_at: '2026-04-25T17:16:12Z'
+  batch_id: batch_recompute_v2
+  result_relpath: vault/batches/batch_recompute_v2/result.yaml
+revalidated_in_batch: batch_recompute_v2

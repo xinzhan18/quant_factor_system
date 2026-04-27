@@ -1,0 +1,147 @@
+batch_id: batch_recompute_v2
+intent: Recompute entire factor library through Phase 2 mainline under tradable_mask
+  (incl. limit-up/down).
+generated_at: '2026-04-25T16:40:25Z'
+run_name: library_recompute_v2
+candidates:
+- candidate_id: F001
+  source_type: dsl
+  name: amount_cv_10
+  direction: amount_volatility_signal
+  prior_status: active
+  expression: Div(Std($amount, 10), Mean($amount, 10))
+- candidate_id: F002
+  source_type: dsl
+  name: pb_amount_ratio_20
+  direction: value_liquidity_interaction
+  prior_status: active
+  expression: Div($pb_ratio, Mean($amount, 20))
+- candidate_id: F003
+  source_type: dsl
+  name: overnight_gap_normalized
+  direction: intraday_price_formation
+  prior_status: retired
+  expression: Div(Sub($open, Ref($close, 1)), Mean($high, 1))
+- candidate_id: F004
+  source_type: python
+  name: barra_residual_return
+  direction: barra_residual_alpha
+  prior_status: active
+  path: storage/vault/batches/batch_012/python_candidates/C001.py
+- candidate_id: F005
+  source_type: python
+  name: barra_residual_alpha_60d
+  direction: barra_residual_alpha
+  prior_status: retired
+  path: storage/vault/batches/batch_013/python_candidates/C001.py
+- candidate_id: F006
+  source_type: dsl
+  name: upper_shadow_persistence_5d
+  direction: ohlc_temporal_aggregation
+  prior_status: active
+  expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 5)
+- candidate_id: F007
+  source_type: dsl
+  name: open_position_persistence_5d
+  direction: ohlc_temporal_aggregation
+  prior_status: active
+  expression: Mean(Div(Sub($open, $low), Sub($high, $low)), 5)
+- candidate_id: F008
+  source_type: dsl
+  name: upper_shadow_persistence_3d
+  direction: ohlc_temporal_aggregation
+  prior_status: active
+  expression: Mean(Div(Sub($high, $close), Sub($high, $low)), 3)
+- candidate_id: F009
+  source_type: dsl
+  name: overnight_intraday_spread_5d
+  direction: overnight_intraday_split
+  prior_status: active
+  expression: Mean(Sub(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Div(Sub($close,
+    $open), $open)), 5)
+- candidate_id: F010
+  source_type: dsl
+  name: overnight_return_persistence_5d
+  direction: overnight_intraday_split
+  prior_status: reserve
+  expression: Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 5)
+- candidate_id: F011
+  source_type: dsl
+  name: overnight_return_persistence_3d
+  direction: overnight_intraday_split
+  prior_status: reserve
+  expression: Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 3)
+- candidate_id: F012
+  source_type: dsl
+  name: amihud_illiq_20d
+  direction: microstructure_illiquidity
+  prior_status: active
+  expression: Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount), 20)
+- candidate_id: F013
+  source_type: dsl
+  name: log_amount_weighted_acceptance_20
+  direction: gap_acceptance_structure
+  prior_status: retired
+  expression: Mean(Mul(Mul(Sign(Sub($open, Ref($close, 1))), Sign(Sub($close, $open))),
+    Log(Div($amount, Mean($amount, 20)))), 20)
+- candidate_id: F014
+  source_type: dsl
+  name: vwap_overnight_spread
+  direction: vwap_proxy_signals
+  prior_status: retired
+  expression: Div(Sub(Div($amount, $volume), Ref($close, 1)), Ref($close, 1))
+- candidate_id: F015
+  source_type: dsl
+  name: amihud_cv_rank_diff_20
+  direction: microstructure_illiquidity
+  prior_status: active
+  expression: Sub(CsRank(Mean(Div(Abs(Div(Delta($close, 1), Ref($close, 1))), $amount),
+    20)), CsRank(Div(Std($amount, 10), Mean($amount, 10))))
+- candidate_id: F016
+  source_type: dsl
+  name: amihud_turnover_cv_rank_diff_20
+  direction: microstructure_illiquidity
+  prior_status: active
+  expression: Sub(CsRank(Mean(Div(Abs(Div(Delta($close,1),Ref($close,1))),$amount),20)),CsRank(Div(Std($turnover_rate,20),Mean($turnover_rate,20))))
+- candidate_id: F017
+  source_type: dsl
+  name: overnight_turnover_rank_diff_5
+  direction: overnight_intraday_split
+  prior_status: active
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)),CsRank(Mean($turnover_rate,5)))
+- candidate_id: F018
+  source_type: dsl
+  name: overnight_sign_freq_amount_rank_diff_20
+  direction: overnight_intraday_split
+  prior_status: active
+  expression: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),20)),CsRank(Mean($amount,20)))
+- candidate_id: F019
+  source_type: dsl
+  name: body_disp_pricevol_rank_diff_20
+  direction: ohlc_temporal_aggregation
+  prior_status: active
+  expression: Sub(CsRank(Std(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)),CsRank(Mean(Std($close,5),20)))
+- candidate_id: F020
+  source_type: dsl
+  name: gap_vol_body_ratio_rank_diff_20
+  direction: gap_acceptance_structure
+  prior_status: active
+  expression: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)),CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20)))
+- candidate_id: F021
+  source_type: dsl
+  name: upper_shadow_disp_range_compress_rd_20
+  direction: range_structure
+  prior_status: active
+  expression: Sub(CsRank(Std(Div(Sub($high,$close),Sub($high,$low)),20)),CsRank(Mean(Div($high,$low),60)))
+- candidate_id: F022
+  source_type: dsl
+  name: close_position_amount_accel_rd_20
+  direction: overnight_intraday_split
+  prior_status: active
+  expression: Sub(CsRank(Mean(Div(Sub($close,$low),Add(Sub($high,$low),0.0001)),20)),CsRank(Div(Mean($amount,5),Mean($amount,60))))
+- candidate_id: F023
+  source_type: dsl
+  name: gap_body_magnitude_amount_rd_20
+  direction: overnight_intraday_split
+  prior_status: active
+  expression: Sub(CsRank(Mean(Mul(Sub($open,Ref($close,1)),Sub($close,$open)),20)),CsRank(Mean($amount,60)))

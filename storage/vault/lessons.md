@@ -141,6 +141,26 @@ generator 层 / Phase 1 freeze 应 pre-block 的设计反模式。
   - b035 C001-C003 reject：pure `sign(gap) × sign(body)` 三窗口全 sign_flip —— gap sign 在 csi1000 也 noise 主导，需 amount weighting drift proxy 才能复活（F013）
 - **paper-driven candidate freeze 前必须 explicit 标注** `expected_decay_factor ≥ 5x for csi1000 transfer`。
 
+## Library Recompute v2
+
+> 加自 2026-04-26 全库 Phase 2 mainline 重算（[[batches/batch_recompute_v2/result|batch_recompute_v2]] + [[batches/batch_recompute_v2_pyfix/result|batch_recompute_v2_pyfix]]）—— 比 recompute v1 更进一步：所有因子走标准 admission 通道（`build_phase2_inputs → run_phase2 → CP01 hard_gates`），不达标的物理删除。详见 [[_meta/library_purge_library_recompute_v2]]。
+
+- **DB `factor_values` 表是无效遗留**：`factor_001..factor_045` 是 mining_v1 时代的命名，跟当前 F-命名（`F015..F023`）不对应；当前 Phase 2 不读 DB（用 sha256-keyed parquet cache + 即算即用）。recompute 后整张表 DROP，干净基线。
+- **物理删除 vs status=retired 的边界**：`status=retired` 适合"机制还有解释价值，重新挖类似方向时要避雷"的因子（保留 yaml/md 作历史教训）；**物理删除**适合"因 mask/数据/代码缺陷而 admission 决策失败"的因子，库不必为修复后的非候选保留索引污染。本次 F014 (`vwap_overnight_spread` ic_oos<floor) 是删除案例。
+- **revalidated_in_batch ≠ admitted_in_batch**：report builder (`render_factor`) 必须读最新真相 — `meta.get("revalidated_in_batch") or meta["admitted_in_batch"]`。这是新增 schema 字段；admit 历史保留在 `admitted_in_batch` 作 audit trail，不可覆盖。
+- **Python factor 源代码必须走代码版本控制，不放 immutable archive**：F004/F005 在第一轮失败因为 scipy `pinv` 的 `rcond=` API 在 1.7+ 已被 `rtol=` 替代，但 `vault/batches/batch_012/python_candidates/C001.py` 是 frozen archive 没跟进。教训：admitted python 因子的"运行时入口"应该是 `storage/python_factors/F{id}_*.py`（被代码 PR 流程跟踪），archive 里的副本只作历史快照。
+- **library_signals=空 是 self-recompute 的唯一正确选择**：批量重算整库时若仍走 `data_bridge.load_library_signals`，会让每个因子跟自己 / 同 family 因子做 redundancy 检测，结果 `is_near_duplicate=True` 全部触发 hard_gate fail。recompute 时手动 `inputs.library_signals = {}`。
+
+## Tradable Mask + Multi-Universe Evaluation
+
+> 加自 2026-04-25 recompute v1（`tradable_mask_v1_st`）—— 23 因子全量重算后的系统级教训。详见 [[_meta/recompute_v1_reverdict]]。
+
+- **Primary universe = `all_tradable`**：CP01–CP06 全套判定在「全市场可交易股票日」上跑，`csi300` / `csi1000` 仅作 robustness 参考（不进 verdict）。pre-2026-04-25 admit 的因子配置里 `Phase2Inputs.universe` 只是 label —— 真实评估也是 all_tradable，本次 mainline wiring 把这条路径显式化（`data_bridge.build_phase2_inputs` 用 `primary_effective_mask = base_tradable ∧ load_universe_mask(primary)`）。
+- **Persistence-style overnight 因子在加 ST mask 后 mono 全面崩塌**：F003 / F010 / F011 在旧版 (no ST mask) 下 mono=1.0；加 PIT ST + 停牌 mask 后 mono 跌到 0.40。这暗示原来的"持续性 carry"很大一块是 ST 股反向漂移撑起来的虚假支撑——**batch_010~025 整批 overnight persistence 候选系统性高估**。后续设计层硬约束：persistence / mean / cumsum 系列因子在 freeze 阶段必须看 ST-filtered probe IC，不能信 raw probe。
+- **rank-diff symmetric structure 是 universe-robustness 之王**：23 因子在 `all_tradable / csi300 / csi1000` 三 universe 下评估，rank-diff family（F017–F023）`icir_robustness_ratio = min(|ICIR|) / max(|ICIR|)` 中位 ~0.55；raw OHLCV / persistence 因子中位 ~0.20。**机理**：`Sub(CsRank(A), CsRank(B))` 是 scale-free 几何，universe 缩水（csi300 大盘股）只会改变 rank 相对位置，不会破坏序结构。
+- **csi300 是 alpha 死区，不能当主测度**：23 因子里只有 7 个在 csi300 上跨过 admission floor (`F014 退化版, F017–F021, F023`)。csi300 大盘股被机构 arbitrage 压平 alpha 是常态，不否定因子在 all_tradable 的价值。csi300_passes 仅当 robustness label。
+- **multi-universe schema (`validation_metrics_by_universe`)** 是因子库新基线。Phase 2 mainline 自动写入三 universe (`all_tradable` primary + `csi300/csi1000` secondary basic) + `universe_robustness` summary + `recompute_provenance`（仅 retrofit 因子）。新 admit 的因子由 `factor_writer` 直接落地。
+
 ## Metric Semantics
 
 - **`ic.half_life_days`** —— **IC 衰减**半衰期。从多 horizon 的 train IC 曲线拟合，单位 = 持仓 horizon 天数。回答：alpha 随持仓期拉长衰减多快？

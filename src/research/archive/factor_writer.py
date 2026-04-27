@@ -152,12 +152,14 @@ def build_factor_record(
     ic = admit_entry.get("ic") or {}
     val = ic.get("validation") or {}
     q_val = (admit_entry.get("quintile") or {}).get("validation") or {}
+    ls_val_stats = ((admit_entry.get("quintile") or {}).get("ls_stats") or {}).get("validation") or {}
     record["validation_metrics"] = {
         "ic_mean": val.get("ic_mean"),
         "ic_ir": val.get("ic_ir"),
         "ic_win_rate": val.get("ic_win_rate"),
         "monotonicity": q_val.get("monotonicity"),
         "long_short_mean": q_val.get("ls_mean"),
+        "long_short_sharpe": ls_val_stats.get("sharpe"),
     }
     record["risk_metrics"] = {
         "style_r_squared": (admit_entry.get("barra") or {}).get("style_r_squared"),
@@ -165,6 +167,17 @@ def build_factor_record(
             "alpha_survival_ratio"
         ),
     }
+    # Multi-universe context (basic metrics only; primary universe is the
+    # canonical view written above into ``validation_metrics``).
+    if "validation_metrics_by_universe" in admit_entry:
+        record["validation_metrics_by_universe"] = admit_entry[
+            "validation_metrics_by_universe"
+        ]
+    if "universe_robustness" in admit_entry:
+        record["universe_robustness"] = admit_entry["universe_robustness"]
+    record["primary_universe"] = (admit_entry.get("universe_robustness") or {}).get(
+        "primary_universe"
+    )
 
     return record
 

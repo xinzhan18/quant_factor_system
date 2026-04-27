@@ -1,0 +1,81 @@
+batch_id: batch_057
+round: 56
+direction: vwap_proxy_signals
+direction_md_ref: vault/directions/vwap_proxy_signals.md
+batch_goal: 'T004 higher-moment LHS independence axis on VWAP-derived scale-free ratios
+  × non-saturated rank-diff RHS — 6 candidates testing Std/Skew(synthesized_VWAP_gap,
+  N≤20) wrapped in CsRank, paired with non-saturated RHS atoms (turnover_rate Mean
+  10, range_to_close Med 20, log_circ_mktcap, amount/mktcap, log_amount Mean 20).
+  Goal: open new VWAP-basis higher-moment alpha axis bypassing F005 OHLC mirror affine
+  constraint via rank-diff decoupling (F019/F020 paradigm transfer to VWAP basis).
+  Hard-checks: max_corr@F014<0.7, max_corr@anchor<0.30, alpha_surv>=0.30 (rank-diff
+  threshold).'
+active_threads_referenced:
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-25T10:17:28Z'
+frozen_at: '2026-04-25T10:17:28Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub(Div($amount,$volume), Ref($close,1)), Ref($close,1)),
+    20)), CsRank(Mean($turnover_rate, 10)))
+  canonical: Sub(CsRank(Std(Div(Sub(Div($amount,$volume),Ref($close,1)),Ref($close,1)),20)),CsRank(Mean($turnover_rate,10)))
+  rationale: 'T004 baseline: 20d Std of synthesized VWAP-prevclose normalized gap
+    (scale-free higher-moment LHS, F019/F020 paradigm) rank-diffed against turnover_rate
+    Mean 10 (non-saturated RHS, level form not rate). Tests whether VWAP-gap dispersion
+    carries cross-section independent alpha after de-fielding via turnover. Avoids
+    saturated RHS endpoints (turnover_5/amount_20/body_ratio_20/price_vol_20). Hypothesis:
+    higher VWAP-gap dispersion + lower turnover = alpha (sleepy-stock dispersion regime).'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub(Div($amount,$volume), Ref($close,1)), Ref($close,1)),
+    10)), CsRank(Med(Div(Sub($high,$low), $close), 20)))
+  canonical: Sub(CsRank(Std(Div(Sub(Div($amount,$volume),Ref($close,1)),Ref($close,1)),10)),CsRank(Med(Div(Sub($high,$low),$close),20)))
+  rationale: 'T004 window probe: 10d Std of VWAP-prev gap (shorter half-life sensing)
+    × 20d Med of (H-L)/close (range-to-close median, NOT body_ratio_20 saturated;
+    uses median for tail robustness). Both scale-free. Tests whether shorter LHS window
+    + range-distinct RHS opens a different time-scale axis.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub(Div($amount,$volume), $open), $open), 20)), CsRank(Log($circ_market_cap)))
+  canonical: Sub(CsRank(Std(Div(Sub(Div($amount,$volume),$open),$open),20)),CsRank(Log($circ_market_cap)))
+  rationale: 'T004 anchor pivot: 20d Std of VWAP-open gap (anchor=open, distinct mechanism
+    from F014 prev_close anchor) × log circulating market cap (size factor, level
+    form, not in F015-F021 RHS atoms). Tests whether intraday-anchored VWAP dispersion
+    is structurally distinct from cross-session VWAP, after orthogonalization against
+    size.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub(Div($amount,$volume), Ref($close,1)), Ref($close,1)),
+    20)), CsRank(Mean(Div($amount, $circ_market_cap), 20)))
+  canonical: Sub(CsRank(Std(Div(Sub(Div($amount,$volume),Ref($close,1)),Ref($close,1)),20)),CsRank(Mean(Div($amount,$circ_market_cap),20)))
+  rationale: T004 same LHS as C001 but RHS=value-based turnover proxy (amount/circ_market_cap
+    Mean 20). Decouples from raw $turnover_rate (which itself is potentially redundant
+    with vol_20d basis). Tests whether RHS atom choice (turnover_rate vs value-turnover)
+    materially shifts independence — controlled experiment with C001.
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Skew(Div(Sub(Div($amount,$volume), Ref($close,1)), Ref($close,1)),
+    20)), CsRank(Mean($turnover_rate, 10)))
+  canonical: Sub(CsRank(Skew(Div(Sub(Div($amount,$volume),Ref($close,1)),Ref($close,1)),20)),CsRank(Mean($turnover_rate,10)))
+  rationale: 'T004 third-moment axis: 20d Skew (asymmetry) of VWAP-prev gap, controlled
+    experiment with C001 (Std). Same RHS as C001 isolates LHS-axis effect (per lessons
+    ''Std vs Mean of same atom independence''). Skew is Qlib built-in rolling op (NOT
+    TsSkew custom — bypasses TsSkew/TsKurt inside CsRank bug). Tests whether asymmetry
+    of VWAP gap distribution carries orthogonal info to its dispersion.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub(Div($amount,$volume), Ref(Div($amount,$volume),
+    5)), Ref(Div($amount,$volume), 5)), 20)), CsRank(Mean(Log($amount), 20)))
+  canonical: Sub(CsRank(Std(Div(Sub(Div($amount,$volume),Ref(Div($amount,$volume),5)),Ref(Div($amount,$volume),5)),20)),CsRank(Mean(Log($amount),20)))
+  rationale: 'T004 within-VWAP dynamics: 20d Std of (VWAP - VWAP_5d_ago)/VWAP_5d_ago
+    — VWAP momentum dispersion, entirely new mechanism not anchored to OHLC reference
+    points (escapes F005 OHLC algebraic mirror constraint). RHS=20d Mean of Log($amount)
+    — non-linear-compressed amount level (F013 mechanism), NOT amount_20 raw saturated.
+    Both scale-free. Tests whether intra-VWAP-trajectory dispersion is independent
+    of static price-anchor formulations.'

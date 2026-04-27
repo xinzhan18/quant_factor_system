@@ -1,0 +1,80 @@
+batch_id: batch_059
+round: 58
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: '推进 T011 sign-product 与 T012 close-position 双 active thread。T011: 60d
+  sign-product LHS 用非 F021 cluster RHS (circ_mktcap_60); 20d magnitude-weighted sign-product
+  救活短窗。T012: center-position(C-mid)/(H-L) 20d 作为 vol_20d 正交 LHS 新 atom,与 F022 close-position
+  / F007 open-position / F006 high-close 全部正交;配 long-window scale-free non-amount
+  RHS (circ_mktcap_60 / pe_5_60_ratio / turnover_5_60_ratio)。规避 saturated RHS endpoint:
+  amount_5/60 (F022)、amount_20 (F018)、turnover_5 (F017)、H/L_60 (F021)、body_ratio_20
+  (F020)。'
+active_threads_referenced:
+- T011
+- T012
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-25T12:06:45Z'
+frozen_at: '2026-04-25T12:06:45Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,Div(Add($high,$low),2)),Add(Sub($high,$low),0.0001)),20)),CsRank(Mean($circ_market_cap,60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,Div(Add($high,$low),2)),Add(0.0001,Sub($high,$low))),20)),CsRank(Mean($circ_market_cap,60)))
+  rationale: T012 续。LHS 新 atom = center-position (C - midbar)/(H-L) 20d Mean,signed
+    [-0.5,0.5],bar 内位置距中点偏离。与 F022 LHS (C-L)/(H-L) 仿射不等(差常数 1/2 但分母同) — 经 CsRank 后两者的
+    cross-section rank 不一样 (C-mid 中位股聚集 0,close-low 中位股聚集 0.5)。RHS=Mean($circ_market_cap,60)
+    long-window scale-free 市值 — 不在 saturated endpoint (amount/turnover/H-L/body) 内,但要警戒
+    |corr($market_cap)|>0.3 红线 (60d Mean 应是 anchor 化版本)。绕开理由:LHS atom 与 F022 / F006
+    / F007 几何位置不同;RHS 类目首次在 rank-diff 出现。
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,Div(Add($high,$low),2)),Add(Sub($high,$low),0.0001)),20)),CsRank(Div(Mean($amount,60),Mean($amount,20))))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,Div(Add($high,$low),2)),Add(0.0001,Sub($high,$low))),20)),CsRank(Div(Mean($amount,60),Mean($amount,20))))
+  rationale: T012 续。LHS 同 C001 (center-position 20d),RHS = amount_60/20_ratio (中期
+    vs 短期 amount 比) — 与 F022 RHS amount_5/60_ratio 时间尺度互逆 (F022 是 acceleration 5d/60d,本候选是
+    deceleration 60d/20d)。两者数学上 inverse-ratio 但 CsRank 后并非镜像 (rank 顺序在分子分母对调时有 cross-section
+    ordering shift)。绕开理由:虽 LHS 同 C001 但 RHS 时间窗结构不同;RHS 不与 F022 共 endpoint。
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sign(Sub($open,Ref($close,1))),Sign(Sub($close,$open))),60)),CsRank(Mean($circ_market_cap,60)))
+  canonical: Sub(CsRank(Mean(Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1)))),60)),CsRank(Mean($circ_market_cap,60)))
+  rationale: T011 续。b058 C005 reserve 验证 60d sign-product LHS mono=0.9/0.9 完美但被 F021
+    cluster (max_corr=0.49) 锁死。本候选保持 60d sign-product LHS,RHS 替换 H/L_60 → circ_market_cap_60
+    — 完全脱离 OHLC 几何 cluster。绕开理由:LHS 是 sign-product (与 F018 单边 sign 几何正交 — F018 仅 Sign(overnight),本候选
+    Sign(overnight)*Sign(intraday) 共方向频率,b058 已验证 corr 仅 0.21);RHS 跨 family。
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sub($open,Ref($close,1)),Sub($close,$open)),20)),CsRank(Mean($amount,60)))
+  canonical: Sub(CsRank(Mean(Mul(Sub($close,$open),Sub($open,Ref($close,1))),20)),CsRank(Mean($amount,60)))
+  rationale: T011 续。b058 C003 (20d Sign(o)*Sign(i)) reject (mono=0.4,Q5 反向),b058 C005
+    (60d sign-product) reserve mono=0.9 但 alpha_surv 不足。本候选用 magnitude-weighted product
+    (gap × body 直接相乘,不取 Sign) 替代纯 sign,救活 20d 窗口 — 保留共方向信息但带 magnitude 加权。LHS = Mean(
+    (O-Ref(C,1)) * (C-O), 20 ) — overnight gap × intraday body 直乘聚合。RHS=Mean($amount,60)
+    60d level (与 F018 amount_20 / F022 amount_5/60 ratio 不同窗)。绕开理由:LHS magnitude 信号
+    ≠ b058 C003/C005 的 sign-only 信号(信息量不同),也 ≠ F009 spread (F009 是 (overnight - intraday)
+    加和,本候选是 overnight * intraday 乘积)。
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Sign(Sub(Sub($close,$low),Sub($high,$close))),20)),CsRank(Div(Mean($turnover_rate,5),Mean($turnover_rate,60))))
+  canonical: Sub(CsRank(Mean(Sign(Sub(Sub($close,$low),Sub($high,$close))),20)),CsRank(Div(Mean($turnover_rate,5),Mean($turnover_rate,60))))
+  rationale: T012 fusion。LHS = Sign((C-L) - (H-C)) Mean 20 — close 偏向 high 还是 low
+    的方向 sign 聚合频率 (close 偏 high → +1, 偏 low → -1)。这是 close-position-direction 的离散化形式,与
+    F022 (continuous close-position Mean) 几何关系是 step function vs ramp,CsRank 后不是镜像(F018
+    验证 sign 聚合 vs magnitude 聚合 corr 仅 0.37)。RHS = turnover 5/60 加速比(与 F017 turnover_5
+    单点不同,与 F022 amount_5/60 不同字段)。绕开理由:LHS 是 sign-direction 离散版,F022 是 continuous
+    magnitude;sign 与 magnitude 在 b049 F018 已实证几何正交。RHS 字段类目首次在 rank-diff 出现 turnover
+    acceleration。
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,Div(Add($high,$low),2)),Add(Sub($high,$low),0.0001)),20)),CsRank(Div(Mean($turnover_rate,5),Mean($turnover_rate,60))))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,Div(Add($high,$low),2)),Add(0.0001,Sub($high,$low))),20)),CsRank(Div(Mean($turnover_rate,5),Mean($turnover_rate,60))))
+  rationale: T012 续。LHS = center-position 20d (同 C001/C002 新 atom),RHS = turnover
+    5/60 加速比 (同 C005 RHS)。本候选意图测 LHS atom × RHS 类目的双新 cross。绕开理由:LHS 与 F022 几何位置不同;RHS
+    不在 saturated endpoint。与 C001 区别:RHS 类目 (turnover acceleration vs circ_mktcap level);与
+    C002 区别:RHS 字段+方向不同 (turnover ratio vs amount ratio,而且本候选是 5/60 加速 vs C002 60/20
+    减速);与 C005 区别:LHS 几何不同 (continuous center-position vs discrete sign-direction)。三候选
+    C001/C002/C006 同 LHS atom 但 RHS 三个不同类目 — 测 RHS 哪个最 library-clean。

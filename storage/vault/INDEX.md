@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-04-25T12:46:42Z
+generated_at: 2026-04-25T17:42:32Z
 round: 59
 total_active_directions: 13
 total_factors_admitted: 22
@@ -18,15 +18,20 @@ last_consolidation_round: null
 > **状态** · round=**59** · phase=`null` (idle) · no batch in flight
 > **上一批** · [[batches/batch_059/judge|batch_059]] → [[directions/overnight_intraday_split]] · admit=**1**/6 (reserve=2, reject=3) · direction.status=`productive`
 > **健康** · rounds_since_consolidation=**5** · active_directions=**13**
-> **⚠️ 预警** · 空 factor.md: F023
 >
 > **🎯 下一步（按优先级）**
-> 1. ⚠️ **修空报告**：F023 的 `.md` 为空或缺 H1 → 对每个 F{id} 重新 dispatch `/factor-report` subagent
+> 1. ▶️ **继续同方向**：`overnight_intraday_split` 上批 admit=1/6，读 `directions/overnight_intraday_split.md` 看 active threads 决定下一个 thread
 > 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
 
 <!-- BEGIN HOT-TOPICS-LLM -->
+> [!danger]+ 🆕 系统级事件 · Library Recompute v2 (2026-04-26)
+> 全库 23 因子通过 **Phase 2 mainline 重算**（[[batches/batch_recompute_v2/result|batch_recompute_v2]] + 修 scipy `pinv` rcond→rtol 后的 [[batches/batch_recompute_v2_pyfix/result|batch_recompute_v2_pyfix]]）；启用 `tradability.filter_limit=true`（涨跌停 mask）+ ST + 停牌 + 60d 新股；**primary = `all_tradable`**，csi300/csi1000 仅 robustness 参考。**DB `factor_values` 老表（`factor_001..factor_045` mining_v1 遗留）已视为无效。**
+> - ✅ **22 active** （F001-F013, F015-F023, 含 python F004/F005）
+> - 🗑️ **1 deleted**：F014 vwap_overnight_spread（ic_oos_too_low: \|0.0044\| < 0.008）— 物理删除 yaml/md/assets
+> - 📌 **新教训**：(1) Phase 2 mainline + tradable_mask 是 admission 单一真相源；(2) batches/{id}/result.yaml 是 report 数据源，因此 revalidated 因子必须新建 batch；(3) python 因子源（vault/batches/python_candidates）应纳入代码版本追踪以避免 scipy 类 API 变更导致的"幽灵失败"。详见 [[lessons#Library Recompute v2]] / [[_meta/library_purge_library_recompute_v2]]
+
 > [!warning]+ 🔥 Hot Topics（LLM 维护 · 2026-04-25 scan recent=10）
 > - 🔴 **P001 rank-diff geometry 范式边界已显形 + VWAP basis 也归入死区** · dirs: value_liquidity_interaction, intraday_price_formation, barra_residual_alpha, vwap_proxy_signals → 连续 4 批 0-admit（b052/b053/b054/b057）+ b056 也 0-admit；rank-diff 不是万能钥匙。下设计须验证 (a) LHS atom 不与已 admit rank-diff 因子同源（F019/F020/F021 anti-anchor）(b) RHS basis 不在饱和 endpoints（overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/Amihud_20+其窗口家族）(c) LHS atom 自身需 vol_20d 正交（VWAP-prev gap 失败因 gap 大小≈日内波动率）
 >   evidence: [[batches/batch_052/judge|batch_052]], [[batches/batch_054/judge|batch_054]], [[batches/batch_057/judge|batch_057]]

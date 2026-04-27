@@ -5,16 +5,64 @@ source_type: dsl
 admitted_at: '2026-04-19T13:35:25Z'
 admitted_in_batch: batch_010
 status: active
-diagnostics_ref: cache/batch_diagnostics/batch_010/C004
+diagnostics_ref: cache/batch_diagnostics/batch_recompute_v2/F003
 direction: intraday_price_formation
 expression: Div(Sub($open, Ref($close, 1)), Mean($high, 1))
 canonical: Div(Sub($open,Ref($close,1)),Mean($high,1))
 validation_metrics:
-  ic_mean: 0.023045048345342673
-  ic_ir: 0.3793180939268973
-  ic_win_rate: 0.6549586776859504
-  monotonicity: 0.9999999999999999
-  long_short_mean: 0.0016248438121181622
+  coverage: 1.0
+  ic_mean: 0.015572774248004066
+  ic_ir: 0.24631276264610255
+  ic_win_rate: 0.5888429752066116
+  monotonicity: 0.39999999999999997
+  long_short_mean: 0.0005196522449769565
+  long_short_sharpe: 1.962
+  long_short_tstat: 2.7218
+  long_short_max_dd: -0.0768
 risk_metrics:
-  style_r_squared: 0.03333985267478512
-  alpha_survival_ratio: 0.8213
+  style_r_squared: 0.03569454021343399
+  alpha_survival_ratio: 0.528
+primary_universe: all_tradable
+validation_metrics_by_universe:
+  all_tradable:
+    coverage: 1.0
+    ic_mean: 0.015573
+    ic_ir: 0.2463
+    monotonicity: 0.4
+    long_short_sharpe: 1.962
+  csi300:
+    coverage: 1.0
+    ic_mean: -0.000692
+    ic_ir: -0.0055
+    monotonicity: -0.9
+    long_short_sharpe: -1.0647
+  csi1000:
+    coverage: 1.0
+    ic_mean: 0.006394
+    ic_ir: 0.0815
+    monotonicity: 0.1
+    long_short_sharpe: 0.5776
+universe_robustness:
+  icir_min: -0.0055
+  icir_max: 0.2463
+  icir_robustness_ratio: 0.0223
+  ic_mean_min: -0.000692
+  ic_mean_max: 0.015573
+  mono_min: -0.9
+  mono_max: 0.4
+  ic_sign_consistent_across_universes: false
+  primary_universe: all_tradable
+recompute_provenance:
+  run_name: library_recompute_v2
+  applied_at: '2026-04-25T17:16:12Z'
+  batch_id: batch_recompute_v2
+  result_relpath: vault/batches/batch_recompute_v2/result.yaml
+recompute_reverdict:
+  old_status: retired
+  new_status: retired
+  reason: all_tradable mono 1.0→0.40 under tradable_mask_v1 (PIT ST mask exposed reliance
+    on ST reverse returns); below CP01 mono floor 0.6
+  transitioned_at: '2026-04-25T15:48:36Z'
+  audit_run: tradable_mask_v1_st
+retired_at: '2026-04-25T15:48:36Z'
+revalidated_in_batch: batch_recompute_v2

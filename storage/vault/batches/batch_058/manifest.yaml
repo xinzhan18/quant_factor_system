@@ -1,0 +1,95 @@
+batch_id: batch_058
+round: 57
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 'T005 sign-aggregation 跨 axis 泛化 + 新 T011 overnight×intraday 非线性交互 (3
+  axes / 6 candidates)。Axis A: sign-aggregation LHS 扩窗 (Mean(Sign(overnight),60d))
+  + 新 sign atom (Sign(intraday) 即 close-open 符号) 对接长窗 scale-free 几何 RHS (H/L_60 geometric
+  ratio / Mean(H/L,60))。Axis B: intraday close-position-in-range (C-L)/(H-L) 是结构性
+  vol_20d-orthogonal atom (cockpit constraint), 在 20d/60d 双窗下测。Axis C: overnight×intraday
+  sign 共方向频率 (Mean(Sign(o)*Sign(i),N)) 是 T005 future_probe 3 (overnight×intraday 非线性交互)
+  的 sign-space 实例化, 与 F018 单 sign 几何完全不同。RHS 全部避开 6 dead endpoints (overnight_5/body_ratio_20/pb_60/amount_60/price_vol_20/Std($close,5)*60)
+  + F017/F018 共振 anchor (turnover_5/amount_20)。Bug-flag 规避: 不使用 TsKurt/TsSkew 内嵌 CsRank。anti-recap:
+  zero_admit_streak=2 后, 6 候选 LHS atoms 4 类正交 (overnight_sign / intraday_sign / sign_product
+  / close_position), RHS 4 类正交 (H/L_60 geo / Mean(H/L,60) / close/MA60 / amount_5_60_ratio)。预期
+  ≥1 admit 推进 T005 跨 axis 泛化 + T011 共方向交互首兑现。'
+active_threads_referenced:
+- T005
+- T011
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-25T11:12:00Z'
+frozen_at: '2026-04-25T11:12:00Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),60)),CsRank(Div(Mean($high,60),Mean($low,60))))
+  canonical: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),60)),CsRank(Div(Mean($high,60),Mean($low,60))))
+  rationale: Axis A · T005.2 sign-freq 扩窗。LHS=Mean(Sign(overnight),60) — 直接延伸 F018
+    (20d sign-freq) 的窗口至 60d, 测 overnight-drift sign 是否存在跨季度 persistent component。60d
+    sign-freq 与 20d sign-freq 半衰期不同 (drift accumulator vs short-term momentum), 数学上非线性变换
+    (Sign 已离散化, Mean 60 vs 20 在二项分布上 std 比 sqrt(3)≈1.73)。RHS=H/L_60 geometric ratio
+    (Mean($high,60)/Mean($low,60)) — cockpit 样例 long-window scale-free geometric ratio,
+    整库 RHS 首次出现, 与 F017/F018 RHS (turnover_5/amount_20) 完全异源。预期 max_corr@F018 ≈ 0.40-0.55
+    (同 sign atom 不同窗+不同 RHS), incr_ic 须 ≥0.015 触 F203 borderline 律。dominant_style
+    预期非 vol_20d (sign 离散+几何 RHS)。
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Sign(Sub($close,$open)),20)),CsRank(Mean(Div($high,$low),60)))
+  canonical: Sub(CsRank(Mean(Sign(Sub($close,$open)),20)),CsRank(Mean(Div($high,$low),60)))
+  rationale: 'Axis A · T005.1 sign 聚合 LHS atom 切换。LHS=Mean(Sign(close-open),20) —
+    全新 sign atom: intraday body 方向频率 (close>open=阳线频率), 与 F018 (overnight sign) atom
+    完全不同 (one is gap, one is body)。F018 LHS 用 overnight (open vs prev_close), 本 LHS
+    用 intraday (close vs open), 时间不重叠。RHS=Mean($high/$low,60) — 60d 日 H/L 几何均值, scale-free
+    positive ratio (永>1), 与 H/L_60 (C001 用 Mean$high/Mean$low) 算子顺序不同 (rolling-of-ratio
+    vs ratio-of-rolling), 数值上非线性差异显著。预期 max_corr@F018<0.30 (异 sign atom), max_corr@F019/F020<0.30
+    (LHS 非 body_ratio 也非 gap_ret)。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sign(Sub($open,Ref($close,1))),Sign(Sub($close,$open))),20)),CsRank(Div($close,Mean($close,60))))
+  canonical: Sub(CsRank(Mean(Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1)))),20)),CsRank(Div($close,Mean($close,60))))
+  rationale: 'Axis C · T011 新 thread: overnight×intraday sign 共方向频率。LHS=Mean(Sign(overnight)*Sign(intraday),20)
+    — co-direction freq: 同向 (开盘跳空+日内顺势) +1, 反向 (跳空后回吐) -1, 净值=同向天数比例-反向天数比例。这是 T005
+    future_probe 3 ''overnight×intraday 非线性交互'' 的 sign-space 实例化, 与 F018 单边 sign 几何完全不同
+    (product vs single)。注意: b035 C001-C003 已 reject Mean(Sign(o)*Sign(i),N) raw form
+    (sign_flip), 但 raw form 是 raw value 直接预测 forward return; 本候选是 rank-diff 形态, RHS=close/Mean(close,60)
+    是 60d trend strength 比, geometric scale-free, 整库 RHS 首次。rank-diff 几何把 raw sign-product
+    提升到 cross-section 维度——LHS 在 cross-section 排名而非 raw value, regime sign-flip 可能在
+    cross-section rank 上消失 (rank 是 ordinal, 对绝对水平不敏感)。max_corr@F018 预期 <0.40 (product
+    与 single sign 几何不同)。'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,$low),Add(Sub($high,$low),0.0001)),20)),CsRank(Div(Mean($amount,5),Mean($amount,60))))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,$low),Add(0.0001,Sub($high,$low))),20)),CsRank(Div(Mean($amount,5),Mean($amount,60))))
+  rationale: Axis B · cockpit 显式约束 LHS=intraday close-position-in-range 是 vol_20d-orthogonal
+    atom。LHS=Mean((C-L)/(H-L+ε),20) — 收盘价在日内振幅区间的相对位置 (0=收最低=极弱, 1=收最高=极强), scale-free
+    0-1 by construction, 完全独立于 vol_20d 量级。这是 F019 (body_ratio Std) / F021 (upper_shadow_disp)
+    的 mirror 但 Mean 而非 Std, 测一阶矩位置而非二阶矩 dispersion。RHS=Mean($amount,5)/Mean($amount,60)
+    — amount 5/60 acceleration ratio, 短期 vs 长期 amount 比, scale-free, 与 F018 (amount_20
+    raw) 几何位置不同 (ratio 形态 vs raw level)。anti-anchor F017/F018 (LHS 非 sign, RHS 非 raw
+    amount/turnover)。预期 max_corr@F019<0.30 (Mean 一阶矩 vs Std 二阶矩), max_corr@F021<0.40
+    (close-position vs upper_shadow 是 H-L 区间相对两端 mirror 但 Mean 与 Std 量纲不同)。
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sign(Sub($open,Ref($close,1))),Sign(Sub($close,$open))),60)),CsRank(Mean(Div($high,$low),60)))
+  canonical: Sub(CsRank(Mean(Mul(Sign(Sub($close,$open)),Sign(Sub($open,Ref($close,1)))),60)),CsRank(Mean(Div($high,$low),60)))
+  rationale: 'Axis C · T011 共方向 freq 长窗版本。LHS=Mean(Sign(overnight)*Sign(intraday),60)
+    — 同 C003 但窗口延至 60d, 测 co-direction sign-freq 在跨季度尺度是否 persistent (类似 C001 测 sign-freq
+    跨窗稳定性)。20d 共方向 freq 是 short-term sentiment, 60d 是 longer-term flow regime。RHS=Mean($high/$low,60)
+    — 60d daily H/L geometric mean, 与 C002 RHS 同 atom 但 LHS 完全不同 (sign product vs
+    single sign), 同批 RHS 复用合理 (RHS 是 ''long-window scale-free geometric ratio'' 设计要求,
+    6 候选 4 类 RHS 已分散)。anti-anchor: 同 C003 LHS 几何, 与 F018 单 sign / F017 turnover 共振位置不同。预期
+    max_corr@F018<0.40 (product LHS), max_corr@F020<0.30 (非 gap atom)。'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,$low),Add(Sub($high,$low),0.0001)),60)),CsRank(Div(Mean($high,60),Mean($low,60))))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,$low),Add(0.0001,Sub($high,$low))),60)),CsRank(Div(Mean($high,60),Mean($low,60))))
+  rationale: 'Axis B · close-position 长窗版本。LHS=Mean((C-L)/(H-L+ε),60) — 60d 收盘相对日内位置均值,
+    与 C004 (20d) 测窗口稳定性。60d Mean 比 20d 更滑, signal 半衰期匹配性测试。RHS=H/L_60 geometric ratio
+    (与 C001 同 RHS), 同批 RHS 类目 4 个 (H/L_60_geo / Mean(H/L,60) / close/MA60 / amount_5/60),
+    与 C001 配对仅 RHS 同, LHS 完全不同 (60d sign-freq vs 60d close-position) 几何位置完全独立。anti-anchor:
+    与 F019/F020 (Std body_ratio/Std gap_ret) 同 20d 但本批均 Mean, 一阶矩 vs 二阶矩 几何独立。dominant_style
+    预期非 vol_20d (close-position 0-1 区间)。'

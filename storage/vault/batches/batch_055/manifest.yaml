@@ -1,0 +1,95 @@
+batch_id: batch_055
+round: 54
+direction: range_structure
+direction_md_ref: vault/directions/range_structure.md
+batch_goal: T001 Round 3 Kurt-centric × rank-diff 几何融合：将 b045 C001 reserve 的 Kurt60
+  LHS 升级为 rank-diff 形态以激活 vol_20d 逃离路径 (P002 升格设计轴)，并测 range-derived 高阶矩 LHS × 非饱和
+  RHS basis (volume_60/pe_60/up_freq_20/vwap_60/range_compress_60/circ_mktcap_60)
+  6 候选。LHS 全部 range-structure native 且与 F019(body_ratio Std)/F020(gap_ret Std) anti-anchor
+  (LHS atom 完全异源)；RHS 全避开 saturated endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/Amihud_20)。设计纪律
+  mono_is>=0.6 硬下界 (b045 经验) + 单层 higher-moment + scale-free 三条件 (F019/F020 安全 recipe)。预期
+  ≥1 admit 验证 'higher-moment LHS × 非饱和 RHS' 在 range family 兑现 P002 跨 5 family 第 6
+  admit；range_structure direction 0→1 admit 推进 exploring→productive。
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-25T08:17:44Z'
+frozen_at: '2026-04-25T08:17:44Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$low),$close),20)),CsRank(Mean($volume,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$low),$close),20)),CsRank(Mean($volume,60)))
+  rationale: LHS=Std((H-L)/C, 20) range volatility 二阶矩——anti-anchor F019(body_ratio
+    Std)/F020(gap_ret Std)：LHS atom 是 range/close 比值而非 body 或 gap，完全异源。RHS=Mean($volume,60)
+    60d volume 基数——volume 与 amount/turnover 三者不同：volume=股数, amount=RMB, turnover=换手率；F018
+    用 amount_20，F017 用 turnover_5，本批 RHS 60d volume 完全独立。预期 max_corr@F019<0.30 (LHS
+    异源)，max_corr@F012/F016<0.50 (RHS volume vs amount)；走 rank-diff geometry 7 律设计准入：max_corr@all_rank_diff<0.30
+    + alpha_surv>0.30 (rank_diff 档)。验证 P002 范式在 range × volume 跨 family 兑现。
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$low),Add($high,$low)),20)),CsRank(Mean($pe_ratio,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$low),Add($high,$low)),20)),CsRank(Mean($pe_ratio,60)))
+  rationale: LHS=Std((H-L)/(H+L),20) Garman-style 相对 range Std——分母 H+L 而非 C/L/prev_close，是与
+    C001/C003/C004/C005/C006 完全不同的 range 归一化几何 (5 candidates 6 denominators 全分离)。Std
+    二阶矩 + ≤20d + scale-free positive ratio (永正 0-1)，匹配 F019/F020 安全 recipe (a)(b)(c)。anti-anchor
+    F019(body_ratio /H-L Std)/F020(gap_ret /prev_close Std)：本 LHS atom 既无 body 也无 gap
+    也无 prev_close，分子和分母都不同。RHS=Mean($pe_ratio,60) 基本面 value basis 60d——b050
+    C004 用 pb_60，pe vs pb 两个不同基本面字段，本批选 pe 完全独立。设计意图：测 'range Std × value
+    rank-diff' 在 H+L 几何下是否兑现。预期 max_corr@F019<0.40 (denom H+L vs H-L 不同分母)，max_corr@all_rank_diff<0.30
+    (RHS pe 在已 admit 中未出现)；注 (TsKurt-inside-CsRank 因 operators.py:428 bug 不可用，本设计用 Std
+    替代保留 'higher-moment dispersion × value' 设计意图)。
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div($high,$low),20)),CsRank(Mean(Sign(Sub($close,Ref($close,1))),20)))
+  canonical: Sub(CsRank(Std(Div($high,$low),20)),CsRank(Mean(Sign(Sub($close,Ref($close,1))),20)))
+  rationale: LHS=Std($high/$low,20) 几何 range Std——不含 close/open，纯几何 range 形态；与 F019(body_ratio
+    Std)/F020(gap_ret Std) atom 完全异源 (无 body, 无 gap)。Std 二阶矩 ≤20d 单层 + scale-free
+    ratio (H/L 永正比值)，满足 F019 安全 recipe 三条件。RHS=Mean(Sign(close-prev_close),20) 20d
+    上涨日频率——sign-aggregation 是 F018 admit 关键机制 (overnight_sign_freq×amount)，但 F018
+    LHS 是 sign aggregation；本批 RHS 是 sign aggregation。'sign 聚合 LHS' 与 'sign 聚合 RHS'
+    几何位置不同 (LHS≠RHS)，sign 聚合作为 RHS basis 在 cross-section 上是新位置——同时 sign 聚合天然 scale-free。预期
+    max_corr@F018<0.50 (F018 LHS sign + RHS amount, 本批 LHS Std + RHS sign，结构 dual)；max_corr@F019<0.30
+    (LHS 几何 range 异源 body_ratio)。
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($high,$low),Ref($close,1)),20)),CsRank(Mean(Div($amount,$volume),60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($high,$low),Ref($close,1)),20)),CsRank(Mean(Div($amount,$volume),60)))
+  rationale: LHS=Mean((H-L)/prev_close,20) gap-anchored range mean——anti-anchor F020(gap_ret
+    Std=(open-prev_close)/prev_close 的 Std)：F020 用 gap return (open-prev_close), 本批
+    LHS 用 range relative to prev_close (high-low 而非 open-prev_close)，分子完全不同。F005 algebraic
+    mirror 律警告 (H-L)/prev_close 可能与 F014 affine 共动——但这是 LHS 单独，rank-diff geometry
+    本身允许 LHS 一定 stylvol_20d 暴露 (rank_diff direction-aware 阈值 0.30)。RHS=Mean($amount/$volume,60)
+    60d VWAP magnitude——F014 是 VWAP-prev_close spread (差值)，本批 RHS 是 VWAP level 本身
+    (磁强度而非偏离量)，两者 rank-correlation 弱。VWAP 60d 在已 admit 因子中未被作为 RHS 使用。预期 max_corr@F014<0.30
+    (level vs spread)，max_corr@F020<0.50 (LHS 异源 gap_ret)。
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$close),Sub($high,$low)),20)),CsRank(Mean(Div($high,$low),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$close),Sub($high,$low)),20)),CsRank(Mean(Div($high,$low),60)))
+  rationale: LHS=Std((H-C)/(H-L),20) upper-shadow ratio dispersion——anti-anchor F006(upper_shadow_persistence_5d=Mean
+    of same atom 5d)/F008(3d)/F019(body_ratio Std)：LHS atom (H-C)/(H-L) 是 upper-shadow
+    ratio (close 在 high-low 范围内的下半距占比)，不同于 body_ratio |C-O|/(H-L)；同时 Std 二阶矩 vs F006/F008
+    的 Mean 一阶矩不同。F006 max_corr=0.069 极独立 + F008 max_corr=0.758 较高 (与 F007 同源)；本批 Std
+    形态可能落在 F006 family 但 dispersion 而非 persistence——是 b045 Kurt-centric 之外的另一条 range-shape
+    路径。RHS=Mean(H/L,60) 60d 几何 range compression——纯几何 ratio，与 F012(Amihud)/F016(turnover_cv)/F018(amount)
+    RHS 基础不同。预期 max_corr@F006/F008<0.50 (Std vs Mean 不同矩)；max_corr@F019<0.40 (atom
+    异源)。
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$low),$close),60)),CsRank(Mean($circ_market_cap,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$low),$close),60)),CsRank(Mean($circ_market_cap,60)))
+  rationale: LHS=Std((H-L)/C,60) 长窗 60d range Std——与 C001 (Std((H-L)/C,20)) 同 atom 不同窗口，测
+    'range Std 在 20d→60d 是否窗口稳健' 是 direction.md Current Focus 'Kurt90/Kurt120 长窗' 的
+    Std 等价路径 (Std vs Kurt 是不同矩，但都是 dispersion family；TsKurt-inside-CsRank 因 operators.py:428
+    bug 不可用)。60d 长窗在 b043/b045 disprove 列表中只有 Skew120 (paradox)，Std60 无前例。RHS=Mean($circ_market_cap,60)
+    60d float 市值——size factor 在 csi1000 是 vol_20d 强相关 (小盘高 vol)，但作为 RHS 在 rank-diff 中
+    size 与 LHS Std(range) 形成 'range vol 强度 vs 个股大小' 跨维交互——size 60d 未在已 admit 因子的 RHS
+    出现 (F012/F016/F017/F018/F019/F020 全无 market_cap RHS)。设计纪律：与 C001 (Std((H-L)/C,20))
+    同 LHS atom 不同窗口，rank-diff geometry 不同 RHS basis (volume_60 vs market_cap_60)，测 'window
+    + RHS basis 双独立轴'。预期 max_corr@C001<0.70 (同 LHS atom 不同 N，rank-correlation 部分相关)；max_corr@F019<0.40
+    (LHS atom 异源)；max_corr@all_rank_diff<0.30 (RHS size 唯一)。

@@ -74,7 +74,9 @@ def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[
     vault = storage / "vault"
     fy = vault / "factors" / f"{factor_id}.yaml"
     meta = _load_yaml(fy)
-    batch_id = meta["admitted_in_batch"]
+    # Prefer the most recent recompute batch when present so reports reflect
+    # current metrics (the original admit batch is preserved as audit trail).
+    batch_id = meta.get("revalidated_in_batch") or meta["admitted_in_batch"]
     result = _load_yaml(vault / "batches" / batch_id / "result.yaml")
     lookup_key = meta.get("expression") or meta.get("python_path")
     if not lookup_key:

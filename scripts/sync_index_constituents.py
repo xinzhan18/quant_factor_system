@@ -73,12 +73,16 @@ def fetch_constituents(
     start_date: str = "2015-01-01",
     end_date: str = "2026-03-27",
 ) -> pd.DataFrame:
-    """Fetch index constituent history via weekly sampling.
+    """Fetch index constituent history in one API call.
 
-    Returns DataFrame with columns [date, symbol, index_name].
+    ``rq.index_components(start_date=, end_date=)`` returns a dict keyed
+    by membership-change dates (typically ~rebalance events). One call
+    covers the whole window — fully replacing the previous per-day loop.
+
+    Returns DataFrame with columns [date, symbol, index_name]. Each
+    membership-change date contributes one row per constituent on that
+    date; downstream interval merging fills in the in-between days.
     """
-    import time
-
     try:
         import rqdatac as rq
         rq.init()
@@ -87,37 +91,24 @@ def fetch_constituents(
         sys.exit(1)
 
     rq_code = UNIVERSE_MAP[index_name]
-    trading_days = rq.get_trading_dates(start_date, end_date)
-    if not trading_days:
-        logger.error("No trading days returned for %s to %s", start_date, end_date)
+    logger.info("Fetching %s via single bulk call (%s → %s)",
+                index_name, start_date, end_date)
+    snapshots = rq.index_components(rq_code, start_date=start_date, end_date=end_date)
+    if not snapshots:
+        logger.error("Empty result for %s", index_name)
         return pd.DataFrame(columns=["date", "symbol", "index_name"])
 
-    # Daily sampling — accurate constituent tracking across rebalance dates.
-    # ~2700 API calls for 10 years, takes ~5 min with rate limiting.
-    sample_days = trading_days
-    logger.info("Fetching %s: %d sample dates (%s to %s)",
-                index_name, len(sample_days),
-                str(sample_days[0])[:10], str(sample_days[-1])[:10])
-
     rows = []
-    for i, day in enumerate(sample_days):
-        day_str = str(day)[:10]
-        try:
-            constituents = rq.index_components(rq_code, date=day_str)
-            if constituents:
-                for ob_id in constituents:
-                    rows.append((day_str, _rq_to_internal(ob_id), index_name))
-        except Exception as e:
-            logger.warning("Failed for %s on %s: %s", index_name, day_str, e)
-
-        if (i + 1) % 50 == 0:
-            logger.info("  progress: %d/%d dates fetched (%d rows)",
-                        i + 1, len(sample_days), len(rows))
-        time.sleep(0.1)
+    for snap_date, ob_ids in snapshots.items():
+        day_str = pd.Timestamp(snap_date).strftime("%Y-%m-%d")
+        for ob_id in ob_ids or []:
+            rows.append((day_str, _rq_to_internal(ob_id), index_name))
 
     df = pd.DataFrame(rows, columns=["date", "symbol", "index_name"])
-    logger.info("Fetched %s: %d rows, %d unique symbols",
-                index_name, len(df), df["symbol"].nunique())
+    logger.info(
+        "Fetched %s: %d rebalance dates, %d rows, %d unique symbols",
+        index_name, len(snapshots), len(df), df["symbol"].nunique(),
+    )
     return df
 
 

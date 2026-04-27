@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from research.compute.cache import FactorValueCache
+from research.compute.masks import build_tradable_mask, combine_masks, load_universe_mask
 from research.compute.preprocess import PreprocessConfig
 from research.phases.phase2_execute import CandidateInputs, Phase2Inputs, run_phase2
 from research.storage.paths import StoragePaths
@@ -213,7 +214,17 @@ def load_market_data(
 
     required_cols = (
         {_returns_col(h) for h in decay_horizons}
-        | {"$amount", "$market_cap", "$close", "$volume", "$open", "$high", "$low"}
+        | {
+            "$amount",
+            "$market_cap",
+            "$close",
+            "$volume",
+            "$open",
+            "$high",
+            "$low",
+            "$limit_up",
+            "$limit_down",
+        }
     )
 
     if cache_path and cache_path.exists():
@@ -237,13 +248,33 @@ def load_market_data(
     # One D.features call for all horizons + amount + market_cap + raw OHLCV
     fields = (
         [f"Ref($close, -{h}) / $close - 1" for h in decay_horizons]
-        + ["$amount", "$market_cap", "$close", "$volume", "$open", "$high", "$low"]
+        + [
+            "$amount",
+            "$market_cap",
+            "$close",
+            "$volume",
+            "$open",
+            "$high",
+            "$low",
+            "$limit_up",
+            "$limit_down",
+        ]
     )
     df = D.features(inst_dict, fields=fields, start_time=start, end_time=end)
     df = _qlib_to_time_symbol(df)
     df.columns = (
         [_returns_col(h) for h in decay_horizons]
-        + ["$amount", "$market_cap", "$close", "$volume", "$open", "$high", "$low"]
+        + [
+            "$amount",
+            "$market_cap",
+            "$close",
+            "$volume",
+            "$open",
+            "$high",
+            "$low",
+            "$limit_up",
+            "$limit_down",
+        ]
     )
 
     if cache_path:
@@ -253,6 +284,56 @@ def load_market_data(
                      cache_path, cache_path.stat().st_size / 1024 / 1024)
 
     return df
+
+
+def load_stock_status(
+    start: str,
+    end: str,
+    *,
+    db_config: dict[str, Any] | None = None,
+) -> pd.DataFrame | None:
+    """Load PIT ST / suspension status from ``ref_stock_status`` when present.
+
+    This is deliberately optional: historical databases created before the
+    status sync will not have the table yet.  In that case Phase 2 still uses
+    volume/amount/limit-band tradability filters and logs a warning.
+    """
+    cfg = {
+        "host": "localhost",
+        "port": 5432,
+        "database": "quant_data",
+        "user": "postgres",
+        "password": "postgres",
+        **(db_config or {}),
+    }
+    try:
+        import psycopg2
+
+        conn = psycopg2.connect(**cfg)
+        try:
+            status = pd.read_sql(
+                """
+                SELECT time, symbol, is_st, is_suspended
+                FROM ref_stock_status
+                WHERE time >= %s AND time <= %s
+                ORDER BY time, symbol
+                """,
+                conn,
+                params=(start, end),
+            )
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001 - optional data source
+        logger.warning("stock_status: unavailable, ST/suspension DB mask skipped (%s)", exc)
+        return None
+
+    if status.empty:
+        logger.warning("stock_status: ref_stock_status returned no rows for %s ~ %s", start, end)
+        return None
+    status["time"] = pd.to_datetime(status["time"])
+    status = status.set_index(["time", "symbol"]).sort_index()
+    status.index.names = ["datetime", "instrument"]
+    return status
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +479,7 @@ def evaluate_candidates(
     manifest: dict[str, Any],
     paths: StoragePaths | None = None,
     market_df: pd.DataFrame | None = None,
+    base_tradable_mask: pd.Series | None = None,
     start: str = "2015-01-01",
     end: str = "2023-12-31",
 ) -> list[CandidateInputs]:
@@ -475,8 +557,13 @@ def evaluate_candidates(
                     raise ValueError("market_df required for Python candidates")
                 series = run_python_factor(loaded, market_df)
 
-            # Tradable mask: True where factor is not NaN
-            tradable_mask = ~series.isna()
+            # Evaluation mask: stock-day eligibility independent of the
+            # factor's own NaN pattern.  Factor NaNs are preserved by
+            # ``preprocess_factor``; coverage uses this mask as denominator.
+            if base_tradable_mask is not None:
+                tradable_mask = base_tradable_mask.reindex(series.index, fill_value=False)
+            else:
+                tradable_mask = pd.Series(True, index=series.index)
 
             results.append(CandidateInputs(
                 candidate_id=cid,
@@ -527,7 +614,7 @@ def build_phase2_inputs(
 
     eval_cfg = config.get("evaluation", {})
     decay_horizons = eval_cfg.get("decay_horizons", DEFAULT_DECAY_HORIZONS)
-    primary_horizon = eval_cfg.get("primary_horizon", 5)
+    primary_horizon = eval_cfg.get("primary_horizon", 1)
 
     # 1. Market data (multi-horizon returns + amount + market_cap)
     market = load_market_data(
@@ -535,6 +622,31 @@ def build_phase2_inputs(
         cache_path=paths.market_daily_cache,
         decay_horizons=decay_horizons,
     )
+
+    trad_cfg = config.get("tradability", {})
+    status_cfg = config.get("db", {}).get("stock_status", {})
+    stock_status = None
+    if trad_cfg.get("filter_st", True) or trad_cfg.get("use_stock_status", True):
+        stock_status = load_stock_status(full_start, full_end, db_config=status_cfg)
+    base_tradable_mask = build_tradable_mask(
+        market,
+        stock_status=stock_status,
+        config=trad_cfg,
+    )
+
+    # 1b. Universe masks — primary drives the candidate evaluation, secondaries
+    # are reported as basic-metric snapshots in result.yaml.
+    universes_cfg = config.get("universes", {})
+    primary_universe_name = universes_cfg.get("primary", "csi1000")
+    secondary_universe_names = list(universes_cfg.get("secondary", []))
+    all_universe_names = [primary_universe_name, *secondary_universe_names]
+    universe_masks: dict[str, pd.Series] = {}
+    for name in all_universe_names:
+        membership = load_universe_mask(name, market.index, qlib_dir=qlib_dir)
+        universe_masks[name] = combine_masks(
+            base_tradable_mask, membership, index=market.index,
+        )
+    primary_effective_mask = universe_masks[primary_universe_name]
 
     # 2. Barra style matrix
     style_matrix = build_barra_style_matrix(
@@ -547,9 +659,17 @@ def build_phase2_inputs(
         paths, start=full_start, end=full_end, market_df=market,
     )
 
-    # 4. Candidate signals
+    # 4. Candidate signals — use the primary universe's effective mask so
+    # CP01–CP06 actually run on the configured primary universe (this used
+    # to be a label-only field; pre-2026-04-25 admissions evaluated on
+    # ``all_tradable`` regardless of config).
     candidates = evaluate_candidates(
-        manifest, paths=paths, market_df=market, start=full_start, end=full_end,
+        manifest,
+        paths=paths,
+        market_df=market,
+        base_tradable_mask=primary_effective_mask,
+        start=full_start,
+        end=full_end,
     )
 
     # 5. Extract per-horizon forward returns as flat DataFrames
@@ -583,8 +703,6 @@ def build_phase2_inputs(
         zscore=pp_cfg.get("zscore", True),
     )
 
-    universe = config.get("universe") or config.get("universes", {}).get("primary", "csi1000")
-
     return Phase2Inputs(
         batch_id=batch_id,
         candidates=candidates,
@@ -597,7 +715,9 @@ def build_phase2_inputs(
         train_range=(train_start, train_end),
         validation_range=(val_start, val_end),
         preprocess_config=preprocess_config,
-        universe=universe,
+        primary_universe=primary_universe_name,
+        secondary_universes=secondary_universe_names,
+        universe_masks=universe_masks,
         paths=paths,
     )
 

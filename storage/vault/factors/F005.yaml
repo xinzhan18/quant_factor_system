@@ -4,18 +4,61 @@ family_tag: barra_residual_alpha
 source_type: python
 admitted_at: '2026-04-19T15:13:33Z'
 admitted_in_batch: batch_013
-status: retired
+status: active
 retired_at: '2026-04-20T00:15:00Z'
-retired_reason: bit-for-bit duplicate of F004 — near_duplicate gate blind to Python factors before data_bridge load_library_signals fix (2026-04-20); Python factors were excluded from library redundancy checks, so F005 passed with max_lib_corr=0.15 against DSL neighbours instead of 1.0 against F004.
-diagnostics_ref: cache/batch_diagnostics/batch_013/C001
+retired_reason: bit-for-bit duplicate of F004 — near_duplicate gate blind to Python
+  factors before data_bridge load_library_signals fix (2026-04-20); Python factors
+  were excluded from library redundancy checks, so F005 passed with max_lib_corr=0.15
+  against DSL neighbours instead of 1.0 against F004.
+diagnostics_ref: cache/batch_diagnostics/batch_recompute_v2_pyfix/F005
 direction: barra_residual_alpha
 python_path: storage/vault/batches/batch_013/python_candidates/C001.py
 validation_metrics:
-  ic_mean: 0.024137849522787524
-  ic_ir: 0.2929806081686563
-  ic_win_rate: 0.6024844720496895
+  coverage: 1.0
+  ic_mean: 0.023709989142461797
+  ic_ir: 0.27466995997417676
+  ic_win_rate: 0.5942028985507246
   monotonicity: 0.9999999999999999
-  long_short_mean: 0.0019396953067214923
+  long_short_mean: 0.001807797985646356
+  long_short_sharpe: 4.9132
+  long_short_tstat: 6.8091
+  long_short_max_dd: -0.049
 risk_metrics:
-  style_r_squared: 0.0384476828278949
-  alpha_survival_ratio: 1.3534
+  style_r_squared: 0.03499438073151884
+  alpha_survival_ratio: 1.4104
+validation_metrics_by_universe:
+  all_tradable:
+    coverage: 1.0
+    ic_mean: 0.02371
+    ic_ir: 0.2747
+    monotonicity: 1.0
+    long_short_sharpe: 4.9132
+  csi300:
+    coverage: 1.0
+    ic_mean: -0.008737
+    ic_ir: -0.0564
+    monotonicity: 0.1
+    long_short_sharpe: 0.7767
+  csi1000:
+    coverage: 1.0
+    ic_mean: 0.023908
+    ic_ir: 0.2513
+    monotonicity: 0.9
+    long_short_sharpe: 4.3194
+universe_robustness:
+  icir_min: -0.0564
+  icir_max: 0.2747
+  icir_robustness_ratio: 0.2053
+  ic_mean_min: -0.008737
+  ic_mean_max: 0.023908
+  mono_min: 0.1
+  mono_max: 1.0
+  ic_sign_consistent_across_universes: false
+  primary_universe: all_tradable
+primary_universe: all_tradable
+revalidated_in_batch: batch_recompute_v2_pyfix
+recompute_provenance:
+  run_name: library_recompute_v2_pyfix
+  applied_at: '2026-04-25T17:32:25Z'
+  batch_id: batch_recompute_v2_pyfix
+  result_relpath: vault/batches/batch_recompute_v2_pyfix/result.yaml

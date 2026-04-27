@@ -1,6 +1,6 @@
 # Pattern Scout Packet
 
-> Generated at 2026-04-25T07:28:09+00:00 · recent=10 batches
+> Generated at 2026-04-25T11:01:11+00:00 · recent=10 batches
 
 ## 任务
 
@@ -9,13 +9,22 @@
 ## 当前 HOT-TOPICS-LLM 块
 
 <!-- BEGIN HOT-TOPICS-LLM -->
-> [!warning]- 🔥 Hot Topics（LLM 维护）
-> 当前无活跃跨批模式。`/pattern-scout` 只允许改写本块。
+> [!warning]+ 🔥 Hot Topics（LLM 维护 · 2026-04-25 scan recent=10）
+> - 🔴 **P001 rank-diff geometry 范式边界已显形** · dirs: value_liquidity_interaction, intraday_price_formation, barra_residual_alpha → 连续 3 批 0-admit；rank-diff 不是万能钥匙。下设计须验证 (a) LHS atom 不与已 admit rank-diff 因子同源（F019/F020 anti-anchor）(b) RHS basis 不在饱和 endpoints（overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20）(c) 两端都 scale-free 且独立 raw field
+>   evidence: [[batches/batch_052/judge|batch_052]], [[batches/batch_053/judge|batch_053]], [[batches/batch_054/judge|batch_054]]
+> - 🟢 **P002 rank-diff geometry 6 跨家族成功 → lessons 升格已完成** · dirs: microstructure_illiquidity, overnight_intraday_split, ohlc_temporal_aggregation, gap_acceptance_structure → F015/F016/F017/F018/F019/F020 跨 4 family 6 admit；后续候选优先沿 "higher-moment LHS × 非饱和 RHS basis" 路径设计
+>   evidence: [[batches/batch_046/judge|batch_046]], [[batches/batch_050/judge|batch_050]], [[batches/batch_051/judge|batch_051]]
+> - 🔴 **P003 higher-moment LHS regime sign-flip 跨 3 大 family 硬律** · dirs: value_liquidity_interaction, intraday_price_formation, barra_residual_alpha → raw 基本面 / signed intraday / Barra residual 的 Std/Var/cumsum 类二阶聚合在 train(低利率) vs validation(利率上行) 系统性翻号；除非配 regime-aware gating，否则避免 second-moment LHS 单飞
+>   evidence: [[batches/batch_052/judge|batch_052]], [[batches/batch_053/judge|batch_053]], [[batches/batch_054/judge|batch_054]]
+> - 🟠 **P004 vol_20d 结构性吸收 8+ direction 不可剥离** · dirs: range_structure, overnight_intraday_split, ohlc_temporal_aggregation, gap_acceptance_structure, value_liquidity_interaction, intraday_price_formation, barra_residual_alpha, microstructure_illiquidity → 最近 10 批 60 候选几乎全部 dominant_style=vol_20d；CsRank ordinal 化无法剥离原子层 style；必须 portfolio 层 Barra neutralize 或显式 orth 设计
+>   evidence: [[batches/batch_049/judge|batch_049]], [[batches/batch_053/judge|batch_053]]
+> - 🟠 **P005 RHS basis 共振饱和律是动态的** · dirs: overnight_intraday_split, ohlc_temporal_aggregation, gap_acceptance_structure, value_liquidity_interaction → admit 一个 rank-diff 即消耗对应 RHS 类目余量（body_ratio_20 经 F020 admit 后从安全→饱和；overnight_5/turnover_5/amount_20/price_vol_20/Amihud_20 已全饱和）；新候选 RHS 须 max_corr@anchor < 0.30 + LHS 完全脱 family
+>   evidence: [[batches/batch_051/judge|batch_051]], [[batches/batch_053/judge|batch_053]]
 <!-- END HOT-TOPICS-LLM -->
 
 ## 输出契约（INDEX.md HOT-TOPICS-LLM 块）
 
-只替换 `<!-- BEGIN HOT-TOPICS-LLM -->` 到 `<!-- END HOT-TOPICS-LLM -->` 之间的内容；不要改 INDEX frontmatter、COCKPIT、INSIGHT、Bases embed 或其它 sentinel。
+只替换 `<!-- BEGIN HOT-TOPICS-LLM -->` 到 `<!-- END HOT-TOPICS-LLM -->` 之间的内容；不要改 INDEX frontmatter、COCKPIT、Bases embed 或其它 sentinel。
 
 块内最多 5 条 bullet。每条包含 P{id}、confidence 图标、title、affected directions、action hint、1-2 个证据 wikilink。若无 active pattern，保留 sentinel 并写一行“当前无活跃跨批模式”。
 
@@ -43,7 +52,7 @@
 | overnight_intraday_split | productive | high | 7 | 7 | batch_049 |
 | pv_covariance | dead | low | 1 | 0 | batch_039 |
 | quantile_shape_signals | dead | low | 1 | 0 | batch_044 |
-| range_structure | exploring | low | 3 | 0 | batch_045 |
+| range_structure | saturated | medium | 6 | 2 | batch_056 |
 | return_distribution_signals | dead | low | 1 | 0 | batch_016 |
 | return_momentum_acceleration | dead | medium | 1 | 0 | batch_029 |
 | stochastic_position | saturated | low | 2 | 0 | batch_041 |
@@ -51,148 +60,9 @@
 | turnover_structural_signal | saturated | low | 1 | 0 | batch_004 |
 | value_liquidity_interaction | saturated | low | 9 | 1 | batch_052 |
 | vol_shock_signals | dead | low | 1 | 0 | batch_024 |
-| vwap_proxy_signals | productive | medium | 2 | 1 | batch_042 |
+| vwap_proxy_signals | saturated | low | 3 | 1 | batch_057 |
 
 ## Recent batches（judge.md 关键段摘录）
-
-### batch_045 · direction=`range_structure` · admit=0 reserve=1 reject=5 total=6
-
-## 方向级反思
-
-本方向 T001 shape 路径经 batch_043 + batch_045 两轮共 11 candidates（timing/freq/skew/IQR/ratio/Kurt/Quantile-based 变体）**仍零 admit**，但 **shape 路径的分辨率显著提高**：
-
-1. **Kurt (4 阶矩)** 与 **Skew (3 阶矩)** 之间的稳健性差异：Kurt 在同样经济直觉（range 分布尾部）下产出 mono_is=0.90 稳健结果（C001），Skew 经两轮尝试（batch_043 60d + batch_045 120d）均产出 mono_is 弱 + OOS dramatic scaling 的 non-robust pattern——**Skew 在 (H-L)/C 分布上对样本噪声敏感**，Kurt 更稳健。
-2. **升格的 mono_is ≥ 0.6 硬下界纪律首次执行**（C004 reject）——纪律有效，阻止了与 batch_043 C004 完全同构的错误 reserve/admit。
-3. **batch_045 相对 batch_043 的设计改进明显**：batch_043 无 admit 无 reserve，batch_045 产出 1 reserve（C001 Kurt60）——shape 路径仍活。
-4. **Direction 剩余空间**：Kurt 长窗变体 (90d/120d) + Kurt × turnover/momentum orthogonalize（工具链待建）+ range-specific ratios (如 close proximity to H-L 极值) 未测。
-5. **MT 预算压力**：本方向 0 admit + 12 candidates，direction MT bucket 已 high（adjusted medium）。下批需更 target 的设计（不再尝试失败过的 Skew/Quantile 系），否则 rounds=2 → 3 仍 0 admit 需转 `priority: medium → low` 或考虑 saturated。
-
-**Operations 建议**（由 direction.md 执行）：
-- `status: exploring` 保持（首次 reserve，仍在 productive 方向发展）
-- `priority: medium → low`（MT 消耗快 + 0 admit 持续 + 剩余设计空间有限）
-- **下批探索**：Kurt90/Kurt120 长窗 + Kurt-based composite；不再测 Skew 变体；scale-free pure ratio 暂缓
-
-## 跨候选对比
-
-- **Style 聚合**：6 候选全部 `dominant_style_exposure = vol_20d`——**本方向整体暴露于 vol_20d**；exposure 分布分为三组：magnitude 组（C002=47.0 / C003=44.7 极端）· 4 阶矩/3 阶矩/scale-free 组（C001=15.0 / C004=12.8 / C006=20.4 中等）· Sign-gated 组（C005=10.7 但 str_1m=2.49 主导）。**C001 Kurt 的 15.0 是 shape 组中最低吸收之一**。
-- **相关度 cluster**：C002-C003 同根（Q90 & Q90-Med）预期高 corr（但未直接计算）；C001 与 C004 corr 约 0.095（Kurt 与 Skew 相关但机制分离）；C005/C006 与库内 F007/F001 分别 medium/low corr——**批内无跨候选高 corr 冗余**。
-- **MT 预算推进**：direction_candidates 6 → **12**（`range_structure` 累计 12 candidates, 2 batches, 0 admits, 1 reserve）；cumulative 228 → 234；bucket `high` (adjusted `medium`)。本方向 MT 消耗速度正常但 admit 率 0% 持续，**下批再 0 admit 即到 saturated 边缘**。
-- **Shape vs Magnitude 分裂**：清晰的三分法——**magnitude (Q90/Q90-Med) 全败**（vol_20d 吸收确诊）；**shape 高阶矩 (Kurt/Skew)** 部分成功（Kurt reserve，Skew 因 IS mono 弱 reject）；**scale-free ratio (IQR/Med) 失败**（rank-order OOS 崩塌）。
-
-## Thread 进展
-
-> [!note]+ T001 [[directions/range_structure#T001]] — `[◉ ACTIVE]`
-> **本批进展**：
-> - **C001 Kurt60 → reserve**：shape 路径首次 partial breakthrough——满足 mono_is ≥ 0.6 硬下界 (0.90) + style_r²=0.074 + cum_mdd=-1.42 + incr_ic=0.015 + mono_oos=0.90。alpha_surv=0.17 poor 阻止 admit，但是 **T001 shape 路径首个可持续 partial result**，值得后续再测 Kurt 变体。
-> - **C002/C003 → reject**：magnitude Quantile (Q90, Q90-Med) **确认进入 vol_20d 吸收簇**（exposure 44-47, incr_ic 严重负），是对 hypothesis "magnitude 吸收" 的正向验证。
-> - **C004 Skew120 → reject**：**完美复现 batch_043 C004 mono paradox**（mono_is 0.50 < 0.6 硬下界，OOS=1.0 dramatic scaling）——升格的设计纪律执行有效，本批因纪律 reject，避免错误 admit 非稳健机制。
-> - **C005 sign-gated Skew → reject**：Sign gate 把 exposure 拖向 str_1m=2.49 短反转空间 + ls_tstat IS/OOS 翻转——**sign-gated shape 在 csi1000 不稳健**。
-> - **C006 IQR/Med → reject**：scale-free 归一化**部分成功**（vol exposure 减半）但 mono OOS 崩塌——scale-free 不能单独撑起稳健 rank-order。
->
-> **Thread 状态**：保持 `[◉ ACTIVE]`（C001 reserve 具体回答子问题部分证据；未 admit 不触发 ANSWERED 转换）
-
-### batch_046 · direction=`microstructure_illiquidity` · admit=1 reserve=1 reject=4 total=6
-
-## 方向级反思
-
-`microstructure_illiquidity` 方向从 `saturated` 转 **revived-productive**：rank-diff 结构 (T006) 在被正式宣告 saturated 2 批后找到有效子空间，证实 saturated 定性不是**永久结论**，只是对当时探索范式的局部最优陈述。admit F013 → amihud_cv_rank_diff_20 是库第 14 个独立因子，max_corr 0.655 接近阈上限但 incremental_ic 0.031 证明库增值；9 年全正 + mono_oos=1.0 + ls_t=6.63 OOS 让质量档位 strong。
-
-**设计范式升格到 lessons 候选**（Phase 5 consolidation 待确认）:
-1. **"rank-diff 符合率 range"**: rank-diff 两端 **scale-invariant**（CV, ratio, correlation）时有效；scale-dependent（Std, Mean, 绝对 level）时退化为主因子近重复。C003/C004 对照是首个硬证据。
-2. **"sign-conditional 在 20d 窗口保序"**: day-level If gate + 20d mean aggregation 的组合近完全抹平 sign asymmetry。未来 sign-conditional 设计需 ≤ 5d 窗或 quantile-based 非 mean 聚合。
-
-**方向操作**: 本批 admit 后从 `saturated` 转回 `productive`（或 `revived`）;  priority 从 `low` 回升 `medium`；rounds = 3（batch_030 / batch_031 / batch_046）；admits = 2 (F012, F013-to-be)。T006 ANSWERED; T005 保留 ACTIVE；下轮可开 T007 "rank-diff 扩展到其他 signal family" 探索。
-
-**Calibration**: 无错杀侦测——C006 reserve 非错杀（alpha_surv 真 poor + signed neg incr），reject 4 个均 hard_gate 近重复或保序 proof。C003 admit 符合所有阈值。**本批破除 5 批零 admit 警戒线**，cockpit zero_admit_streak 重置为 0。无需 calibration。
-
-**MT budget**: cumulative 234 → 240, direction 12 → 18, bucket `high`（search_adjusted 0.9 → 0.54 降至 medium，C003 strong 档无需进一步降档）。
-
-## 跨候选对比
-
-- **C001/C002 sign-conditional 对偶结题**: max_corr 仅差 0.024 (0.942 vs 0.918)，**Amihud up/down 在 20d 平均下近完美对称**。A 股散户恐慌抛售 asymmetry 假设在日度数据 20d 窗口层级被平均化消除。升格教训: day-level sign gate + window mean aggregation 的组合会抹平 asymmetry——复活需 ≤ 5d 短窗 或 quantile-based asymmetry。
-
-- **C003 vs C004 — rank-diff 设计范式的硬证据**: 同为 CsRank 差结构，C003 (Amihud vs amount_CV) 通过 (corr=0.655), C004 (Amihud vs Std_amount) 失败 (corr=0.935)。两者唯一差别: amount dispersion 端用 CV (scale-free) 还是 Std (scale-dep)。**结论**: rank-diff 结构 alpha 源于两端 signal family 都 **scale-invariant**；若一端 scale-dependent 会退化为主因子近重复。推广到其他方向: 设计 CsRank 差结构时两端必须都是 ratio/CV/correlation 等 scale-free 量。
-
-- **C005 延续 batch_031 C004 保序教训**: SignedPower(F012, 0.5) max_corr=1.000, 与 CsZscore(F012)=1.000 形成"rank-preserving monotonic 变换对单因子零信息增量"第二个独立证据。lesson 升格建议: 把 DSL 层 `{Linear, SignedPower(p>0), Sigmoid, Tanh, Exp, Softmax}` 对已 admit 因子的单元包装 **hard_gate 预拦截**，省试错 slot。
-
-- **C006 signed illiquidity proxy — 独立但弱**: max_corr=0.16 本批最低 + 9 年全负 sign_consistency=1.0 的 rank-order 真实，但 alpha_surv=0.17 严重 + signed incremental_ic=-0.031 (admit 反稀释库)。属 "真 signal 但 alpha 不达标 + 库稀释" 象限，归 reserve 负参考。
-
-- **方向兑现**: 1 admit / 6 candidates, admit 命中率 17%；但 **C003 机制质量极高**——alpha_surv 比 F012 admit 时 (0.443) 高 48%；9 年全正；mono_oos=1.0；IC 随 horizon 单调递增至 20d=0.121 —— rank-diff alpha 质量优于 F012 raw level。
-
-## Thread 进展
-
-> [!success]+ T005 [[directions/microstructure_illiquidity#T005]] — `[✗ PARTIAL-DISPROVEN batch_046]`
-> **sign-conditional Amihud (up/down 分离)**: C001/C002 对偶 max_corr 0.942/0.918 → 日频 20d 窗口对称性几乎完美。
-> **Kyle-lambda signed turnover illiq (C006)**: 库空间独立 (max_corr=0.16) + 9 年同号，但 alpha_surv=0.17 + signed neg incr_ic → reserve 负参考。
-> **结论**: T005 signed illiquidity 子空间 DSL 层 20d 窗口**本质为 symmetric space**; short-window / quantile-asymmetry / 更强 residualize 未测 → thread 保留 ACTIVE 等待 minute-bar 或 5d-window 变体。
-
-> [!success]+ T006 [[directions/microstructure_illiquidity#T006]] — `[✓ ANSWERED batch_046]`
-> **rank-diff symmetric interaction**: C003 admit → **amihud_cv_rank_diff_20** (Phase 4 F{id} 分配)。CsRank(Amihud) − CsRank(amount_CV) 兑现 direction 复活条件 (b)。C004 证伪提供设计范式: 两端 scale-invariance 是必要条件。Thread 第一子问题结题，后续可沿 "rank-diff 扩展"（vs F002, vs F003 等不同 signal family）继续探索。
-
-### batch_047 · direction=`microstructure_illiquidity` · admit=1 reserve=1 reject=4 total=6
-
-## 方向级反思
-
-`microstructure_illiquidity` 方向**连续两批 productive (batch_046 + batch_047)**，admits 从 2→3 (F012, F015, C001-to-be)。核心驱动是 rank-diff 结构的可泛化性：
-
-- **batch_046**: rank-diff 首次兑现（F015 Amihud × amount_CV）——"signal family 组合的几何性质"
-- **batch_047**: rank-diff 泛化验证（C001 Amihud × turnover_CV）——"字段替换保持 scale-free 仍产出独立 alpha"
-
-**风险旗标**:
-- **库集中度**: F012 (Amihud level) + F015 (rank-diff amount_CV) + C001 (rank-diff turnover_CV) 三者都在 Amihud 轴 —— microstructure_illiquidity 方向库已占 3/14 slots 的 21%；若继续 admit Amihud 近亲，需 portfolio 层 Barra neutralize 或考虑 retire alpha_surv 最弱者（当前 F012 0.443 最弱）。
-- **vol_20d exposure 逐步上升**: F012 exposure=5.9 → F015=18.3 → C001=30.2 — 单调上升，说明 rank-diff 引入更强 vol 耦合；portfolio 层 Barra neutralize 优先级升级。
-- **MT bucket high** (cumulative 246, direction 24) — search_adjusted medium, C001 strong 档保留但需警觉多重检验通胀。
-
-**设计范式升格到 lessons 候选**（Phase 5 consolidation 待确认）:
-1. **"rank-diff Sub 方向对偶律"**: `Sub(A,B)` 和 `Sub(B,A)` 是数学完全反号对偶（|corr|=1），admit 两者等价于 double counting。generator 层应 pre-dedup。
-2. **"rank-diff 跨 direction 泛化 2 约束"**:
-   - raw field-level 独立（两端分母/分子不得共享 raw field 如 $amount）
-   - 库内主导因子预测（若一端被已有库因子吸收主导，rank-diff 退化为主导端反号）
-
-**方向操作**: status `productive` 保留；priority `medium` 保留；rounds 3→4；admits 2→3（F012, F015, C001-to-be）。T007 partial answered 保留 ACTIVE; T005 (a) 条件 disproven 保留 ACTIVE 等 quantile 测试。**下轮 T007 聚焦** Amihud × correlation-based 测度（如 `Corr($close, $amount, 20)`）或库内其他 scale-free 对的 rank-diff。
-
-**Calibration**: 无错杀侦测——
-- C006 reserve 非错杀（alpha_surv 0.484 边缘 + max_corr 0.862 实质库吸收）
-- C005 reject 非错杀（alpha_surv 0.149 default 阈值 0.40 的 37%，距离 calibration 触发线甚远）
-- C002 C004 hard_gate fail/数学对偶 清晰
-- C003 signed negative incr_ic reject 清晰 (admit 会稀释库)
-
-本批 admit=1 延续 direction productive 势头，zero_admit_streak 保持 0。**无 calibration 需求**。
-
-**MT budget**: cumulative 240 → 246, direction 18 → 24, bucket `high`（search_adjusted 0.9 → 0.53 medium, C001 strong 档无需进一步降档）。
-
-## 跨候选对比
-
-- **C001 admit vs C004 reject — Sub 方向对偶硬证据**: 数学上 `Sub(A,B) = -Sub(B,A)`，两者数值完全反号（C001 mono=+1.0 IC=+0.050 vs C004 mono=-1.0 IC=-0.050）。同批 anchor rule 严格执行：选 signed-positive-incr_ic 的 C001 admit，C004 自动 reject。**升格教训**: 未来 rank-diff 候选设计只需枚举 Sub(A,B) 一个方向（按 hypothesis 方向约定），generator 层可 pre-dedup Sub 反向变体，节省候选 slot。
-
-- **C001 admit vs C002/C003 reject — T007 范式边界收窄**: C001 (**同 direction 内字段替换**, Amihud × amount_CV → Amihud × turnover_CV) admit; C002 (**跨 direction 但分母 $amount 共振**, pb/amount vs Amihud) hard_gate noise; C003 (**最远跨 direction**, amount_CV × overnight_gap) signed negative incr_ic。三级退化证明 rank-diff 范式可行空间是**同 direction 内部 scale-free × scale-free 字段对换**；跨 direction 越远越容易被主导端吸收或分母共振抵消。
-
-- **C001 admit vs C006 reserve — rank-diff 结构 > non-linear transform 结构**: C001 (rank-diff) max_corr=0.734@F015, incr_ic=0.023 admit; C006 (range = max-min) max_corr=0.862@F012, incr_ic=0.022 reserve。两者 incr_ic 几乎相等但 C006 corr 高 0.13——rank-diff 的信息提炼效率高于 non-linear level-transform。
-
-- **C005 T005 短窗复活条件 (a) 硬证伪**: batch_046 升格教训 "≤ 5d 短窗可破 20d 对称化抹平" 本批第一锤**硬证伪**——5d up-day Amihud max_corr 从 20d 的 0.942 降到 0.754（asymmetry 部分存在），但 alpha_survival 反塌到 0.149 (F012 0.443 的 34%), ic_oos 仅 0.020 是 F012 的 60%。短窗**减少对称化抹平**但**放大 noise + 同样 vol-coupling**——trade-off 负面。T005 复活 (a) 条件建议升格为 disproven，仅留 (b) "quantile-based asymmetry (非 mean)" 待验证。
-
-- **方向兑现**: 1 admit / 6 candidates, admit 命中率 17%（与 batch_046 同）；本批 C001 admit 质量**略弱于** F015 (alpha_surv 0.58 vs 0.66, mdd -1.57 vs -1.61 近似, split_dispersion 0.10 vs 0.11 略优); 但机制价值高——rank-diff 泛化首锤兑现。
-
-## Thread 进展
-
-> [!success]+ T007 [[directions/microstructure_illiquidity#T007]] — `[◐ PARTIAL-ANSWERED batch_047]`
-> **rank-diff 跨 signal family 泛化验证**：
-> - C001 (分母字段替换 amount_CV → turnover_CV) → **admit** → amihud_turnover_cv_rank_diff_20。证实 rank-diff 结构是 signal-family-组合的几何性质，不限于特定字段对。
-> - C002 (跨 direction pb_amount vs Amihud) → hard_gate noise。T007 范式第一个约束：rank-diff 跨 direction 时需 raw field-level 独立（$amount 共分母会抵消）。
-> - C003 (最远跨 direction amount_CV vs overnight) → signed negative incr_ic reject。T007 范式第二个约束：一端被已有库因子主导吸收时 rank-diff 退化为主导端反号，signed incr_ic 为负。
->
-> **结论**: T007 范式可行空间**收窄**为"同 direction 内部 scale-free × scale-free 字段对换"。下轮可测:
-> - Amihud × correlation-based 测度（如 `Corr($close, $amount, 20)`）—— 两端都是无量纲统计量
-> - 库内其他 scale-free 对: F011 (overnight) × F015-scale；F007 (upper shadow) × F008 (open position) rank-diff 等
-> - "field-level 独立 + scale-free" 双条件的跨 direction 候选（绕开 $amount 共分母）
->
-> Thread 改 ACTIVE（partial answered），未关闭。
-
-> [!failure]+ T005 [[directions/microstructure_illiquidity#T005]] — `[✗ FURTHER-DISPROVEN batch_047]`
-> **≤5d 短窗 sign-conditional 复活条件 (a)**: C005 硬证伪——5d up-day Amihud alpha_survival=0.149 severe poor，max_corr 0.754 仍 high。减少 20d 对称化抹平但同步放大 noise + vol-coupling 不减。
-> **非 mean aggregation 测度 (max-min range)**: C006 reserve——5d Amihud range 与 F012 level 共变 86%，range-based 测度不足以从 level 引力 escape。
-> **T005 复活条件剩余**: (a) 短窗证伪；(max-min range 证伪)。仅 **quantile-based asymmetry (P90-P10)** 未测——这是 T005 唯一可能复活的 DSL 层路径；minute-bar 数据未来若接入可重开 symmetric vs sign 测试。
-> Thread 建议改 ✗ DISPROVEN (a) 条件, 保留 ACTIVE 等 quantile 测试。
 
 ### batch_048 · direction=`overnight_intraday_split` · admit=1 reserve=1 reject=4 total=6
 
@@ -580,3 +450,179 @@
 
 > [!warning]+ T003 [[directions/barra_residual_alpha#T003]] — `[已二次复现 → 升格修复优先级 high]`
 > Python factor REQUIRED_FIELDS loader 缺口在 C001 missing $turnover_rate 第二次独立触发（首次 b015 C002 missing $high/$low）。**T003 thread 中期方案推进至必须优先实施**: (a) Phase 1 freeze 静态 validate `set(REQUIRED_FIELDS) ⊆ load_market_data` 默认列；(b) load_market_data 接受 candidates union(REQUIRED_FIELDS) 动态扩列。
+
+### batch_055 · direction=`range_structure` · admit=1 reserve=0 reject=5 total=6
+
+## 方向级反思
+
+**range_structure direction 实现首次 admit**（status: exploring → productive），结束 3 rounds 0-admit 历史。但应清醒认识本批 1/6 通过率说明的几件事：
+
+1. **rank-diff geometry 7 律 + factor-anchored cluster 检查**已达到极高的设计门槛——5/6 candidate 在 max_corr 都 < 0.55 看似独立，incremental_ic 却全部 ≤ 0。这验证了 P005 RHS basis 共振饱和律的**动态性**：即使没有显式 RHS 重复，多个独立 RHS 通过 vol_20d common cause 仍构成"组合层冗余"。
+2. **C005 admit 的成功要素**特别值得归纳：(a) LHS atom 是 close 在 H-L 范围内的位置（intraday position 维度），不是 range/body magnitude；(b) RHS Mean(H/L, 60) 是 long-window 几何 ratio (60d，与短窗 RHS 区分)；(c) style_crowding=medium 是 6 候选中唯一不 high 的；(d) cum_mdd=-1.14 是库内极罕见的"几乎从未失效"。这些条件**联合**才能通过门槛。
+3. **下一步建议**:
+   - **优先**：在 intraday position 维度沿 C005 atom 衍生（如 (C-L)/(H-L) Std, (C-prev_close)/(H-L) Std, body_position 等）× 不同 long-window scale-free RHS（不再尝试 short-window vol_20d-prone RHS）
+   - **避免**：60d 长窗 + raw size/value RHS（C006 教训）；sign aggregation as RHS（C003 教训）
+   - **TsKurt 路径**：operators.py:428 bug 阻塞了 P002 endorsed 的 higher-moment LHS 升级 — 需要 Python escape hatch 或修复 _build_cs_cache 让 D.features 接收已计算 LHS 数组而非 expression string
+4. **status 调整**：`exploring → productive`（首次 admit），`priority: low → medium`（admit 验证 direction 仍有可挖空间）
+
+若下一轮 (round 4) 沿 C005 衍生路径仍 0 admit + incremental_ic ≤ 0 ratio ≥ 80% → `productive → saturated`。
+
+## 跨候选对比
+
+**Style 聚合 (本批 6 候选共性)**：
+- 全部 6 候选 `dominant_style_exposure = vol_20d`，exp 范围 **18.8 (C005) – 58.1 (C003)**
+- C005 vol_20d exp 最低 (18.8)、style_r² 最低 (0.20)、style_crowding `medium`（其它 5 个全 `high`）——这是 C005 admit 的关键差分
+- C003 + C006 是双 style 灾难：C003 vol_20d=58.1 + str_1m=3.84；C006 vol_20d=30.9 + log_circ_cap=0.586 + alpha_surv=0.71 假象
+- C004 ep_ratio exp=1.94（最高 value 暴露），LHS (H-L)/prev_close 触 F005 algebraic mirror
+
+**Incremental_ic 一览**（库增值真实性最关键指标）：
+- ✅ C005 = **+0.008** (库增值)
+- ❌ C001 = -0.013, C002 = -0.008, C003 ≈ 0, C004 = -0.007, C006 = -0.012
+- **5/6 incremental_ic 负或 ≈0**——这是本批最强结构性发现：**rank-diff geometry 已饱和到这种程度，新候选不仅不能加 corr 独立性，连库 IC 增量都拿不到**。这是 P004 vol_20d 结构性吸收律 + P005 RHS basis 共振饱和律的联合表现：5 个 RHS (volume_60/pe_60/up_freq_20/VWAP_60/range_compress_60/circ_market_cap_60) 中只有 range_compress_60 (C005 RHS) 真正独立。
+
+**MT 预算推进**：cumulative 282 → 288；direction 6 → 12；bucket high → search_adjusted medium。range_structure direction 在本批 admit 后 round=3, admits=1, status: exploring → **productive**。
+
+**ls_t IS/OOS 翻号 / 衰减**（Validation regime stability）：
+- C001: IS+2.42 / OOS-0.40 (翻号)
+- C004: IS-3.02 / OOS-0.65 (大幅衰减 0.22)
+- C006: IS+2.06 / OOS-0.62 (翻号)
+- C003: IS-5.23 / OOS-1.39 (大幅衰减 0.27)
+- C005: IS+1.61 / OOS+2.38 (**OOS 增强 1.5x，唯一 IS→OOS 同向且增强的候选**)
+
+C005 在 train_validation_decay=1.96 是"信号增强型"（IS<OOS）而非 inflated——结合 ic_by_year 单调增强趋势，证明这是 regime-robust 的真实 alpha 而非 IS overfit 表象。
+
+## Thread 进展
+
+> [!success]+ T001 [[directions/range_structure#T001]] — `[✓ ANSWERED batch_055]`
+> 答案：(1) 是的，range 结构化 transformation **能**在 cross-section 上逃 vol_20d——具体路径是 **upper-shadow position dispersion (Std of (H-C)/(H-L)) × long-window range compression (Mean of H/L) rank-diff**（C005 → admit）。(2) 但 admit 路径精度门槛极窄：6 候选只有 1/6 通过，5/6 因 incr_ic ≤ 0 库减值被拒。(3) Kurt-centric 路径在 DSL 下被 operators.py:428 bug 阻塞（C002/C006 用 Std 替代均失败），需要 Python escape hatch 或 bug 修复。
+>
+> **Evidence trail (本批新增)**:
+> - [[batches/batch_055/candidates/C001|batch_055 C001]] range Std × volume_60 ls_t=-0.40 incr=-0.013 → **reject** (F012 reducer)
+> - [[batches/batch_055/candidates/C002|batch_055 C002]] Garman range Std × pe_60 mono=-1.0 ls_t=-2.92 incr=-0.008 → **reject** (rank-diff cluster reducer)
+> - [[batches/batch_055/candidates/C003|batch_055 C003]] H/L Std × sign_freq_20 vol_20d=58.1 incr≈0 → **reject** (sign-RHS 未起独立维度)
+> - [[batches/batch_055/candidates/C004|batch_055 C004]] (H-L)/prev_close Mean × VWAP_60 mono paradox -1.0→-0.30 incr=-0.007 → **reject** (b043 C004 同 paradox)
+> - [[batches/batch_055/candidates/C005|batch_055 C005]] (H-C)/(H-L) Std × H/L Mean_60 ic=+0.043 mono=+1.0 cum_mdd=-1.14 incr=+0.008 → **admit**
+> - [[batches/batch_055/candidates/C006|batch_055 C006]] Std((H-L)/C, 60) × market_cap_60 style_r²=0.75 incr=-0.012 → **reject** (Std60 ≠ Kurt-equivalent)
+
+### batch_056 · direction=`range_structure` · admit=0 reserve=1 reject=5 total=6
+
+## 方向级反思
+
+**range_structure direction 在 batch_056 round 4 后**：admit=0 / reserve=1 / reject=5；累计 admits=1 (F021 from b055 C005), reserves=2 (b043 C003 + 本批 C001), 已封闭路径增加到 5+ atom variants。本批揭示几个关键动态：
+
+1. **rank-diff geometry library reducer 第 5 次复现** (b042 C005 / b043 C005-C006 / b045 C006 / b055 C002 / 本批 C004)：mono_oos=+1.0 + ls_t_oos=4.62 strong 但 incr_ic=-0.0024 + alpha_surv=0.27——"strong-but-negative-incr"陷阱第 5 次独立确认，应升格 lessons.md 的 Promising Patterns 反例段。该模式的判别要件已稳定：mono_oos≥0.9 + |ls_t_oos|≥3.0 + incr_ic<0 + alpha_surv<0.30。
+
+2. **C006 alpha_survival 极端 poor (0.0725)** + ic_oos 表面 strong (+0.025) 揭示"vol_20d IC 假象"诊断要件的细化：当 alpha_survival << 0.10 (而非接近 threshold 0.40) 时，IC 几乎完全由 vol_20d + turnover_20d + str_1m 三大 style 解释——本批 vol_20d_exposure=30.67 + style_r²=0.21 仅 borderline，但 alpha_survival 跌至 0.0725——表明 style_r² 单一指标不充分（C006 style_r² 仅 borderline 但 alpha 全被 style 占走），alpha_survival 是更敏感的"残余 alpha 真实性"指标。
+
+3. **C001 reserve 是否真错杀 (calibration trigger 候选)**：C001 满足 6 项 alpha-side 健康指标 (ic_oos=0.021 strong / mono_oos=+1.0 完美 / sign_consistency=1.0 / cum_mdd=-4.06 极浅 / incr_ic=+0.0085 库增值 / ic_by_year U-shape 近 3 年同号加强)；但 alpha_survival=0.24 < threshold 0.40 (CP04 poor) + style_r²=0.17 边界 + ICIR=0.17 weak (CP03 borderline) + max_lib_corr=0.50 medium 阻止 admit。**诊断**：dominant_style=vol_20d (exp=7.96) 在本 family 是最低 vol_20d exp，但 alpha_survival 仍仅 0.24——可能是真实"vol_20d 残余 alpha"被吞噬，或库重叠 (与 F019 max_corr=0.50) 把残余信号也分走。**建议**：等待 round 2 沿 C001 atom 衍生 1-2 个独立 RHS 候选 (避开 amount/volume，试 H/L 60d 几何 ratio 等)，再判断 C001 是否系统性错杀。
+
+4. **下一步建议**:
+   - **优先**：sub-path A — 沿 C001 (O-L)/(H-L) atom 衍生 × 不同 long-window scale-free RHS (H/L 60d 几何 / 其它 turnover-orthogonal 长窗 ratio)，验证 open lower-shadow position 维度是否可继续扩展
+   - **优先**：sub-path B — (C-L)/(H-L) Std (lower-shadow-close-position) × C001 同款 long-window scale-free RHS，对比 close-anchored vs open-anchored 在 lower-shadow 几何上的差异
+   - **避免**：daily return / overnight gap as numerator (b056 C003/C004/C005 教训)；composite midpoint deviation (b056 C006 教训)；pe/pb / pe/ps / turnover/pb 60d 类 fundamental 复合 RHS (b056 C002/C004/C005 三连 reject)
+   - **TsKurt 路径**：operators.py:428 bug 仍阻塞——可考虑 Python escape hatch 路径在 sub-path A/B 完成后启动
+
+5. **status 调整**：`status: productive` 保持（C001 reserve 维持 family 可扩展嫌疑 + 库增值数据点）；`priority: medium` 保持（admit=0 但 reserve 数据点真实，未达 saturated 触发）。
+
+若 round 5 沿 C001/C005 衍生路径仍 0 admit + 80%+ candidate incremental_ic ≤ 0 → `productive → saturated`。
+
+## 跨候选对比
+
+**Style 聚合 (本批 6 候选共性)**：
+- 6 候选 `dominant_style_exposure` 全部 = `vol_20d`，exposure 范围 **7.96 (C001) – 47.2 (C003)**
+- C001 vol_20d exp 最低 (7.96)、style_r²=0.17 borderline、alpha_surv=0.24 poor 但 incr_ic=+0.0085 正——这是 reserve 与全 reject 的关键差分
+- C003 vol_20d=47.2 极端 + str_1m=1.15 + ep_ratio=1.78 → 三 style 灾难
+- C006 vol_20d=30.67 极端 + turnover_20d=4.13 + str_1m=0.98 → 双 style + IC 假象典型
+- C004 ep_ratio exp=1.30 + alpha_surv=0.27 poor + incr_ic=-0.0024 → "strong-mono + strong-ls_t but library reducer" 第 5 次复现 (b042 C005 / b043 C005-C006 / b045 C006 / b055 C002 / 本批 C004)
+
+**Incremental_ic 一览**（库增值真实性最关键指标）：
+- ⏸ C001 = **+0.0085** (库增值, 唯一)
+- ❌ C002 = N/A (hard_gate fail)
+- ❌ C003 = -0.006, C004 = -0.0024, C005 = N/A (hard_gate fail), C006 ≈ +0.001
+- **5/6 incremental_ic ≤ 0 或不适用**——本批延续 batch_055 P005 RHS basis 共振饱和律的动态性 (b055: 5/6 ≤ 0)。但 C001 incr=+0.0085 > 0 **打破"全负"模式**，表明在 (O-L)/(H-L) atom + amount/volume RHS 这条具体路径上库增值仍真实——open lower-shadow position 维度尚未饱和。
+
+**MT 预算推进**：cumulative 288 → 294；direction 12 → 18；bucket high → search_adjusted medium。range_structure direction 在本批后 round=4, admits=1, reserves=1, status: `productive` 保持。
+
+**ls_t IS/OOS 翻号 / 衰减**（Validation regime stability）：
+- C001: IS+5.52 / OOS+2.51 (衰减 0.45，但同号且 OOS 仍 moderate)
+- C002: IS+3.35 / OOS-2.13 (**翻号** + hard_gate fail)
+- C003: IS-1.67 / OOS-0.86 (大幅衰减 0.51 + mono 崩塌)
+- C004: IS+5.40 / OOS+4.62 (**OOS 增强 ratio 0.85**, 但 incr_ic 负 — strong-but-reducer)
+- C005: IS-3.02 / OOS-3.78 (OOS 反向增强 + ic_oos 量级不足)
+- C006: IS+2.56 / OOS+0.90 (大幅衰减 0.35 + ls 信号 weak)
+
+C001 是**唯一同号且 OOS 仍 moderate** 的候选，配合 incr_ic+ + cum_mdd=-4.06 + ic_by_year U-shape 近 3 年同号加强 — 真实 alpha 嫌疑高于其他 5 个，但 alpha_survival=0.24 < threshold 0.40 阻止 admit → reserve。
+
+## Thread 进展
+
+> [!note]+ T003 [[directions/range_structure#T003]] — `[◉ ACTIVE]`
+> **本批结果 (round 1 of T003)**：T003 假设"intraday position dispersion family 沿 C005 衍生"在本批 6 候选首轮**部分验证、部分证伪**。验证：C001 (Std((O-L)/(H-L), 20) × Mean(amount/volume, 60)) reserve，open-anchored lower-shadow position dispersion atom 拿到 incr_ic=+0.0085 + cum_mdd=-4.06 + 9 年 U-shape 同号 — 证实 family 在 open-anchored 维度可扩展。证伪：C003 (return-per-range) / C004 (overnight-gap-per-range) / C006 (composite midpoint) 三种 numerator 全部 reject，证明并非所有 LHS atom 变体都能逃脱 vol_20d；特别 C002/C005 双 hard_gate fail 表明 RHS basis (pe/pb 60d ROE proxy / turnover/pb 60d composite) 即使设计纪律到位仍可能在 csi1000 IS/OOS 完全反转。
+>
+> **Evidence trail (本批新增)**:
+> - [[batches/batch_056/candidates/C001|batch_056 C001]] Sub(CsRank(Std((O-L)/(H-L),20)), CsRank(Mean(amount/volume,60))) — ic_oos=+0.021 mono=+1.0 cum_mdd=-4.06 incr=+0.0085 max_corr=0.50@F019 alpha_surv=0.24 → **reserve**
+> - [[batches/batch_056/candidates/C002|batch_056 C002]] Sub(CsRank(Std((H-O)/(H-L),20)), CsRank(Mean(pe/pb,60))) — hard_gate fail (sign_flip + oos_decay=-4.34) → **reject**
+> - [[batches/batch_056/candidates/C003|batch_056 C003]] Sub(CsRank(Std((C-prev_C)/(H-L),20)), CsRank(Mean(amount/(close*volume),60))) — mono collapse -0.90→-0.10 + incr=-0.006 + vol_20d=47.2 + max_corr=0.65@F014 → **reject**
+> - [[batches/batch_056/candidates/C004|batch_056 C004]] Sub(CsRank(Std((O-prev_C)/(H-L),20)), CsRank(Mean(pe/ps,60))) — ls_t=4.62 + mono=+1.0 但 incr=-0.0024 + alpha_surv=0.27 (library reducer 第 5 次复现) → **reject**
+> - [[batches/batch_056/candidates/C005|batch_056 C005]] Sub(CsRank(Std((H-prev_C)/(H-L),20)), CsRank(Mean(turnover/pb,60))) — hard_gate fail (ic_oos=-0.0042 < 0.008) → **reject**
+> - [[batches/batch_056/candidates/C006|batch_056 C006]] Sub(CsRank(Std(((C+O)-(H+L))/(H-L),20)), CsRank(Mean(amount/market_cap,60))) — ic_oos=+0.025 表面 strong 但 alpha_surv=0.0725 极端 + ls_t=0.90 weak + vol_20d=30.67 → **reject** (vol_20d IC 假象典型)
+>
+> **下一步**：T003 thread 仍 ACTIVE，但应在 C001 reserve 真错杀诊断后再决定 round 2 方向。如 C001 是真实可 admit 信号 (诊断 alpha_survival=0.24 是否 vol_20d Barra orthogonalize 后改善)，则 round 2 沿 (O-L)/(H-L) atom 衍生其它 long-window scale-free RHS；如 C001 是 vol_20d 吸收伪 alpha (与 C006 同模式)，则 T003 sub-path "open-anchored position × VWAP magnitude" 封闭，转 (C-L)/(H-L) Std lower-shadow-close-position 等其它 anchor。
+
+### batch_057 · direction=`vwap_proxy_signals` · admit=0 reserve=1 reject=5 total=6
+
+## 方向级反思
+
+本方向 rounds = 3（batch_040 + batch_042 + 本 batch_057）·admits = 1 (F014, Grade D 37) · 最近 2 批 reject 率：batch_042 = 5/6 (83%) + batch_057 = 5/6 (83%) → 满足 "连续 2+ batch reject > 80%" 转 saturated 触发条件。
+
+**核心证伪累积**：
+1. T001 ANSWERED：跨 session VWAP-prev_close (F014) 是唯一 admit，level 形式
+2. T002 DISPROVEN：同 session VWAP/close 偏离的 5d/20d 聚合 (level 形式) 全 fail
+3. T003 SUSPENDED：daily-anchor VWAP HLC位置 5 子路径撞墙 max_corr@F014=0.79-0.89
+4. **T004 (本批) 几乎完全证伪**：higher-moment LHS (Std/Skew) on VWAP-derived scale-free × rank-diff 路径在二阶矩、三阶矩、不同 anchor、不同 RHS 上全部失败或被 cluster+style 压制
+
+**结构性结论**：A 股 csi1000 上 VWAP 基底 (synthesized $amount/$volume) 的可探索路径在日频 DSL 层基本耗尽。F014 是 level cross-session 形式的唯一兑现；higher-moment / momentum / different-anchor 路径都被 (a) F005 OHLC algebraic mirror 共动律 + (b) F001/F301 vol_20d 结构性吸收律 + (c) F017 cluster 共振律 三重夹击。
+
+**下轮建议**：`status: productive → saturated` · `priority: medium → low`。复活条件：
+- F017 退役（unlikely 短期）→ C005 可重测
+- vol_20d Python residualization 工具链就绪 + coverage 修复 → T003 残差路径 + T004 Skew × residualized 重启
+- 非 daily-bar 数据（minute/tick）→ VWAP 微观结构信号根本性逃离
+
+**值得沉淀的元教训**（建议升格 lessons）：
+- "higher-moment LHS independence axis on scale-free VWAP-derived ratios" **不能** 跨 family 迁移 — F019/F020 (OHLC body / gap_ret) → VWAP basis 失败。差异：F019/F020 的 atom 是直接价格 ratio（scale-free, vol_20d-independent），而 VWAP-prev gap 本身就嵌入了波动率信息（gap 大小 ≈ 日内波动率），导致 higher-moment 不是"独立 axis" 而是"vol_20d 极端载体"。**lessons.md "Promising Unexplored" 第 1 条需附 caveat**：family-agnostic 律仅在 atom 自身与 vol_20d 正交时成立。
+- C003 vol_20d exposure=**48.04** 是整库历史新高（超 b008 C005=32.0），值得记录为方向级 anti-pattern：**VWAP-open 同 session 锚点是 vol_20d 极端载体**。
+
+## 跨候选对比
+
+- **Hard_gate 失败率 4/6 (67%)**：本批最显著结构事实。failure 类型分布：
+  - `ic_oos_too_low` ×2 (C001/C006) — 信号体量根本不足，cross-section noise 主导
+  - `sign_flip` ×1 (C002) — 短窗口 + range/close RHS 配对 regime 不稳
+  - `mono_flip` ×1 (C004) — RHS 换 amount/circ_mktcap 后真实 mono 翻盘
+- **C001/C004/C005 共享 LHS** = `Std(VWAP-prev gap, 20)` 或 `Skew(...)` (C005)：同 LHS 不同 RHS 的实验组对比清晰：
+  - C001 (turnover_rate Mean 10 RHS) → ic_oos_too_low hard_gate
+  - C004 (amount/circ_mktcap Mean 20 RHS) → mono_sign_flip hard_gate
+  - C005 (turnover_rate Mean 10 RHS, **Skew 三阶矩 LHS**) → 唯一 reserve（mono=0.9 + cum_mdd=-2.18 + ic_by_year 单调强化）
+  - **结论**：相同 LHS 二阶矩 (Std) 形式在两个非饱和 RHS 上都失败；切换到三阶矩 (Skew) 才打通 rank-order — 暗示 VWAP basis 的 higher-moment 路径 **二阶矩 saturated, 三阶矩 partially active**
+- **Style 聚合**：2 个进入 CP04 的候选 (C003/C005) 都 dominant_style=`vol_20d`：
+  - C003 vol_20d exposure = **48.04** (整库罕见极值，超 b008 C005=32.0 历史最高)
+  - C005 vol_20d exposure = 13.96 (高但温和)
+  - VWAP basis 在 csi1000 上结构性等价于 vol_20d 高暴露载体 — F005 distillation 律再次验证
+- **相关度 cluster**：C003/C005 都 nearest=F017 (overnight×turnover rank-diff)，corr=0.48 / 0.51 — 两个 VWAP-derived rank-diff 都被 F017 吸收 ~25%
+- **MT 预算推进**：cumulative 300 → 306（首次破 300 大关）；direction 12 → 18（vwap_proxy_signals 方向 high bucket 巩固，仅次 saturated 边界 20）
+- **bucket=high 触发的 verdict 收紧**：C003/C005 都 high bucket → search_adjusted 后 medium，但 high 上界限制本就压制 admit 概率
+
+## Thread 进展
+
+> [!note]+ T004 [[directions/vwap_proxy_signals#T004]] — `[◉ ACTIVE]` (本批启动 thread)
+> 6 候选全部归入 T004。结论：**T004 hypothesis (higher-moment LHS on VWAP-derived scale-free × non-saturated rank-diff RHS) 在 cross-section 上几乎完全证伪**：
+> - 二阶矩 (Std) 路径：3 候选 (C001/C002/C004) 全 hard_gate fail，证明 Std(VWAP-prev/open gap) 与已尝试的非饱和 RHS (turnover_rate Mean 10 / Med(range/close) / amount/circ_mktcap Mean 20) 配对在 cross-section 上无 stable rank-order
+> - 三阶矩 (Skew) 路径：C005 唯一 reserve，rank-order 极优但 vol_20d 严重吸收 + F017 cluster 共振 → 暗示 Skew 是有信号但被 cluster + style 双重压制
+> - within-VWAP momentum 路径：C006 ic_oos_too_low — 时间窗内 VWAP 自身相对变化 noise dominated
+> - VWAP-open anchor 同 session 路径：C003 完全坍塌 + vol_20d exposure=48.04 整库罕见极值，证伪"开盘锚点 VWAP" 独立性
+>
+> **Next probes**: 仅有 1 条剩余路径 — 三阶以上矩 (Kurt) 或 Skew × 不同 RHS 探索；但本方向 rounds=3 + admits=1 + 2 batch reject>80% 已满足 saturated 转化条件，建议方向转 saturated。
+
+> [!success]- T001 [[directions/vwap_proxy_signals#T001]] — `[✓ ANSWERED batch_040]` (本批无推进)
+
+> [!failure]- T002 [[directions/vwap_proxy_signals#T002]] — `[✗ DISPROVEN batch_040]` (本批无推进)
+
+> [!note]- T003 [[directions/vwap_proxy_signals#T003]] — `[⏸ SUSPENDED batch_042]` (本批无推进，仍阻塞工具链)

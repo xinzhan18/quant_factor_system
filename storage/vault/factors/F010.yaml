@@ -5,16 +5,64 @@ source_type: dsl
 admitted_at: '2026-04-20T22:21:35Z'
 admitted_in_batch: batch_025
 status: active
-diagnostics_ref: cache/batch_diagnostics/batch_025/C002
+diagnostics_ref: cache/batch_diagnostics/batch_recompute_v2/F010
 direction: overnight_intraday_split
 expression: Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 5)
 canonical: Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5)
 validation_metrics:
-  ic_mean: 0.023776330009776633
-  ic_ir: 0.395731219525978
-  ic_win_rate: 0.6632231404958677
-  monotonicity: 0.9999999999999999
-  long_short_mean: 0.0013937206004653896
+  coverage: 1.0
+  ic_mean: 0.018654504489938918
+  ic_ir: 0.2937109211171596
+  ic_win_rate: 0.6260330578512396
+  monotonicity: 0.39999999999999997
+  long_short_mean: 0.0006149275853632456
+  long_short_sharpe: 2.3426
+  long_short_tstat: 3.2498
+  long_short_max_dd: -0.0529
 risk_metrics:
-  style_r_squared: 0.07164335404385458
-  alpha_survival_ratio: 0.6021
+  style_r_squared: 0.06901225690488033
+  alpha_survival_ratio: 0.3057
+primary_universe: all_tradable
+validation_metrics_by_universe:
+  all_tradable:
+    coverage: 1.0
+    ic_mean: 0.018655
+    ic_ir: 0.2937
+    monotonicity: 0.4
+    long_short_sharpe: 2.3426
+  csi300:
+    coverage: 1.0
+    ic_mean: 0.006932
+    ic_ir: 0.0575
+    monotonicity: -0.1
+    long_short_sharpe: -0.3963
+  csi1000:
+    coverage: 1.0
+    ic_mean: 0.011511
+    ic_ir: 0.1552
+    monotonicity: 0.3
+    long_short_sharpe: 1.2657
+universe_robustness:
+  icir_min: 0.0575
+  icir_max: 0.2937
+  icir_robustness_ratio: 0.1958
+  ic_mean_min: 0.006932
+  ic_mean_max: 0.018655
+  mono_min: -0.1
+  mono_max: 0.4
+  ic_sign_consistent_across_universes: true
+  primary_universe: all_tradable
+recompute_provenance:
+  run_name: library_recompute_v2
+  applied_at: '2026-04-25T17:16:12Z'
+  batch_id: batch_recompute_v2
+  result_relpath: vault/batches/batch_recompute_v2/result.yaml
+recompute_reverdict:
+  old_status: reserve
+  new_status: reserve
+  reason: all_tradable mono 1.0→0.40; overnight_return_persistence_5d ICIR 0.29 still
+    respectable but no longer monotone
+  transitioned_at: '2026-04-25T15:48:36Z'
+  audit_run: tradable_mask_v1_st
+reserved_at: '2026-04-25T15:48:36Z'
+revalidated_in_batch: batch_recompute_v2

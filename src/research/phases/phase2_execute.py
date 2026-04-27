@@ -113,7 +113,13 @@ class Phase2Inputs:
     validation_range: tuple[str, str]
 
     preprocess_config: PreprocessConfig = field(default_factory=PreprocessConfig)
-    universe: str = "csi1000"
+    primary_universe: str = "csi1000"
+    secondary_universes: list[str] = field(default_factory=list)
+    universe_masks: dict[str, pd.Series] = field(default_factory=dict)
+    """Keyed by universe name, value = effective bool mask (universe ∧ tradable)
+    aligned to the market grid. Includes both primary and secondary universes.
+    The primary universe mask is also what each ``CandidateInputs.tradable_mask``
+    gets sliced from upstream."""
 
     # Optional — when provided, per-candidate Q1..Qn daily / IC daily /
     # long-short daily series are persisted to
@@ -151,6 +157,114 @@ def _strip_ic_series(by_horizon: dict[int, dict[str, Any]]) -> dict[int, dict[st
             "validation": blk["validation"],
         }
         for h, blk in by_horizon.items()
+    }
+
+
+def _basic_universe_metrics(
+    factor_series: pd.Series,
+    universe_mask: pd.Series,
+    primary_returns: pd.DataFrame,
+    *,
+    validation_range: tuple[str, str],
+    primary_horizon: int,
+    preprocess_config: PreprocessConfig,
+) -> dict[str, Any]:
+    """Run the 5 basic metrics for a single universe — no full eval.
+
+    Returns ``{coverage, ic_mean, ic_ir, monotonicity, long_short_sharpe}``
+    on the validation window only. Used for secondary-universe robustness
+    snapshots; the primary universe still gets the full Phase 2 metric
+    suite via ``_evaluate_candidate``.
+    """
+    aligned_mask = universe_mask.reindex(factor_series.index, fill_value=False).astype(bool)
+    denom = int(aligned_mask.sum())
+    if denom == 0:
+        return {"error": "empty_universe_mask"}
+
+    clean = preprocess_factor(factor_series, preprocess_config, tradable_mask=aligned_mask)
+    coverage = float((clean.notna() & aligned_mask).sum() / denom)
+
+    cand_mi = _series_to_mi_df(clean.dropna())
+    if cand_mi.empty:
+        return {
+            "coverage": round(coverage, 4),
+            "error": "empty_after_mask",
+        }
+
+    factor_flat = cand_mi.reset_index()
+    factor_flat.columns = ["time", "symbol", "value"]
+
+    val_start, val_end = validation_range
+    by_horizon = compute_multi_horizon_ic(
+        factor_flat,
+        {primary_horizon: primary_returns},
+        train_range=("1900-01-01", "1900-01-02"),  # collapse train; we only care about validation
+        validation_range=(val_start, val_end),
+    )
+    ic_val = by_horizon[primary_horizon]["validation"]
+
+    fv_val = factor_flat[
+        (factor_flat["time"] >= pd.Timestamp(val_start))
+        & (factor_flat["time"] <= pd.Timestamp(val_end))
+    ]
+    ret_val = primary_returns[
+        (primary_returns["time"] >= pd.Timestamp(val_start))
+        & (primary_returns["time"] <= pd.Timestamp(val_end))
+    ]
+    qret_val = compute_quintile_returns(fv_val, ret_val)
+    ls_stats = compute_long_short_stats(qret_val["long_short_daily"])
+
+    def _r(value: Any, digits: int) -> Any:
+        if value is None or (isinstance(value, float) and value != value):
+            return None
+        return round(float(value), digits)
+
+    return {
+        "coverage": _r(coverage, 4),
+        "ic_mean": _r(ic_val.get("ic_mean"), 6),
+        "ic_ir": _r(ic_val.get("ic_ir"), 4),
+        "monotonicity": _r(qret_val.get("monotonicity"), 4),
+        "long_short_sharpe": _r(ls_stats.get("sharpe"), 4),
+    }
+
+
+def _universe_robustness(
+    primary_universe: str,
+    grid: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Cross-universe summary derived from the basic-metrics grid."""
+    icirs: list[float] = []
+    ic_means: list[float] = []
+    monos: list[float] = []
+    for blk in grid.values():
+        if "error" in blk:
+            continue
+        if blk.get("ic_ir") is not None:
+            icirs.append(blk["ic_ir"])
+        if blk.get("ic_mean") is not None:
+            ic_means.append(blk["ic_mean"])
+        if blk.get("monotonicity") is not None:
+            monos.append(blk["monotonicity"])
+
+    icir_min = min(icirs) if icirs else None
+    icir_max = max(icirs) if icirs else None
+    icir_ratio = (
+        round(abs(icir_min) / abs(icir_max), 4)
+        if icir_min is not None and icir_max not in (None, 0)
+        else None
+    )
+    return {
+        "icir_min": icir_min,
+        "icir_max": icir_max,
+        "icir_robustness_ratio": icir_ratio,
+        "ic_mean_min": min(ic_means) if ic_means else None,
+        "ic_mean_max": max(ic_means) if ic_means else None,
+        "mono_min": min(monos) if monos else None,
+        "mono_max": max(monos) if monos else None,
+        "ic_sign_consistent_across_universes": bool(
+            ic_means and (all(x > 0 for x in ic_means) or all(x < 0 for x in ic_means))
+        ),
+        "primary_universe": primary_universe,
     }
 
 
@@ -315,7 +429,13 @@ def _evaluate_candidate(
             inputs.preprocess_config,
             tradable_mask=cand.tradable_mask,
         )
-        coverage = float(clean_series.notna().mean())
+        tradable_aligned = cand.tradable_mask.reindex(clean_series.index, fill_value=False).astype(bool)
+        denom = int(tradable_aligned.sum())
+        coverage = (
+            float((clean_series.notna() & tradable_aligned).sum() / denom)
+            if denom > 0
+            else 0.0
+        )
 
         cand_mi = _series_to_mi_df(clean_series.dropna())
         if cand_mi.empty:
@@ -445,6 +565,49 @@ def _evaluate_candidate(
         # --- 8. Distribution ---
         distribution = compute_distribution(cand_mi)
 
+        # --- 9. Secondary universes — basic metrics only ---
+        per_universe_basic: dict[str, dict[str, Any]] = {
+            inputs.primary_universe: {
+                "coverage": round(coverage, 4),
+                "ic_mean": (
+                    None
+                    if val_ic_mean is None or not np.isfinite(val_ic_mean)
+                    else round(float(val_ic_mean), 6)
+                ),
+                "ic_ir": (
+                    None
+                    if (primary["validation"].get("ic_ir") is None)
+                    else round(float(primary["validation"]["ic_ir"]), 4)
+                ),
+                "monotonicity": (
+                    None
+                    if qret_val.get("monotonicity") is None
+                    else round(float(qret_val["monotonicity"]), 4)
+                ),
+                "long_short_sharpe": (
+                    None
+                    if ls_stats_val.get("sharpe") is None
+                    else round(float(ls_stats_val["sharpe"]), 4)
+                ),
+            },
+        }
+        for sec_name in inputs.secondary_universes:
+            sec_mask = inputs.universe_masks.get(sec_name)
+            if sec_mask is None:
+                logger.warning(
+                    "phase2: secondary universe %s missing mask — skipped", sec_name
+                )
+                per_universe_basic[sec_name] = {"error": "missing_mask"}
+                continue
+            per_universe_basic[sec_name] = _basic_universe_metrics(
+                cand.factor_series,
+                sec_mask,
+                primary_returns,
+                validation_range=inputs.validation_range,
+                primary_horizon=inputs.primary_horizon,
+                preprocess_config=inputs.preprocess_config,
+            )
+
         return {
             "candidate_id": cand.candidate_id,
             "expression": cand.expression,
@@ -453,6 +616,10 @@ def _evaluate_candidate(
             "coverage": round(coverage, 4),
             "sign": int(primary_sign),
             "compute_error": None,
+            "validation_metrics_by_universe": per_universe_basic,
+            "universe_robustness": _universe_robustness(
+                inputs.primary_universe, per_universe_basic
+            ),
             "ic": {
                 "train": primary["train"],
                 "validation": primary["validation"],
@@ -530,7 +697,8 @@ def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
     result = {
         "batch_id": inputs.batch_id,
         "generated_at": _now_iso(),
-        "universe": inputs.universe,
+        "primary_universe": inputs.primary_universe,
+        "secondary_universes": list(inputs.secondary_universes),
         "train_range": list(inputs.train_range),
         "validation_range": list(inputs.validation_range),
         "horizons": horizons,
