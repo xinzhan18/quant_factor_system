@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-04-25T17:42:32Z
+generated_at: 2026-04-27T14:08:41Z
 round: 59
 total_active_directions: 13
 total_factors_admitted: 22
