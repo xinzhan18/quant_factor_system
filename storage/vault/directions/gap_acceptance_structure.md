@@ -1,52 +1,65 @@
 ---
 direction_tag: gap_acceptance_structure
-status: productive
-priority: high
-rounds: 4
+status: saturated
+priority: low
+rounds: 6
 admits: 3
-last_batch: batch_051
-last_admits:
-- F020
-last_goal: "T013 rank-diff 范式第 6 次跨家族泛化——测 gap-based scale-invariant signals × 非 overnight/turnover/amount\
-  \ RHS 的 rank-diff 几何。\n\n当前 rank-diff 5 admit 跨 4 family (microstructure×2 / overnight×2\
-  \ / OHLC×1 = F015/F016/F017/F018/F019)。\ngap_acceptance_structure 仅 F013 (log_amount_weighted\
-  \ sign aggregation)，max_corr=0.085 整库低集中度，rank-diff\nparadigm 完全未测。本批检验：gap LHS\
-  \ 能否在 rank-diff 几何中独立兑现？若 admit 则 6 跨家族 tipping point\n正式确认 (Phase 5 consolidation\
-  \ 几乎必然触发)。\n\n设计硬约束：\n(1) 每候选 LHS 唯一 — 6 LHS 全不同 atomic gap 表达；\n(2) 严避免 F010/F011\
-  \ 的 Mean(gap_ret, 3/5) 同形 — 用不同 normalizer (gap/(H-L) 而非 gap/Ref(close,1)) 或不同 moment\
-  \ (Std vs Mean) 或不同时窗 (60d);\n(3) RHS 端避开 RHS 共振饱和律已标 endpoints (overnight_5/turnover_5/amount_20)，选\
-  \ RV_60 / body_ratio_20 / amount_60 / pb_60 / price_vol / |return|_60 等非饱和 basis;\n\
-  (4) 不用 CsRank 外包 AmihudIlliq/HHI/RealizedVol (operators.py:428 bug)；CsRank 内层全标准\
-  \ DSL (Mean/Std/Abs/Sub/Div/Sign/Ref);\n(5) 不重演 T001 disproven (sign(gap)*sign(body)\
-  \ pure aggregation) 也不重演 T003 disproven (gap magnitude 分母变体 → corr@F003=0.96);\n\
-  (6) 不重演 b049/b050 disproven random walk LHS (intraday body sign / intraday return\
-  \ mean).\n\nC001 gap_acceptance_ratio_20 × RV_60 — LHS=Mean(($open-Ref($close,1))/($high-$low),\
-  \ 20) gap 归一化 intraday range\n  (与 F003 不同：F003 LHS 是 |gap|/Mean($high,5)，本 C001\
-  \ 用 (H-L) 同期 range 而非历史 high mean)；\n  RHS=CsRank(RealizedVol($close,60)) 长窗 price\
-  \ vol basis，区别 amount/turnover/overnight。\n  预期 max_corr@F010<0.4 (overnight pct\
-  \ vs gap range-norm 量纲不同) + max_corr@F003<0.5 (5d high vs 1d range).\n\nC002 gap_return_volatility_20\
-  \ × body_ratio_20 — LHS=Std(($open-Ref($close,1))/Ref($close,1), 20) higher moment\n\
-  \  of gap return (vs F010/F011 Mean 是不同 moment family，b050 教训 \"Mean vs Std of same\
-  \ atomic 不冗余\")；\n  RHS=CsRank(Mean(Div(Abs(Sub($close,$open)),Sub($high,$low)),20))\
-  \ body_ratio_20 OHLC structural basis。\n  预期 max_corr@F010/F011<0.4 (Std vs Mean\
-  \ independent) + max_corr@F019<0.5 (F019 LHS=Std(body_ratio), 本 C002 LHS=Std(gap_ret)).\n\
-  \nC003 abs_gap_magnitude_60 × amount_60 — LHS=Mean(Abs(Sub($open,Ref($close,1))),\
-  \ 60) absolute gap magnitude\n  长窗 (60d 非 20d，不是 sign 也不是 ratio，是 raw |gap| 长期均值)；\n\
-  \  RHS=CsRank(Mean($amount,60)) amount 长窗 basis 避开 F018 amount_20。\n  预期 max_corr@F003<0.5\
-  \ (F003 是 |gap|/range 标准化，C003 是 raw |gap| 无标准化 + 长窗 60d).\n\nC004 gap_to_body_cross_ratio\
-  \ × pb_60 — LHS=Mean(Div(Abs(Sub($open,Ref($close,1))), Add(Abs(Sub($close,$open)),0.0001)),\
-  \ 20)\n  跨日 gap 相对 intraday body 的相对幅度 (cross-session magnitude ratio, 0.0001 防\
-  \ zero division 不构成 hack\n  因为是确定性常数偏置，不依据数据)；RHS=CsRank(Mean($pb_ratio,60)) fundamental\
-  \ value 长窗。\n  预期 max_corr@F003/F010<0.4 (cross-ratio 完全新 atomic 表达).\n\nC005 gap_acceptance_ratio_5\
-  \ × price_vol_20 — LHS=Mean(($open-Ref($close,1))/($high-$low), 5) C001 short-window\n\
-  \  对照 (5d vs 20d, 测 window-window covariance with rank-diff geometry)；\n  RHS=CsRank(Mean(Std($close,5),20))\
-  \ 价格 vol 聚合 basis (F019 的 RHS 复用，但 LHS 完全不同)。\n  预期 max_corr@F019<0.4 (LHS gap vs\
-  \ body_ratio std 完全不同 atomic).\n\nC006 long_window_gap_vol × abs_return_60 — LHS=Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),\
-  \ 60) 长窗 60d\n  gap return vol (与 C002 的 20d Std 不同窗口 — 测 gap_vol 在 60d 是否仍独立)；\n\
-  \  RHS=CsRank(Mean(Abs(Div(Delta($close,1),Ref($close,1))),60)) abs daily return\
-  \ mean 60d (Amihud 分子部分,\n  不是 amount/turnover —— 全新 RHS 维度)。\n  预期 max_corr@F015\
-  \ (amihud_cv) <0.4 (RHS 是 |return|_60 而非 amihud cv)."
-last_activity: '2026-04-24T23:05:44Z'
+last_batch: batch_062
+last_admits: []
+last_goal: "T007 推进 + 守 6 anchor cluster 防线 + higher-moment LHS 跨窗扩展。当前 rank-diff\
+  \ 6 admit 跨 5 family\n(F015-F020), gap_acceptance 仅 F020 (Std gap_ret × body_ratio_20)\
+  \ admit + F013 retired。T007 ACTIVE\n揭示 cross-ratio LHS (raw |gap|/|body|) 在 rank-diff\
+  \ 几何下 alpha_surv=0.005 极端 collapse — Barra\n完全吸收。本批回答 T007 future probes 两条逃路 +\
+  \ 同时探一条新 LHS 范式 + 一条 RHS 维度。\n\n6 候选硬约束：\n(1) 每候选 LHS 唯一 atomic gap 表达，6 LHS 不重复；\n\
+  (2) 严避 F010/F011 Mean(gap_ret,3/5) 同形 + 不复用 body_ratio_20 / price_vol_20 / amount_20\
+  \ /\n    overnight_5 / turnover_5 / pb_60 (alpha_surv=0.005 collapse) / amount_60\
+  \ (F023 RHS) dead RHS;\n(3) 不重演 T001 disproven (sign×sign aggregation) / T003 disproven\
+  \ (gap 分母变体 corr@F003=0.96) /\n    T006 disproven (60d Std 多 regime sign_flip);\n\
+  (4) 4 anchor pre-check (F002/F012/F020/F022): 候选不可同时撞 LHS/RHS anchor;\n(5) 全 DSL,\
+  \ CsRank 内层仅 Mean/Std/Abs/Sub/Div/Sign/Ref (不外包 Custom Op AmihudIlliq/HHI);\n(6)\
+  \ 避开 Qlib bug Corr($close,$turnover_rate,N) 跨 base-field broadcast — 用 Mean/Med/Std\n\
+  \    of single field 作 RHS proxy。\n\nC001 T007 follow-up A — RANK-TRANSFORMED ratio:\
+  \ LHS=Sub(CsRank(Mean(Abs(gap),20)),CsRank(Mean(Abs(body),20)))\n  aggregated rank-diff\
+  \ 替代 raw ratio (C004 alpha_surv=0.005 collapse) — 测 ratio of two CsRank-ed\n  magnitudes\
+  \ 是否避开 OHLC magnitude affine cluster + Barra style projection;\n  RHS=CsRank(Std($turnover_rate,20))\
+  \ liquidity higher-moment 全新 RHS 维度 (turnover_5 dead 但 Std,20 未试);\n  预期 max_corr@F020<0.4\
+  \ (LHS 是 magnitude rank-diff 而非 Std gap_ret) + alpha_surv@T007 vs C004\n  cross-ratio\
+  \ 决定 rank-diff geometry 是否真避 Barra。\n\nC002 T007 follow-up B — ratio + sign 复合:\
+  \ LHS=Mean(Mul(Sign(Sub($open,Ref($close,1))),\n  Div(Abs(Sub($open,Ref($close,1))),\
+  \ Add(Abs(Sub($close,Ref($close,1))),0.0001))),20)\n  signed gap-magnitude relative\
+  \ to total daily move (gap+intraday) — 区别 C004 用 |body| 分母,\n  本候选用 |daily-return|\
+  \ 分母 + 加 sign 提供方向信号 (T001 disproven pure sign 但本候选是\n  sign × magnitude 复合, 非 pure\
+  \ sign);\n  RHS=CsRank(Mean($pe_ratio,20)) 短窗 fundamental rank — 区别 pb_60 死路 (regime\
+  \ sign-flip 风险\n  低于 60d), pe_20 在库内未充当 RHS;\n  预期 max_corr@F003<0.4 (signed magnitude\
+  \ 与 |gap|/range 不同) + 验证 sign 复合是否破 T007 Barra trap。\n\nC003 higher-moment LHS 跨窗扩展\
+  \ — Std(gap_ret,10): LHS=Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),10)\n \
+  \ 短窗 10d Std gap_ret (vs F020 LHS 是 Std,20 — 不同窗口测 higher-moment LHS axis 是否跨 10d\
+  \ 仍存活);\n  RHS=CsRank(Mean(Abs(Div(Sub($close,Ref($close,1)),Ref($close,1))),60))\
+  \ Amihud 分子 |return|_60\n  (新 RHS, 之前未用, 是 amihud_illiq 的纯 |return| 项不含 amount 分母);\n\
+  \  预期 max_corr@F020<0.5 (10d vs 20d 同 LHS atom 跨窗 rank corr) — 这是关键 dedup 检查,\n\
+  \  若 max_corr ≥0.7 即 rank-diff 第 3 律违反 (同字段跨窗口禁止) → 自动 reject。\n\nC004 gap-direction\
+  \ concentration (HHI-like): LHS=Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)\n\
+  \  gap relative to intraday range (与 C001 b051 不同处: C001 b051 是 Mean(gap/(H-L))\
+  \ 5d,\n  本候选 20d 长窗 + 已知 b051 C001 reserve, 测 20d 是否跨 reserve→admit 边界);\n  RHS=CsRank(Mean(Abs(Sub($close,Ref($close,1))),20))\
+  \ 20d daily-return-magnitude rank\n  (区别 |return|_60 in C003);\n  预期 max_corr@F020<0.4\
+  \ (Mean vs Std of gap) + max_corr@F003<0.5 (gap/(H-L) vs |gap|/Mean($high,5))。\n\
+  \nC005 gap acceptance asymmetry — IF-conditional aggregation:\n  LHS=Mean(Mul(Sign(Sub($open,Ref($close,1))),\
+  \ Mul(Sub($close,Ref($close,1)),Sign(Sub($open,Ref($close,1))))),20)\n  展开为 sign(gap)\
+  \ × signed daily-return on gap-direction (上 gap 后 t 日是否同向跟随 / 下 gap 后是否同向跟随,\n \
+  \ 捕捉 gap 持续性 — 区别 T001 sign×sign 因为带 magnitude); 等价于\n  Mean(Mul(Sub($close,Ref($close,1)),\
+  \ Sign(Sub($open,Ref($close,1)))),20) /\n  上式经数学化简 = sign(gap) × daily_return ×\
+  \ sign(gap) × Sign(Sub($open,Ref($close,1)))\n  实际表达式简化为 LHS= Mean(Mul(Sub($close,Ref($close,1)),Sign(Sub($open,Ref($close,1)))),20)\n\
+  \  (sign×sign×magnitude → sign×magnitude when sign² = 1);\n  RHS=CsRank(Std($amount,20))\
+  \ amount higher-moment (区别 amount_60 F023 RHS 用 Mean);\n  预期 max_corr@F013<0.5 (F013\
+  \ 是 sign×sign×log-amount, 本是 sign×magnitude×amount-vol) +\n  破 T001 因带 magnitude\
+  \ 不是纯 sign。\n\nC006 gap × volatility-of-volatility complex — 新 LHS family:\n  LHS=Std(Div(Abs(Sub($open,Ref($close,1))),Add(Mean(Abs(Sub($open,Ref($close,1))),20),0.0001)),20)\n\
+  \  rolling-std of normalized |gap| (gap magnitude 相对 20d gap-magnitude 均值的 rolling\
+  \ 离散度);\n  完全新 LHS atom — gap \"volatility of normalization\", 测 second-order gap\
+  \ structure;\n  RHS=CsRank(Mean(Sub($high,$low),20)) 20d intraday range mean (新\
+  \ RHS 维度, range 而非 vol);\n  预期 max_corr@F020<0.5 (本 LHS 是 normalized gap 的二阶矩 vs\
+  \ F020 是 raw gap_ret 的 Std) +\n  max_corr@F019<0.5 (F019 LHS 是 Std body_ratio, 本是\
+  \ Std normalized |gap|, atomic 不同)。"
+last_activity: '2026-04-28T07:28:19Z'
 created_batch: null
 members:
 - F013
@@ -57,9 +70,9 @@ merged_into: null
 # gap_acceptance_structure
 
 > [!abstract]+ 方向概要
-> - **状态**　🟢 `productive` · priority `high` · rounds = 4 · admits = 3 (F013 / F020 / + log-amt path)
-> - **最近**　[[batches/batch_051/judge|batch_051]] · 2026-04-25 · 1/1/4（T005 admit 触发 6 跨 5 family rank-diff tipping point）
-> - **一句话**　pure paper-sign 不 transfer (T001 证伪)；存活两路：log(abnormal $amount) 加权 acceptance (F013) + rank-diff geometry × higher-moment gap LHS (F020)；下一步守 F002/F305 7 律 + F200/F203 阈值
+> - **状态**　🟡 `saturated` · priority `low` · rounds = 5 · admits = 3 (F013 / F020 / + log-amt path)
+> - **最近**　[[batches/batch_062/judge|batch_062]] · 2026-04-28 · 0/0/6（T007 终结性 disproven · 7/7 thread 全 resolved）
+> - **一句话**　两路 alpha harvested (F013 log-amt sign aggregation + F020 rank-diff higher-moment gap)；T007 cross-ratio Barra 吸收律全谱 disproven (rank-transformed/signed/ranged/signed-daily-change 全无救)；方向 thread 闭合, 等待外部条件 reactivation (paper / minute-bar / lib retire)
 
 ---
 
@@ -83,10 +96,10 @@ merged_into: null
 
 ## Current Focus
 
-- **rank-diff 路径继续**：T007（cross-ratio LHS Barra 吸收律）active —— C004 alpha_surv=0.005 极端 collapse 揭示 ratio of two raw OHLC magnitudes 在 rank-diff 几何中是 style projection 的 rank rotation；下批可探 ratio of two **rank-transformed** magnitudes 是否同病、或 ratio + sign 复合是否破解
-- **新 RHS 设计空间**：body_ratio_20 已被 F020 占用（dead RHS endpoint），下批寻找新 non-vol-class non-OHLC-co-moving RHS（候选：CsRank(Mean(|return|, 60)) Amihud 分子 / fundamental higher-moment / cross-stock dispersion 等）
-- **避开已封 thread**：T001 纯 sign / T003 分母变体 / T004 窗口扫描 / T006 60d 长窗——四个 thread 已封闭；新候选起手须 pre-check 7 条 rank-diff 硬约束 + alpha_surv ≥ 0.30 + incr_ic ≥ 0.015 (max_corr borderline) 双门
-- **F013 路径已 harvest**：T002 完成；新 sign-based 候选必须先验 underlying drift 才入候选集
+- **方向 thread 闭合 (b062)**：7 thread 全 resolved (T001/T003/T004/T006/T007 disproven + T002/T005 answered)；direction status `productive → saturated`, priority `high → low`
+- **T007 终结性 disproven (b062)**：4 类 follow-up (raw rank-diff / signed cross-ratio / ranged Mean 长窗 / signed daily-change × amount-Std + Std normalized) 全 reject — cross-ratio LHS 在 csi1000 daily-bar rank-diff 几何下 dead-end
+- **harvested alpha**：F013 (log-amt sign aggregation × T002) + F020 (rank-diff higher-moment Std(gap_ret,20) × body_ratio_20 × T005) — 两路 admit 已收, 不再继续 in-direction 探索
+- **reactivation 条件**：(a) 新论文/教程提供 atom-level 新维度 (b) minute-bar 数据接入打开 intraday gap variance 路径 (c) 已 admitted gap factor 退役后 rank-diff cluster 有空间
 
 ---
 
@@ -175,17 +188,30 @@ merged_into: null
 > - [[batches/batch_051/candidates/C003|batch_051 C003]]　Mean(\|gap\|,60) × amount_60, IC≈0.0006 → **hard_gate ic_oos_too_low**
 > - [[batches/batch_051/candidates/C006|batch_051 C006]]　Std(gap_ret,60) × \|return\|_60, sign_flip → **hard_gate**
 
-### T007: cross-ratio LHS Barra 吸收律 [◉ ACTIVE batch_051]
+### T007: cross-ratio LHS Barra 吸收律 [✗ DISPROVEN batch_062]
 
-> [!info]+ Thread 进行中
-> **Question**: cross-ratio LHS (|gap|/|body| 跨 OHLC magnitude 比) 在 rank-diff geometry 下能否避开 Barra style 吸收?
+> [!failure]+ Thread 终结性 disproven
+> **Question**: cross-ratio LHS (|gap|/|body| 跨 OHLC magnitude 比) 在 rank-diff geometry 下能否避开 Barra style 吸收? rank-transformed 或 sign 复合是否破解?
 >
-> **Answer (initial)**: 不能. C004 (`Mean(|gap|/(|body|+0.0001),20) × pb_60`) **alpha_survival=0.005 极端 collapse** (本批最低, 整库罕见) — 两个 OHLC magnitude 折叠后投影完全在 Barra book-to-price + vol_20d 子空间. **rank-diff geometry 不替代 Barra orthogonality** (与 [[lessons#Threshold Calibration|F007]] "Barra-clean ≠ library-clean" 律对偶——该候选 Barra-dirty 而非 library-cluster).
+> **Answer**: 否, 全谱不破解. b051 raw cross-ratio (alpha_surv=0.005 极端 collapse) → b062 4 类 follow-up 全 reject:
+> 1. **C001 raw rank-diff (Mean|gap| × Mean|body|)**: hard_gate ic_oos_too_low (无 normalization 退化 log_market_cap proxy)
+> 2. **C002 signed cross-ratio (sign(gap)×|gap|/|return| × pe_20)**: alpha_surv=0.21 critical + incr_ic=+0.0009 essentially zero — **sign 在 cross-section rank 是 reflection symmetry, 不脱 Barra str_1m+book_to_price+vol_20d 子空间**
+> 3. **C004 ranged-normalized Mean (gap/(H-L) Mean 20d × |daily_change| Mean 20d)**: alpha_surv=0.26 + vol_20d=42.86 极端 + max_corr=0.579@F018 borderline + incr_ic=0.0086<0.015 — **长窗放大 vol_20d 累积吸收**, 比 b051 C001 5d (alpha_surv=0.31) 更恶
+> 4. **C005 signed daily-change × amount-Std**: alpha_surv=0.51 唯一 ≥0.40 BUT incr_ic=-0.0021 NEG — **P006 library-reducer (Barra 干净不等于 library 独立)**
 >
-> **新失败模式**: ratio of two raw magnitudes (cross-session 或 within-session) 在 rank-diff 几何中是 style projection 的 rank rotation, 非新 alpha. 下批可探: ratio of two **rank-transformed** magnitudes 是否同病; 或 ratio + sign 复合是否破解.
+> **新失败模式 + 升格律 (3 条)**:
+> 1. **cross-ratio LHS 全谱 dead-end**: ratio of two OHLC magnitudes (任意 sign/rank/ranged 复合) 在 rank-diff 几何中 = ranked Barra style projection — sign 复合是 reflection symmetry, ranged normalize 是 ranked realized vol proxy
+> 2. **Ranged-normalized LHS Mean 聚合窗口与 vol_20d 吸收单调正相关**: 短窗 5d 边际 (~0.30), 长窗 20d+ 必收 (~0.25)
+> 3. **P006 library-reducer 第 7 次跨 family 复现 (gap_acceptance 首次)**: alpha_surv≥0.40 + library-reducer 双重检测必要 — Barra orthogonality 与 library independence 是两个独立 cleanness 维度
 >
 > **Evidence trail**:
 > - [[batches/batch_051/candidates/C004|batch_051 C004]]　Mean(\|gap\|/(\|body\|+0.0001),20) × pb_60, alpha_surv=**0.005** + incr_ic=0.002 → **reject** (Barra 完全吸收 + F019 已捕获 92%)
+> - [[batches/batch_062/candidates/C001|batch_062 C001]]　Mean(\|gap\|,20) × Mean(\|body\|,20) raw rank-diff, IC_OOS=-0.0048 → **hard_gate reject (ic_oos_too_low)**
+> - [[batches/batch_062/candidates/C002|batch_062 C002]]　sign(gap)×\|gap\|/(\|return\|+ε) × pe_20 signed cross-ratio, alpha_surv=0.21 incr_ic=+0.0009 → **reject** (sign 不脱 Barra)
+> - [[batches/batch_062/candidates/C003|batch_062 C003]]　Std(gap_ret,10) × \|return\|_60 higher-moment 短窗, sign_flip → **hard_gate reject** (10d 窗口跨 regime 不稳)
+> - [[batches/batch_062/candidates/C004|batch_062 C004]]　Mean(gap/(H-L),20) × Mean(\|daily_change\|,20) ranged 长窗, alpha_surv=0.26 vol_20d=42.86 incr_ic=0.0086 → **reject** (长窗放大 vol_20d 吸收)
+> - [[batches/batch_062/candidates/C005|batch_062 C005]]　Mean(daily_change × sign(gap),20) × Std($amount,20), ls_t=4.52 mono=1.0/1.0 alpha_surv=0.51 BUT incr_ic=-0.0021 NEG → **reject** (P006 library-reducer 第 7 次跨 family 复现)
+> - [[batches/batch_062/candidates/C006|batch_062 C006]]　Std(\|gap\|/Mean(\|gap\|,20)+ε,20) × Mean(H-L,20) self-normalized 二阶, alpha_surv=0.019 critical + mono FLIP IS=-0.4 OOS=+1.0 → **reject** (regime-driven false discovery)
 
 ---
 
@@ -207,6 +233,12 @@ merged_into: null
 | [[batches/batch_051/candidates/C004\|C004]] | `Sub(CsRank(Mean(\|gap\|/(\|body\|+0.0001),20)),CsRank(Mean($pb_ratio,60)))` | alpha_surv=0.005 (Barra 完全吸收) + incr_ic=0.002 + ls_t=1.17 三 dealbreaker |
 | [[batches/batch_051/candidates/C005\|C005]] | `Sub(CsRank(Mean(gap/(H-L),5)),CsRank(Mean(Std($close,5),20)))` | max_corr=0.696@F017 cluster 共振 + alpha_surv=0.20 + incr_ic=0.003 |
 | [[batches/batch_051/candidates/C006\|C006]] | `Sub(CsRank(Std(gap_ret,60)),CsRank(Mean(\|return\|,60)))` | hard_gate sign_flip (60d 多 regime cycle Std 失稳) |
+| [[batches/batch_062/candidates/C001\|C001]] | `Sub(CsRank(Mean(\|gap\|,20)),CsRank(Mean(\|body\|,20)))` | hard_gate: ic_oos_too_low (raw magnitude rank-diff 无 normalization 退化噪声) |
+| [[batches/batch_062/candidates/C002\|C002]] | `Sub(CsRank(Mean(sign(gap)×\|gap\|/(\|return\|+ε),20)),CsRank(Mean(pe,20)))` | alpha_surv=0.21 critical + incr_ic=+0.0009 essentially zero (sign cross-section reflection 不脱 Barra) |
+| [[batches/batch_062/candidates/C003\|C003]] | `Sub(CsRank(Std(gap_ret,10)),CsRank(Mean(\|return\|,60)))` | hard_gate 三连: sign_flip + ic_oos_too_low + oos_decay (Std 短窗 10d 跨 regime 不稳) |
+| [[batches/batch_062/candidates/C004\|C004]] | `Sub(CsRank(Mean(gap/(H-L),20)),CsRank(Mean(\|daily_change\|,20)))` | alpha_surv=0.26 + vol_20d=42.86 极端 + incr_ic=0.0086<0.015 (长窗放大 vol_20d 吸收) |
+| [[batches/batch_062/candidates/C005\|C005]] | `Sub(CsRank(Mean(daily_change×sign(gap),20)),CsRank(Std($amount,20)))` | ls_t=4.52 mono=1.0/1.0 alpha_surv=0.51 BUT incr_ic=-0.0021 NEG (P006 library-reducer 第 7 次跨 family 复现) |
+| [[batches/batch_062/candidates/C006\|C006]] | `Sub(CsRank(Std(\|gap\|/Mean(\|gap\|,20)+ε,20)),CsRank(Mean(H-L,20)))` | alpha_surv=0.019 critical extreme + mono FLIP IS=-0.4 OOS=+1.0 (regime-driven false discovery) |
 
 ---
 
@@ -227,7 +259,23 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_051/judge|batch_051]]
+> [!quote]+ 2026-04-28 · [[batches/batch_062/judge|batch_062]]
+> **T007 终结性 disproven · 方向 thread 完全闭合 (7/7 resolved)** · admit=0 / reserve=0 / reject=6
+>
+> - **T007 cross-ratio LHS Barra 吸收律 全谱 disproven**: 4 类 follow-up (raw rank-diff C001 / signed cross-ratio C002 / ranged Mean 长窗 C004 / signed daily-change × amount-Std C005 + Std normalized 二阶 C006) 全 reject — rank-transformed 与 sign 复合都不破解 Barra 吸收, sign 是 cross-section reflection symmetry, ranged normalize 是 ranked realized vol proxy. C003 hard_gate 三连 fail (Std 短窗 10d 跨 regime 不稳).
+> - **P006 library-reducer 第 7 次跨 family 复现 (升格证据)**: C005 是 gap_acceptance 首次直接命中 P006 律 (前 6 次全在 microstructure_illiquidity). 6 lib factor corr ≥0.40, 5 ≥0.50 — 信号位置在 F002/F012/F015/F016 amount-Amihud + F018 overnight×amount + F023 multi-anchor cluster 中心. **alpha_surv=0.51 唯一 ≥0.40 BUT incr_ic=-0.0021 NEG** → Barra orthogonality 与 library independence 是两个独立 cleanness 维度.
+> - **higher-moment LHS in ratio-of-magnitudes family 三种失败模式互补**:
+>   1. **Sign-flip (C003 Std gap_ret 10d)**: 短窗跨 regime sample 不足 sign reversal
+>   2. **Mono cross-sample reversal (C006 Std normalized |gap|)**: ratio-of-magnitudes 二阶聚合放大 normalizer 自身 regime drift, IS≈0 OOS 偶然正 false discovery
+>   3. **Regime-stable persistent loss (b061 C002 Std atp-close-dev)**: atom 单日嵌入 vol_20d 几何 (P003)
+> - **Ranged-normalized LHS Mean 聚合窗口与 vol_20d 吸收单调正相关**: b051 C001 5d (alpha_surv=0.31) → b062 C004 20d (alpha_surv=0.26 + vol_20d=42.86 极端) — 长窗放大 realized vol proxy, 而非 mitigate Barra 吸收
+> - MT budget　cumulative 324 → **330** · direction 24 → **30** · bucket `high` (search_adjusted ≈ 0.49 → medium)
+>
+> **Operations**　direction `productive → saturated` + priority `high → low` (7/7 thread resolved 后自身可探索路径耗尽) · T007 `[◉ ACTIVE → ✗ DISPROVEN batch_062]` · zero_admit_streak 2 → 3 (b060/b061/b062) · 4 条升格 lessons 候选 (T007 全谱 dead-end + P006 第 7 次跨 family + higher-moment 三模式 + ranged-norm 窗口律) · calibration_trigger=false (累计 1 个独立 reserve 临界, 不达 ≥2 阈值)
+>
+> **复活路径**: (a) 论文/教程提供 atom-level 新维度 (b) minute-bar 数据接入打开 intraday gap variance (c) 已 admitted gap factor 退役后 rank-diff cluster 释放空间
+
+> [!quote]- 2026-04-25 · [[batches/batch_051/judge|batch_051]]
 > **T005 ANSWERED · 第二个 admit：F020 gap_vol_body_ratio_rank_diff_20** · admit=1 (C002) / reserve=1 (C001) / reject=4
 >
 > - **rank-diff 范式第 6 次跨家族泛化兑现 — gap_acceptance_structure 首次 in family**: C002 LHS=Std(gap_ret,20) higher-moment + RHS=body_ratio_20 新 basis, IC_OOS=-0.040 ICIR=-0.49 ls_t(IS)=-9.68 mono=**-1.0/-1.0 完美** + 9/9 年同号负 + max_corr=**0.246@F016** 整库唯一<0.30 + 与 5 admitted rank-diff (F015-F019) 全 |corr|<0.25
