@@ -2,71 +2,18 @@
 direction_tag: ohlc_temporal_aggregation
 status: productive
 priority: medium
-rounds: 7
+rounds: 8
 admits: 5
-last_batch: batch_050
-last_admits:
-- F019
-last_goal: 'T010 rank-diff 第 5 次跨家族泛化——测 OHLC scale-invariant 特征族 × 非 OHLC basis 的
-  rank-diff 几何。
-
-  ohlc_temporal_aggregation 3 admit 稳定但 last_admit=batch_020 已 4 批未进展 (saturated)。
-
-  当前 rank-diff 4 次跨家族兑现 (F015 amihud×amount_cv microstructure / F016 amihud×turnover_cv
-  microstructure /
-
-  F017 overnight×turnover overnight / F018 overnight_sign×amount overnight)——全部发生在
-  overnight
-
-  或 microstructure 家族。本批测：rank-diff paradigm 能否在 OHLC 5d aggregation 家族内部兑现？
-
-  若 admit 则 consolidation tipping point 正式确认 (5 跨家族)；若 reject 则揭示 OHLC scale-free
-  signals
-
-  的 rank-diff 饱和边界。
-
-  cockpit 硬约束：每候选 LHS 唯一 + 避开 F017(turnover_5)/F018(amount_20) RHS / 避免 CsRank 外
-
-  包 AmihudIlliq/HHI/RealizedVol (operators.py:428 bug)。所有 CsRank 内层使用标准 qlib DSL 算子
-
-  (Mean/Std/Abs/Sub/Div/Sign/Ref)。直接满足复活条件 (a) 新 OHLC 原子维度 max_corr<0.50@F006/F007
-  + (c)
-
-  与非 OHLC 维度 (liquidity/fundamental/price-vol) rank-diff 交互。
-
-  (C001) body_ratio × turnover_20——LHS=Mean(|C-O|/(H-L),5) 纯 OHLC body magnitude；
-
-  RHS=CsRank(Mean($turnover,20)) 20d 流动性 basis 避开 F017 turnover_5。
-
-  (C002) close_over_high × amount_10——LHS=Mean($close/$high,5) 价格端点比 OHLC；
-
-  RHS=CsRank(Mean($amount,10)) 10d amount 避开 F018 amount_20。
-
-  (C003) intraday_return × volume_20——LHS=Mean(($close-$open)/Ref($close,1),5) 纯 intraday
-  return；
-
-  RHS=CsRank(Mean($volume,20)) volume basis，分离 overnight F010/F011。
-
-  (C004) gap_to_range × pb_60——LHS=Mean(($open-Ref($close,1))/(H-L),5) 跨日 gap 归一化
-  intraday range；
-
-  RHS=CsRank(Mean($pb_ratio,60)) 基本面 value basis 60d。
-
-  (C005) body_ratio_std × price_vol——LHS=Std(|C-O|/(H-L),20) body 分布 dispersion (higher
-  moment)；
-
-  RHS=CsRank(Mean(Std($close,5),20)) 价格 vol 聚合 basis，区别 liquidity/fundamental。
-
-  (C006) body_sign × pb_20——LHS=Mean(Sign($close-$open),5) sign 聚合 (非 magnitude) 复刻
-  b049 C006 成功结构；
-
-  RHS=CsRank(Mean($pb_ratio,20)) 基本面。与 F018 差别：F018 LHS=overnight_sign; C006 LHS=body_sign
-  (intraday)。
-
-  避开死模式：LHS 唯一 / 不共享 raw fields 结构 / 不用 CsRank 外包 custom op / 标准 DSL。
-
-  目标 ≥1 admit 满足 max_corr@lib<0.70 + alpha_surv>0.40 + ls_t>2 + incremental_ic>0.010。'
-last_activity: '2026-04-24T22:15:55Z'
+last_batch: batch_063
+last_admits: []
+last_goal: T012 higher-moment OHLC × non-vol-cluster RHS 第二轮——延伸 F019 (Std body_ratio,20
+  × price_vol_60) 的复活路径，测 4 个 NEW OHLC 原子 (close_position / range_norm_prev_close
+  / O-C / open_position) 的 higher-moment LHS × 4 个非 dead-endpoint RHS (turnover_60
+  / pe_60 / pb_60 amount_60)。所有 LHS scale-free + 单层 moment + 窗口 ≤20d 满足 P003 atom-orthogonality
+  三件套；严避 F006/F007/F019 anchor cluster；不嵌套 compound moment；不踩 dead RHS endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60)。目标：≥1
+  admit 兑现 max_corr<0.70 + alpha_surv≥0.30 + ls_t>2 + incr_ic≥0.015 (rank-diff borderline
+  死区)。
+last_activity: '2026-04-28T08:45:20Z'
 created_batch: batch_017
 members:
 - F006
@@ -120,7 +67,7 @@ merged_into: null
 
 ## Threads
 
-### T012: higher-moment OHLC 维度 [◉ ACTIVE batch_051+]
+### T012: higher-moment OHLC 维度 [◉ ACTIVE]
 
 > [!note]+ Thread 当前
 > **Question**: Std/Skew/Kurt of OHLC ratios 是否构成与 Mean-based 库因子独立的轴？哪些 atomic OHLC × moment 组合产生 alpha？
@@ -128,8 +75,15 @@ merged_into: null
 > - b050 C001 (Mean of body_ratio) vs C005 (Std of body_ratio) → max_corr 0.50 vs 0.27 完全不同 corr structure → **不同 moment 是独立设计轴**
 > - b050 C005 → admit F019 (Std body_ratio,20 × price_vol_60) → first higher-moment OHLC admit
 > - 跨 family 复现：[[gap_acceptance_structure]] F020 = Std(gap_ret,20) × body_ratio_20 同律
+> - **b063 C001-C006 6/6 reject** → atom-orthogonality 三件套精细化为**六件**：(a) atom multi-regime stable + (b) **atom 与 vol_20d 几何正交** (排除 range/prev_close, signed return/prev_close 等 vol-direct-proxy 原子) + (c) normalizer 无 regime drift + (d) sign 信息保留 (F020 sign-preserved 兑现 vs b063 C006 sign-stripped 失败) + (e) **price normalizer 优于 range normalizer** (Ref(close,1) 跨 regime 稳 vs H-L drift) + (f) **避 OHLC algebraic mirror pair atom Std cluster** (b063 C001 close_position Std 与 F021 upper_shadow Std cluster=0.79)
+> - **b063 vol_20d 整库新纪录连刷**: C003 style_r²=0.6991 vol_20d=76.53 (signed return Std), C002 vol_20d=53.04 (range Std) — atom 自身即 realized vol direct proxy
+> - **b063 OHLC algebraic mirror higher-moment 形态首次实证**: lower_shadow ≡ -upper_shadow → Std-pair cross-section rank cluster
 >
-> **Next probes**: (1) `Std(upper_shadow_ratio, 20) × non-vol RHS` 测 F006 在 higher moment 维度泛化；(2) `Skew(body_ratio, 60)` 三阶矩；(3) `Kurt(open_position, 20)` 是否 reveal regime change。**禁忌**：避开 RHS dead endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20)；compound moment LHS（smooth-then-std，b052 C006 教训）IS over-fit 风险；同批 LHS 共享 anchor 仅 admit 1。direction MT 28/70 接近上限，下批暂停 + Phase 5 升格 rank-diff 五律 + OHLC defaults 后再启。
+> **Answer (部分)**: F019/F020 兑现路径**不能简单泛化至任意 OHLC ratio Std**. 兑现条件六件全部满足才能进入 admit-eligible 候选空间. 当前唯二兑现 atom: F019 body_ratio (intraday H-L 短期稳 + sign-stripped 但 ratio scale-free) + F020 gap_ret (跨 session + Ref(close,1) normalizer + sign-preserved).
+>
+> **Next probes (剩余探索路径稀薄)**: (1) **F019/F020 atom 的 Skew/Kurt 形态** (从 2nd moment 升至 3rd moment, atom 仍 body_ratio 或 gap_ret); (2) F008 upper_shadow 3d phase 在 Skew 维度但需先核 F006/F021 cluster — 估总剩余 candidate ≤2-3. **direction MT 34/70 approaching exhaustion** (从 28/70 → 34/70, +6 本批), **下批应切方向**.
+>
+> **禁忌 (本批新增)**：(a) range/prev_close, (C-O)/prev_close, |gap|/range, ratio-of-magnitudes 等 atom 是 vol_20d direct proxy 全部禁; (b) close_position, lower_shadow Std 与 upper_shadow Std OHLC mirror cluster, 不再设计同 mirror pair higher-moment 候选; (c) compound moment LHS (smooth-then-std b052 C006 教训) 持续禁; (d) 仍 dead RHS endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20).
 
 ### T002: Sign-of-body 频率信号 [✗ DISPROVEN batch_050]
 
@@ -166,6 +120,12 @@ merged_into: null
 | [[batches/batch_050/candidates/C002\|b050 C002]] | close/high × amount_10 rank-diff | max_corr=0.611@F018 + alpha_surv=0.27 + vol_20d=53（约束 7 RHS cluster）|
 | [[batches/batch_050/candidates/C004\|b050 C004]] | gap_to_range × pb_60 rank-diff | incr_ic=0.003 < 0.015 borderline 死区（[[_consolidation/findings/calibration/004]]）|
 | [[batches/batch_050/candidates/C006\|b050 C006]] | body_sign × pb_20 rank-diff | hard_gate；intraday body sign random walk（b017 C003 教训复现）|
+| [[batches/batch_063/candidates/C001\|b063 C001]] | Std(close_position,20) × turnover_60 | max_corr=0.79@F021 + incr_ic=-0.009 NEG（OHLC algebraic mirror higher-moment trap 首次实证）|
+| [[batches/batch_063/candidates/C002\|b063 C002]] | Std(range/prev_close,20) × pe_60 | vol_20d=53.04 极端 + alpha_surv=0.39 + incr_ic=-0.009 NEG（atom 自身即 realized vol proxy）|
+| [[batches/batch_063/candidates/C003\|b063 C003]] | Std((C-O)/prev_close,20) × pb_60 | vol_20d=76.53 整库新纪录 + ls_t=-1.14 weak（signed return / prev_close 直接 vol proxy）|
+| [[batches/batch_063/candidates/C004\|b063 C004]] | Std(open_position,20) × amount_60 | max_corr=0.69@F012 + incr_ic=0.006<0.015 死区律（本批 strongest stat ls_t=4.89 仍阻断）|
+| [[batches/batch_063/candidates/C005\|b063 C005]] | Std(upper_shadow,20) × pe_20 | hard_gate mono_sign_flip -0.90→+1.00（OHLC mirror trap 跨样本 reversal）|
+| [[batches/batch_063/candidates/C006\|b063 C006]] | Std(\|gap\|/range,20) × amount_60 | alpha_surv=0.09 critical + range normalizer drift（双 normalizer regime drift）|
 
 ---
 
@@ -183,8 +143,19 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_050/judge|batch_050]] · admit=1 / reserve=1 / reject=4
-> direction `saturated → productive` (4 batch 0-admit 后突破)。C005 admit F019 `body_disp_pricevol_rank_diff_20`：LHS=Std(body_ratio,20) higher moment + RHS=Mean(Std($close,5),20) price_vol——hypothesis 复活条件 (a)+(c) 兑现 + max_corr=0.270 整批整库最干净 + incr_ic=0.020。**rank-diff 范式第 5 次跨家族 tipping point 正式确认** (跨 microstructure/overnight/OHLC 4 family 5 admit)，触发 Phase 5 consolidation。C001 reserve (alpha_surv=0.33 + max_corr=0.50 + incr_ic=0.013 borderline 死区)。4 reject 验证 7 硬约束：C002 RHS cluster + vol_20d=53；C003 intraday return random walk；C004 incr_ic 死区；C006 intraday body sign random walk (b017 C003 教训复现)。
+> [!quote]+ 2026-04-28 · [[batches/batch_063/judge|batch_063]] · admit=0 / reserve=0 / reject=6
+> T012 第二轮 — **higher-moment OHLC × non-vol-cluster RHS 全 6 candidate reject + atom-orthogonality 三件套精细化为六件**. 6 candidate 跨四类 OHLC 三段 ratio 原子 (close_position / range_norm_prev_close / (C-O)/prev_close / open_position / upper_shadow / |gap|/range) 揭示 F019/F020 兑现路径**不能简单泛化**. 关键 finding:
+> 1. **vol_20d structural absorption 整库新纪录连刷** (C003 style_r²=0.6991 vol_20d=76.53 / C002 vol_20d=53.04) — atom 自身即 realized vol direct proxy 时 Std 二阶聚合放大该 proxy → P003 vol_20d 边界律持续 escalate. ohlc_temporal_aggregation 方向首次直接命中 vol_20d 极端吸收 (跨 family 9-direction-confirmed → 第 10).
+> 2. **OHLC algebraic mirror trap higher-moment 形态首次实证** (C001 close_position Std × turnover_60 与 F021 upper_shadow Std × range_60 cluster=0.79) — lessons.md OHLC Family Defaults 段 algebraic 检查升格新增第四件: Std/Var/Skew/Kurt of mirror-pair ratios cluster.
+> 3. **rank-diff borderline 死区律第三次实证 (C004)** — max_corr=0.6873@F012 + incr_ic=0.0062<0.015 双重 gate 不达, 阻断本批 strongest stat profile (ls_t=4.89 + ls_sharpe=3.52 + 9/9 yr 全正). **alpha quality ≠ tradable independence 律重申**: 单维度 cleanness 强不充分 (与 b062 C005 同律).
+> 4. **higher-moment LHS atom-orthogonality 三件套精细化为六件** — (a) atom multi-regime stable; (b) **atom 与 vol_20d 几何正交** (排除 vol-direct-proxy atom); (c) normalizer 无 regime drift; (d) **sign 保留** (F020 ✓ vs b063 C006 sign-stripped ✗); (e) **price normalizer 优于 range normalizer** (Ref(close,1) 跨 regime 稳 vs H-L drift); (f) **避 OHLC mirror pair atom Std cluster**.
+>
+> **MT budget**: cumulative 336→**342** · direction 28→**34** approaching exhaustion · bucket high (search_adjusted ≈ 0.49 medium). **zero_admit_streak 3→4** (b060/b061/b062/b063 四批连续). **calibration_trigger=false** (4 批 zero admit 满足 ≥3 但累计 reserve=1 仍 < 稳健 ≥2 阈值). 升格量已累 11 条 (本批 4 + b062 4 + b061 3) → consolidation 升格紧迫性高于 rounds 阈值.
+>
+> **Operations**　`status: productive (维持 T012 仍 ACTIVE 但范围窄)` · priority `medium → low` (剩余 candidate 空间稀薄 ≤2-3, 让位给其他 direction).
+
+> [!quote]- 2026-04-25 · [[batches/batch_050/judge|batch_050]] · admit=1 / reserve=1 / reject=4
+> (折叠) direction `saturated → productive` (4 batch 0-admit 后突破)。C005 admit F019 `body_disp_pricevol_rank_diff_20`：LHS=Std(body_ratio,20) higher moment + RHS=Mean(Std($close,5),20) price_vol——hypothesis 复活条件 (a)+(c) 兑现 + max_corr=0.270 整批整库最干净 + incr_ic=0.020。**rank-diff 范式第 5 次跨家族 tipping point 正式确认** (跨 microstructure/overnight/OHLC 4 family 5 admit)，触发 Phase 5 consolidation。C001 reserve (alpha_surv=0.33 + max_corr=0.50 + incr_ic=0.013 borderline 死区)。4 reject 验证 7 硬约束：C002 RHS cluster + vol_20d=53；C003 intraday return random walk；C004 incr_ic 死区；C006 intraday body sign random walk (b017 C003 教训复现)。
 
 > [!quote]- 2026-04-21 · [[batches/batch_021/judge|batch_021]] · admit=0 / reserve=1 / reject=2
 > direction `productive → saturated`。3d open-position mono_sign_flip（F007 5d-only）；7d upper-shadow alpha_surv=1.685 但 corr=0.834@F006 → reserve 避 bloat；turnover-wt body sign corr=0.579@F007 → turnover 非新轴。Mean-base 累计 admit 率 14% (3/21)。下批触发 Phase 5 consolidation。
