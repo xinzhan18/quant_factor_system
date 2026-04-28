@@ -1,0 +1,130 @@
+batch_id: batch_060
+round: 59
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: '推进 T012 close-position atom 几何穷尽后的下一代 LHS 突破 (改 normalization / 非线性 wrap
+  / 不对称 reference) + T013 sign-离散化 vs magnitude-混合 driver 重叠假说验证。T012: (a) 跨窗 range
+  normalization (Min/Max 20d/60d) 改分母 scale, (b) Power-cubed 非线性 wrap 破仿射 (Mean(Power(close_pos-0.5,
+  3), 20) 让外端值非线性放大), (c) from-peak vs from-trough 不对称 reference (打破 (C-L)/(H-L) 对称性)。T013:
+  |body|×Sign(gap) 与 Sign(intraday)×|overnight| 双向 hybrid 测 sign+magnitude 混合形式是否兑现
+  <50% drivers 重叠。规避 dead RHS endpoints (overnight_5 / turnover_5 / amount_20 / body_ratio_20
+  / price_vol_20 / Amihud_20 / circ_mktcap_60 / H_L_60_geo) 与 F022/F019/F020/F021
+  anti-anchor cluster。RHS 全部 fresh categories: volume_CV、PB/PS/PE 长窗 fundamental ratio、turnover_60
+  长窗 level、price-turnover Corr。设计阶段恪守: 不在 CsRank 内部嵌套 custom ops (TsMin/TsMax/Tanh/SignedPower/HHI/RealizedVol/AmihudIlliq)
+  — 使用 qlib 内置 Min/Max/Power 替代,绕开 operators.py:428 _build_cs_cache 的 __str__ 类名悬挂
+  bug。'
+active_threads_referenced:
+- T012
+- T013
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-28T01:37:29Z'
+frozen_at: '2026-04-28T01:37:29Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,Min($low,20)),Add(Sub(Max($high,20),Min($low,20)),0.0001)),20)),CsRank(Div(Std($volume,20),Mean($volume,20))))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,Min($low,20)),Add(0.0001,Sub(Max($high,20),Min($low,20)))),20)),CsRank(Div(Std($volume,20),Mean($volume,20))))
+  rationale: 'T012(a) close-position 跨 20d channel range normalization。LHS = (C -
+    20d_min_low) / (20d_max_high - 20d_min_low) Mean 20d — close 在 20 日 swing channel
+    内的相对位置,与 F022 (C-L)/(H-L) (单日 bar 内位置) 几何位置根本不同: F022 是 intra-bar position,本候选是
+    20d-channel position (denominator scale 20d 大约 4-5x 单日 H-L)。affine 不等价 (CsRank
+    后排名结构不同 — F022 看每日 close 偏向当日 high,本候选看 close 在 20d swing 中位置,持续上行股 close 始终接近
+    20d_max_high 但当日 close-low 比例可能任意)。RHS = volume_CV 20d (Std/Mean) — volume 变异系数,从未出现在
+    rank-diff geometry 库 (F015/F016 用 amount_CV / turnover_CV,但 volume_CV 是 fresh
+    RHS — volume 与 amount 不同 cross-section 几何因 amount 含价格信息)。绕开理由: LHS 跨 20d channel
+    normalization 与 F022 / F006 / F007 单日几何脱钩;RHS volume_CV 与 amount_CV (F015) 几何相关但不同字段类目,需观察
+    max_corr@F015。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Power(Sub(Div(Sub($close,$low),Add(Sub($high,$low),0.0001)),0.5),3),20)),CsRank(Div(Mean($pb_ratio,60),Mean($pb_ratio,20))))
+  canonical: Sub(CsRank(Mean(Power(Sub(Div(Sub($close,$low),Add(0.0001,Sub($high,$low))),0.5),3),20)),CsRank(Div(Mean($pb_ratio,60),Mean($pb_ratio,20))))
+  rationale: 'T012(b) Power-cubed 非线性 wrap 破 close-position 仿射。LHS = ((C-L)/(H-L)
+    - 0.5)^3 Mean 20d — 把 close-position 中心化到 [-0.5,0.5] 后立方放大,极端值 (close 极接近 high
+    或 low) 被非线性放大 (0.5^3=0.125 vs 0.4^3=0.064 对比保号但放大约 8x 比 linear 0.5/0.4=1.25x)。Power(x,3)
+    是单调 sign-preserving 的,但 Mean over 20d 之后在 cross-section 上不再 rank-equivalent 到
+    raw close-position-Mean — 因为不同股票在 20 日内 close-position 分布形状 (skewed 分布的 mean 与
+    cubed mean 排序差) 让 mean 操作产生新信息: 一只股票 19 日 close-position=0.5 (cube=0) 一日=0.99
+    (cube=0.117),mean(cube)=0.0058 vs raw mean(0.5-shift)=0.0245 — 极端值贡献比例差 4x。这与
+    F022 (raw mean,linear weighting) 几何不同。RHS = pb_60/pb_20 ratio — 中长期 PB 趋势减速比,fundamental
+    字段长窗 ratio,从未出现在 rank-diff RHS 库 (F002 用 pb_amount level,F040 用 pe×pb,本候选是 pb
+    跨窗减速)。绕开理由: LHS Power-cubed 非线性 mean 不是 raw close-position 仿射;RHS 是 fresh fundamental
+    ratio 类目。incr_ic 前置估算 (P006): F022 corr 预期 0.50-0.65 (非线性破 affine 但同 atom 家族),需
+    incr_ic≥0.015。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub(Max($high,20),$close),Add(Max($high,20),0.0001)),20)),CsRank(Mean($ps_ratio,60)))
+  canonical: Sub(CsRank(Mean(Div(Sub(Max($high,20),$close),Add(0.0001,Max($high,20))),20)),CsRank(Mean($ps_ratio,60)))
+  rationale: 'T012(c) from-peak 不对称 reference。LHS = (20d_max_high - C) / 20d_max_high
+    Mean 20d — 距 20 日峰值的相对距离,只用上界 (Max),不对称。这与 (C-L)/(H-L) 的对称分母 (高低双侧) 几何关系完全不同:
+    (C-L)/(H-L) 中位股聚集 0.5 (close 居中),from-peak 中位股不聚集任何特定值 (取决于股票相对 20d_max 的位置 —
+    趋势上行股聚集近 0,趋势下行股聚集大值)。Asymmetry 让 cross-section ordering 由 "距高点跌幅深度" 主导,而非 "日内
+    close 偏向"。在 csi1000 1d horizon 下,from-peak 测的是 "近期回撤幅度" 信号 — 与 F018 (sign-freq)
+    / F022 (close 偏向) 几何正交。RHS = Mean($ps_ratio,60) — PS 长窗 level,fundamental 字段从未在
+    rank-diff geometry 出现过 (库内 F002 用 pb_amount,F040 用 pe_pb level/product,本候选用 ps
+    长 level)。绕开理由: LHS 不对称 reference 几何与 close-position 对称几何根本不同 (除以单边 max 而非双边 H-L
+    差);RHS 字段+窗口双新。warning: from-peak signal 可能在 trend-down 状态下与 vol_20d 共振 (回撤大的股
+    vol 也大),需注意 alpha_surv;但 Mean(20d) 平滑后 long-window 会稀释 single-day vol,预期 alpha_surv≥0.30
+    floor。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sign(Sub($open,Ref($close,1))),Abs(Sub($close,$open))),20)),CsRank(Mean($pe_ratio,60)))
+  canonical: Sub(CsRank(Mean(Mul(Abs(Sub($close,$open)),Sign(Sub($open,Ref($close,1)))),20)),CsRank(Mean($pe_ratio,60)))
+  rationale: 'T013(c) hybrid Sign(gap) × |body| 混合形式。LHS = Sign(overnight gap) * |intraday
+    body| Mean 20d — overnight 方向 sign + intraday magnitude 加权,这是与 F018 (Sign(overnight)
+    单边) 和 F009 (overnight - intraday additive) 都不同的混合形式。Sign(o)*|i| 测 "overnight 方向决定的
+    intraday 振幅大小": overnight 阳线时 |body| 加正权,overnight 阴线时 |body| 加负权,聚合后 cross-section
+    上区分 "趋势方向同步且强 vs 弱" vs "趋势震荡或反向"。预期与 F009 (spread) corr ≤0.50: F009=mean(overnight-intraday)
+    是 magnitude-additive 双边,本候选是 sign(overnight)-gated intraday-magnitude,几何上 overnight
+    + intraday 同时贡献给 F009 的尺度,本候选把 overnight 退化到 ±1 只贡献方向。预期与 F018 corr ≤0.40: F018=mean(Sign(overnight))
+    完全丢 magnitude,本候选保留 |intraday| magnitude — 信息量不同。RHS = Mean($pe_ratio,60) — PE
+    长窗 level,fundamental fresh (F040 是 pe×pb product,本候选是 pe 长 level)。绕开理由: hybrid
+    sign-magnitude 几何与库内 magnitude-only (F009) 和 sign-only (F018) 都不重叠;RHS 是新 fundamental
+    category。incr_ic 前置估算 (P006): 预期 max_corr≤0.60@F018/F009 + incr_ic≥0.015 (信息量与库内单一形式互补)。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sign(Sub($close,$open)),Abs(Sub($open,Ref($close,1)))),20)),CsRank(Mean($turnover_rate,60)))
+  canonical: Sub(CsRank(Mean(Mul(Abs(Sub($open,Ref($close,1))),Sign(Sub($close,$open))),20)),CsRank(Mean($turnover_rate,60)))
+  rationale: 'T013(c) 镜像 hybrid Sign(intraday) × |overnight| — 验证 sign-side 互换的独立性。LHS
+    = Sign(intraday body) * |overnight gap| Mean 20d — 与 C004 镜像反向 (sign 和 magnitude
+    互换字段位置)。LHS atom 测 "intraday 方向决定的 overnight 振幅" — 与 C004 (overnight 方向决定 intraday
+    振幅) 几何位置不同。两者数学上不是镜像 (sign 和 magnitude 不可交换 — sign(a)*|b| ≠ sign(b)*|a|);cross-section
+    上 "intraday 方向 sign × overnight 振幅" 与 "overnight 方向 sign × intraday 振幅" 信息内容不同
+    (intraday 振幅在 csi1000 通常 > overnight 振幅 — overnight gap 有 ±10% 涨跌停夹紧使 magnitude
+    上限狭窄,intraday body 范围更广)。RHS = Mean($turnover_rate,60) — turnover 长窗 level,与 F017
+    turnover_5 单点 / F022 turnover_5/60 ratio / 本批 C001 volume_CV 不同 RHS 形态 (level
+    60d vs 短点 5d vs ratio vs CV)。绕开理由: LHS 镜像 hybrid 几何与 C004 不重叠 (sign-magnitude
+    字段交叉互换信息内容不同);RHS turnover_60 level 是 fresh window/形态 (turnover_5 已 dead, turnover_60
+    长窗 level 未在 rank-diff 库)。同批 C004/C005 是 T013 hybrid 形式的双向探针 — admit 计数 0/2 → T013
+    hybrid 路径封闭;1/2 → 单边 sign-side 有效;2/2 → hybrid 范式跨字段方向兑现。
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close,Min($low,60)),Add(Sub(Max($high,60),Min($low,60)),0.0001)),20)),CsRank(Std($turnover_rate,60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,Min($low,60)),Add(0.0001,Sub(Max($high,60),Min($low,60)))),20)),CsRank(Std($turnover_rate,60)))
+  rationale: 'T012(a) 长窗 60d cross-window range normalization × turnover dispersion
+    long-window。LHS = (C - 60d_min_low) / (60d_max_high - 60d_min_low) Mean 20d —
+    close 在 60 日 channel 内的位置 (与 C001 20d 跨窗的差别在于 channel 长度,60d 远大于 20d 让分母 scale
+    跨更大,捕捉中期趋势位置而非短期反转);Mean over 20d 平滑短期噪声。预期与 C001 (20d channel) corr<0.7 (不同 channel
+    长度的 close-position 排序不同 — 一只 60 日上涨股可能 close 在 20d_high 附近但低于 60d_high,反之亦然)。RHS
+    = Std($turnover_rate, 60) — turnover 60d 标准差 (绝对 dispersion 而非 CV ratio),从未出现在
+    rank-diff geometry 库 (F015/F016 用 amount_CV/turnover_CV 是 ratio;F017 用 turnover_5
+    level;本候选用 turnover_60_std 长窗绝对 dispersion)。warning: Std 是 magnitude scale-dependent,可能与
+    vol_20d 共振 — 但 turnover_rate 已是 rate 而非 absolute volume,且 60d 长窗平滑减弱 single-day
+    vol;预期 alpha_surv≥0.30 floor。绕开理由: LHS 跨 60d channel 与 F022 / 本批 C001 / C003 几何位置不同
+    (channel 长度 + 单边 vs 双边);RHS turnover_60_std 是绝对 dispersion 与 turnover_60_level
+    / turnover_5_60_ratio 不同形态。
+
+    '

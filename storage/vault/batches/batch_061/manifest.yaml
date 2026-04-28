@@ -1,0 +1,98 @@
+batch_id: batch_061
+round: 60
+direction: microstructure_illiquidity
+direction_md_ref: vault/directions/microstructure_illiquidity.md
+batch_goal: 'T008 (NEW) — atp = $amount/$volume avg-trade-price as new microstructure
+  atom (price-discovery vs Amihud price-impact).
+
+  Open new microstructure atom independent from F012/F015/F016 Amihud family.
+
+  atp/close deviation captures intraday-VWAP-vs-close gap; atp_range_position captures
+  where avg-trade clustered within today range.
+
+  Wrapped in rank-diff geometry with FRESH RHS basis (not in dead endpoints overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/Amihud_20/circ_mktcap_60/H_L_60_geo).
+
+  Apply cockpit (a) Std-of-product non-Mean aggregation as 2nd-order LHS variant (single-layer,
+  scale-free) — designed to satisfy P003 escape path (atom orthogonal to vol_20d via
+  cross-day VWAP-deviation structure, not |return|/range/amount Std).
+
+  Front-load incr_ic estimation: avoid P006 library-reducer trap by ensuring RHS truly
+  fresh (max_corr@anchor < 0.30 expected).
+
+  Also test T005 quantile-asymmetry of Amihud (P90-P10 rolling) wrapped in rank-diff
+  geometry to escape vol_20d via cross-family (existing T005 ACTIVE evidence chain).'
+active_threads_referenced:
+- T005
+- T007
+- T008
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-28T03:45:57Z'
+frozen_at: '2026-04-28T03:45:57Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub(Div($amount, $volume), $close), $close), 20)),
+    CsRank(Std($turnover_rate, 60)))
+  canonical: Sub(CsRank(Mean(Div(Sub(Div($amount,$volume),$close),$close),20)),CsRank(Std($turnover_rate,60)))
+  rationale: 'T008 baseline. LHS=Mean(atp-close deviation/close,20d) atp=$amount/$volume
+    avg-trade-price; deviation captures intraday-VWAP-vs-close gap as price-discovery
+    proxy. RHS=Std(turnover,60) NOT in dead endpoints. 7 gates: scale-free both ends;
+    raw fields independent; F022/F015/F012 anchor pre-check passed (atp/close NOT
+    in F012 Amihud family or F022 close-position); incr_ic expected ge 0.015 since
+    atp-close-deviation novel atom.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub(Div($amount, $volume), $close), $close), 20)),
+    CsRank(Mean($pe_ratio, 60)))
+  canonical: Sub(CsRank(Std(Div(Sub(Div($amount,$volume),$close),$close),20)),CsRank(Mean($pe_ratio,60)))
+  rationale: 'T008 higher-moment LHS (cockpit hint a Std-of-product). Single-layer
+    Std on scale-free atom (atp-close)/close. RHS=Mean(pe,60) NEW Barra-fundamental
+    basis not used by F002 which is pb. P003 escape: atp-close-deviation derives from
+    intraday order-flow asymmetry NOT |return| or range Std (typical vol_20d carriers).
+    Single-layer moment + scale-free atom + RHS fresh.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub(Div($amount, $volume), $low), Add(Sub($high,
+    $low), 0.0001)), 20)), CsRank(Mean($ps_ratio, 60)))
+  canonical: Sub(CsRank(Mean(Div(Sub(Div($amount,$volume),$low),Add(0.0001,Sub($high,$low))),20)),CsRank(Mean($ps_ratio,60)))
+  rationale: 'T008 second atom — atp_range_position=(atp-low)/(high-low) where avg-trade-price
+    sits in range [0,1]. Distinct from F022 close_position by mechanism (CENTER-of-mass
+    of flow vs close snapshot). RHS=Mean(ps,60) PS-fundamental fresh RHS. F022 anchor
+    pre-check: F022 RHS uses amount accel not ps. P004 escape: bounded [0,1] LHS less
+    amplitude-driven than raw Std forms.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub(Div($amount, $volume), $low), Add(Sub($high,
+    $low), 0.0001)), 5)), CsRank(Med($turnover_rate, 20)))
+  canonical: Sub(CsRank(Mean(Div(Sub(Div($amount,$volume),$low),Add(0.0001,Sub($high,$low))),5)),CsRank(Med($turnover_rate,20)))
+  rationale: T008 short-window variant of C003 (5d vs 20d) with different RHS=Med(turnover,20)
+    median 20d turnover. Median is structurally different from Mean (robust to outliers)
+    and 20d window is fresh (not in dead endpoints). Both ends scale-free (range_position
+    bounded; turnover ratio). Anchor rule 5 risk with C003 if both pass — but different
+    windows and different RHS reduce probability of identical rank-order. Replaced
+    Corr($close, $turnover_rate, 60) due to qlib internal shape bug at data/ops.py:1495.
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Sub(Quantile(Div(Abs(Sub($close, Ref($close, 1))), $amount),
+    20, 0.9), Quantile(Div(Abs(Sub($close, Ref($close, 1))), $amount), 20, 0.1))),
+    CsRank(Mean($pe_ratio, 60)))
+  canonical: Sub(CsRank(Sub(Quantile(Div(Abs(Sub($close,Ref($close,1))),$amount),20,0.9),Quantile(Div(Abs(Sub($close,Ref($close,1))),$amount),20,0.1))),CsRank(Mean($pe_ratio,60)))
+  rationale: 'T005 ANSWERED restart — quantile-based Amihud asymmetry P90-P10 rolling.
+    Per direction T005 thread complete unmeasured path. LHS=P90-P10 of |return|/$amount
+    over 20d. Different from F012 Mean and F015 CV — quantile-difference captures
+    tail width independent of central tendency. RHS=Mean(pe,60). vol_20d escape via
+    rank-diff cross-family (escape path c). Front-load: max_corr@F015 expected [0.30,0.55]
+    borderline, need incr_ic ge 0.015.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub(Div($amount, $volume), $close), $close), 60)),
+    CsRank(Std($turnover_rate, 60)))
+  canonical: Sub(CsRank(Mean(Div(Sub(Div($amount,$volume),$close),$close),60)),CsRank(Std($turnover_rate,60)))
+  rationale: T008 long-window variant of C001 (60d vs 20d). Mean of atp-close deviation
+    60d quarterly sustained order-flow imbalance. Same anchor rule 5 risk with C001
+    — likely only one admits. Mean (not Std) avoids P003 higher-moment regime-flip
+    directly.

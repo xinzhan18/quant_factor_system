@@ -1,0 +1,205 @@
+batch_id: batch_062
+round: 61
+direction: gap_acceptance_structure
+direction_md_ref: vault/directions/gap_acceptance_structure.md
+batch_goal: "T007 推进 + 守 6 anchor cluster 防线 + higher-moment LHS 跨窗扩展。当前 rank-diff\
+  \ 6 admit 跨 5 family\n(F015-F020), gap_acceptance 仅 F020 (Std gap_ret × body_ratio_20)\
+  \ admit + F013 retired。T007 ACTIVE\n揭示 cross-ratio LHS (raw |gap|/|body|) 在 rank-diff\
+  \ 几何下 alpha_surv=0.005 极端 collapse — Barra\n完全吸收。本批回答 T007 future probes 两条逃路 +\
+  \ 同时探一条新 LHS 范式 + 一条 RHS 维度。\n\n6 候选硬约束：\n(1) 每候选 LHS 唯一 atomic gap 表达，6 LHS 不重复；\n\
+  (2) 严避 F010/F011 Mean(gap_ret,3/5) 同形 + 不复用 body_ratio_20 / price_vol_20 / amount_20\
+  \ /\n    overnight_5 / turnover_5 / pb_60 (alpha_surv=0.005 collapse) / amount_60\
+  \ (F023 RHS) dead RHS;\n(3) 不重演 T001 disproven (sign×sign aggregation) / T003 disproven\
+  \ (gap 分母变体 corr@F003=0.96) /\n    T006 disproven (60d Std 多 regime sign_flip);\n\
+  (4) 4 anchor pre-check (F002/F012/F020/F022): 候选不可同时撞 LHS/RHS anchor;\n(5) 全 DSL,\
+  \ CsRank 内层仅 Mean/Std/Abs/Sub/Div/Sign/Ref (不外包 Custom Op AmihudIlliq/HHI);\n(6)\
+  \ 避开 Qlib bug Corr($close,$turnover_rate,N) 跨 base-field broadcast — 用 Mean/Med/Std\n\
+  \    of single field 作 RHS proxy。\n\nC001 T007 follow-up A — RANK-TRANSFORMED ratio:\
+  \ LHS=Sub(CsRank(Mean(Abs(gap),20)),CsRank(Mean(Abs(body),20)))\n  aggregated rank-diff\
+  \ 替代 raw ratio (C004 alpha_surv=0.005 collapse) — 测 ratio of two CsRank-ed\n  magnitudes\
+  \ 是否避开 OHLC magnitude affine cluster + Barra style projection;\n  RHS=CsRank(Std($turnover_rate,20))\
+  \ liquidity higher-moment 全新 RHS 维度 (turnover_5 dead 但 Std,20 未试);\n  预期 max_corr@F020<0.4\
+  \ (LHS 是 magnitude rank-diff 而非 Std gap_ret) + alpha_surv@T007 vs C004\n  cross-ratio\
+  \ 决定 rank-diff geometry 是否真避 Barra。\n\nC002 T007 follow-up B — ratio + sign 复合:\
+  \ LHS=Mean(Mul(Sign(Sub($open,Ref($close,1))),\n  Div(Abs(Sub($open,Ref($close,1))),\
+  \ Add(Abs(Sub($close,Ref($close,1))),0.0001))),20)\n  signed gap-magnitude relative\
+  \ to total daily move (gap+intraday) — 区别 C004 用 |body| 分母,\n  本候选用 |daily-return|\
+  \ 分母 + 加 sign 提供方向信号 (T001 disproven pure sign 但本候选是\n  sign × magnitude 复合, 非 pure\
+  \ sign);\n  RHS=CsRank(Mean($pe_ratio,20)) 短窗 fundamental rank — 区别 pb_60 死路 (regime\
+  \ sign-flip 风险\n  低于 60d), pe_20 在库内未充当 RHS;\n  预期 max_corr@F003<0.4 (signed magnitude\
+  \ 与 |gap|/range 不同) + 验证 sign 复合是否破 T007 Barra trap。\n\nC003 higher-moment LHS 跨窗扩展\
+  \ — Std(gap_ret,10): LHS=Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),10)\n \
+  \ 短窗 10d Std gap_ret (vs F020 LHS 是 Std,20 — 不同窗口测 higher-moment LHS axis 是否跨 10d\
+  \ 仍存活);\n  RHS=CsRank(Mean(Abs(Div(Sub($close,Ref($close,1)),Ref($close,1))),60))\
+  \ Amihud 分子 |return|_60\n  (新 RHS, 之前未用, 是 amihud_illiq 的纯 |return| 项不含 amount 分母);\n\
+  \  预期 max_corr@F020<0.5 (10d vs 20d 同 LHS atom 跨窗 rank corr) — 这是关键 dedup 检查,\n\
+  \  若 max_corr ≥0.7 即 rank-diff 第 3 律违反 (同字段跨窗口禁止) → 自动 reject。\n\nC004 gap-direction\
+  \ concentration (HHI-like): LHS=Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)\n\
+  \  gap relative to intraday range (与 C001 b051 不同处: C001 b051 是 Mean(gap/(H-L))\
+  \ 5d,\n  本候选 20d 长窗 + 已知 b051 C001 reserve, 测 20d 是否跨 reserve→admit 边界);\n  RHS=CsRank(Mean(Abs(Sub($close,Ref($close,1))),20))\
+  \ 20d daily-return-magnitude rank\n  (区别 |return|_60 in C003);\n  预期 max_corr@F020<0.4\
+  \ (Mean vs Std of gap) + max_corr@F003<0.5 (gap/(H-L) vs |gap|/Mean($high,5))。\n\
+  \nC005 gap acceptance asymmetry — IF-conditional aggregation:\n  LHS=Mean(Mul(Sign(Sub($open,Ref($close,1))),\
+  \ Mul(Sub($close,Ref($close,1)),Sign(Sub($open,Ref($close,1))))),20)\n  展开为 sign(gap)\
+  \ × signed daily-return on gap-direction (上 gap 后 t 日是否同向跟随 / 下 gap 后是否同向跟随,\n \
+  \ 捕捉 gap 持续性 — 区别 T001 sign×sign 因为带 magnitude); 等价于\n  Mean(Mul(Sub($close,Ref($close,1)),\
+  \ Sign(Sub($open,Ref($close,1)))),20) /\n  上式经数学化简 = sign(gap) × daily_return ×\
+  \ sign(gap) × Sign(Sub($open,Ref($close,1)))\n  实际表达式简化为 LHS= Mean(Mul(Sub($close,Ref($close,1)),Sign(Sub($open,Ref($close,1)))),20)\n\
+  \  (sign×sign×magnitude → sign×magnitude when sign² = 1);\n  RHS=CsRank(Std($amount,20))\
+  \ amount higher-moment (区别 amount_60 F023 RHS 用 Mean);\n  预期 max_corr@F013<0.5 (F013\
+  \ 是 sign×sign×log-amount, 本是 sign×magnitude×amount-vol) +\n  破 T001 因带 magnitude\
+  \ 不是纯 sign。\n\nC006 gap × volatility-of-volatility complex — 新 LHS family:\n  LHS=Std(Div(Abs(Sub($open,Ref($close,1))),Add(Mean(Abs(Sub($open,Ref($close,1))),20),0.0001)),20)\n\
+  \  rolling-std of normalized |gap| (gap magnitude 相对 20d gap-magnitude 均值的 rolling\
+  \ 离散度);\n  完全新 LHS atom — gap \"volatility of normalization\", 测 second-order gap\
+  \ structure;\n  RHS=CsRank(Mean(Sub($high,$low),20)) 20d intraday range mean (新\
+  \ RHS 维度, range 而非 vol);\n  预期 max_corr@F020<0.5 (本 LHS 是 normalized gap 的二阶矩 vs\
+  \ F020 是 raw gap_ret 的 Std) +\n  max_corr@F019<0.5 (F019 LHS 是 Std body_ratio, 本是\
+  \ Std normalized |gap|, atomic 不同)。"
+active_threads_referenced:
+- T007
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-28T05:35:09Z'
+frozen_at: '2026-04-28T05:35:09Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Abs(Sub($open,Ref($close,1))),20)),CsRank(Mean(Abs(Sub($close,$open)),20)))
+  canonical: Sub(CsRank(Mean(Abs(Sub($open,Ref($close,1))),20)),CsRank(Mean(Abs(Sub($close,$open)),20)))
+  rationale: 'T007 follow-up A: RANK-TRANSFORMED magnitude ratio 替代 C004 raw cross-ratio
+    (alpha_surv=0.005).
+
+    LHS=CsRank(|gap|_20) - CsRank(|body|_20). 测 ratio of two CsRank-ed magnitudes
+    是否避开 Barra
+
+    style projection (假设 cross-rank Sub 引入 ordinal 独立性, 而 raw ratio 是 magnitude affine
+
+    压缩到 vol_20d/PB 子空间). Anchor pre-check: F002 anchor (PB×amount, level cluster)
+    不撞;
+
+    F012 anchor (Amihud-numerator RHS) 不撞 (本 RHS=turnover Std); F020 anchor (gap anti-anchor)
+
+    不撞 (本 LHS 是 magnitude rank-diff 非 Std gap_ret); F022 anchor (close-position 仿射)
+
+    不撞。绕开 T007 raw cross-ratio failure 的关键差异: rank transformation 在 Sub 之前作用于
+
+    magnitude 而非之后 — 类似 F015/F016 的 CV rank-diff 几何 (那两 admit 都是 CV/CV rank-diff,
+
+    structurally 同构本候选)。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sign(Sub($open,Ref($close,1))),Div(Abs(Sub($open,Ref($close,1))),Add(Abs(Sub($close,Ref($close,1))),0.0001))),20)),CsRank(Mean($pe_ratio,20)))
+  canonical: Sub(CsRank(Mean(Mul(Div(Abs(Sub($open,Ref($close,1))),Add(0.0001,Abs(Sub($close,Ref($close,1))))),Sign(Sub($open,Ref($close,1)))),20)),CsRank(Mean($pe_ratio,20)))
+  rationale: 'T007 follow-up B: signed ratio 复合 — sign(gap) × |gap|/(|daily_return|+ε)
+    aggregated 20d.
+
+    区别 C004 raw |gap|/|body| 三处: (a) 加 sign 提供方向信号, 非 magnitude-only;
+
+    (b) 分母是 |daily_return| (gap+body 总位移) 而非纯 |body|, 体现 gap 占总日内位移的有向相对幅度;
+
+    (c) 平均后再 CsRank, 分子分母均 OHLC-derived 但 sign 引入非线性. RHS=CsRank(Mean(pe,20)) 短窗
+
+    fundamental — 避 pb_60 (alpha_surv=0.005 历史) + 避 amount/turnover RHS (已 dense).
+    pe vs pb
+
+    不同 fundamental atom, 短窗 20d 比 60d 在 csi1000 上 regime 切换敏感度低. T001 disproven 的是
+
+    pure sign×sign (无 magnitude), 本候选携带 magnitude 故不重演 T001.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),10)),CsRank(Mean(Abs(Div(Sub($close,Ref($close,1)),Ref($close,1))),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,Ref($close,1)),Ref($close,1)),10)),CsRank(Mean(Abs(Div(Sub($close,Ref($close,1)),Ref($close,1))),60)))
+  rationale: 'Higher-moment LHS 跨窗扩展: F020 LHS=Std(gap_ret,20) admit, 本候选 LHS=Std(gap_ret,10)
+    短窗.
+
+    关键 dedup 风险: 同字段跨窗口 (rank-diff 律#3) — 若 max_corr@F020 ≥0.7 即违反, 自动被 hard_gate
+
+    拦. 但 10d vs 20d 在 csi1000 高频 regime 下 corr 不一定 >0.7 (b048 同字段窗口 5d/20d corr 高
+
+    但本是 10d/20d 1.5x 跨度), 设计假设 corr 落 [0.4, 0.7] borderline → 触发 incr_ic ≥0.015 双门.
+
+    RHS 全新: |return|_60 mean = Amihud 分子项 (无 amount 分母), 区别 amihud_illiq (F012) 完整结构
+
+    + 区别 amount/turnover RHS. 预期 max_corr@F015<0.4 (F015 是 amihud CV 的 Std/Mean, 本是
+
+    |return| Mean 一阶矩).
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Abs(Sub($close,Ref($close,1))),20)))
+  canonical: Sub(CsRank(Mean(Div(Sub($open,Ref($close,1)),Sub($high,$low)),20)),CsRank(Mean(Abs(Sub($close,Ref($close,1))),20)))
+  rationale: 'gap/(H-L) Mean LHS 20d 长窗对照 b051 C001 (5d, reserve, alpha_surv=0.31
+    落 F200 阈值上方但
+
+    incr_ic=0.008 不达 F203 0.015). 假设 20d 比 5d 信号更 stable, mono 提升, alpha_surv 维持.
+    与
+
+    F020 LHS=Std(gap_ret,20) 不同 atom (Mean vs Std). RHS=CsRank(|daily_return|_20)
+    20d daily-return
+
+    magnitude 一阶矩 — 区别 |return|_60 (C003) 跨窗 + 区别 vol/amount RHS. anchor pre-check:
+
+    F003 (|gap|/Mean($high,5)) — 本 LHS 是 gap/(H-L) 同期 range 而非历史 high mean, OHLC mirror
+
+    律可能 ≥0.5 corr (b042 b051 旁证), 此候选高风险但是 b051 reserve 直接升级测试.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Sub($close,Ref($close,1)),Sign(Sub($open,Ref($close,1)))),20)),CsRank(Std($amount,20)))
+  canonical: Sub(CsRank(Mean(Mul(Sign(Sub($open,Ref($close,1))),Sub($close,Ref($close,1))),20)),CsRank(Std($amount,20)))
+  rationale: 'gap-direction signed daily return aggregation: Mean(daily_return × sign(gap),
+    20). 经济含义:
+
+    上 gap 日 daily_return 同号正贡献 + 下 gap 日 daily_return 反号负贡献 — 测 "gap 方向是否
+
+    持续 day-of-gap 自身" 信号 (acceptance/rejection 当日 reaction 而非次日跟随, 区别 F013 是
+
+    隔夜 sign×sign 加权). 携带 magnitude (daily_return 非 sign), 不重演 T001 pure sign. RHS=CsRank
+
+    (Std(amount,20)) — amount higher-moment 全新维度 (F018/F023 用 Mean(amount,N), Std
+    未试,
+
+    F001 CV 用 Std/Mean 但已是已知 F001 类目). amount Std 单字段, 不撞 Qlib Corr cross-field bug.
+
+    anchor pre-check: F013 LHS 是 sign×sign×log_amount, 本 LHS 是 sign×magnitude 不含 amount,
+
+    max_corr@F013<0.5 预期.
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Abs(Sub($open,Ref($close,1))),Add(Mean(Abs(Sub($open,Ref($close,1))),20),0.0001)),20)),CsRank(Mean(Sub($high,$low),20)))
+  canonical: Sub(CsRank(Std(Div(Abs(Sub($open,Ref($close,1))),Add(0.0001,Mean(Abs(Sub($open,Ref($close,1))),20))),20)),CsRank(Mean(Sub($high,$low),20)))
+  rationale: 'Second-order gap structure — Std of normalized |gap|. 经济含义: gap 幅度相对
+    20d gap-magnitude
+
+    均值的 rolling dispersion (类似 |gap|的 CV 但形式不同 — 是 normalize 后再 Std, 而 CV 是
+
+    Std/Mean). 全新 LHS atom: 一阶 normalize + 二阶 Std. 区别 F020 LHS=Std(gap_ret,20) 因 (a)
+    本 LHS
+
+    用 |gap| 不含 sign (gap_ret 含 sign), (b) 本 LHS 经 self-normalize Mean(|gap|,20). RHS=CsRank
+
+    (Mean(H-L,20)) intraday range mean — 全新 RHS 维度 (range 而非 vol/amount/turnover/fundamental).
+
+    关键风险: A 股 ±10% 涨跌幅约束让 H-L cluster 与 F003/F014 (b042 b051 旁证), 但本 RHS 是 range
+
+    Mean 而非 normalized 派生量, 与 |gap|/(H-L) 派生量族不同. anchor pre-check: F019 LHS=Std(body_ratio)
+
+    是 OHLC 内部 ratio 的 Std, 本 LHS 是 gap normalize 后的 Std — 同 family 但不同 atom, max_corr
+
+    预期<0.5。是否 IS over-fit (compound moment trap, b052 C006 教训): 本 LHS 是 normalize-then-Std,
+
+    不是 smooth-then-Std (smooth = Mean rolling), 边界 case — Phase 2/3 严验 ls_t IS/OOS
+    ratio。
+
+    '
