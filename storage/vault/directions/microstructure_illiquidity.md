@@ -1,33 +1,31 @@
 ---
 direction_tag: microstructure_illiquidity
 status: productive
-priority: medium
-rounds: 5
+priority: low
+rounds: 6
 admits: 4
-last_batch: batch_047
-last_admits:
-- F016
-last_goal: 'T007 rank-diff 范式泛化 + T005 短窗 sign-conditional 重试。batch_046 admit F015
-  (CsRank(Amihud_20) - CsRank(amount_CV_10))
+last_batch: batch_061
+last_admits: []
+last_goal: 'T008 (NEW) — atp = $amount/$volume avg-trade-price as new microstructure
+  atom (price-discovery vs Amihud price-impact).
 
-  兑现 rank-diff 结构 alpha 源，升格教训：两端 signal family 必须都 scale-invariant (CV / ratio /
-  correlation) 才独立。
+  Open new microstructure atom independent from F012/F015/F016 Amihud family.
 
-  本批按此范式在其他 scale-free signal 对上泛化：(1) CsRank(Amihud_20) - CsRank(turnover_rate_CV_20)
-  换分母 CV 字段
+  atp/close deviation captures intraday-VWAP-vs-close gap; atp_range_position captures
+  where avg-trade clustered within today range.
 
-  测 amount vs turnover dispersion 对 Amihud 的正交性；(2) CsRank(pb_amount_ratio) - CsRank(Amihud)
-  跨方向 value×liquidity
+  Wrapped in rank-diff geometry with FRESH RHS basis (not in dead endpoints overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/Amihud_20/circ_mktcap_60/H_L_60_geo).
 
-  rank-diff，两端都 scale-free；(3) CsRank(amount_CV_10) - CsRank(overnight_gap_20) amount×pct-signal，两端完全独立
-  direction；
+  Apply cockpit (a) Std-of-product non-Mean aggregation as 2nd-order LHS variant (single-layer,
+  scale-free) — designed to satisfy P003 escape path (atom orthogonal to vol_20d via
+  cross-day VWAP-deviation structure, not |return|/range/amount Std).
 
-  (4) 反转对 CsRank(turnover_CV) - CsRank(Amihud) 测 rank-diff 方向对称性。(5)(6) T005 短窗 ≤5d
-  sign-conditional 重试
+  Front-load incr_ic estimation: avoid P006 library-reducer trap by ensuring RHS truly
+  fresh (max_corr@anchor < 0.30 expected).
 
-  避开 batch_046 确认的 "20d mean aggregation 抹平 day-level sign gate" 失败律。目标 ≥ 1 candidate
-  同时满足 max_corr@admitted < 0.50 + alpha_survival > 0.40 + ls_t > 2。'
-last_activity: '2026-04-24T20:00:08Z'
+  Also test T005 quantile-asymmetry of Amihud (P90-P10 rolling) wrapped in rank-diff
+  geometry to escape vol_20d via cross-family (existing T005 ACTIVE evidence chain).'
+last_activity: '2026-04-28T05:06:24Z'
 created_batch: batch_030
 members:
 - F012
@@ -99,16 +97,17 @@ merged_into: null
 >
 > **保留 ACTIVE**: 下轮可测 (1) Amihud × correlation-based (`Corr($close, $amount, 20)`)；(2) 库内其他 scale-free 对（F007 × F010 等）；(3) "field-level 独立 + scale-free" 双条件跨 direction 候选。
 
-### T005: sign-conditional / signed Amihud 变体 [◉ ACTIVE — 仅 quantile path 未测]
+### T005: sign-conditional / signed Amihud 变体 [✗ DISPROVEN batch_061]
 
-> [!failure]+ Thread 结论 (3 路径全证伪 / 1 路径未测)
-> **Question**: (1) sign asymmetry？(2) Kyle-lambda signed proxy？(3) 短窗 ≤5d？(4) max-min range non-mean aggregation？
+> [!failure]+ Thread 结论 (4 路径全证伪 — quantile path 也是 library-reducer)
+> **Question**: (1) sign asymmetry？(2) Kyle-lambda signed proxy？(3) 短窗 ≤5d？(4) max-min range non-mean aggregation？(5) **quantile-based asymmetry P90-P10 rolling**?
 >
 > **Answer**:
 > - (1) 日频 20d **sign asymmetry 不存在**：up/down-day Amihud max_corr 0.942/0.918，对偶差 0.024。
 > - (2) Kyle-lambda 库独立 (max_corr=0.16) 但 alpha_surv=0.17 + signed incr_ic=-0.031 → reserve 负参考。
 > - (3) **batch_047 C005 短窗硬证伪**: 5d up-day Amihud max_corr 0.754，alpha_surv 反塌 **0.149**（F012 的 34%）→ trade-off 负面。
 > - (4) **batch_047 C006 range 逃离失败**: range 与 F012 共变 86% (corr=0.862) → reserve。
+> - (5) **batch_061 C005 quantile-Amihud P90-P10 P006 library-reducer 实证**: ls_t=3.21 + mono=1.0/1.0 + 9/9 yr 全正 + ls_sharpe=2.31 + lowest vol_20d=7.47 + style_r²=0.20 (整库罕见 risk-clean) BUT **incr_ic=-0.0023 NEG** → 看似最优 PnL 形状但加入 library 让组合信号变弱。**P006 第 6 次跨 family 复现**: mono≥0.85 + |ls_t|≥2.5 + incr_ic<0 + alpha_surv<0.40 全部命中。
 >
 > **Evidence trail**:
 > - [[batches/batch_046/candidates/C001|b046 C001]] up-day 20d → 0.942@F012 reject
@@ -117,6 +116,28 @@ merged_into: null
 > - [[batches/batch_046/candidates/C006|b046 C006]] Mean(Δturnover/turnover², 20) → reserve (signed neg)
 > - [[batches/batch_047/candidates/C005|b047 C005]] up-day 5d → alpha_surv=**0.149** reject
 > - [[batches/batch_047/candidates/C006|b047 C006]] TsMax-TsMin Amihud 5d → max_corr=**0.862** reserve
+> - [[batches/batch_061/candidates/C005|b061 C005]] **quantile-Amihud P90-P10 rolling 20d × Mean(pe,60)** → ls_t=3.21 + mono=1.0/1.0 + 9/9 yr 全正 + ls_sharpe=2.31 但 **incr_ic=-0.0023 NEG** P006 library-reducer 第 6 次复现 → reject
+
+### T008: atp = $amount/$volume avg-trade-price atom [✗ DISPROVEN batch_061] (NEW thread, born-disproven)
+
+> [!failure]+ Thread 结论
+> **Question**: avg-trade-price (atp = $amount/$volume) 是否构成与 Amihud family (F012/F015/F016) 几何独立的新 microstructure atom？atp/close deviation (intraday-VWAP-vs-close) 与 atp_range_position (atp 在日内 range 中位置) 两 facet 是否各自独立？
+>
+> **Answer**: **atp atom 真实是 NEW dimension** (与 F012/F015/F016 corr 全 |<0.13|, 与 F019/F020/F021 OHLC family corr ≤|0.31|) **BUT 与 admit-eligible 因子 几何独立 ≠ admit-eligible** — 4 代 atp 几何变体 × 4 个 fresh RHS basis 6 候选全 reject。**atp + amount-derived RHS 几何位置落入 F017 anchor cluster** (overnight × turnover-family RHS 通用 cluster 槽), F017 anchor 范围扩大至 turnover-family RHS 任意聚合 (turnover_5 / Std turnover_60 / Med turnover_20 同 cluster)。
+>
+> **Evidence trail**:
+> - [[batches/batch_061/candidates/C001|b061 C001]] Mean(atp-close-dev,20) × Std(turnover,60) → max_corr=0.531@F017 incr_ic=0.0098 borderline ls_t=1.60 → reject
+> - [[batches/batch_061/candidates/C002|b061 C002]] **Std(atp-close-dev,20)** × Mean(pe,60) → alpha_surv=0.17 (vol_20d=51.79) + 9/9 yr 同号负 mono=-1.0 ls_t=-2.74 + cum_mdd=-55.89 → reject (P003 higher-moment regime sign-flip 边界 — atp-close-dev 单日与 |return| 同构, Std 二阶聚合直接落入 vol_20d 吸收)
+> - [[batches/batch_061/candidates/C003|b061 C003]] Mean(atp_range_pos,20) × Mean(ps,60) → ls_t=0.94 weak + alpha_surv=0.32 max_corr=0.305@F021 → reject
+> - [[batches/batch_061/candidates/C004|b061 C004]] Mean(atp_range_pos,5) × Med(turnover,20) → ls_t=1.48 weak + max_corr=0.603@F017 incr_ic=0.0117 borderline → reject
+> - [[batches/batch_061/candidates/C006|b061 C006]] Mean(atp-close-dev,60) × Std(turnover,60) → 与 C001 同 RHS 同 LHS 跨窗口同构 max_corr=0.529@F017 incr_ic=0.0089 borderline → reject
+>
+> **升格 lessons 候选** (本 thread 贡献 3 条):
+> 1. **F017 anchor cluster 占位律泛化** — admitted rank-diff factor 几何 anchor 跨 RHS family 任意聚合形式锁定 (而非局限原 RHS 字段窗口)
+> 2. **higher-moment LHS axis 迁移条件收窄** — atom 必须与单日 |daily_return| / range 几何正交, 否则 Std/Var 二阶聚合直接落入 vol_20d 吸收 (P003 边界扩展)
+> 3. **NEW atom 几何独立 ≠ admit-eligible** — 新 atom 与库内全部因子 corr<0.30 是必要非充分条件, 还需 atom + RHS 组合不落入已 admitted factor 的 cross-section anchor cluster
+>
+> **保留 OFF**: 当前 daily-bar + F017 健在条件下 atp atom 路径关闭。**复活路径**: (a) atp × non-amount/non-OHLC RHS (cross-day momentum / lag-shifted reference) 是否能脱 F017 cluster — 待测; (b) F017 退役后重测; (c) minute-bar 数据接入后 intraday atp variance / kurtosis 路径。
 >
 > **升格教训**:
 > 1. day-level sign gate + window mean aggregation 抹平 asymmetry（20d/5d 双证伪）
@@ -227,7 +248,17 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_047/judge|batch_047]] · T007 PARTIAL-ANSWERED · T005 FURTHER-DISPROVEN · productive (admits 2→3, 后续 +F016 至 4)
+> [!quote]+ 2026-04-28 · [[batches/batch_061/judge|batch_061]] · T005 DISPROVEN · T008 NEW BORN-DISPROVEN · productive (admits 4 保持 / priority medium → low)
+> admit=0 / reserve=0 / reject=6。本批 zero admit, T005 quantile path + T008 atp atom 双 thread 关闭。
+> - **T005 quantile-Amihud P90-P10 path P006 library-reducer 实证**: C005 ls_t=3.21 + mono=1.0/1.0 + 9/9 yr 全正 + ls_sharpe=2.31 + lowest vol_20d=7.47 + style_r²=0.20 (整批最干净 risk profile) BUT **incr_ic=-0.0023 NEG** P006 第 6 次跨 family 复现。**T005 thread DISPROVEN**: quantile spread (P90-P10) of magnitude-distribution 几何线性独立但 Barra + library 组合层冗余, 三 Amihud factor (F012 Mean / F015 CV / F016 turnover-CV) 联合已捕获分布形状 sufficient statistic。
+> - **T008 (NEW) atp = $amount/$volume avg-trade-price atom 4 代变体全 reject**: atp atom 真实是 NEW dimension (与 F012/F015/F016 Amihud family corr 全 |<0.13|, 与 F019/F020/F021 OHLC family corr ≤|0.31|) BUT atp + amount-derived RHS 几何位置落入 F017 anchor cluster (4/6 候选 max_corr 0.51-0.60@F017)。**升格教训 (3 条 lessons 候选)**: (1) F017 anchor cluster 占位律泛化 (跨 RHS family 任意聚合形式锁定, 而非局限原字段窗口); (2) higher-moment LHS axis 迁移条件收窄 (atom 必须与单日 |daily_return| / range 几何正交否则 Std 二阶聚合直接落入 vol_20d 吸收); (3) NEW atom 几何独立 ≠ admit-eligible (atom + RHS 组合不落入已 admitted factor 的 cross-section anchor cluster 才充分)。
+> - **C002 P003 higher-moment regime sign-flip atp family 实证**: Std(atp-close-dev,20) × Mean(pe,60) — alpha_surv=0.17 critical + vol_20d=51.79 极端 + cum_ic_mdd=-55.89 catastrophic + 9/9 yr 同号负 (sign consistency 1.0 但 IS-OOS 同号深亏)。F019/F020 OHLC + gap higher-moment LHS axis **不能迁移到 atp-close family** (atp-close-dev 单日嵌入 vol_20d 几何位置)。
+> - **方向 ACTIVE thread 状态**: T005 (sign-conditional Amihud) DISPROVEN · T007 (rank-diff 跨 direction 泛化) ACTIVE 但本批未推进 · T008 (atp atom NEW) DISPROVEN at 创建批。剩余 ACTIVE thread 仅 T007, 但 microstructure 方向 daily-bar 几何剩余探索路径稀薄。
+> - MT budget cumulative 318→**324** · direction 24→**30** · bucket `high` (search_adjusted 0.51 → medium)
+>
+> **Operations**: status `productive` 保留 (4 admits + F015/F016 A级仍优秀) · `priority: medium → low` (T005/T008 双 disproven, T007 未推进, 探索路径稀薄, 等论文/数据接入或 F017 退役后重启) · rounds 5→6 · admits 4 保持 · zero_admit_streak 1→2 (全系统连续 2 批 zero admit)
+
+> [!quote]- 2026-04-25 · [[batches/batch_047/judge|batch_047]] · T007 PARTIAL-ANSWERED · T005 FURTHER-DISPROVEN · productive (admits 2→3, 后续 +F016 至 4)
 > admit=1 (C001 → F016) / reserve=1 (C006) / reject=4。
 > - **C001 T007 rank-diff 泛化首锤**: `Sub(CsRank(Amihud_20), CsRank(turnover_CV_20))` admit — ic_oos=0.050 mono_oos=1.0 ls_t=6.76 alpha_surv=0.579 incr_ic=0.023 max_corr=0.734@F015 9/9 年全正。证实 rank-diff 范式泛化到分母字段替换仍产出独立 alpha。
 > - **C002/C003 T007 范式边界硬证据**: C002 $amount 共分母让 Sub 抵消 → noise；C003 amount_CV 端被 F001 吸收 → signed neg incr_ic=-0.0038 reject。**T007 范式 2 约束升格**: (a) 两端 raw field 独立；(b) 两端未被库因子主导。
