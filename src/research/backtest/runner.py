@@ -105,12 +105,26 @@ def run_backtest(
         else paths.market_daily_cache
     )
     if not view_path.exists():
-        raise FileNotFoundError(
-            f"price view parquet missing: {view_path}. For hfq run "
-            f"`python3 scripts/resync_qlib.py --adjust hfq` first."
-        )
+        # Friendly fallback: if hfq is requested but missing, try qfq with a
+        # warning. The user can flip back to hfq once
+        # `scripts/sync_hfq_parquet.py` has run.
+        if cfg.matching.price_adjust == "hfq" and paths.market_daily_cache.exists():
+            logger.warning(
+                "hfq parquet missing (%s); falling back to qfq market_daily.parquet "
+                "for this run. Sync hfq via `python3 scripts/sync_hfq_parquet.py`.",
+                view_path,
+            )
+            view_path = paths.market_daily_cache
+        else:
+            raise FileNotFoundError(
+                f"price view parquet missing: {view_path}. For hfq run "
+                f"`python3 scripts/sync_hfq_parquet.py` first."
+            )
     view = PriceView.from_parquet(view_path)
-    provider = TradabilityProvider.from_db(view)
+    # allow_missing_tables=True: tradability tables (instrument_st_status /
+    # instrument_lifecycle) may not yet exist; fall back to empty data and
+    # rely on the filter config to disable irrelevant blockers.
+    provider = TradabilityProvider.from_db(view, allow_missing_tables=True)
     mask = TradabilityMask(view, provider, cfg.filters, cal,
                             match_price=cfg.matching.match_price)
 

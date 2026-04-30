@@ -70,22 +70,56 @@ class TradabilityProvider:
         return cls(_st=st_table, _lifecycle=lifecycle_table, _price_view=price_view)
 
     @classmethod
-    def from_db(cls, price_view: PriceView | None = None) -> "TradabilityProvider":
+    def from_db(
+        cls,
+        price_view: PriceView | None = None,
+        allow_missing_tables: bool = False,
+    ) -> "TradabilityProvider":
+        """Load ST + lifecycle tables from TimescaleDB.
+
+        If ``allow_missing_tables`` is True, missing tables are silently
+        replaced with empty frames — useful for development before
+        ``scripts/sync_st_status.py`` / ``sync_instrument_lifecycle.py``
+        have been run. The caller must also disable corresponding filter
+        flags (``block_st``, ``newly_listed_days``) or it will be a no-op.
+        """
         import psycopg2
 
+        empty_st = pd.DataFrame(
+            {"is_st": []},
+            index=pd.MultiIndex.from_tuples(
+                [], names=["datetime", "instrument"]
+            ),
+        )
+        empty_lc = pd.DataFrame(
+            columns=["listing_date", "delisting_date", "board"]
+        )
+
         conn = psycopg2.connect(**_db_dsn())
-        st = pd.read_sql(
-            "SELECT datetime, instrument, is_st FROM instrument_st_status",
-            conn,
-        )
-        st["datetime"] = pd.to_datetime(st["datetime"])
-        st = st.set_index(["datetime", "instrument"])
-        lc = pd.read_sql(
-            "SELECT instrument, listing_date, delisting_date, board "
-            "FROM instrument_lifecycle",
-            conn,
-            index_col="instrument",
-        )
+        try:
+            st = pd.read_sql(
+                "SELECT datetime, instrument, is_st FROM instrument_st_status",
+                conn,
+            )
+            st["datetime"] = pd.to_datetime(st["datetime"])
+            st = st.set_index(["datetime", "instrument"])
+        except Exception:
+            if not allow_missing_tables:
+                conn.close()
+                raise
+            st = empty_st
+        try:
+            lc = pd.read_sql(
+                "SELECT instrument, listing_date, delisting_date, board "
+                "FROM instrument_lifecycle",
+                conn,
+                index_col="instrument",
+            )
+        except Exception:
+            if not allow_missing_tables:
+                conn.close()
+                raise
+            lc = empty_lc
         conn.close()
         return cls.from_data(st, lc, price_view)
 

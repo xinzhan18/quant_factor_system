@@ -86,6 +86,10 @@ class Reporter:
             fig.savefig(path, dpi=100)
             plt.close(fig)
             return
+        # Engine indexes equity_curve by python dates (object dtype). Coerce to
+        # DatetimeIndex for resample.
+        if not isinstance(ret.index, pd.DatetimeIndex):
+            ret.index = pd.to_datetime(ret.index)
         monthly = (1 + ret).resample("ME").prod() - 1
         df = monthly.to_frame("ret")
         df["year"] = df.index.year
