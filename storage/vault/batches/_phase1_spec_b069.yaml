@@ -1,0 +1,60 @@
+direction: pit_valuation_pure
+batch_goal: 首批 6 候选探索 PIT/TTM valuation level cross-section（dividend_yield/pcf/peg/pcf_total）— 不通过 daily-aggregate liquidity denominator（避开 b068 vol_20d 吸收路径），自带 Barra value basis 抗衡 vol_20d。目标 ≥1 admit 验证 valuation level frontier 独立 alpha。
+active_threads_referenced:
+  - T001
+  - T002
+  - T003
+candidates:
+  - candidate_id: C001
+    source_type: dsl
+    expression: CsRank($dividend_yield_ttm)
+    canonical: CsRank($dividend_yield_ttm)
+    rationale: |
+      T001 最简 atom：cross-section rank of dividend yield。零先例（51 admit 无 dividend_yield 使用），最简单测试 PIT valuation level 是否携带 cross-section alpha。
+      Anti-recap: 与 F002 (PB/amount) 不同字段（dividend yield 与 pb 几何独立，dividend 决策 ≠ book ratio）；与 fundamental_quality_carry dead candidates 不同（无 daily liquidity denominator，无 vol_20d 吸收路径）。
+      Pre-check 期望: coverage>0.95, vol_20d_exp<15%, |corr to F002|<0.5, |corr to $market_cap|<0.3。
+
+  - candidate_id: C002
+    source_type: dsl
+    expression: Div(1, $pcf_ratio)
+    canonical: Div(1,$pcf_ratio)
+    rationale: |
+      T001 子变体：cash-flow yield level (1/pcf)。pcf is daily PIT field，分母为 1 是标量常数（不引入 vol_20d 路径）。现金流比 earnings 更难被会计调节，期望比 1/PE 更稳定。零先例。
+      Anti-recap: 与 F002 (PB) 不同 valuation 字段（pcf vs pb）；与 fundamental_quality_carry dead 不同（无 quality numerator + daily liquidity denominator）。
+      Pre-check 期望: coverage>0.95（PIT 字段非 sparse），vol_20d_exp<15%。
+
+  - candidate_id: C003
+    source_type: dsl
+    expression: Div(1, $peg_ratio_ttm)
+    canonical: Div(1,$peg_ratio_ttm)
+    rationale: |
+      T001 子变体：1/PEG = (growth × earnings_yield) integrated form。peg = pe/growth，1/peg 整合 valuation × growth 在单 ratio 内，规避 P003 cross-product regime drift（不是 Mul(growth, 1/PE) 双 atom 乘积，而是单 TTM aggregate）。
+      Anti-recap: 与 b068 C004 GARP `Mul(growth, 1/PE)` 不同形式（已证 sign-flip）；单 ratio 无 Sub/Mul/Div 跨 sparse TTM 数据契约失败风险；与 F002 不同。
+      Pre-check 期望: coverage>0.85（peg_ratio_ttm 是 TTM 字段可能稍 sparse），vol_20d_exp<20%。
+
+  - candidate_id: C004
+    source_type: dsl
+    expression: Sub(CsRank($dividend_yield_ttm), CsRank($pe_ratio))
+    canonical: Sub(CsRank($dividend_yield_ttm),CsRank($pe_ratio))
+    rationale: |
+      T002 rank-diff 双 valuation: 高 dividend yield − 低 PE 复合（双重 value 信号）。Sub 在两 CsRank 后是 ordinal subtraction，按 lessons 例外 a 章 rank-diff 形式可行，且两端都先 CsRank 化（避免 sparse TTM × sparse TTM Sub 数据契约失败 — dividend_yield_ttm 虽是 TTM 但 ref_financials 字段，CsRank 后 NaN 已被截面排序剥离）。
+      Anti-recap: 与 C001 单 atom 不同（rank-diff vs single rank）；与 F002 不同字段族；与 b068 C003 (eps - ocf) 失败模式不同（CsRank 后 Sub 不撞 TTM × TTM sparse contract）。
+      Pre-check 期望: 满足 T001 同条件 + 与 F002 max_lib_corr<0.5。
+
+  - candidate_id: C005
+    source_type: dsl
+    expression: Div(1, $pcf_ratio_total_ttm)
+    canonical: Div(1,$pcf_ratio_total_ttm)
+    rationale: |
+      T003: total cash-flow yield TTM (1/pcf_total_ttm)，覆盖 OCF+ICF+FCF 全 cash flow（pcf_ratio 仅 OCF）。与 C002 (1/pcf_ratio PIT) 字段不同（一 daily PIT 一 TTM aggregate）。Div by 1 标量常数无 vol_20d 路径。
+      Anti-recap: 与 C002 不同字段（pcf_total_ttm vs pcf_ratio）；与 F002 不同；与 fundamental_quality_carry 不同（无 daily liquidity 分母）。
+      Pre-check 期望: coverage>0.85，与 C002 (1/pcf_ratio) max corr<0.7（验证 T003 独立性假设）。
+
+  - candidate_id: C006
+    source_type: dsl
+    expression: Mul(CsRank($dividend_yield_ttm), CsRank(Div(1, $pb_ratio)))
+    canonical: Mul(CsRank($dividend_yield_ttm),CsRank(Div(1,$pb_ratio)))
+    rationale: |
+      T002 子变体: rank × rank composite（高 dividend × 低 PB 双重 value）。Mul of two CsRank values 是无量纲乘积（cross-section ordinal），与 b068 C004 `Mul(growth_TTM, 1/PE)` 数值乘积不同（这里是 rank × rank）。
+      Anti-recap: 与 F002 (PB level/amount) 不同形式（rank composite vs ratio）；与 C004 不同（Mul vs Sub）；与 P003 cross-product regime drift 风险更低（rank 化已剥离 absolute level 量纲）。
+      Pre-check 期望: 满足 T001 + 与 F002 max_lib_corr<0.6（PB 在 RHS 但已 1/PB+CsRank 化）。

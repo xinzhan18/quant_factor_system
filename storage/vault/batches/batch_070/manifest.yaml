@@ -1,0 +1,77 @@
+batch_id: batch_070
+round: 70
+direction: pit_valuation_pure
+direction_md_ref: vault/directions/pit_valuation_pure.md
+batch_goal: 续探 rank × rank Mul composition pattern (b069 C006 reserve 火种验证) — 6 候选
+  yield × valuation_reciprocal 几何空间，验证 rank × rank composite 是否能脱 alpha_surv<0.40
+  魔咒。RHS 替换 (PB→PE/PCF) 比对 b069 C006 + 双 yield 对称形式 + earning yield × quality。目标 ≥1
+  admit 验证假设。
+active_threads_referenced:
+- T002
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T18:32:19Z'
+frozen_at: '2026-05-01T18:32:19Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mul(CsRank($dividend_yield_ttm), CsRank(Div(1, $pe_ratio)))
+  canonical: Mul(CsRank($dividend_yield_ttm),CsRank(Div(1,$pe_ratio)))
+  rationale: 'T002 RHS 替换 PB→PE 比对 b069 C006 (Mul rank div_yld × rank 1/PB)。yield
+    × earning yield 双 value basis composite — div_yld 与 1/PE 几何独立 (一是 cash distribution
+    ratio, 一是 earnings 比 price)，但 Barra value style 同 basis。预期 sty_r²~0.5+ 证明 rank
+    × rank Mul 放大共有 basis 是结构律。Anti-recap: RHS 是 1/PE 而非 b069 C006 的 1/PB；与 b069 C001
+    (单 atom) 形式不同；与 b069 C004 (Sub 形式) 不同；不引入 daily-liquidity denominator。预期 vol_20d_exp<15%，|corr
+    to F002|<0.5，coverage>0.95。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mul(CsRank($dividend_yield_ttm), CsRank(Div(1, $pcf_ratio)))
+  canonical: Mul(CsRank($dividend_yield_ttm),CsRank(Div(1,$pcf_ratio)))
+  rationale: 'T002 yield × yield 复合：dividend yield × cash flow yield (1/pcf)。两端均 yield
+    形式 (cash distribution × cash generation)，比 yield × earnings yield 更纯 cash perspective。Anti-recap:
+    RHS 是 1/PCF 而非 b069 C006 的 1/PB；与 b069 C002 (单 atom 1/pcf) 形式不同 (rank × rank composite)。$pcf_ratio
+    是 daily PIT 字段 coverage>0.95。预期 vol_20d_exp<15% (PCF 同 PB Barra value basis)。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mul(CsRank(Div($eps_ttm, $close)), CsRank(Div(1, $pb_ratio)))
+  canonical: Mul(CsRank(Div($eps_ttm,$close)),CsRank(Div(1,$pb_ratio)))
+  rationale: 'T002 双 yield 对称：earnings yield (eps/close) × book yield (1/PB)。eps_ttm/close
+    是 earnings yield level form 而非 1/PE level (避开 P003 cross-product regime drift
+    — eps/close 是 single ratio, 不含 growth)；book yield 是 PB 倒数。两端 yield 形式 cross-section
+    rank 后 Mul，预期与 b069 C006 相似 sty_r²~0.5 双 value basis。Anti-recap: LHS eps/close
+    不同于 1/PE (虽数值近似，但通过 Div($eps_ttm,$close) 路径，避免 b069 C006 RHS 1/PB 的 retread)；与
+    b068 C003 sparse Sub 失败族不同 (CsRank 后 Mul 不撞 sparse contract)。预期 coverage>0.90
+    (eps_ttm 是 ref_financials TTM per-share 字段)。'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mul(CsRank(Div(1, $pe_ratio)), CsRank($return_on_equity_ttm))
+  canonical: Mul(CsRank($return_on_equity_ttm),CsRank(Div(1,$pe_ratio)))
+  rationale: 'T002 跨 thread 探索: earning yield × quality (ROE) — 测试 rank × rank Mul
+    能否跨 value × quality 两族 basis 复合。1/PE 是 Barra value basis (ep_ratio)，ROE 是 Barra
+    quality basis (profitability)。预期 sty_r² 较高但 alpha_surv 看跨族 basis 是否仍能保留 incremental
+    alpha。Anti-recap: 与 b068 C001 (ROE/Mean(amount,20)) 不同 (无 daily liquidity denominator
+    vol_20d 路径)；与 b069 C006 不同 (跨 quality 字段族而非纯 valuation 内部)。预期 vol_20d_exp<15%
+    (1/PE + ROE 都不依赖 daily price/volume)。'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(CsRank($dividend_yield_ttm), CsRank($eps_ttm))
+  canonical: Mul(CsRank($dividend_yield_ttm),CsRank($eps_ttm))
+  rationale: 'T002 子变体: dividend yield × earnings level (per share)。div_yld 是 dividend
+    ratio (yield form), eps_ttm 是 absolute earnings level (per share, 不是 ratio)。两端
+    cross-section rank 后 Mul，测试 ''high-yield + high-earnings'' 复合质量价值是否独立于 b069 C006
+    (yield × 1/PB)。eps_ttm 自带 quality basis (large absolute earnings = mature)，不是
+    valuation basis。Anti-recap: RHS eps_ttm level 不是 1/PB (b069 C006) 也不是 1/PE (本批
+    C001)，是 quality 端 basis；与 C004 形式不同 (LHS div_yld 而非 1/PE)。预期 coverage~0.90 + vol_20d_exp<15%。'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(CsRank(Div(1, $pe_ratio)), CsRank(Div(1, $pcf_ratio)))
+  canonical: Mul(CsRank(Div(1,$pcf_ratio)),CsRank(Div(1,$pe_ratio)))
+  rationale: 'T002 双 valuation_reciprocal Mul: earnings yield × cash flow yield。两端均
+    1/X valuation reciprocal form (1/PE × 1/PCF)，cross-section rank 后 Mul — 测试是否 ''best
+    of 双 yield'' 比单 atom 1/PCF (b069 C002 reject) 更强。两端均 PIT daily 字段 (高 coverage)，且都是
+    Barra value style basis。预期 sty_r² 较高 (双 value basis 共振)，但 max_corr 与 F002 (PB/amount)
+    需 <0.5。Anti-recap: 不与 b069 C002 (单 atom 1/pcf) 重复 (rank × rank composite 不同形式)；不与
+    b069 C006 (yield × 1/PB) 重复 (RHS 不同)；不嵌入 daily-liquidity denominator。预期 vol_20d_exp<15%。'

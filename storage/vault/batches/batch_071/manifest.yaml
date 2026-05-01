@@ -1,0 +1,92 @@
+batch_id: batch_071
+round: 71
+direction: python_ttm_residual_quality
+direction_md_ref: vault/directions/python_ttm_residual_quality.md
+batch_goal: 'Round 71 首批 — Python R8 escape hatch — 6 候选验证 OLS residualize TTM quality
+
+  on (size, vol_20d, [book_to_price]) Barra basis 后再 CsRank 是否能脱
+
+  b068/b070 的 vol_20d 吸收陷阱 (lessons.md L1 "逃离正路径 b")。所有候选 source_type=python，
+
+  使用 numpy.linalg.pinv + einsum vectorized OLS。Quality numerator 覆盖 ROE/ROIC/
+
+  gross_margin/ROA/growth/operating_margin 6 类。窄 basis (size+vol_20d) vs 宽 basis
+
+  (+book_to_price) 形成对照。目标 ≥1 admit 否则 mechanism 死区。Anti-recap:
+
+  与 b068-b070 全部 18 候选不重叠（那些是 DSL Div/Mul 路径）。'
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T19:03:00Z'
+frozen_at: '2026-05-01T19:03:00Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_071/python_candidates/C001.py
+  rationale: 'ROE TTM residualize on (log_market_cap, vol_20d) → CsRank.
+
+    最 narrow basis；mechanism alive 的最弱判别基线。
+
+    若残差仍 dominant_style=vol_20d 则证明 vol_20d 与 ROE 在 csi1000 上
+
+    非线性 / 非 Barra-style-3 形态共线（mechanism dead 的强证据）。
+
+    '
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_071/python_candidates/C002.py
+  rationale: 'ROIC TTM residualize on (size, vol_20d, book_to_price) → CsRank.
+
+    ROIC 比 ROE 更纯 capital efficiency；3 basis 全控版本。
+
+    与 C001 narrow basis 对照"book_to_price 是否 over-filter"。
+
+    '
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_071/python_candidates/C003.py
+  rationale: 'Gross Profit Margin TTM residualize on (size, vol_20d) → CsRank.
+
+    Gross margin less leverage-dependent，跨行业噪音大但 csi1000 较稳。
+
+    narrow basis 测试产品定价/成本控制是否有独立 cross-section alpha。
+
+    '
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_071/python_candidates/C004.py
+  rationale: 'ROA TTM residualize on (size, vol_20d, book_to_price) → CsRank.
+
+    ROA 是 unleveraged quality (NI/total_assets)；3 basis 全控严格版本。
+
+    测试纯资产效率残差是否还有 alpha。
+
+    '
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_071/python_candidates/C005.py
+  rationale: 'Net Profit Growth TTM residualize on (size, vol_20d) → CsRank。
+
+    Growth 维度 (b068 C002 ROE growth raw 已 reject vol_20d 吸收)。
+
+    含 ±5 MAD winsorize（growth 字段 base year=0 outliers 多）。
+
+    narrow basis（不加 book_to_price; growth × value 反向叠加风险高）。
+
+    '
+- candidate_id: C006
+  source_type: python
+  path: storage/vault/batches/batch_071/python_candidates/C006.py
+  rationale: 'Inverse Debt-to-Asset Ratio TTM residualize on (size, vol_20d, book_to_price)
+    → CsRank (op_margin_ttm 现 0 coverage, 替换为 solvency quality 维度)。
+
+    低 debt = balance-sheet quality；与 ROE/ROA 几何独立。
+
+    与 C003 narrow vs wide basis 对照。
+
+    '

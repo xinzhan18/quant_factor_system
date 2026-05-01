@@ -1,0 +1,165 @@
+batch_id: batch_072
+round: 72
+direction: institutional_flow_proxy
+direction_md_ref: vault/directions/institutional_flow_proxy.md
+batch_goal: '首批 6 候选探索 $num_trades 字段族（2026-05-01 新增微观字段，库内仅 b068 二次直接 raw level 使用
+  reject）。
+
+  所有候选引入额外几何维度 (rolling Std / TsRank / rank-diff / Corr / cross-product) 规避 b068 C002
+
+  raw level vol_20d 吸收陷阱。avg_trade_size = $amount/$num_trades 是 institutional flow
+  proxy，
+
+  $num_trades level 是 retail attention proxy。本批是 fundamental escape 最后一搏，若 dead →
+  下批
+
+  触 Phase 5 consolidation. 目标 ≥1 admit 验证假设。'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T19:32:29Z'
+frozen_at: '2026-05-01T19:32:29Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Std(Div($amount, $num_trades), 20)
+  canonical: Std(Div($amount,$num_trades),20)
+  rationale: 'T001 baseline. avg_trade_size 的 20d rolling Std = institutional flow
+    volatility，与 b068
+
+    C002 raw level (vol_20d_exp=9.75 alpha_surv=0.13 reject) 几何不同 — 时序 Std 捕捉机构调仓密度
+
+    regime change，level 仅捕捉单日机构集中度。Anti-recap: 与 b068 C002 raw level 几何不同 (Std vs
+
+    level)；与 F001 std_returns_20 / F004 std_vol_20 / F043 amount_cv 不同字段族 (numerator
+
+    是 ratio amount/num_trades 而非 returns/vol/amount level)。
+
+    Pre-check 期望: coverage>0.95 ($amount + $num_trades 都 daily 字段非 sparse), |corr
+    to
+
+    $market_cap|<0.3, vol_20d_exp<25%。WARNING: 这是 Std 形式 LHS 高 vol_20d 风险候选，若 vol_20d_exp>25%
+
+    + alpha_surv<0.30 三立则 dead.
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: CsRank($num_trades)
+  canonical: CsRank($num_trades)
+  rationale: 'T002 baseline. $num_trades 单日 level cross-section rank = retail attention
+    proxy。零先例
+
+    ($num_trades 单字段 rank 形式从未使用)。高 num_trades 股票 = 散户高活跃度 = forward reversal
+
+    候选 (A 股 retail 主导 reversal 律)。Anti-recap: 与 b068 C002 (Div amount/num_trades)
+    不同
+
+    (单字段 rank vs ratio)；与所有 admitted 因子无字段重叠。
+
+    Pre-check 期望: coverage>0.99 (raw daily 字段)，|corr to $market_cap| 极高 ~0.7 — 可能直接
+
+    hit 红线 reject (大票 num_trades 高是结构定律). 若 |corr|>0.3 reject，但作为基线测试 retail
+
+    attention 假设是否成立 (即使 reject 也能验证 mechanism direction).
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Div($amount, $num_trades)), CsRank(Mean($amount, 20)))
+  canonical: Sub(CsRank(Div($amount,$num_trades)),CsRank(Mean($amount,20)))
+  rationale: 'T003 rank-diff 形式: institutional concentration rank − general liquidity
+    rank。把
+
+    avg_trade_size (机构集中度) 从 amount level (general liquidity) 中分离。两端都 CsRank 化
+
+    ordinal 无量纲，符合 P001 rank-diff 7 律 #1。Anti-recap: 与 b068 C002 (单 atom level) 不同
+
+    (rank-diff 形式)；与 F015/F016 rank-diff 不同字段族 (LHS 是 amount/num_trades ratio 非
+
+    microstructure × amount_CV)；RHS Mean(amount,20) 在 rank-diff 死亡名单 amount_20 内 —
+    7 律
+
+    #6 警示，但本批是首次以 institutional concentration 为 LHS 配 amount_20 RHS，验证 anchor
+
+    cluster 是否泛化。
+
+    Pre-check 期望: coverage>0.95, |corr to F002|<0.6 (F002 含 amount denominator), max_lib_corr<0.5.
+
+    WARNING: RHS 在 amount_20 死亡 endpoints，若 max_corr>0.7 则验证 anchor cluster 泛化定律.
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Corr(Div($amount, $num_trades), $close, 20)
+  canonical: Corr(Div($amount,$num_trades),$close,20)
+  rationale: 'T004 OFI proxy: avg_trade_size × $close 20d 滚动 Pearson 相关 = 机构买涨/买跌方向代理。正
+
+    Corr = 机构 trend-following (price 上涨时 avg_trade_size 也涨 = 机构追涨)，负 Corr = 机构
+
+    contrarian. Cross-section 上 forward signal 假设: trend-following 机构表现 forward 强势/反
+
+    之 reversal. Anti-recap: 与 F009 pv_corr 不同 (LHS 是 ratio 非 raw volume)；与 F026
+
+    pv_corr_times_vol 不同形式 (单 Corr 非 Mul)；与 b068 C002 levels 几何完全不同 (rolling
+
+    correlation vs single level).
+
+    Pre-check 期望: coverage>0.85 (rolling 20d Corr), |corr to F009/F026|<0.5, vol_20d_exp<20%.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Mul(CsRank(Div($amount, $num_trades)), CsRank(Sub($close, Ref($close,
+    5))))
+  canonical: Mul(CsRank(Div($amount,$num_trades)),CsRank(Sub($close,Ref($close,5))))
+  rationale: 'T005 cross-product: institutional concentration rank × 5d return rank.
+    测试机构 × 短期
+
+    momentum 交互. 两端都 CsRank 化避免 absolute level 量纲撞 (规避 P003 cross-product regime
+
+    drift — 但 5d momentum 是 directional signal，仍需关注 regime 切换)。Sub($close, Ref($close,5))
+
+    是 5d price change. Anti-recap: 与 F048 size_x_inverse_pe (size × inverse value)
+    不同字段
+
+    族；与 b068 C006 ROIC × avg_trade_size (signed fundamental × flow) 不同 (这里 momentum
+    × flow，
+
+    短期价格行为非 fundamental signed signal)。
+
+    Pre-check 期望: coverage>0.95, |corr to $market_cap|<0.3, vol_20d_exp<25%, |corr
+    to F048|<0.5.
+
+    WARNING: cross-product 形式 P003 regime drift 风险，需 train/val sign 一致.
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div($amount, $num_trades), 60)
+  canonical: TsRank(Div($amount,$num_trades),60)
+  rationale: 'T001 子变体: avg_trade_size 60d 时序 rank — 个股层 institutional flow abnormality
+    (vs
+
+    cross-section level)。TsRank 在 [0,1] 量纲化无 vol_20d 路径风险，关注个股自身 institutional
+
+    flow 历史分位。Anti-recap: 与 b068 C002 (cross-section level) 不同 (time-series rank 个股
+
+    层 vs cross-section)；与 C001 (Std rolling) 不同形式 (TsRank vs Std)；与所有 admitted
+
+    因子无字段重叠. 库内 TsRank 用法仅 F-naive 极少先例。
+
+    Pre-check 期望: coverage>0.85 (60d rolling), |corr to $market_cap|<0.3 (TsRank 在
+    [0,1]
+
+    消除 size 共线性), vol_20d_exp<15% (TsRank 时序量纲化预期低 vol_20d 嵌入).
+
+    '
