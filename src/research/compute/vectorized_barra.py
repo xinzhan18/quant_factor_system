@@ -36,7 +36,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from core.factor_stats import daily_cross_sectional_ic, ic_summary
+from core.factor_stats import (
+    daily_cross_sectional_ic,
+    daily_cross_sectional_ic_from_wides,
+    ic_summary,
+)
 
 # Fixed Barra style order — must match what the style_matrix carries
 STYLE_NAMES: list[str] = [
@@ -79,14 +83,17 @@ def _leave_one_out_residual_ic(
     common_dates: pd.DatetimeIndex,
     symbols: pd.Index,
     date_ok: np.ndarray,
-    forward_returns_flat: pd.DataFrame,
+    forward_returns_wide: pd.DataFrame,
     skip_idx: int,
 ) -> float | None:
     """OLS on styles minus column ``skip_idx``, return residual IC mean.
 
     The regression builds X' = [intercept, styles except skip_idx] and runs
-    the same batched pinv pipeline as the full Barra regression. Returns
-    None if the residual is empty / IC undefined.
+    the same batched pinv pipeline as the full Barra regression. The IC
+    is computed via :func:`daily_cross_sectional_ic_from_wides` directly
+    on the residual wide (no stack → flat → merge → re-pivot detour),
+    which is the dominant cost when this is called 7× per candidate.
+    Returns None if the residual is empty / IC undefined.
     """
     n_dates, n_symbols = y.shape
     other_styles = np.delete(X_styles, skip_idx, axis=-1)
@@ -108,13 +115,9 @@ def _leave_one_out_residual_ic(
         index=common_dates[date_ok],
         columns=symbols,
     ).where(valid_ok)
-
-    residual_flat = residual_wide.stack(future_stack=True).reset_index()
-    residual_flat.columns = ["time", "symbol", "value"]
-    residual_flat = residual_flat.dropna(subset=["value"])
-    if residual_flat.empty:
+    if residual_wide.dropna(how="all").empty:
         return None
-    ic_series = daily_cross_sectional_ic(residual_flat, forward_returns_flat)
+    ic_series = daily_cross_sectional_ic_from_wides(residual_wide, forward_returns_wide)
     if ic_series.empty:
         return None
     return ic_summary(ic_series).get("ic_mean")
@@ -127,7 +130,7 @@ def _build_style_contributions(
     common_dates: pd.DatetimeIndex,
     symbols: pd.Index,
     date_ok: np.ndarray,
-    forward_returns_flat: pd.DataFrame,
+    forward_returns_wide: pd.DataFrame,
     style_cols: list[str],
     raw_view_ic: float | None,
     barra_residual_ic: float | None,
@@ -154,7 +157,7 @@ def _build_style_contributions(
     for k, name in enumerate(style_cols):
         ic_without = _leave_one_out_residual_ic(
             X_styles, y, valid, common_dates, symbols, date_ok,
-            forward_returns_flat, skip_idx=k,
+            forward_returns_wide, skip_idx=k,
         )
         if ic_without is None or not np.isfinite(ic_without):
             contributions.append({
@@ -202,6 +205,7 @@ def compute_barra_exposures(
     min_obs: int = 50,
     *,
     style_wides: dict[str, pd.DataFrame] | None = None,
+    forward_returns_wide: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Batched Barra OLS + residual IC + crowding classification.
 
@@ -361,16 +365,21 @@ def compute_barra_exposures(
     dominant_style = style_cols[dominant_idx]
     style_crowding_risk = _classify_crowding(style_r_squared, style_exposures)
 
-    # ----- 7. Residual IC via core.factor_stats.daily_cross_sectional_ic -----
-    residual_flat = residual_wide_ok.stack(future_stack=True).reset_index()
-    residual_flat.columns = ["time", "symbol", "value"]
-    residual_flat = residual_flat.dropna(subset=["value"])
-    if residual_flat.empty:
+    # ----- 7. Residual IC via wides path (skips residual flat round-trip) -----
+    # Pivot returns once here for both the main residual IC + the LOO loop;
+    # if the caller passed in a cached wide (Phase 2 batch), reuse it.
+    if forward_returns_wide is None:
+        forward_returns_wide = (
+            forward_returns_flat
+            .set_index(["time", "symbol"])["value"]
+            .unstack(level=-1)
+        )
+    if residual_wide_ok.dropna(how="all").empty:
         barra_residual_ic = None
         barra_residual_icir = None
     else:
-        residual_ic_series = daily_cross_sectional_ic(
-            residual_flat, forward_returns_flat
+        residual_ic_series = daily_cross_sectional_ic_from_wides(
+            residual_wide_ok, forward_returns_wide
         )
         if residual_ic_series.empty:
             barra_residual_ic = None
@@ -400,7 +409,7 @@ def compute_barra_exposures(
         common_dates=common_dates,
         symbols=symbols,
         date_ok=date_ok,
-        forward_returns_flat=forward_returns_flat,
+        forward_returns_wide=forward_returns_wide,
         style_cols=style_cols,
         raw_view_ic=raw_view_ic,
         barra_residual_ic=barra_residual_ic,

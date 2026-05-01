@@ -599,6 +599,7 @@ def _evaluate_candidate(
             primary_returns,
             raw_view_ic=val_ic_mean,
             style_wides=inputs.style_wides,
+            forward_returns_wide=inputs.primary_returns_wide,
         )
 
         # --- 8. Distribution ---
