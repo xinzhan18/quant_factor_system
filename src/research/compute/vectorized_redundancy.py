@@ -110,6 +110,18 @@ def compute_pairwise_redundancy_precomputed(
     cand = _as_series(candidate_signal)
     cand_wide = cand.unstack(level=-1)
 
+    # Pre-rank cand once over its native validity mask. For rows where
+    # the joint mask later equals cand_valid, this cached rank IS the
+    # joint-masked rank — no re-rank needed. Same property holds for the
+    # cached library ranks vs lib_valid. Skipping the per-(cand, lib)
+    # rank where the equality holds is the dominant win on this step
+    # (in trade-day data the bulk of rows have cand_valid == lib_valid).
+    cand_full_arr = cand_wide.to_numpy()
+    cand_full_valid = np.isfinite(cand_full_arr)
+    cand_full_rank = (
+        pd.DataFrame(cand_full_arr).rank(axis=1, method="average").to_numpy()
+    )
+
     all_corrs: dict[str, float] = {}
     import warnings
     with warnings.catch_warnings():
@@ -123,9 +135,11 @@ def compute_pairwise_redundancy_precomputed(
                 all_corrs[fid] = float("nan")
                 continue
 
-            cand_aligned = cand_wide.loc[idx, cols]
-            cand_arr = cand_aligned.to_numpy()
-            cand_valid = np.isfinite(cand_arr)
+            cand_row_pos = cand_wide.index.get_indexer(idx)
+            cand_col_pos = cand_wide.columns.get_indexer(cols)
+            cand_arr = cand_full_arr[np.ix_(cand_row_pos, cand_col_pos)]
+            cand_valid = cand_full_valid[np.ix_(cand_row_pos, cand_col_pos)]
+            cand_rank = cand_full_rank[np.ix_(cand_row_pos, cand_col_pos)]
 
             row_pos = lib_idx.get_indexer(idx)
             col_pos = lib_cols.get_indexer(cols)
@@ -133,31 +147,44 @@ def compute_pairwise_redundancy_precomputed(
             lib_valid = cache.validity[fid][np.ix_(row_pos, col_pos)]
 
             joint = cand_valid & lib_valid
-            n_valid = joint.sum(axis=1)
-            keep = n_valid >= min_obs
+            joint_n = joint.sum(axis=1)
+            keep = joint_n >= min_obs
             if not keep.any():
                 all_corrs[fid] = float("nan")
                 continue
 
-            # Mask-then-rank for the candidate matches legacy
-            # ``cand_a.where(joint).rank(...)``. Stack candidate + library
-            # into a single (2D, S) array and rank once — pandas' C rank
-            # operates on the whole stack in one call, halving the
-            # Python overhead vs ranking each side separately. For the
-            # library side, the cached rank is over ``lib_valid`` only —
-            # the joint mask is stricter, so we still mask + re-rank to
-            # match legacy.
-            cand_masked = np.where(joint, cand_arr, np.nan)
-            lib_masked = np.where(joint, lib_rank, np.nan)
-            n_rows = cand_masked.shape[0]
-            stacked = np.concatenate([cand_masked, lib_masked], axis=0)
-            stacked_r = (
-                pd.DataFrame(stacked)
-                .rank(axis=1, method="average")
-                .to_numpy()
-            )
-            cr = stacked_r[:n_rows]
-            lr = stacked_r[n_rows:]
+            # Per-row skip: when joint_n == cand_n on row d, then
+            # joint[d] == cand_valid[d] (since joint ⊆ cand_valid), so
+            # the cached cand_rank[d] IS the joint-masked rank.
+            cand_n = cand_valid.sum(axis=1)
+            lib_n = lib_valid.sum(axis=1)
+            cand_skip = joint_n == cand_n
+            lib_skip = joint_n == lib_n
+
+            cr = np.where(cand_skip[:, None], cand_rank, np.nan)
+            lr = np.where(lib_skip[:, None], lib_rank.astype(float), np.nan)
+
+            need_cand_rerank = keep & ~cand_skip
+            need_lib_rerank = keep & ~lib_skip
+            need_either = need_cand_rerank | need_lib_rerank
+            if need_either.any():
+                idx_rerank = np.where(need_either)[0]
+                cand_sub = np.where(joint[idx_rerank], cand_arr[idx_rerank], np.nan)
+                lib_sub = np.where(joint[idx_rerank], lib_rank[idx_rerank], np.nan)
+                n_sub = cand_sub.shape[0]
+                stacked = np.concatenate([cand_sub, lib_sub], axis=0)
+                stacked_r = (
+                    pd.DataFrame(stacked).rank(axis=1, method="average").to_numpy()
+                )
+                cr_sub = stacked_r[:n_sub]
+                lr_sub = stacked_r[n_sub:]
+                # Map back only to rows that actually need each side rerun.
+                cand_rerank_local = need_cand_rerank[idx_rerank]
+                lib_rerank_local = need_lib_rerank[idx_rerank]
+                if cand_rerank_local.any():
+                    cr[idx_rerank[cand_rerank_local]] = cr_sub[cand_rerank_local]
+                if lib_rerank_local.any():
+                    lr[idx_rerank[lib_rerank_local]] = lr_sub[lib_rerank_local]
 
             mc = np.nanmean(cr, axis=1, keepdims=True)
             ml = np.nanmean(lr, axis=1, keepdims=True)
