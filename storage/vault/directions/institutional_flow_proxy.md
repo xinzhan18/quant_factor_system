@@ -18,7 +18,7 @@ last_goal: '首批 6 候选探索 $num_trades 字段族（2026-05-01 新增微�
   下批
 
   触 Phase 5 consolidation. 目标 ≥1 admit 验证假设。'
-last_activity: '2026-05-01T20:01:32Z'
+last_activity: '2026-05-02T04:30:00Z'
 created_batch: batch_072
 members: []
 retired_members: []
@@ -139,5 +139,7 @@ created_from: cockpit_round_72_new_field_$num_trades
 ## Narrative Log
 
 - **2026-05-02 (round 72)**: NEW direction created from cockpit hint — `$num_trades` 2026-05-01 新增字段库内仅 b068 一次使用（直接 raw level 形式 reject），rolling/rank-diff/interaction 几何完全未探索。本批是 fundamental escape 最后一搏，若 dead → 下批触 Phase 5 consolidation.
+
+- **2026-05-02 round 73 Phase 5 consolidation · 方向维持 probing（C006 reserve 火种保留）**: hypothesis_promoter/008 + pattern_analyst/010 + pattern_analyst/013 + pattern_analyst/015 + library_gap/009 + calibration/005 升格 4 条元教训至 lessons.md：(a) `Path Selection` "TsRank window≥60d on ratio fields 是新 vol_20d-escape 路径"（C006 实证 vol_20d_exp 降 65% + style_r² 降 75%，库内首例 partial-progress） + raw $num_trades 不构成新几何衍生律（C002 max_corr=0.75@F012 NEAR_DUPLICATE）；(b) 顶层 macro lesson "csi1000 daily fundamental + institutional flow 真饱和" 路径 e（institutional flow microstructure 几何独立但 forward reversal + incr_ic NEG）；(c) Hot Topics P006 段 "P008 软判定补丁"（alpha_surv > 0.30 + incr_ic < 0 + max_corr ∈ [0.40, 0.50] borderline → reject 默认 vs max_corr < 0.30 LOW + 独立新几何 → reserve 火种）。**calibration/005 verdict**：C006 reserve 维持 NOT admit，trigger #1-#4 全部不立，**不放宽 incr_ic floor**；C006 等 incr_ic 改善路径：(a) 配 RHS rank-diff 测 incr_ic 改善；(b) 30d/120d 窗口扫；(c) Python residualize on F009 后再 CsRank。**direction 维持 probing**（C006 火种活跃 + library_gap/009 提议同方向 5 候选 follow-up batch `tsrank_timeseries_ratio` 优先级 medium）；priority 不变；T001 partial-progress（C006 reserve），T002/T003/T004/T005 born-disproven。
 
 - **2026-05-02 (batch_072 judged)**: admit=0 reserve=1 (C006) reject=5. **核心发现**: 5/5 PASS-hg 候选 mono_oos=-1.00 PERFECT + sign_consistency=1.0 — `$num_trades` 几何空间在 csi1000 daily 上是 reversal 方向 (机构集中 = 散户高活跃 = forward reversal). **C006 TsRank(avg_trade_size, 60) 是本批最强发现**: ls_t=-7.54 整库顶级 + alpha_surv=0.447 PASS + style_r²=0.15 极清洁 + max_corr=0.24@F009 LOW 几何独立 + vol_20d_exp=10.87 (vs C001 Std 形式 26.7, 降 60%). **唯一阻断 incr_ic=-0.018 微 NEG** → reserve 而非 admit. **关键发现 P009**: TsRank 时序量纲化在 ratio 字段上比 cross-section level 大幅降低 vol_20d_exp (实证 65%↓) + style_r² (75%↓) — 时序 rank 是新逃 vol_20d 路径候选 (库内极少先例). **关键发现 P010**: alpha_surv>0.30 + incr_ic<0 软判定 reject vs reserve 边界 = 设计层是否含独立新几何 (max_corr<0.30 + 未被探索 atom). T002 (raw level retail attention) + T003 (rank-diff) + T004 (Corr OFI) + T005 (cross-product) 4 thread born-disproven; T001 通过 C006 partial-progress. **下批建议**: 鉴于 zero_admit_streak=13 + 三 fundamental 方向 dead/archived + 本批仅 reserve — 强烈建议 orchestrator 启动 Phase 5 consolidation, 不再续探本方向. 详见 [[batches/batch_072/judge|batch_072 judge]].

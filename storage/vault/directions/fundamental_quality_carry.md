@@ -8,7 +8,7 @@ last_batch: batch_068
 last_admits: []
 last_goal: 首批 6 候选探索 TTM quality LEVEL × 价量 / institutional-flow proxy / Sloan accruals
   / GARP，绕开 OHLCV 饱和与 rate-form 失败律。目标 ≥1 admit 验证 fundamental level frontier 仍有 alpha。
-last_activity: '2026-05-02T02:00:00Z'
+last_activity: '2026-05-02T04:30:00Z'
 created_batch: batch_068
 members: []
 retired_members: []

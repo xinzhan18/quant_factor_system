@@ -1,7 +1,7 @@
 ---
 direction_tag: python_ttm_residual_quality
-status: probing
-priority: high
+status: dead
+priority: low
 rounds: 1
 admits: 0
 last_batch: batch_071
@@ -19,20 +19,24 @@ last_goal: 'Round 71 首批 — Python R8 escape hatch — 6 候选验证 OLS re
   (+book_to_price) 形成对照。目标 ≥1 admit 否则 mechanism 死区。Anti-recap:
 
   与 b068-b070 全部 18 候选不重叠（那些是 DSL Div/Mul 路径）。'
-last_activity: '2026-05-01T19:27:34Z'
+last_activity: '2026-05-02T04:30:00Z'
 created_batch: batch_071
 members: []
 retired_members: []
 reserves: []
 merged_into: null
 created_from: library_gap_proposal_2026_05_02
+dead_at: '2026-05-02T04:30:00Z'
+dead_reason: first-batch dead — b071 6/6 alpha_surv ∈ [0.93, 7.23] 全 PASS 但 6/6 OOS sign_flip + 5/6 vol_20d_exp 仍 dom (Linear OLS 不破非线性吸收) + 2022-2023 regime drift 独立失活；mechanism dead zone 无残余探索路径无 reserve 火种；3 条元教训已升格 lessons.md (round 73)
 ---
 # python_ttm_residual_quality
 
 > [!abstract]+ 方向概要
-> - **状态**　🟡 `probing` (round 71，library_gap 提议 + lessons.md L1 "TTM-quality / daily-aggregate-liquidity 默认 vol_20d 吸收" 反向解法) · priority `high` · rounds = 0 · admits = 0
-> - **一句话**　Python OLS residualize TTM quality 字段 on (size, vol_20d, value) Barra basis，用残差携带的 quality alpha 作 cross-section signal — 从源头去掉 vol_20d/size/value 共线性，绕开 b068/b070 同律 11 连零 admit 的 daily-aggregate liquidity 陷阱。
-> - **来源**　lessons.md L1 给的"逃离正路径 (b)"：Python OLS residualize TTM quality on (size, vol_20d) 后再做信号 — 这是首次实现该路径。
+> - **状态**　🔴 `dead` (round 73 consolidation，2026-05-02 first-batch dead) · priority `low` · rounds = 1 · admits = 0 · reserves = 0
+> - **一句话**　Python OLS residualize TTM quality on Barra basis 工艺正确执行（alpha_survival 0.93~7.23 全 PASS）但 6/6 OOS sign_flip — **不是 vol_20d 吸收问题，是 csi1000 daily TTM quality 类信号在 2022-2023 全 regime sign-flip alpha 真不存在**。Mechanism dead zone。
+> - **升格 lessons (round 73)**　[[lessons#Path Selection]] "alpha_survival ≥ 0.40 必须配 ic_by_year 后期同号 check"（CP02 校准律）+ "Linear OLS residualize 不破 csi1000 vol_20d 非线性吸收"（限定逃离正路径 a 语义边界）+ 顶层 macro lesson "csi1000 daily fundamental + institutional flow 真饱和" 路径 c。
+> - **关联 findings**　[[_consolidation/findings/pattern_analyst/011]] · [[_consolidation/findings/pattern_analyst/014]] · [[_consolidation/findings/hypothesis_promoter/008]] · [[_consolidation/findings/hypothesis_promoter/010]] · [[_consolidation/findings/calibration/006]]
+> - **复活前置**　仅当 (a) lessons.md "Linear OLS 不破非线性 vol_20d 吸收"被推翻（Polynomial/Kernel 工艺接入 + 跨方向独立验证）；或 (b) minute/tick 数据接入推翻 csi1000 daily TTM quality 真饱和；或 (c) cross-universe (csi300/csi500) 验证 TTM quality alpha 在其它 universe 仍 alive。
 
 ---
 
@@ -98,4 +102,16 @@ created_from: library_gap_proposal_2026_05_02
 - "csi1000 daily TTM quality OLS-residualized signal 2022-2023 全 regime sign-flip — fundamental quality 类 alpha 在 A 股小盘 2022 后死区"
 - "Linear OLS residualize 不破 csi1000 vol_20d 非线性吸收 — 5/6 残差仍 vol_20d_exp 11~22"
 - "alpha_survival 与 OOS sign-stability 解耦 — alpha_surv >5 也不预测 OOS alive，不可单独依赖作 admission gate"
+
+> [!success]+ 2026-05-02 · Phase 5 round 73 consolidation · 方向状态 probing → dead
+> **3 条元教训已升格至 lessons.md**：
+> 1. `Path Selection` 新增 "alpha_survival ≥ 0.40 必须配 ic_by_year 后期同号 check"（[[_consolidation/findings/pattern_analyst/011]] + [[_consolidation/findings/calibration/006]] 升格）— CP02 判据 composition 显化，alpha_surv 不可独立作 admission gate
+> 2. `Path Selection` 新增 "Linear OLS residualize 不破 csi1000 vol_20d 非线性吸收"（[[_consolidation/findings/hypothesis_promoter/010]] 升格）— 限定 lessons L1 "逃离正路径 (a) Python Barra residual orthogonalize" 语义边界：仅在 numerator 自身 OOS-stable alpha 时该路径生效
+> 3. `Path Selection` 顶层 macro lesson 段 "csi1000 daily fundamental + institutional flow 真饱和" 路径 c（Python OLS residualize TTM quality）作为 5 路径独立证伪之一（[[_consolidation/findings/pattern_analyst/014]] + [[_consolidation/findings/hypothesis_promoter/008]] 升格）
+>
+> **状态机变更**：probing → **dead** (first-batch dead 律：6/6 reject + ≥2 候选独立命中 hard_gate sign_flip + 失败机制是 alpha 真不存在不是窗口/算子细节)；priority `high → low`；T001 `[✗ DISPROVEN batch_071]`，无续探 thread。
+>
+> **复活前置**：(a) lessons.md "Linear OLS 不破非线性 vol_20d 吸收"被推翻（Polynomial/Kernel 工艺接入 + 跨方向独立验证）；或 (b) minute/tick 数据接入推翻 csi1000 daily TTM quality 真饱和；或 (c) cross-universe (csi300/csi500) 验证 TTM quality alpha 在其它 universe 仍 alive。
+>
+> **下批 frontier 替代**：library_gap/011 提出 `python_residualize_non_quality`（工艺已验证有效 - F004/F005 admit；但 numerator 选择是关键 unknown，需先验 cross-section 独立证据再投预算避免 b071 retread - low 优先级）。
 

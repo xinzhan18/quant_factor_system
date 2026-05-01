@@ -1,7 +1,7 @@
 ---
 direction_tag: pit_valuation_pure
-status: probing
-priority: medium
+status: saturated
+priority: low
 rounds: 3
 admits: 0
 last_batch: batch_070
@@ -10,7 +10,7 @@ last_goal: 续探 rank × rank Mul composition pattern (b069 C006 reserve 火种
   yield × valuation_reciprocal 几何空间，验证 rank × rank composite 是否能脱 alpha_surv<0.40
   魔咒。RHS 替换 (PB→PE/PCF) 比对 b069 C006 + 双 yield 对称形式 + earning yield × quality。目标 ≥1
   admit 验证假设。
-last_activity: '2026-05-01T18:57:33Z'
+last_activity: '2026-05-02T04:30:00Z'
 created_batch: batch_069
 members: []
 retired_members: []
@@ -18,13 +18,17 @@ reserves:
 - batch_069_C006
 merged_into: null
 created_from: library_gap/008
+saturated_at: '2026-05-02T04:30:00Z'
+saturated_reason: T002 b070 RHS 替换 PB→PE/PCF 6/6 reject 续探证伪 + T003 TTM aggregate sign_flip 全证伪；C006 yield × 1/PB reserve 火种保留作 frontier (b/p≥2 显化)；元教训已升格 lessons.md "Composition Selection" rank × rank Mul 需 book yield basis (round 73)
 ---
 # pit_valuation_pure
 
 > [!abstract]+ 方向概要
-> - **状态**　🟡 `probing` (round 69，library_gap/008 finding 提议) · priority `medium` · rounds = 0 · admits = 0
-> - **一句话**　PIT/TTM valuation level（dividend_yield, pcf, peg, pcf_total）单独或两两 rank 复合，**不嵌入 daily-aggregate liquidity denominator**，自带 Barra value basis 抗衡 vol_20d 吸收。
-> - **来源**　[[_consolidation/findings/library_gap/008]] — 51 admit 因子 valuation 端覆盖只有 F002（PB/amount）一例，dividend_yield/pcf/peg 完全无使用，是 fundamental_quality_carry dead 后的最简 productive frontier 候选。
+> - **状态**　🟠 `saturated` (round 73 consolidation，2026-05-02) · priority `low` · rounds = 3 · admits = 0 · reserves = 1 (b069 C006)
+> - **一句话**　PIT/TTM valuation rank composite 仅 `Mul(CsRank(div_yld), CsRank(1/PB))` 一例 partial-progress（ls_t=2.17, b/p=2.21），RHS 替换 PB→PE/PCF 6/6 reject 续探证伪；book yield basis (PB) 在 csi1000 cross-section 不可被 earnings/cash yield 替代——saturated。
+> - **来源**　[[_consolidation/findings/library_gap/008]] — fundamental_quality_carry dead 后探 PIT valuation level 替代路径。
+> - **升格 lessons (round 73)**　[[lessons#Composition Selection]] "rank × rank Mul 需 book yield basis (b/p≥2) 显化"（pattern_analyst/012 + hypothesis_promoter/009）
+> - **复活前置**　仅当 (a) lessons.md "rank × rank Mul book basis 律"被推翻；或 (b) 出现 PB 之外的 cross-section value Barra basis 字段（minute-bar 数据 / 不同 universe）；或 (c) Python residualize 工艺对 PIT valuation numerator 经独立验证有效。b069 C006 reserve 火种保留待 calibration trigger。
 
 ---
 
@@ -138,3 +142,14 @@ created_from: library_gap/008
 - **2026-05-02 round 69 创建** — fundamental_quality_carry dead 后 library_gap/008 提议；本批 6 候选探索 PIT/TTM valuation level form，绕开 daily liquidity denominator vol_20d 吸收陷阱。
 - **2026-05-02 batch_069 first-batch 结果**: 6 候选 → admit=0 / reserve=1 (C006) / reject=5。**核心发现**: PIT/TTM valuation 单 atom rank 形式 vol_20d_exp 显著降低 (5.6-11.2 vs b068 fundamental_quality 8.5-31.1，**降 50-70%** ✓) 部分验证假设；但 dominant_style 仍是 vol_20d，单 atom value basis 不足以反超。**首次发现**: C006 `Mul(CsRank(div_yld), CsRank(1/PB))` rank × rank composite **首次在 PIT valuation 字段族显化 value Barra basis** (book_to_price=2.21 + ep_ratio=3.96, style_r²=0.578)，但 alpha_survival=0.19 仍不达 admit default 0.40 → **reserve 火种**。**关键不对称**: rank × rank Mul 放大共有 basis (C006 sty_r²=0.578) vs rank-diff Sub 抵消共有 basis (C004 sty_r²=0.23) — 这是本批最值得升格的元发现。T003 TTM aggregate (peg/pcf_total) 形式 sign_flip regime drift 完全证伪 (与 b068 GARP 同律, signed fundamental cross form)。Direction **probing 维持**，下批续 T002 子探索（C006 family RHS 替换）。
 - **2026-05-02 [[batches/batch_070/judge|batch_070]] 续探 T002 完全证伪**: 6 候选 → admit=0 / reserve=0 / reject=6。**核心反 lesson**: b069 C006 (yield × 1/PB) 的 ls_t=+2.17 是**孤立点**——RHS 替换 PB→PE (C001 ls_t=+0.32 衰减-84%) + yield × cash_flow_yield (C002 ls_t=+1.02 衰减-53%) + 双 reciprocal Mul (C006 ls_t=+0.53 缺 atom 几何独立性) + 跨族 value×quality Mul (C004 OOS mono=-1.0 翻号) **全部失败**。$eps_ttm 字段路径不可用 (C003/C005 hard_gate compute_error)。**修订 T002 假设**：rank × rank Mul 复合**有效需要两端 atom 几何独立 + 至少一端 book_to_price ≥ 2 显化** — 不是任意 rank × rank Mul 都放大共有 basis。**Value basis 异质性实证 ranking** (csi1000 cross-section): book yield (PB) > cash flow yield (PCF) > earnings yield (PE)。**饱和条件已满足**: 累计 admit=0, reject 比例=11/12=92%, 但保留 b069 C006 reserve 火种等待潜在 calibration; 建议 status `probing → saturated`（由 orchestrator 决策）。**关键 lesson 候选升格**: (a) rank × rank Mul 两端 atom 必须几何独立; (b) book yield basis 在 csi1000 cross-section 携带不可替代的 discrimination; (c) 跨族 (value × quality) Mul OOS regime drift 翻号是同律失败模式。**Thread 状态变更**: T002 `[◉ ACTIVE] → [✗ DISPROVEN batch_070]`；新增 T004 探索独立 alpha basis / Python residualize 工艺。
+
+> [!success]+ 2026-05-02 · Phase 5 round 73 consolidation · 方向状态 probing → saturated
+> **2 条元教训已升格至 lessons.md**：
+> 1. `Composition Selection` 新增 "rank × rank Mul 需 book yield basis 显化（b/p≥2）"（[[_consolidation/findings/pattern_analyst/012]] + [[_consolidation/findings/hypothesis_promoter/009]] 升格）— 充分但不必要条件 b/p≥2 → ls_t≥2 + Mul 跨族 (value × quality) regime drift 翻号衍生律
+> 2. `Path Selection` 顶层 macro lesson 段 "csi1000 daily fundamental + institutional flow 真饱和" 路径 b（PIT valuation rank composite 仅 1/PB book basis 显化）作为 5 路径独立证伪之一
+>
+> **状态机变更**：probing (rounds=3, admit=0, reserve=1) → **saturated**；priority `medium → low`；INDEX 仍列出（saturated 非 archived）但 Phase 1 不再考虑此方向；C006 yield × 1/PB reserve 火种保留待 calibration trigger 重启。
+>
+> **复活前置**：(a) lessons.md "Composition Selection rank × rank Mul book basis 律"被推翻；或 (b) 出现 PB 之外的 cross-section value Barra basis 字段（minute-bar 数据 / 不同 universe）；或 (c) Python residualize 工艺对 PIT valuation numerator 经独立验证有效。
+>
+> **下批 frontier 替代**：library_gap/010 提出 `cov_ratio_long_window`（F073/F074/F075 已 admit Mono_OOS≥-0.9 form 未饱和）/ library_gap/009 提出 `tsrank_timeseries_ratio`（库内 TsRank admit=0 结构性空白）。
