@@ -1,6 +1,6 @@
 ---
 direction_tag: fundamental_quality_carry
-status: dead
+status: archived
 priority: low
 rounds: 1
 admits: 0
@@ -8,18 +8,23 @@ last_batch: batch_068
 last_admits: []
 last_goal: 首批 6 候选探索 TTM quality LEVEL × 价量 / institutional-flow proxy / Sloan accruals
   / GARP，绕开 OHLCV 饱和与 rate-form 失败律。目标 ≥1 admit 验证 fundamental level frontier 仍有 alpha。
-last_activity: '2026-05-01T17:40:07Z'
+last_activity: '2026-05-02T02:00:00Z'
 created_batch: batch_068
 members: []
 retired_members: []
 merged_into: null
+archived_at: '2026-05-02T02:00:00Z'
+archived_reason: first-batch dead + 3 元教训已升格至 lessons.md (TTM-quality/liquidity ratio default-skip; TTM × TTM DSL 数据契约; signed fundamental cross-product P003 第 4 类 atom)
 ---
 # fundamental_quality_carry
 
 > [!abstract]+ 方向概要
-> - **状态**　🔴 `dead` · priority `low` · rounds = 1 · admits = 0
+> - **状态**　⚪ `archived` (2026-05-02 round 69 consolidation) · priority `low` · rounds = 1 · admits = 0
 > - **最近**　[[batches/batch_068/judge|batch_068]] · 2026-05-02 · admit=0 / reserve=0 / reject=6
-> - **一句话**　TTM quality × daily liquidity ratio 默认被 vol_20d 吸收（daily-aggregate liquidity denominator 是隐藏 vol_20d 路径）；first-batch dead，4 thread 全 disproven。
+> - **一句话**　TTM quality × daily liquidity ratio 默认被 vol_20d 吸收（daily-aggregate liquidity denominator 是隐藏 vol_20d 路径）；first-batch dead，4 thread 全 disproven；元教训已升格 → archived。
+> - **升格 lessons**　[[lessons#Forbidden Patterns]] TTM-quality / daily-aggregate-liquidity ratio default-skip · [[lessons#Path Selection]] TTM × TTM DSL 数据契约失败 · [[lessons#Forbidden Patterns]] Higher-moment regime sign-flip 第 4 类 atom (signed fundamental cross-product)
+> - **关联 findings**　[[_consolidation/findings/pattern_analyst/007]] · [[_consolidation/findings/pattern_analyst/008]] · [[_consolidation/findings/pattern_analyst/009]] · [[_consolidation/findings/hypothesis_promoter/005]] · [[_consolidation/findings/hypothesis_promoter/006]] · [[_consolidation/findings/hypothesis_promoter/007]]
+> - **复活前置**　仅当 lessons.md 升格条目本身被推翻（如 minute-bar 数据接入推翻 vol_20d 吸收律 / cross-section ffill 工具链就绪后 TTM × TTM Python 包装可执行）
 
 ---
 
@@ -136,3 +141,13 @@ merged_into: null
 > - MT budget: 6 tests 全 reject, direction 0→6 ; cumulative 366→372 (临近 high)
 > - Direction ops: `exploring → dead`（first-batch dead 律）；priority `high → low`；不进入 retry pool
 > - 升格 lessons 候选 (3 条): TTM-quality / daily-liquidity ratio default-skip / TTM × TTM Sub 需 Python / signed fundamental cross-product regime drift
+
+> [!success]+ 2026-05-02 · Phase 5 round 69 consolidation · 方向归档（dead → archived）
+> **3 条元教训已升格至 lessons.md**：
+> 1. `Forbidden Patterns` 新增 "TTM-quality / daily-aggregate-liquidity ratio default-skip"（pattern_analyst/007 + hypothesis_promoter/005 升格）
+> 2. `Path Selection` 新增 "TTM × TTM 直接 DSL Sub/Mul/Div 数据契约失败"（pattern_analyst/008 + hypothesis_promoter/006 升格）
+> 3. `Forbidden Patterns` Higher-moment regime sign-flip 段扩展第 4 类 atom "signed fundamental cross-product"（pattern_analyst/009 + hypothesis_promoter/007 升格）
+> - 同步：`vol_20d 结构性吸收律` 段补 "daily-aggregate liquidity denominator 隐藏路径" 子律（denominator-side 首次明确）；P004 证据链 ≥9 → ≥10 direction
+> - 状态机：`dead → archived`，INDEX 不再列出，Phase 1 direction-selection 不再考虑
+> - 复活前置：lessons 升格条目本身被推翻（minute-bar 数据 / Python ffill 工具链就绪 / Barra residualize 工具链 coverage > 0.80）
+> - 后续 frontier（library_gap finding 提议）：(a) `python_ttm_residual_quality` Python OLS residualize TTM quality on (size, vol_20d)；(b) `ttm_intra_field_interaction` TTM × TTM Python 包装；(c) `pit_valuation_pure` PIT valuation level（dividend_yield/pcf/peg）不带 daily liquidity denominator
