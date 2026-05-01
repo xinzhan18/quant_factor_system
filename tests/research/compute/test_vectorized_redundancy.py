@@ -11,8 +11,10 @@ import yaml
 from core.factor_stats import multiindex_to_flat
 
 from research.compute.vectorized_redundancy import (
+    build_library_rank_cache,
     compute_incremental_ic,
     compute_pairwise_redundancy,
+    compute_pairwise_redundancy_precomputed,
 )
 
 FIXTURES = Path(__file__).parent / "_fixtures"
@@ -89,6 +91,50 @@ class TestComputePairwiseRedundancy:
         )
         assert result["max_lib_corr"] == result_df["max_lib_corr"]
         assert result["nearest_factor_id"] == result_df["nearest_factor_id"]
+
+
+class TestComputePairwiseRedundancyPrecomputed:
+    def test_matches_legacy(
+        self,
+        candidate_signal: pd.DataFrame,
+        library_signals: dict[str, pd.DataFrame],
+    ) -> None:
+        cache = build_library_rank_cache(library_signals)
+        new = compute_pairwise_redundancy_precomputed(
+            candidate_signal, cache, threshold=0.7
+        )
+        old = compute_pairwise_redundancy(
+            candidate_signal, library_signals, threshold=0.7
+        )
+        assert new["nearest_factor_id"] == old["nearest_factor_id"]
+        assert new["max_lib_corr"] == pytest.approx(old["max_lib_corr"], abs=ATOL)
+        assert new["is_near_duplicate"] == old["is_near_duplicate"]
+        assert new["exceeds_threshold"] == old["exceeds_threshold"]
+        for fid, c in old["all_correlations"].items():
+            if pd.isna(c):
+                assert pd.isna(new["all_correlations"][fid])
+            else:
+                assert new["all_correlations"][fid] == pytest.approx(c, abs=ATOL)
+
+    def test_empty_cache(self, candidate_signal: pd.DataFrame) -> None:
+        cache = build_library_rank_cache({})
+        out = compute_pairwise_redundancy_precomputed(candidate_signal, cache)
+        assert out["max_lib_corr"] == 0.0
+        assert out["nearest_factor_id"] is None
+        assert out["is_near_duplicate"] is False
+        assert out["exceeds_threshold"] is False
+
+    def test_series_input_accepted(
+        self,
+        candidate_signal: pd.DataFrame,
+        library_signals: dict[str, pd.DataFrame],
+    ) -> None:
+        cache = build_library_rank_cache(library_signals)
+        cand_series = candidate_signal.iloc[:, 0]
+        new_s = compute_pairwise_redundancy_precomputed(cand_series, cache)
+        new_df = compute_pairwise_redundancy_precomputed(candidate_signal, cache)
+        assert new_s["max_lib_corr"] == new_df["max_lib_corr"]
+        assert new_s["nearest_factor_id"] == new_df["nearest_factor_id"]
 
 
 class TestComputeIncrementalIC:

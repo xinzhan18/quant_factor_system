@@ -18,6 +18,7 @@ library?":
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -31,6 +32,164 @@ def _as_series(signal: pd.DataFrame | pd.Series) -> pd.Series:
     if hasattr(signal, "ndim") and signal.ndim == 2:
         return signal.iloc[:, 0]
     return signal  # type: ignore[return-value]
+
+
+@dataclass(frozen=True)
+class LibraryRankCache:
+    """Pre-computed rank panel for the full admitted library.
+
+    All library signals share one (T, S) grid (intersection of dates and
+    symbols across all libs). Rank ndarrays are stored row-by-row so the
+    candidate side only needs to rank its own panel once and run a single
+    vectorized Pearson against every library factor.
+    """
+    index: pd.DatetimeIndex
+    columns: pd.Index
+    ranks: dict[str, np.ndarray]      # fid → (T, S) rank with NaN where invalid
+    validity: dict[str, np.ndarray]   # fid → (T, S) bool
+
+
+def build_library_rank_cache(
+    library_signals: dict[str, pd.DataFrame | pd.Series],
+) -> LibraryRankCache:
+    """Pre-compute wide-format ranks for every library signal once.
+
+    Library signals are unstacked to wide and rank-transformed (axis=1,
+    method='average') at build time. Each candidate then ranks its own
+    panel exactly once and uses these cached ranks for the pairwise
+    Pearson correlation, eliminating the per-candidate × per-library
+    unstack/rank repetition that dominates the redundancy step.
+    """
+    if not library_signals:
+        return LibraryRankCache(
+            index=pd.DatetimeIndex([]),
+            columns=pd.Index([]),
+            ranks={},
+            validity={},
+        )
+
+    wides: dict[str, pd.DataFrame] = {}
+    for fid, sig in library_signals.items():
+        s = _as_series(sig)
+        wides[fid] = s.unstack(level=-1)
+
+    # Common (date × symbol) grid = intersection across all libs
+    idx = wides[next(iter(wides))].index
+    cols = wides[next(iter(wides))].columns
+    for w in wides.values():
+        idx = idx.intersection(w.index)
+        cols = cols.intersection(w.columns)
+
+    ranks: dict[str, np.ndarray] = {}
+    validity: dict[str, np.ndarray] = {}
+    for fid, w in wides.items():
+        aligned = w.loc[idx, cols]
+        valid = aligned.notna().to_numpy()
+        rk = aligned.rank(axis=1, method="average").to_numpy()
+        ranks[fid] = rk
+        validity[fid] = valid
+
+    return LibraryRankCache(
+        index=pd.DatetimeIndex(idx),
+        columns=pd.Index(cols),
+        ranks=ranks,
+        validity=validity,
+    )
+
+
+def compute_pairwise_redundancy_precomputed(
+    candidate_signal: pd.DataFrame | pd.Series,
+    cache: LibraryRankCache,
+    threshold: float = 0.7,
+    min_obs: int = 5,
+) -> dict[str, Any]:
+    """Same return shape as compute_pairwise_redundancy, using cached lib ranks.
+
+    Joint-mask re-rank is required for bit-equivalence with the legacy
+    path: `_rank_corr_timeseries` ranks AFTER masking on joint validity,
+    so candidate and library ranks must use the same valid set.
+    """
+    if not cache.ranks:
+        return {
+            "max_lib_corr": 0.0,
+            "nearest_factor_id": None,
+            "is_near_duplicate": False,
+            "exceeds_threshold": False,
+            "all_correlations": {},
+        }
+
+    cand = _as_series(candidate_signal)
+    cand_wide = cand.unstack(level=-1)
+    idx = cache.index.intersection(cand_wide.index)
+    cols = cache.columns.intersection(cand_wide.columns)
+    if len(idx) == 0 or len(cols) == 0:
+        return {
+            "max_lib_corr": 0.0,
+            "nearest_factor_id": None,
+            "is_near_duplicate": False,
+            "exceeds_threshold": False,
+            "all_correlations": {fid: float("nan") for fid in cache.ranks},
+        }
+
+    row_pos = cache.index.get_indexer(idx)
+    col_pos = cache.columns.get_indexer(cols)
+
+    cand_aligned = cand_wide.loc[idx, cols]
+    cand_valid = cand_aligned.notna().to_numpy()
+    cand_rank_full = cand_aligned.rank(axis=1, method="average").to_numpy()
+
+    all_corrs: dict[str, float] = {}
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        for fid, lib_rank_full in cache.ranks.items():
+            lib_rank = lib_rank_full[np.ix_(row_pos, col_pos)]
+            lib_valid = cache.validity[fid][np.ix_(row_pos, col_pos)]
+            joint = cand_valid & lib_valid
+            n_valid = joint.sum(axis=1)
+            keep = n_valid >= min_obs
+            if not keep.any():
+                all_corrs[fid] = float("nan")
+                continue
+
+            # Re-rank under joint mask — pandas-style 'average' over numpy
+            cr = np.where(joint, cand_rank_full, np.nan)
+            lr = np.where(joint, lib_rank, np.nan)
+            cr = pd.DataFrame(cr).rank(axis=1, method="average").to_numpy()
+            lr = pd.DataFrame(lr).rank(axis=1, method="average").to_numpy()
+
+            mc = np.nanmean(cr, axis=1, keepdims=True)
+            ml = np.nanmean(lr, axis=1, keepdims=True)
+            c_dev = cr - mc
+            l_dev = lr - ml
+            num = np.nansum(c_dev * l_dev, axis=1)
+            den_c = np.sqrt(np.nansum(c_dev * c_dev, axis=1))
+            den_l = np.sqrt(np.nansum(l_dev * l_dev, axis=1))
+            den = den_c * den_l
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr = np.where(den > 0, num / den, np.nan)
+            corr = np.where(keep, corr, np.nan)
+            corr_finite = corr[np.isfinite(corr)]
+            all_corrs[fid] = float(corr_finite.mean()) if corr_finite.size else float("nan")
+
+    abs_corrs = {fid: abs(c) for fid, c in all_corrs.items() if not np.isnan(c)}
+    if not abs_corrs:
+        return {
+            "max_lib_corr": 0.0,
+            "nearest_factor_id": None,
+            "is_near_duplicate": False,
+            "exceeds_threshold": False,
+            "all_correlations": all_corrs,
+        }
+    nearest_id = max(abs_corrs, key=lambda k: abs_corrs[k])
+    max_corr = abs_corrs[nearest_id]
+    return {
+        "max_lib_corr": round(max_corr, 4),
+        "nearest_factor_id": nearest_id,
+        "is_near_duplicate": max_corr > 0.9,
+        "exceeds_threshold": max_corr > threshold,
+        "all_correlations": all_corrs,
+    }
 
 
 def _rank_corr_timeseries(
