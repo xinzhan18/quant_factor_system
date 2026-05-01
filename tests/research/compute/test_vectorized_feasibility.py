@@ -22,6 +22,7 @@ import yaml
 
 from research.compute.vectorized_feasibility import (
     build_proxy_portfolio,
+    compute_liquid_flag,
     compute_liquidity_coverage,
     compute_rebalance_stress,
     compute_signal_autocorr_lag1,
@@ -108,9 +109,8 @@ class TestLiquidityCoverage:
         amount_data: pd.DataFrame,
         golden: dict,
     ) -> None:
-        result = compute_liquidity_coverage(
-            proxy.abs_weights, amount_data, window=20, pct=0.30
-        )
+        liquid_flag = compute_liquid_flag(amount_data, window=20, pct=0.30)
+        result = compute_liquidity_coverage(proxy.abs_weights, liquid_flag)
         assert result == pytest.approx(
             golden["feasibility"]["liquidity_coverage"], abs=1e-6
         )

@@ -697,6 +697,11 @@ def build_phase2_inputs(
     amount_data.columns = ["$amount"]
     amount_data.index.names = ["datetime", "instrument"]
 
+    # 5b. Pre-compute liquid flag once per batch (drives feasibility's
+    # liquidity_coverage; rolling-median + per-date quantile dominate).
+    from research.compute.vectorized_feasibility import compute_liquid_flag
+    liquid_flag = compute_liquid_flag(amount_data)
+
     market_cap_data = market[["$market_cap"]].copy()
     market_cap_data.columns = ["$market_cap"]
     market_cap_data.index.names = ["datetime", "instrument"]
@@ -726,6 +731,7 @@ def build_phase2_inputs(
         universe_masks=universe_masks,
         paths=paths,
         library_rank_cache=library_rank_cache,
+        liquid_flag=liquid_flag,
     )
 
 

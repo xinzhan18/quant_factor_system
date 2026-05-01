@@ -42,6 +42,7 @@ from research.compute.vectorized_barra import compute_barra_exposures
 from research.compute.vectorized_distribution import compute_distribution
 from research.compute.vectorized_feasibility import (
     build_proxy_portfolio,
+    compute_liquid_flag,
     compute_liquidity_coverage,
     compute_rebalance_stress,
     compute_signal_autocorr_lag1,
@@ -133,6 +134,11 @@ class Phase2Inputs:
     # once per batch in ``build_phase2_inputs`` (or lazily by ``run_phase2``
     # when None) and reused across every candidate's redundancy check.
     library_rank_cache: LibraryRankCache | None = None
+
+    # Pre-computed liquid flag from ``amount_data`` — does not depend on
+    # any candidate, so we build it once per batch instead of per
+    # candidate (rolling-median + per-date quantile dominate feasibility).
+    liquid_flag: pd.Series | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -561,7 +567,7 @@ def _evaluate_candidate(
         )
         proxy = build_proxy_portfolio(cand_mi, tradable_mi)
         turnover_mean = float(proxy.turnover.mean())
-        lcr = compute_liquidity_coverage(proxy.abs_weights, inputs.amount_data)
+        lcr = compute_liquidity_coverage(proxy.abs_weights, inputs.liquid_flag)
         tail = compute_tail_concentration(proxy.abs_weights)
         small_cap = compute_small_cap_concentration(
             proxy.abs_weights, inputs.market_cap
@@ -704,6 +710,8 @@ def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
     """Run Phase 2 on all candidates in *inputs* and write ``result.yaml``."""
     if inputs.library_rank_cache is None:
         inputs.library_rank_cache = build_library_rank_cache(inputs.library_signals)
+    if inputs.liquid_flag is None:
+        inputs.liquid_flag = compute_liquid_flag(inputs.amount_data)
     results = [_evaluate_candidate(c, inputs) for c in inputs.candidates]
 
     n_ok = sum(1 for r in results if r.get("compute_error") is None)

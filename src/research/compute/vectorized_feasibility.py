@@ -210,38 +210,44 @@ def _weighted_flag_ratio(weights: pd.Series, flag: pd.Series) -> float:
 # ---------------------------------------------------------------------------
 
 
-def compute_liquidity_coverage(
-    abs_weights: pd.DataFrame,
+def compute_liquid_flag(
     amount_data: pd.DataFrame,
     *,
     window: int = 20,
     pct: float = 0.30,
-) -> float:
-    """Time-averaged liquidity coverage ratio in ``[0, 1]``.
+) -> pd.Series:
+    """Per (date, symbol) liquid flag — does not depend on any candidate.
 
-    A stock is "liquid" when its ``rolling(window).median()`` of ``$amount``
-    is at or above the cross-sectional ``pct`` percentile on that date.
+    A stock is "liquid" on date d if its ``rolling(window).median()`` of
+    ``$amount`` ending at d is ≥ the cross-sectional ``pct`` percentile
+    of that median across all stocks on d. Build once per batch and reuse
+    across every candidate's :func:`compute_liquidity_coverage` call —
+    rolling-median + per-date quantile dominate the feasibility step.
     """
     amt_col = amount_data.columns[0]
 
-    # Rolling median per instrument
     liq20 = (
         amount_data[amt_col]
         .groupby(level=1)
         .transform(lambda s: s.rolling(window, min_periods=1).median())
     )
-
-    # Cross-sectional percentile threshold per date.
-    # Using groupby(level=0).transform(quantile) would also work but is
-    # slower than a one-liner via .quantile and map.
     thresholds = liq20.groupby(level=0).quantile(pct)
     threshold_aligned = liq20.index.get_level_values(0).map(thresholds)
-
-    liquid_flag = pd.Series(
+    return pd.Series(
         liq20.values >= threshold_aligned.values,
         index=liq20.index,
     )
 
+
+def compute_liquidity_coverage(
+    abs_weights: pd.DataFrame,
+    liquid_flag: pd.Series,
+) -> float:
+    """Time-averaged liquidity coverage ratio in ``[0, 1]``.
+
+    Pass the precomputed ``liquid_flag`` from :func:`compute_liquid_flag`
+    (built once per batch from ``amount_data``).
+    """
     w_col = abs_weights.columns[0]
     return _weighted_flag_ratio(abs_weights[w_col], liquid_flag)
 
