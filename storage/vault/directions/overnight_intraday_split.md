@@ -2,22 +2,45 @@
 direction_tag: overnight_intraday_split
 status: productive
 priority: medium
-rounds: 11
+rounds: 12
 admits: 9
-last_batch: batch_060
+last_batch: batch_066
 last_admits: []
-last_goal: '推进 T012 close-position atom 几何穷尽后的下一代 LHS 突破 (改 normalization / 非线性 wrap
-  / 不对称 reference) + T013 sign-离散化 vs magnitude-混合 driver 重叠假说验证。T012: (a) 跨窗 range
-  normalization (Min/Max 20d/60d) 改分母 scale, (b) Power-cubed 非线性 wrap 破仿射 (Mean(Power(close_pos-0.5,
-  3), 20) 让外端值非线性放大), (c) from-peak vs from-trough 不对称 reference (打破 (C-L)/(H-L) 对称性)。T013:
-  |body|×Sign(gap) 与 Sign(intraday)×|overnight| 双向 hybrid 测 sign+magnitude 混合形式是否兑现
-  <50% drivers 重叠。规避 dead RHS endpoints (overnight_5 / turnover_5 / amount_20 / body_ratio_20
-  / price_vol_20 / Amihud_20 / circ_mktcap_60 / H_L_60_geo) 与 F022/F019/F020/F021
-  anti-anchor cluster。RHS 全部 fresh categories: volume_CV、PB/PS/PE 长窗 fundamental ratio、turnover_60
-  长窗 level、price-turnover Corr。设计阶段恪守: 不在 CsRank 内部嵌套 custom ops (TsMin/TsMax/Tanh/SignedPower/HHI/RealizedVol/AmihudIlliq)
-  — 使用 qlib 内置 Min/Max/Power 替代,绕开 operators.py:428 _build_cs_cache 的 __str__ 类名悬挂
-  bug。'
-last_activity: '2026-04-28T03:13:35Z'
+last_goal: 'T014/T015/T016/T017 baseline — overnight/intraday segment 内部异质性 atom 探索.
+  close_position (T012 EXHAUSTED) + sign-discretization hybrid (T013 DISPROVEN) +
+  close-position 4 代几何已封闭后, 开新四 thread:
+
+  T014 (autocorr via Corr+Ref): overnight_ret 与 intraday_ret 的 lag-1 自相关 (用 qlib 内置
+  Corr(X, Ref(X,1), 20) 等价 TsAutoCorr) — 持续性方向信号 (institutional accumulation 几何 vs
+  random walk).
+
+  T015 (shape moments Skew/Kurt): overnight_ret 分布形状 (非 magnitude) — Skew/Kurt 是 scale-free
+  shape moment. 用 qlib 内置 Skew/Kurt (区别 custom TsSkew/TsKurt) — 单层 20d safe per F019/F020
+  律.
+
+  T016 (Rank within-window): overnight_5d_mean 在 60d 内的 time-series rank — within-name
+  相对强度. 用 qlib 内置 Rank.
+
+  T017 (Corr atom): volume × overnight_gap 20d 滚动 correlation — 量价共振 within-name 时序
+  Corr.
+
+  设计硬约束: (1) LHS atom 全部 vol_20d 几何正交 — Corr/Skew/Kurt/Rank 都是 ordinal/shape/correlation
+  形式不嵌入 magnitude basis; (2) 全部 LHS 触及 overnight 或 intraday 字段 (direction-coherent);
+  (3) RHS 全部 fresh categories: $volume level / $pe_ratio / $pb_ratio / $ps_ratio /
+  $amount 长窗 — 严避 turnover-family + H-L_60 family + dead RHS endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60);
+  (4) 6 候选每个对应不同 LHS atom 不重叠, RHS 错开 (volume_60 / pe_60 / pb_60 / ps_60 / volume_std_60
+  / amount_120); (5) F018/F022/F023 anchor cluster pre-check — Corr/Skew/Kurt/Rank
+  与 sign-freq/close-position/gap-body magnitude 几何无 affine 关系; (6) **关键修正**: 不嵌套 custom
+  ops (TsAutoCorr/TsSkew/TsKurt/TsRank) 在 CsRank 内部, 改用 qlib 内置 (Corr+Ref / Skew /
+  Kurt / Rank) 绕开 operators.py:428 _build_cs_cache __str__ 类名悬挂 bug; (7) 6 候选 LHS
+  atom 全部 0-admit operator family 在本 direction (Skew/Kurt/Rank/Corr 在 F009-F023 中
+  0 出现).
+
+  目标 ≥1 admit 兑现 max_corr@library<0.50 + alpha_surv≥0.30 (rank_diff_geometry floor)
+  + |ls_t|≥2 + incr_ic≥0.015 (borderline 区间). 风险: P003 higher-moment regime drift
+  在 Skew/Kurt 形状 moment 上是否同样作用 — C003+C006 双侧验证形状 moment 在 csi1000 train→val 上的 regime
+  stability.'
+last_activity: '2026-05-01T13:37:59Z'
 created_batch: batch_025
 members:
 - F009
@@ -217,6 +240,73 @@ merged_into: null
 
 ---
 
+### T014 · overnight/intraday autocorr atom (lag-1 持续性) [✗ DISPROVEN batch_066]
+
+> [!failure]+ Thread 结论：autocorr atom 在 csi1000 daily-bar cross-section 上仍 vol_20d-locked
+> **Question**: lag-1 autocorr (overnight_ret 与 intraday_ret 的 within-name 时序持续性, Corr(X, Ref(X,1), 20)) 作为 LHS atom 是否携带独立于 magnitude (F009/F010) / sign-freq (F018) / magnitude-product (F023) 的新 alpha?
+>
+> **Answer**: **autocorr atom 形式上 ordinal 持续性度量 (Corr ∈ [-1,1] scale-free) 但 cross-section rank 仍 monotone equivalent to vol_20d** — stocks with persistent overnight directionality 在 csi1000 上倾向于是 high-vol 名 (institutional accumulation 集中在小盘 vol-extreme), autocorr cross-section 排名与 vol_20d 排名共变.
+>
+> **Evidence trail**:
+> - [[batches/batch_066/candidates/C001|batch_066 C001]]　Corr(overnight_ret, Ref(overnight_ret,1), 20) × Mean($volume,60), ic_oos=0.010 ls_t=1.92 mono_oos=1.0, alpha_surv=0.32 仅过 rank_diff floor 0.30, max_corr=0.527@F002 borderline + incr_ic=-0.002<0.015 (F203) → **reject** (P006 reducer borderline; vol_20d=7.20 absorption)
+> - [[batches/batch_066/candidates/C002|batch_066 C002]]　Corr(intraday_ret, Ref(intraday_ret,1), 20) × Mean($pe_ratio,60), ic_oos=0.014 ls_t=2.46 mono_oos=1.0 + 9/9 年 7 positive + max_corr=**0.131@F002 库内最 clean** + incr_ic=+0.005 weak positive, alpha_surv=**0.06 critical** → **reject** (vol_20d=5.77 + book_to_price=0.62 + ep_ratio=1.22 共吞噬; T003 disprove "intraday body=random walk" 复现)
+>
+> **Key finding (b066)**: **autocorr atom 库内最 clean (C002 max_corr=0.13) 但 alpha_surv=0.06 critical** — autocorr 是 ordinal 持续性度量本质仍嵌入 vol_20d basis (intraday autocorr ~0 时只能借 vol_20d 形成 cross-section signal). T014 双侧探针 (overnight + intraday) 0/2 admit, atom 在 csi1000 daily-bar 1d primary_horizon 下封闭. 复活路径仅 (a) minute-bar 数据 / (b) 长 horizon admission 标准.
+
+---
+
+### T015 · overnight return shape moment LHS (Skew/Kurt) [✗ DISPROVEN batch_066]
+
+> [!failure]+ Thread 结论：形状 moment 不 P003-flip 但 P004-absorb (跨 3rd/4th 阶 同律)
+> **Question**: shape moment (Skew/Kurt of overnight_ret 20d, scale-free 4th-standardized) 作为 LHS 是否与 magnitude moment (F019 body Std / F020 gap Std) 几何独立? P003 higher-moment regime sign-flip 律是否在形状 moment 上同样作用?
+>
+> **Answer**: **形状 moment regime stable 不 sign-flip (sign_consistency=1.0 + 9/9 年同号), 但 cross-section rank 仍 monotone equivalent to vol_20d (P004 absorb 同律)** — heavy-tailed 股票 ↔ high-vol 股票, Kurt cross-section rank 与 vol_20d rank 共变.
+>
+> **Evidence trail**:
+> - [[batches/batch_066/candidates/C003|batch_066 C003]]　Skew(overnight_ret, 20) × Mean($pb_ratio,60), ic_oos=0.023 mono_oos=0.9 ls_t=1.07 weak + sign_consistency=1.0 + 9/9 年 7 positive (**不 P003-flip**), alpha_surv=**0.07 critical** (str_1m=1.99 + vol_20d=5.77 双吞噬), max_corr=0.323@F002 → **reject** (CP03 weak + CP04 P004 absorb)
+> - [[batches/batch_066/candidates/C006|batch_066 C006]]　Kurt(overnight_ret, 20) × Mean($amount,120), ic_oos=0.024 ls_t=**3.22 本批最强** mono_oos=1.0 + horizon anti-decay (1d=0.024→20d=0.079) + sign_consistency=1.0 + 9/9 年 8 positive + 2023 IC=0.030 强势 + cum_ic_mdd=-2.23, alpha_surv=**0.07 critical** (vol_20d=9.49) + max_corr=0.602@F012 borderline + incr_ic=+0.006<0.015 (F203 borderline gate) → **reject** (CP04 P004 absorb + CP05 borderline cluster + F203 borderline gate)
+>
+> **Key finding (b066) — 形状 moment 边界律 (lessons 升格候选)**:
+> - **不 P003-flip**: P003 raw return Std/Var 在 train→val regime 翻号是因为 train (低利率成长) 与 val (利率上行价值回归) 的横截面 vol-magnitude 重排; **形状 moment (Skew/Kurt) 度量分布形状, 在 regime 切换中形状稳定** (csi1000 个股 daily return 总是右偏 + 高峰度, 不随 regime drift). C003+C006 双侧 sign_consistency=1.0 + 9/9 年同号验证.
+> - **仍 P004-absorb**: cross-section rank 与 vol_20d 仍 monotone-equivalent (heavy-tailedness ↔ daily-vol covariation). C003+C006 alpha_surv=0.07 双低 + dom=vol_20d. 跨阶证据: 3rd Skew (b066 C003) + 4th Kurt (b066 C006) 同律.
+> - **升格 lessons 候选**: "Skew/Kurt of raw return 形状 moment 在 csi1000 train→val regime stable (不 P003-flip), 但 cross-section rank 与 vol_20d 仍 monotone-equivalent (P004 absorb 同律) — heavy-tailedness ↔ daily-vol covariation. 跨阶证据: 3rd (b066 C003) + 4th (b066 C006) 同律."
+>
+> **Final state (b066 DISPROVEN)**: 形状 moment LHS 在 csi1000 daily-bar 几何上虽 regime-stable 但被 P004 vol_20d basis absorbed. 仅 minute-bar / 长 horizon evaluation 可能复活, 当前 daily-bar 下封闭.
+
+---
+
+### T016 · TsRank/Rank wrap of admitted atom [✗ DISPROVEN batch_066]
+
+> [!failure]+ Thread 结论：Rank wrapper 不脱 anchor cluster, 仅 within-name normalization
+> **Question**: Rank(Mean(overnight_ret,5), 60) wrapper 把 F010 admitted atom 转换为 within-name historical rank (0-1), 是否生成新的 cross-section ordering, 独立于原 atom?
+>
+> **Answer**: **Rank wrapper 仅是 within-name normalization, 不脱 F010 anchor cluster** — Rank/TsRank 把 X 转换为 within-name historical 0-1 rank, cross-section ordering 与原 X 高度相关.
+>
+> **Evidence trail**:
+> - [[batches/batch_066/candidates/C004|batch_066 C004]]　Rank(Mean(overnight_ret,5), 60) × Mean($ps_ratio,60), ic_oos=0.021 ls_t=1.53 mono_oos=0.7, max_corr=**0.611@F010 borderline cluster** + incr_ic=**-0.005 negative library reducer** + alpha_surv=**0.03 critical** (vol_20d=9.24 极值) → **reject** (CP05 cluster + reducer + CP04 P004 absorb)
+>
+> **Key finding (b066)**: **Rank wrap 是 "Rank-preserving 单算子变体零增量律" 的次级实例** — 不像 Linear/SignedPower/Sigmoid 等纯 monotone 变换 cross-section 完全保留 (max_corr=1.000), Rank wrap 通过 within-name normalization 改变 cross-section ordering 一些, 但仍 corr=0.61 with F010. 类比 lessons.md "Rank-preserving 单算子变体零增量律".
+
+---
+
+### T017 · 量价时序 covariance atom (Corr$volume × overnight_gap) [◉ ACTIVE]
+
+> [!warning]+ Thread 进展：Barra-clean 反例首兑现 (1 reserve), 但 ls_t_oos 不投资
+> **Question**: Corr($volume, overnight_gap, 20) within-name 时序 covariance atom 是否独立于 magnitude (F023) / sign-freq (F018) 维度? Barra-clean (alpha_surv>1.0) candidate 是否能 admit?
+>
+> **Evidence trail**:
+> - [[batches/batch_066/candidates/C005|batch_066 C005]]　Corr($volume, overnight_gap_raw, 20) × Std($volume,60), ic_oos=0.009 weak ls_t=1.26 + alpha_surv=**1.16 库内首 candidate Barra residual IC > raw IC** + sign_consistency=1.0 + mono=1.0/1.0 完美 + 9/9 年正 (0.004-0.033) + cum_ic_mdd=-1.66 浅; train→val IC decay 0.019→0.009 (52% 衰减) + ls_t_oos=1.26 < 2 + incr_ic=-0.001 + max_corr=0.461@F002 borderline (F002=0.46 / F012=0.38 / F018=0.37 三方向 ~0.4 cluster) → **reserve** (CP03 weak + CP05 cluster + 但 CP04 极致 Barra-clean + CP06 9/9 年同号 sign consistency=1.0)
+>
+> **Key finding (b066) — Barra-clean 与 library-clean 反向矛盾**:
+> - C005 alpha_surv=**1.16** Barra cleanest in batch + max_corr=0.46 borderline anchor cluster
+> - C002 max_corr=**0.13** library cleanest in batch + alpha_surv=0.06 critical
+> - **不存在双 clean 候选** — F002/F012 anchor cluster 占据 vol_20d-orthogonal subspace, "逃 vol_20d 必撞 anchor" 几何困境
+> - 验证 lessons.md "Barra-clean ≠ library-clean" 律反向亦成立
+>
+> **下一步**: T017 仅 reserve 火种待 evaluation policy 调长 horizon (10d-20d C005 IC 显著上升 0.016-0.025 + ICIR 0.17-0.27) 或 F002/F012 anchor 退役后重测.
+
+---
+
 ## Known Failures
 
 | Batch | Candidate | Pattern | 原因 |
@@ -243,6 +333,11 @@ merged_into: null
 | batch_060 | C003 | `Sub(CsRank(Mean((Max(H,20)-C)/Max(H,20),20)),CsRank(ps_60))` | hard_gate fail ic_oos=0.0040 < 0.008 — **T012(c) from-peak 不对称 reference DISPROVEN** — 单边 channel reference cross-section 信号塌缩 noise |
 | batch_060 | C004 | `Sub(CsRank(Mean(Sign(O-Ref(C,1))*Abs(C-O),20)),CsRank(pe_60))` | T013 hybrid Sign×\|magnitude\| 探针 — alpha_surv=0.27 < 0.30 floor + incr_ic=-0.0016 + ls_t=2.23 borderline — hybrid 形式 magnitude-side 嵌入 vol_20d basis,sign-side 退化无法脱 Barra |
 | batch_060 | C005 | `Sub(CsRank(Mean(Sign(C-O)*Abs(O-Ref(C,1)),20)),CsRank(turnover_60))` | T013 hybrid 镜像 — alpha_surv=0.09 critical + ls_t=0.47 + train_val_decay=10.88 极端 — sign-side 互换 (overnight↔intraday) 无救,**T013 hybrid 路径 DISPROVEN** |
+| batch_066 | C001 | `Sub(CsRank(Corr(overnight_ret, Ref(overnight_ret,1), 20)),CsRank(Mean($volume,60)))` | T014 overnight autocorr × volume — alpha_surv=0.32 仅过 rank_diff floor 0.30 + max_corr=0.527@F002 borderline + incr_ic=-0.002<0.015 (F203) — autocorr atom 仍 vol_20d 几何载体 |
+| batch_066 | C002 | `Sub(CsRank(Corr(intraday_ret, Ref(intraday_ret,1), 20)),CsRank(Mean($pe_ratio,60)))` | T014 mirror — intraday autocorr × PE — **库内最 clean** (max_corr=0.13) + ls_t=2.46 + 9/9 年 7 positive 但 alpha_surv=**0.06 critical** (vol_20d=5.77 + book_to_price=0.62 + ep_ratio=1.22 共吞噬) — autocorr atom 也是 vol_20d 几何载体 |
+| batch_066 | C003 | `Sub(CsRank(Skew(overnight_ret,20)),CsRank(Mean($pb_ratio,60)))` | T015 形状 moment — **不 P003-flip** (sign_consistency=1.0 + 9/9 年 7 positive) **但 P004 absorb** — alpha_surv=0.07 + ls_t=1.07 weak (str_1m=1.99 + vol_20d=5.77 双吞噬) |
+| batch_066 | C004 | `Sub(CsRank(Rank(Mean(overnight_ret,5),60)),CsRank(Mean($ps_ratio,60)))` | T016 Rank wrap — max_corr=**0.611@F010 borderline cluster** + incr_ic=**-0.005 negative reducer** + alpha_surv=0.03 critical — TsRank wrapper 不脱 F010 anchor cluster |
+| batch_066 | C006 | `Sub(CsRank(Kurt(overnight_ret,20)),CsRank(Mean($amount,120)))` | T015 mirror — Kurt 形状 moment — ls_t=**3.22 本批最强** + mono=1.0 + 9/9 年 8 positive + horizon anti-decay (1d=0.024→20d=0.079) **不 P003-flip** 但 alpha_surv=0.07 + max_corr=0.602@F012 borderline + incr_ic=+0.006<0.015 (F203 borderline gate) — **形状 moment cross-section rank 仍 vol_20d-locked** |
 
 ---
 
@@ -268,7 +363,21 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-28 · [[batches/batch_060/judge|batch_060]] · zero admit · T012 EXHAUSTED + T013 hybrid DISPROVEN
+> [!quote]+ 2026-05-01 · [[batches/batch_066/judge|batch_066]] · zero admit · T014/T015/T016 DISPROVEN + T017 ANSWERED-partial (1 reserve)
+> **zero admit · 4 thread 全在 vol_20d basis 撞墙 (T014/T015/T016 DISPROVEN) + Barra-clean 反例首兑现 (T017 reserve)** · admit=0 / reserve=1 (C005) / reject=5 (C001/C002/C003/C004/C006)
+>
+> - **核心律 — "逃 vol_20d 必撞 library anchor" 几何困境**: csi1000 daily-bar cross-section 上 6/6 候选 dominant_style=vol_20d. 关键反例对照: **C002 max_corr=0.13 库内最 clean ✓ + alpha_surv=0.06 vol_20d 吞噬 ✗**; **C005 alpha_surv=1.16 Barra cleanest ✓ + max_corr=0.46@F002 anchor cluster ✗**. **不存在双 clean 候选** — F002/F012 anchor cluster 占据 vol_20d-orthogonal subspace. 验证 lessons.md "Barra-clean ≠ library-clean" 律反向亦成立.
+> - **T014 (autocorr atom) DISPROVEN**: overnight + intraday 双侧 lag-1 autocorr (Corr(X, Ref(X,1), 20)) 0/2 admit. C001 (overnight): alpha_surv=0.32 仅过 rank_diff floor + max_corr=0.527 borderline + incr_ic=-0.002 (P006 reducer borderline). C002 (intraday): ls_t=2.46 + max_corr=0.13 库内最 clean + 9/9 年 7 positive 但 alpha_surv=0.06 critical (vol_20d=5.77 + book_to_price=0.62 + ep_ratio=1.22 共吞噬). **机理**: stocks with persistent overnight directionality 在 csi1000 倾向于 high-vol 名 (institutional accumulation 集中小盘), autocorr cross-section 排名与 vol_20d 共变. **T003 disprove "intraday body=random walk" 复现** (intraday autocorr ~0 时只能借 vol_20d basis 形成 cross-section signal).
+> - **T015 (形状 moment Skew/Kurt) DISPROVEN — 形状 moment 边界律 lessons 升格候选**: C003 (Skew, ls_t=1.07 weak alpha_surv=0.07) + C006 (Kurt, ls_t=**3.22 本批最强** mono=1.0 + horizon anti-decay 1d=0.024→20d=0.079 + 9/9 年 8 positive 但 alpha_surv=0.07 + max_corr=0.602@F012 borderline + incr_ic=+0.006<0.015) 双侧探针. **关键发现**: 形状 moment **不 P003-flip** (sign_consistency=1.0 + 9/9 年同号验证, 形状 moment 度量分布形状, regime 切换中形状稳定) **但仍 P004 absorb** (heavy-tailedness ↔ daily-vol covariation, cross-section rank 仍 monotone-equivalent to vol_20d). **跨阶证据 (3rd Skew + 4th Kurt 同律)**.
+> - **T016 (Rank/TsRank wrap) DISPROVEN**: C004 (Rank(overnight_5,60) × ps_60) max_corr=0.611@F010 borderline cluster + incr_ic=-0.005 negative reducer + alpha_surv=0.03. **机理**: Rank wrapper 是 within-name normalization 不改 cross-section ordering — F010 已 admit overnight_5 cross-section, Rank wrap 后只缩放但 rank 几乎保留. 类比 lessons.md "Rank-preserving 单算子变体零增量律" 次级实例.
+> - **T017 (Corr atom) ANSWERED-partial (1 reserve)**: C005 (Corr($volume, overnight_gap_raw, 20) × Std($volume,60)) alpha_surv=**1.16 库内首 candidate Barra residual IC > raw IC** + sign_consistency=1.0 + mono=1.0/1.0 完美 + 9/9 年正; 但 train→val IC decay 0.019→0.009 (52% 衰减) + ls_t_oos=1.26 < 2 + incr_ic=-0.001 + max_corr=0.461@F002. **保留为火种**等 evaluation policy 调长 horizon (10d-20d IC 显著上升) 或 F002/F012 anchor 退役后重测.
+> - **整阶 moment family vol_20d-locked (跨阶律)**: 1st Mean (F010/F011 admit, 本方向源头) → 2nd Std/Var (P003 sign-flip) → 3rd Skew (b066 C003 P004 absorb) → 4th Kurt (b066 C006 P004 absorb) → correlation moment autocorr/Corr (b066 C001/C002/C005 P004 absorb). operator family novelty 不解决 style 重表达, 形状 moment 边界律为 P003 与 P004 拼接补全的关键证据.
+> - **Status 调整候选**: 鉴于 T012/T013 close-position+sign-discretization + T014/T015/T016 autocorr+Skew/Kurt+Rank wrap **6 thread 全 closed** + T017 仅 reserve 火种 + zero_admit_streak=6 (b061-b066 含跨方向 batch_063 ohlc_temporal_aggregation / batch_064 range_structure / batch_065 trend_residual_geometry), 信号设计层证据 ≥3 路径 cluster + 数据契约层 minute-bar 不可达, **触发双层 saturated 证据律**. 但 9 admit 历史 + T017 reserve, **不 dead** — 转 saturated 候选 (Phase 4 archive 后由 Python auto-status 或 LLM 在下批 narrative 翻).
+> - **MT budget**: cumulative 354 → **360** · direction 39 → **45** · bucket `medium` (search_adjusted: C001/C005 low + C002/C003/C004/C006 medium) · 本批 6 candidates 全 hard_gate pass + raw bucket=high (direction.exposure=1.0 满 + family=0.918 高位)
+>
+> **Operations**　direction `productive` 保持 (待 Phase 4 status auto-update 或下批 LLM 翻 saturated) · `priority: medium` 保持 · T014 / T015 / T016 三 thread `[◉ ACTIVE] → [✗ DISPROVEN batch_066]` 一次性新建 + 关闭 · T017 `[◉ ACTIVE]` 部分 ANSWERED 保持 (1 reserve C005) · zero_admit_streak 5→6 · 不触 calibration trigger (本批无候选满足完整错杀 signature: max_corr<0.30 + incr_ic>0.010 + mono>0.8 + sign_consistency=1.0 五条件 — C002 仅满足 4/5, incr_ic=+0.005<0.010) · rounds_since_last_consolidation 6→7 (距 10 阈值 3 批) — 临近 consolidation trigger, 若下 3 批仍 zero_admit 应优先触 consolidation (lessons 升格 P003/P004 形状 moment 边界律 + autocorr P004 absorb + "逃 vol_20d 必撞 anchor" 律) · Phase 4 archive 后 commit message: `[mine] batch_066 | overnight_intraday_split | admits=0 rejects=5 reserves=1`
+
+> [!quote]- 2026-04-28 · [[batches/batch_060/judge|batch_060]] · zero admit · T012 EXHAUSTED + T013 hybrid DISPROVEN
 > **zero admit · T012 4 代 LHS 设计全军覆没 + T013 hybrid 双向探针 0/2 admit** · admit=0 / reserve=1 (C006) / reject=5 (C001/C002/C003/C004/C005)
 >
 > - **T012 EXHAUSTED · close-position atom 4 代 LHS 设计全军覆没**: F022 admit (b058) → b059 center-position 仿射 (corr=0.93 hard_gate near_dup) → b060 跨窗 normalization (C001 20d / C006 60d 改分母 scale) + Power-cubed 非线性 wrap (C002 train→val sign-flip catastrophic) + from-peak 不对称 reference (C003 hard_gate fail)。**4 代设计皆失败**: 跨窗 normalization 让 LHS 脱 F022 仿射但 incr_ic ≤+0.0025 + ls_t essentially zero;Power-cubed 触发 P003 higher-moment regime sign-flip 跨 family 硬律 (IS=+0.018 OOS=-0.022 ls_t=-2.77 + alpha_surv=0.08 + cum_ic_mdd=-57.95);from-peak cross-section 信号塌缩 noise (ic_oos=0.0040)。**Lessons 升格候选**: "single-atom geometric exhaustion 律 — 当一个 atom 的 4+ 代 first-/second-order 几何变体都失败时,该 atom 已结构性饱和,需切换字段或聚合维度,不能继续微调"。
