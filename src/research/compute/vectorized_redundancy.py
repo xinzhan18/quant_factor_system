@@ -36,17 +36,20 @@ def _as_series(signal: pd.DataFrame | pd.Series) -> pd.Series:
 
 @dataclass(frozen=True)
 class LibraryRankCache:
-    """Pre-computed rank panel for the full admitted library.
+    """Per-library pre-computed wide-format ranks.
 
-    All library signals share one (T, S) grid (intersection of dates and
-    symbols across all libs). Rank ndarrays are stored row-by-row so the
-    candidate side only needs to rank its own panel once and run a single
-    vectorized Pearson against every library factor.
+    Each library factor keeps its own (T_l, S_l) grid (matching what
+    ``unstack`` produced for that factor), so candidate-vs-library
+    correlations use the same per-pair grid intersection that the legacy
+    ``_rank_corr_timeseries`` did. Ranks are pre-computed once per build;
+    the candidate's ``.unstack()`` and per-library ``.rank()`` happen at
+    eval time but reuse the cached library ranks (no per-candidate
+    library unstack).
     """
-    index: pd.DatetimeIndex
-    columns: pd.Index
-    ranks: dict[str, np.ndarray]      # fid → (T, S) rank with NaN where invalid
-    validity: dict[str, np.ndarray]   # fid → (T, S) bool
+    indexes: dict[str, pd.DatetimeIndex]   # fid → wide-format row index
+    columns: dict[str, pd.Index]           # fid → wide-format column index
+    ranks: dict[str, np.ndarray]           # fid → (T_l, S_l) rank with NaN where invalid
+    validity: dict[str, np.ndarray]        # fid → (T_l, S_l) bool
 
 
 def build_library_rank_cache(
@@ -54,46 +57,30 @@ def build_library_rank_cache(
 ) -> LibraryRankCache:
     """Pre-compute wide-format ranks for every library signal once.
 
-    Library signals are unstacked to wide and rank-transformed (axis=1,
-    method='average') at build time. Each candidate then ranks its own
-    panel exactly once and uses these cached ranks for the pairwise
-    Pearson correlation, eliminating the per-candidate × per-library
-    unstack/rank repetition that dominates the redundancy step.
+    Each library signal is unstacked and rank-transformed (axis=1,
+    method='average') at its own native grid — different rolling-window
+    lengths produce different leading-NaN dates, and forcing them onto a
+    single intersected grid would shrink each library's effective window
+    relative to the legacy per-pair behavior. We keep per-library grids
+    and let the candidate align against each one individually.
     """
     if not library_signals:
-        return LibraryRankCache(
-            index=pd.DatetimeIndex([]),
-            columns=pd.Index([]),
-            ranks={},
-            validity={},
-        )
+        return LibraryRankCache(indexes={}, columns={}, ranks={}, validity={})
 
-    wides: dict[str, pd.DataFrame] = {}
-    for fid, sig in library_signals.items():
-        s = _as_series(sig)
-        wides[fid] = s.unstack(level=-1)
-
-    # Common (date × symbol) grid = intersection across all libs
-    idx = wides[next(iter(wides))].index
-    cols = wides[next(iter(wides))].columns
-    for w in wides.values():
-        idx = idx.intersection(w.index)
-        cols = cols.intersection(w.columns)
-
+    indexes: dict[str, pd.DatetimeIndex] = {}
+    columns: dict[str, pd.Index] = {}
     ranks: dict[str, np.ndarray] = {}
     validity: dict[str, np.ndarray] = {}
-    for fid, w in wides.items():
-        aligned = w.loc[idx, cols]
-        valid = aligned.notna().to_numpy()
-        rk = aligned.rank(axis=1, method="average").to_numpy()
-        ranks[fid] = rk
-        validity[fid] = valid
+    for fid, sig in library_signals.items():
+        s = _as_series(sig)
+        wide = s.unstack(level=-1)
+        indexes[fid] = wide.index
+        columns[fid] = wide.columns
+        validity[fid] = wide.notna().to_numpy()
+        ranks[fid] = wide.rank(axis=1, method="average").to_numpy()
 
     return LibraryRankCache(
-        index=pd.DatetimeIndex(idx),
-        columns=pd.Index(cols),
-        ranks=ranks,
-        validity=validity,
+        indexes=indexes, columns=columns, ranks=ranks, validity=validity,
     )
 
 
@@ -105,9 +92,11 @@ def compute_pairwise_redundancy_precomputed(
 ) -> dict[str, Any]:
     """Same return shape as compute_pairwise_redundancy, using cached lib ranks.
 
-    Joint-mask re-rank is required for bit-equivalence with the legacy
-    path: `_rank_corr_timeseries` ranks AFTER masking on joint validity,
-    so candidate and library ranks must use the same valid set.
+    For bit-equivalence with legacy: each library uses its own grid (so
+    inter-library NaN-pattern differences don't leak into one factor's
+    correlation), and ranks are recomputed on the joint-mask intersection
+    on both sides (rank-of-rank is order-preserving, so this matches
+    legacy ``cand_a.where(joint).rank(...)``).
     """
     if not cache.ranks:
         return {
@@ -120,31 +109,28 @@ def compute_pairwise_redundancy_precomputed(
 
     cand = _as_series(candidate_signal)
     cand_wide = cand.unstack(level=-1)
-    idx = cache.index.intersection(cand_wide.index)
-    cols = cache.columns.intersection(cand_wide.columns)
-    if len(idx) == 0 or len(cols) == 0:
-        return {
-            "max_lib_corr": 0.0,
-            "nearest_factor_id": None,
-            "is_near_duplicate": False,
-            "exceeds_threshold": False,
-            "all_correlations": {fid: float("nan") for fid in cache.ranks},
-        }
-
-    row_pos = cache.index.get_indexer(idx)
-    col_pos = cache.columns.get_indexer(cols)
-
-    cand_aligned = cand_wide.loc[idx, cols]
-    cand_valid = cand_aligned.notna().to_numpy()
-    cand_rank_full = cand_aligned.rank(axis=1, method="average").to_numpy()
 
     all_corrs: dict[str, float] = {}
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
-        for fid, lib_rank_full in cache.ranks.items():
-            lib_rank = lib_rank_full[np.ix_(row_pos, col_pos)]
+        for fid in cache.ranks:
+            lib_idx = cache.indexes[fid]
+            lib_cols = cache.columns[fid]
+            idx = cand_wide.index.intersection(lib_idx)
+            cols = cand_wide.columns.intersection(lib_cols)
+            if len(idx) == 0 or len(cols) == 0:
+                all_corrs[fid] = float("nan")
+                continue
+
+            cand_aligned = cand_wide.loc[idx, cols]
+            cand_valid = cand_aligned.notna().to_numpy()
+
+            row_pos = lib_idx.get_indexer(idx)
+            col_pos = lib_cols.get_indexer(cols)
+            lib_rank = cache.ranks[fid][np.ix_(row_pos, col_pos)]
             lib_valid = cache.validity[fid][np.ix_(row_pos, col_pos)]
+
             joint = cand_valid & lib_valid
             n_valid = joint.sum(axis=1)
             keep = n_valid >= min_obs
@@ -152,8 +138,11 @@ def compute_pairwise_redundancy_precomputed(
                 all_corrs[fid] = float("nan")
                 continue
 
-            # Re-rank under joint mask — pandas-style 'average' over numpy
-            cr = np.where(joint, cand_rank_full, np.nan)
+            # Re-rank under joint mask — rank-of-rank preserves order,
+            # so candidate's full-frame rank → joint mask → re-rank
+            # equals legacy's joint-mask-then-rank.
+            cand_rank = cand_aligned.rank(axis=1, method="average").to_numpy()
+            cr = np.where(joint, cand_rank, np.nan)
             lr = np.where(joint, lib_rank, np.nan)
             cr = pd.DataFrame(cr).rank(axis=1, method="average").to_numpy()
             lr = pd.DataFrame(lr).rank(axis=1, method="average").to_numpy()
