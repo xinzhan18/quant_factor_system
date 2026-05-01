@@ -1,0 +1,66 @@
+batch_id: batch_068
+round: 68
+direction: fundamental_quality_carry
+direction_md_ref: vault/directions/fundamental_quality_carry.md
+batch_goal: 首批 6 候选探索 TTM quality LEVEL × 价量 / institutional-flow proxy / Sloan accruals
+  / GARP，绕开 OHLCV 饱和与 rate-form 失败律。目标 ≥1 admit 验证 fundamental level frontier 仍有 alpha。
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T17:18:20Z'
+frozen_at: '2026-05-01T17:18:20Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div($return_on_equity_ttm, Mean($amount, 20))
+  canonical: Div($return_on_equity_ttm,Mean($amount,20))
+  rationale: 'T001 baseline. 同 F002 (Div PB/amount) 套路，把 quality (ROE LEVEL) 替代 value
+    (PB)。F002 已证 fundamental/liquidity ratio 在 csi1000 有效。ROE 与 PB 几何独立（quality vs
+    value Barra basis）。Anti-recap: 与 F002 不同 numerator 字段族；与 dead fundamental_momentum
+    不同 (level 非 rate)。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Div($amount, $num_trades)
+  canonical: Div($amount,$num_trades)
+  rationale: 'T002 baseline. avg_trade_size 是机构占比 daily 代理：单笔大额成交 = 机构主导。NEW 字段 $num_trades
+    2026-05-01 扩展，库内零先例。Anti-recap: 与 F012/F015/F016 amihud (|return|/amount) 几何完全不同
+    (分子分母都换)。可能 size 共线性，预期 cross-section CsRank 化后清洁。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub($eps_ttm, $operating_cash_flow_per_share_ttm)
+  canonical: Sub($eps_ttm,$operating_cash_flow_per_share_ttm)
+  rationale: 'T003 Sloan accruals proxy. eps - ocf cross-section level = 应计盈余反映盈余质量低
+    → 期待反向 IC。Sub 是 ordinal subtraction 不是 rate (按 lessons 例外 a 章 rank-diff Sub 对偶可行)，且两边都是
+    LEVEL 字段。Anti-recap: 与 fundamental_momentum (PE/PB rate) 完全不同机制；与所有 admitted F001-F023
+    字段族正交 (新字段)。'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mul($net_profit_growth_ratio_ttm, Div(1, $pe_ratio))
+  canonical: Mul($net_profit_growth_ratio_ttm,Div(1,$pe_ratio))
+  rationale: 'T004 GARP. growth × (1/pe) 把成长和估值倒数级别相乘，比单 PEG 更解释 cross-section。两边都
+    LEVEL 形式。Anti-recap: 不撞 fundamental_momentum (rate)；与 value_liquidity_interaction
+    不同 (那里是 PE × turnover，这里是 growth × 1/PE，机制是 GARP 不是 value-liquidity)。预期 size 控制良好
+    (growth 与 size 弱相关)。'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div($gross_profit_margin_ttm, Mean($turnover_rate, 20))
+  canonical: Div($gross_profit_margin_ttm,Mean($turnover_rate,20))
+  rationale: 'T001 子变体，换 quality 字段 (gross_margin 替 ROE) 和 liquidity proxy (turnover_rate
+    替 amount)。gross_margin 是更细粒度的 quality (剔除 financial leverage 影响)，与 ROE 不同 Barra
+    basis。Anti-recap: 与 C001 不同字段族 (margin 非 ROE，turnover 非 amount)；与 F002 不同 (PB
+    非 margin)；与 value_liquidity dead/saturated branch 不同 (TTM 替 PIT)。'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul($return_on_invested_capital_ttm, Div($amount, $num_trades))
+  canonical: Mul($return_on_invested_capital_ttm,Div($amount,$num_trades))
+  rationale: 'T001+T002 交叉：ROIC × institutional_flow_proxy。ROIC 是 capital-efficiency
+    形 quality (与 ROE 不同：扣除 debt funding cost)，乘 avg_trade_size (机构占比) → 期待机构资金 flow
+    + quality 双重确认。Anti-recap: 不与 C001 (ROE/amount) 撞 (不同 quality 字段 + Mul 非 Div)；与
+    C002 不同 (单独 avg_trade_size 没有 quality)；与 F002 不同 (TTM 非 PIT，且乘性而非 Div)。'
