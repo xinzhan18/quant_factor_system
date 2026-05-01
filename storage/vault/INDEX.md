@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-05-01T18:57:34Z
-round: 71
-total_active_directions: 14
+generated_at: 2026-05-01T19:27:34Z
+round: 72
+total_active_directions: 15
 total_factors_admitted: 23
-last_batch: batch_070
+last_batch: batch_071
 last_consolidation_round: null
 ---
 
@@ -15,14 +15,14 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**71** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_070/judge|batch_070]] → [[directions/pit_valuation_pure]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`probing`
-> **健康** · rounds_since_consolidation=**2** · active_directions=**14** · zero-admit streak=**11**
+> **状态** · round=**72** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_071/judge|batch_071]] → [[directions/python_ttm_residual_quality]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`probing`
+> **健康** · rounds_since_consolidation=**3** · active_directions=**15** · zero-admit streak=**12**
 > **⚠️ 预警** · 空 factor.md: F017.backtest
 >
 > **🎯 下一步（按优先级）**
 > 1. ⚠️ **修空报告**：F017.backtest 的 `.md` 为空或缺 H1 → 对每个 F{id} 重新 dispatch `/factor-report` subagent
-> 2. 🧪 **阈值校准**：连续 11 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 2. 🧪 **阈值校准**：连续 12 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
 > 3. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
@@ -65,7 +65,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **71** · Admitted: **23** · Active directions: **14**
-> - Last batch: **batch_070**
+> - Round: **72** · Admitted: **23** · Active directions: **15**
+> - Last batch: **batch_071**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
