@@ -264,22 +264,36 @@ def compute_tail_concentration(
 ) -> float:
     """Top-k absolute weight sum, time-averaged.
 
-    Vectorized via ``groupby(level=0).apply`` on a per-date Series. The
-    legacy version also used apply — tail concentration is inherently
-    ranked-per-date so a small apply is unavoidable without rewriting in
-    pure numpy. ``top_k`` is typically ≤ 20 so this is fast in practice.
+    Vectorized via ``unstack`` to a (date × symbol) wide frame and a
+    ``np.partition`` along axis=1 to extract the top-k per row in one
+    pass — replaces the legacy ``groupby(level=0).apply(nlargest)``
+    Python-per-date loop.
     """
     w_col = abs_weights.columns[0]
+    wide = abs_weights[w_col].unstack(level=-1)
+    arr = wide.to_numpy()  # (D, S), NaN where no position
+    arr = np.where(np.isfinite(arr), arr, 0.0)
 
-    def _date_tail(group: pd.Series) -> float:
-        total = group.sum()
-        if total == 0:
-            return float("nan")
-        top = group.nlargest(min(top_k, len(group))).sum()
-        return top / total
+    totals = arr.sum(axis=1)
+    keep = totals > 0
+    if not keep.any():
+        return float("nan")
 
-    per_date = abs_weights[w_col].groupby(level=0).apply(_date_tail)
-    return float(per_date.mean())
+    n_cols = arr.shape[1]
+    k = min(top_k, n_cols)
+    if k >= n_cols:
+        top_sums = arr.sum(axis=1)
+    else:
+        # np.partition pushes the top-k values to the last k columns
+        # (unsorted within), which is exactly what we need to sum.
+        partitioned = np.partition(arr, n_cols - k, axis=1)
+        top_sums = partitioned[:, n_cols - k:].sum(axis=1)
+
+    ratios = np.where(keep, top_sums / np.where(keep, totals, 1), np.nan)
+    finite = ratios[np.isfinite(ratios)]
+    if finite.size == 0:
+        return float("nan")
+    return float(finite.mean())
 
 
 # ---------------------------------------------------------------------------
@@ -287,25 +301,39 @@ def compute_tail_concentration(
 # ---------------------------------------------------------------------------
 
 
-def compute_small_cap_concentration(
-    abs_weights: pd.DataFrame,
+def compute_small_cap_flag(
     market_cap: pd.DataFrame,
     *,
     pct: float = 0.30,
-) -> float:
-    """Weight fraction in small-cap stocks, time-averaged."""
+) -> pd.Series:
+    """Per (date, symbol) small-cap flag — does not depend on any candidate.
+
+    A stock is "small-cap" on date d if its market cap is ≤ the
+    cross-sectional ``pct`` percentile on d. Build once per batch and
+    reuse across every candidate's :func:`compute_small_cap_concentration`
+    call.
+    """
     cap_col = market_cap.columns[0]
-    w_col = abs_weights.columns[0]
-
     cap = market_cap[cap_col]
-
     thresholds = cap.groupby(level=0).quantile(pct)
     threshold_aligned = cap.index.get_level_values(0).map(thresholds)
-    small_flag = pd.Series(
+    return pd.Series(
         cap.values <= threshold_aligned.values, index=cap.index
     )
 
-    return _weighted_flag_ratio(abs_weights[w_col], small_flag)
+
+def compute_small_cap_concentration(
+    abs_weights: pd.DataFrame,
+    small_cap_flag: pd.Series,
+) -> float:
+    """Weight fraction in small-cap stocks, time-averaged.
+
+    Pass the precomputed ``small_cap_flag`` from
+    :func:`compute_small_cap_flag` (built once per batch from
+    ``market_cap``).
+    """
+    w_col = abs_weights.columns[0]
+    return _weighted_flag_ratio(abs_weights[w_col], small_cap_flag)
 
 
 # ---------------------------------------------------------------------------
@@ -316,36 +344,93 @@ def compute_small_cap_concentration(
 def compute_signal_half_life(signal: pd.DataFrame, *, max_lag: int = 20) -> float:
     """Estimate **signal** half-life from mean autocorrelation decay.
 
-    For each instrument, compute per-lag autocorrelation of the signal.
-    Average across instruments per lag; the half-life is the first lag
-    where mean autocorrelation drops below 0.5, or ``max_lag`` if it
-    never does.
+    For each instrument, compute per-lag autocorrelation of the signal
+    (after per-instrument dropna so ``lag=k`` means ``k observed dates
+    apart``). Average across instruments per lag; the half-life is the
+    first lag where mean autocorrelation drops below 0.5, or ``max_lag``
+    if it never does.
 
     Naming note: this is the *signal* persistence half-life (a property
     of the factor time-series itself). The *IC-decay* half-life (a
     property of the factor's forward-return relationship) lives in
     ``research.compute.vectorized_ic.compute_ic_half_life``.
+
+    Vectorization: per-instrument observed series are stacked into a
+    ragged 2D array padded with NaN to a common length. Each lag's
+    Pearson is computed on the padded panel via nan-aware reductions —
+    one numpy pass per lag instead of (n_symbols × max_lag) inlined
+    Python correlations.
     """
     col = signal.columns[0]
-    acf_by_lag: dict[int, list[float]] = {lag: [] for lag in range(1, max_lag + 1)}
+    sig_wide = signal[col].unstack(level=-1)
+    arr = sig_wide.to_numpy()  # (D, S)
 
-    for _inst, group in signal[col].groupby(level=1):
-        series = group.droplevel(1).dropna()
-        if len(series) < max_lag + 5:
-            continue
-        arr = series.values
-        if np.var(arr) == 0:
-            continue
-        for lag in range(1, max_lag + 1):
-            corr = np.corrcoef(arr[:-lag], arr[lag:])[0, 1]
-            if np.isfinite(corr):
-                acf_by_lag[lag].append(corr)
+    if arr.shape[0] < max_lag + 5:
+        return float(max_lag)
+
+    finite_mask = np.isfinite(arr)
+    n_finite_per_sym = finite_mask.sum(axis=0)
+
+    # Compute variance per symbol over only its observed values, matching
+    # legacy ``np.var(series.dropna())``. NaN-safe: if a symbol has no
+    # observations, var stays 0 → filtered.
+    with np.errstate(invalid="ignore"):
+        var_per_sym = np.nanvar(arr, axis=0)
+
+    keep_sym = (n_finite_per_sym >= max_lag + 5) & (var_per_sym > 0)
+    if not keep_sym.any():
+        return float(max_lag)
+
+    # Build per-instrument observed series as a ragged padded array:
+    # for each kept symbol, push its non-NaN values to the leading rows
+    # and pad the tail with NaN. Result has shape (max_obs, n_kept) where
+    # max_obs = max non-NaN count among kept symbols. Ranks/lags below
+    # then operate over OBSERVED indices, matching legacy semantics.
+    arr_keep = arr[:, keep_sym]
+    finite_keep = finite_mask[:, keep_sym]
+
+    n_per_sym = n_finite_per_sym[keep_sym]
+    max_obs = int(n_per_sym.max())
+
+    # Sort each column so finite values come first. argsort with -mask
+    # places True (=mask) before False, so np.take_along_axis using the
+    # sorted indices brings observed rows to the top.
+    # Use stable sort to preserve the temporal order of observations.
+    order = np.argsort(~finite_keep, axis=0, kind="stable")  # (D, S')
+    obs_arr = np.take_along_axis(arr_keep, order, axis=0)[:max_obs, :]
+    # Tail beyond each symbol's n_obs is non-finite garbage from the
+    # original NaN cells (now sorted to the bottom but possibly within
+    # max_obs for shorter series); explicitly mask via per-symbol cutoff.
+    row_idx = np.arange(max_obs)[:, None]                    # (max_obs, 1)
+    valid_obs = row_idx < n_per_sym[None, :]                 # (max_obs, S')
+    obs_arr = np.where(valid_obs, obs_arr, np.nan)
 
     for lag in range(1, max_lag + 1):
-        vals = acf_by_lag[lag]
-        if not vals:
+        x = obs_arr[lag:, :]
+        y = obs_arr[:-lag, :]
+        m = np.isfinite(x) & np.isfinite(y)
+        n_pair = m.sum(axis=0).astype(float)
+        ok = n_pair > 0
+        if not ok.any():
             continue
-        mean_acf = float(np.mean(vals))
+        with np.errstate(invalid="ignore"):
+            x_clean = np.where(m, x, 0.0)
+            y_clean = np.where(m, y, 0.0)
+            sum_x = x_clean.sum(axis=0)
+            sum_y = y_clean.sum(axis=0)
+            mean_x = np.where(ok, sum_x / np.where(ok, n_pair, 1), 0.0)
+            mean_y = np.where(ok, sum_y / np.where(ok, n_pair, 1), 0.0)
+            xc = np.where(m, x - mean_x[None, :], 0.0)
+            yc = np.where(m, y - mean_y[None, :], 0.0)
+            cov = (xc * yc).sum(axis=0) / np.where(ok, n_pair, 1)
+            var_x = (xc * xc).sum(axis=0) / np.where(ok, n_pair, 1)
+            var_y = (yc * yc).sum(axis=0) / np.where(ok, n_pair, 1)
+            denom = np.sqrt(var_x * var_y)
+            corr = np.where(denom > 0, cov / denom, np.nan)
+        finite_corr = corr[np.isfinite(corr)]
+        if finite_corr.size == 0:
+            continue
+        mean_acf = float(finite_corr.mean())
         if mean_acf < 0.5:
             return float(lag)
 

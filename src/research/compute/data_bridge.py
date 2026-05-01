@@ -722,12 +722,18 @@ def build_phase2_inputs(
 
     # 5b. Pre-compute liquid flag once per batch (drives feasibility's
     # liquidity_coverage; rolling-median + per-date quantile dominate).
-    from research.compute.vectorized_feasibility import compute_liquid_flag
+    from research.compute.vectorized_feasibility import (
+        compute_liquid_flag,
+        compute_small_cap_flag,
+    )
     liquid_flag = compute_liquid_flag(amount_data)
 
     market_cap_data = market[["$market_cap"]].copy()
     market_cap_data.columns = ["$market_cap"]
     market_cap_data.index.names = ["datetime", "instrument"]
+
+    # 5c. Pre-compute small-cap flag once per batch (mirror liquid_flag).
+    small_cap_flag = compute_small_cap_flag(market_cap_data)
 
     # 6. Preprocess config
     pp_cfg = config.get("preprocess", {})
@@ -755,6 +761,7 @@ def build_phase2_inputs(
         paths=paths,
         library_rank_cache=library_rank_cache,
         liquid_flag=liquid_flag,
+        small_cap_flag=small_cap_flag,
         library_wides=library_wides,
         primary_returns_wide=primary_returns_wide,
         style_wides=style_wides,

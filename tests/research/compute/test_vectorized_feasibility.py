@@ -28,6 +28,7 @@ from research.compute.vectorized_feasibility import (
     compute_signal_autocorr_lag1,
     compute_signal_half_life,
     compute_small_cap_concentration,
+    compute_small_cap_flag,
     compute_tail_concentration,
 )
 
@@ -128,9 +129,8 @@ class TestSmallCapConcentration:
     def test_matches_golden(
         self, proxy, market_cap: pd.DataFrame, golden: dict
     ) -> None:
-        result = compute_small_cap_concentration(
-            proxy.abs_weights, market_cap, pct=0.30
-        )
+        small_cap_flag = compute_small_cap_flag(market_cap, pct=0.30)
+        result = compute_small_cap_concentration(proxy.abs_weights, small_cap_flag)
         assert result == pytest.approx(
             golden["feasibility"]["small_cap_concentration"], abs=1e-6
         )

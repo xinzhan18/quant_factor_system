@@ -47,6 +47,7 @@ from research.compute.vectorized_feasibility import (
     compute_signal_autocorr_lag1,
     compute_signal_half_life,
     compute_small_cap_concentration,
+    compute_small_cap_flag,
     compute_tail_concentration,
 )
 from research.compute.vectorized_ic import (
@@ -138,6 +139,10 @@ class Phase2Inputs:
     # any candidate, so we build it once per batch instead of per
     # candidate (rolling-median + per-date quantile dominate feasibility).
     liquid_flag: pd.Series | None = None
+
+    # Pre-computed small-cap flag from ``market_cap`` — same per-batch
+    # constancy as ``liquid_flag``.
+    small_cap_flag: pd.Series | None = None
 
     # Pre-pivoted wide-format library signals + primary forward returns
     # used by ``compute_incremental_ic_from_wides``. Both are batch-level
@@ -586,7 +591,7 @@ def _evaluate_candidate(
         lcr = compute_liquidity_coverage(proxy.abs_weights, inputs.liquid_flag)
         tail = compute_tail_concentration(proxy.abs_weights)
         small_cap = compute_small_cap_concentration(
-            proxy.abs_weights, inputs.market_cap
+            proxy.abs_weights, inputs.small_cap_flag
         )
         signal_half_life = compute_signal_half_life(cand_mi)
         signal_autocorr = compute_signal_autocorr_lag1(cand_mi)
@@ -730,6 +735,8 @@ def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
         inputs.library_rank_cache = build_library_rank_cache(inputs.library_signals)
     if inputs.liquid_flag is None:
         inputs.liquid_flag = compute_liquid_flag(inputs.amount_data)
+    if inputs.small_cap_flag is None:
+        inputs.small_cap_flag = compute_small_cap_flag(inputs.market_cap)
     if inputs.library_wides is None:
         inputs.library_wides = {
             fid: (df.iloc[:, 0] if df.ndim == 2 else df).unstack(level=-1)
