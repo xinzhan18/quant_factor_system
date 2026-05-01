@@ -36,7 +36,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from core.factor_stats import multiindex_to_flat
 from research.compute.preprocess import PreprocessConfig, preprocess_factor
 from research.compute.vectorized_barra import compute_barra_exposures
 from research.compute.vectorized_distribution import compute_distribution
@@ -62,7 +61,7 @@ from research.compute.vectorized_quintile import (
 from research.compute.vectorized_redundancy import (
     LibraryRankCache,
     build_library_rank_cache,
-    compute_incremental_ic,
+    compute_incremental_ic_from_wides,
     compute_pairwise_redundancy_precomputed,
 )
 from research.compute.vectorized_stability import (
@@ -139,6 +138,23 @@ class Phase2Inputs:
     # any candidate, so we build it once per batch instead of per
     # candidate (rolling-median + per-date quantile dominate feasibility).
     liquid_flag: pd.Series | None = None
+
+    # Pre-pivoted wide-format library signals + primary forward returns
+    # used by ``compute_incremental_ic_from_wides``. Both are batch-level
+    # constants so we pivot once instead of per candidate (51 lib unstacks
+    # × N_candidates was a hidden cost inside ``incremental_ic``).
+    library_wides: dict[str, pd.DataFrame] | None = None
+    primary_returns_wide: pd.DataFrame | None = None
+
+    # Pre-pivoted Barra style columns, ``{style_name: wide DataFrame}``.
+    # ``compute_barra_exposures`` would otherwise re-unstack 7 times per
+    # candidate over the same data.
+    style_wides: dict[str, pd.DataFrame] | None = None
+
+    # Pre-pivoted forward-returns wides per horizon, full date range.
+    # ``compute_multi_horizon_ic`` slices to train/validation and reuses
+    # across the 5 horizons × 2 splits = 10 IC computations per candidate.
+    returns_wides_by_horizon: dict[int, pd.DataFrame] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -470,6 +486,7 @@ def _evaluate_candidate(
             inputs.forward_returns_by_horizon,
             train_range=inputs.train_range,
             validation_range=inputs.validation_range,
+            returns_wides_by_horizon=inputs.returns_wides_by_horizon,
         )
         primary = by_horizon[inputs.primary_horizon]
         ic_train_series: pd.Series = primary["ic_series_train"]
@@ -545,12 +562,11 @@ def _evaluate_candidate(
             cand_mi, inputs.library_rank_cache
         )
 
-        ret_flat = inputs.forward_returns_by_horizon[inputs.primary_horizon]
-        library_flat = {
-            fid: multiindex_to_flat(df)
-            for fid, df in inputs.library_signals.items()
-        }
-        incr_ic = compute_incremental_ic(factor_flat, ret_flat, library_flat)
+        incr_ic = compute_incremental_ic_from_wides(
+            factor_flat,
+            inputs.primary_returns_wide,
+            inputs.library_wides,
+        )
 
         uniqueness = {
             "max_lib_corr": redundancy["max_lib_corr"],
@@ -582,6 +598,7 @@ def _evaluate_candidate(
             inputs.style_matrix,
             primary_returns,
             raw_view_ic=val_ic_mean,
+            style_wides=inputs.style_wides,
         )
 
         # --- 8. Distribution ---
@@ -712,6 +729,27 @@ def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
         inputs.library_rank_cache = build_library_rank_cache(inputs.library_signals)
     if inputs.liquid_flag is None:
         inputs.liquid_flag = compute_liquid_flag(inputs.amount_data)
+    if inputs.library_wides is None:
+        inputs.library_wides = {
+            fid: (df.iloc[:, 0] if df.ndim == 2 else df).unstack(level=-1)
+            for fid, df in inputs.library_signals.items()
+        }
+    if inputs.primary_returns_wide is None:
+        primary_ret_flat = inputs.forward_returns_by_horizon[inputs.primary_horizon]
+        inputs.primary_returns_wide = (
+            primary_ret_flat.set_index(["time", "symbol"])["value"].unstack(level=-1)
+        )
+    if inputs.style_wides is None:
+        from research.compute.vectorized_barra import STYLE_NAMES
+        style_cols = [c for c in STYLE_NAMES if c in inputs.style_matrix.columns]
+        inputs.style_wides = {
+            col: inputs.style_matrix[col].unstack(level=-1) for col in style_cols
+        }
+    if inputs.returns_wides_by_horizon is None:
+        inputs.returns_wides_by_horizon = {
+            int(h): rf.set_index(["time", "symbol"])["value"].unstack(level=-1)
+            for h, rf in inputs.forward_returns_by_horizon.items()
+        }
     results = [_evaluate_candidate(c, inputs) for c in inputs.candidates]
 
     n_ok = sum(1 for r in results if r.get("compute_error") is None)

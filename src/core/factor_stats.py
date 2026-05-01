@@ -56,18 +56,8 @@ def daily_cross_sectional_ic(
 ) -> pd.Series:
     """Compute daily cross-sectional IC between factor values and returns.
 
-    Fully vectorized: pivots to (date × stock) matrices, ranks cross-sectionally,
-    then computes Pearson correlation of ranks (= Spearman IC) via matrix ops.
-    No Python for-loop over days.
-
-    Args:
-        factor_df: Flat DataFrame [time, symbol, value].
-        returns_df: Flat DataFrame [time, symbol, value] (forward returns).
-        method: "spearman" (rank IC) or "pearson".
-        min_obs: Minimum valid observations per day to include in output.
-
-    Returns:
-        pd.Series with DatetimeIndex and IC values.
+    Pivots flat ``[time, symbol, value]`` inputs to wide and delegates
+    to :func:`daily_cross_sectional_ic_from_wides`.
     """
     merged = factor_df.merge(
         returns_df, on=["time", "symbol"], suffixes=("_factor", "_return"),
@@ -75,44 +65,62 @@ def daily_cross_sectional_ic(
     merged = merged.dropna(subset=["value_factor", "value_return"])
     if merged.empty:
         return pd.Series(dtype=float)
-
-    # Pivot to (date × stock) matrices — aligns NaN where data is missing
     factor_wide = merged.pivot(index="time", columns="symbol", values="value_factor")
     returns_wide = merged.pivot(index="time", columns="symbol", values="value_return")
+    return daily_cross_sectional_ic_from_wides(
+        factor_wide, returns_wide, method=method, min_obs=min_obs,
+    )
 
-    # Drop days with too few valid observations
-    n_valid = factor_wide.notna().sum(axis=1)
+
+def daily_cross_sectional_ic_from_wides(
+    factor_wide: pd.DataFrame,
+    returns_wide: pd.DataFrame,
+    method: str = "spearman",
+    min_obs: int = 30,
+) -> pd.Series:
+    """Pre-pivoted variant of :func:`daily_cross_sectional_ic`.
+
+    Both inputs are wide (date × symbol). Different grids are handled by
+    intersecting dates/columns and applying a joint-validity mask — the
+    output matches what the merged-flat path produces, which lets Phase 2
+    cache per-horizon returns wides once per batch and pivot the
+    candidate's factor once across all 5 horizons × 2 splits.
+    """
+    common_dates = factor_wide.index.intersection(returns_wide.index)
+    common_cols = factor_wide.columns.intersection(returns_wide.columns)
+    if len(common_dates) == 0 or len(common_cols) == 0:
+        return pd.Series(dtype=float)
+    fw = factor_wide.loc[common_dates, common_cols]
+    rw = returns_wide.loc[common_dates, common_cols]
+
+    # Joint validity (matches the merged-flat path's dropna semantics)
+    joint = fw.notna() & rw.notna()
+    n_valid = joint.sum(axis=1)
     valid_dates = n_valid[n_valid >= min_obs].index
     if valid_dates.empty:
         return pd.Series(dtype=float)
-    factor_wide = factor_wide.loc[valid_dates]
-    returns_wide = returns_wide.loc[valid_dates]
+    fw = fw.loc[valid_dates].where(joint.loc[valid_dates])
+    rw = rw.loc[valid_dates].where(joint.loc[valid_dates])
 
     if method == "spearman":
-        # Cross-sectional rank within each day (axis=1)
-        factor_vals = factor_wide.rank(axis=1, na_option="keep")
-        returns_vals = returns_wide.rank(axis=1, na_option="keep")
+        factor_vals = fw.rank(axis=1, na_option="keep")
+        returns_vals = rw.rank(axis=1, na_option="keep")
     else:
-        factor_vals = factor_wide
-        returns_vals = returns_wide
+        factor_vals = fw
+        returns_vals = rw
 
-    # Vectorized Pearson correlation per row (day) using numpy matrix ops
-    # valid mask: NaN in either column excludes that stock
     valid = factor_vals.notna() & returns_vals.notna()
-    n = valid.sum(axis=1).astype(float).values  # shape: (n_days,)
+    n = valid.sum(axis=1).astype(float).values
 
     f = np.where(valid.values, factor_vals.values, np.nan)
     r = np.where(valid.values, returns_vals.values, np.nan)
 
-    # Masked mean per day (nanmean along axis=1)
     mean_f = np.nanmean(f, axis=1, keepdims=True)
     mean_r = np.nanmean(r, axis=1, keepdims=True)
 
-    # Centered values (NaN stays NaN, contributes 0 via nansum)
     f_c = np.where(valid.values, f - mean_f, 0.0)
     r_c = np.where(valid.values, r - mean_r, 0.0)
 
-    # Variance and covariance
     var_f = (f_c ** 2).sum(axis=1) / n
     var_r = (r_c ** 2).sum(axis=1) / n
     cov   = (f_c * r_c).sum(axis=1) / n
@@ -120,7 +128,7 @@ def daily_cross_sectional_ic(
     denom = np.sqrt(var_f * var_r)
     ic = np.where(denom > 1e-10, cov / denom, np.nan)
 
-    result = pd.Series(ic, index=factor_wide.index, dtype=float)
+    result = pd.Series(ic, index=valid_dates, dtype=float)
     return result.dropna()
 
 
@@ -490,7 +498,31 @@ def incremental_ic(
 ) -> Tuple[Optional[float], Optional[float]]:
     """Compute IC of factor residuals after regressing out library exposures.
 
-    Fully batched: pivots everything into (D, S, K) tensors, solves
+    Pivots every flat input ([time, symbol, value]) to a wide (date ×
+    symbol) frame and delegates to :func:`incremental_ic_from_wides`.
+    See that function for the math + numerical details.
+    """
+    if not library_factors:
+        return None, None
+
+    target_wide = factor_df.set_index(["time", "symbol"])["value"].unstack(level=-1)
+    ret_wide = returns_df.set_index(["time", "symbol"])["value"].unstack(level=-1)
+    lib_wides = {
+        fid: library_factors[fid].set_index(["time", "symbol"])["value"].unstack(-1)
+        for fid in library_factors
+    }
+    return incremental_ic_from_wides(target_wide, ret_wide, lib_wides, min_obs=min_obs)
+
+
+def incremental_ic_from_wides(
+    target_wide: pd.DataFrame,
+    ret_wide: pd.DataFrame,
+    lib_wides: Dict[str, pd.DataFrame],
+    min_obs: int = 30,
+) -> Tuple[Optional[float], Optional[float]]:
+    """Pre-pivoted variant of :func:`incremental_ic`.
+
+    Fully batched: stacks library wides into a (D, S, K) tensor, solves
     ``K+I·λ ridged`` normal equations per date with a single
     ``np.linalg.solve`` call, computes residuals via einsum, then gets
     daily cross-sectional Spearman via ranked Pearson.
@@ -500,27 +532,15 @@ def incremental_ic(
     equivalent to dropping them. Ridge (λ = 1e-4 · mean_diag(XᵀX)) keeps
     the solve stable as the library grows and K approaches S.
 
-    Args:
-        factor_df: Target factor [time, symbol, value].
-        returns_df: Returns [time, symbol, value].
-        library_factors: Dict of factor_id -> DataFrame [time, symbol, value].
-        min_obs: Minimum observations per date.
-
-    Returns:
-        Tuple of (incremental_ic_mean, incremental_icir), or (None, None).
+    Use this directly when callers can amortize the pivots across many
+    candidates (the Phase 2 batch runner caches lib + returns wides
+    once per batch, so 51 lib unstacks + 1 returns unstack happen once
+    instead of N_candidates times).
     """
-    if not library_factors:
+    if not lib_wides:
         return None, None
 
-    # Pivot everything to a shared (date × symbol) grid per field
-    target_wide = factor_df.set_index(["time", "symbol"])["value"].unstack(level=-1)
-    ret_wide = returns_df.set_index(["time", "symbol"])["value"].unstack(level=-1)
-
-    lib_cols = list(library_factors.keys())
-    lib_wides = {
-        fid: library_factors[fid].set_index(["time", "symbol"])["value"].unstack(-1)
-        for fid in lib_cols
-    }
+    lib_cols = list(lib_wides.keys())
 
     # Align all on the intersection of dates × symbols
     dates = target_wide.index

@@ -24,7 +24,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from core.factor_stats import incremental_ic
+from core.factor_stats import incremental_ic, incremental_ic_from_wides
 
 
 def _as_series(signal: pd.DataFrame | pd.Series) -> pd.Series:
@@ -124,7 +124,8 @@ def compute_pairwise_redundancy_precomputed(
                 continue
 
             cand_aligned = cand_wide.loc[idx, cols]
-            cand_valid = cand_aligned.notna().to_numpy()
+            cand_arr = cand_aligned.to_numpy()
+            cand_valid = np.isfinite(cand_arr)
 
             row_pos = lib_idx.get_indexer(idx)
             col_pos = lib_cols.get_indexer(cols)
@@ -138,14 +139,15 @@ def compute_pairwise_redundancy_precomputed(
                 all_corrs[fid] = float("nan")
                 continue
 
-            # Re-rank under joint mask — rank-of-rank preserves order,
-            # so candidate's full-frame rank → joint mask → re-rank
-            # equals legacy's joint-mask-then-rank.
-            cand_rank = cand_aligned.rank(axis=1, method="average").to_numpy()
-            cr = np.where(joint, cand_rank, np.nan)
-            lr = np.where(joint, lib_rank, np.nan)
-            cr = pd.DataFrame(cr).rank(axis=1, method="average").to_numpy()
-            lr = pd.DataFrame(lr).rank(axis=1, method="average").to_numpy()
+            # Mask-then-rank for the candidate matches legacy
+            # ``cand_a.where(joint).rank(...)`` directly (1 rank instead
+            # of 2). For the library side, the cached rank is over
+            # ``lib_valid`` only — the joint mask is stricter, so we still
+            # mask + re-rank to match what legacy did.
+            cand_masked = np.where(joint, cand_arr, np.nan)
+            lib_masked = np.where(joint, lib_rank, np.nan)
+            cr = pd.DataFrame(cand_masked).rank(axis=1, method="average").to_numpy()
+            lr = pd.DataFrame(lib_masked).rank(axis=1, method="average").to_numpy()
 
             mc = np.nanmean(cr, axis=1, keepdims=True)
             ml = np.nanmean(lr, axis=1, keepdims=True)
@@ -334,6 +336,32 @@ def compute_incremental_ic(
     min_required = max(min_obs, len(library_flat) + 2)
     ic_mean, _ = incremental_ic(
         factor_flat, returns_flat, library_flat, min_obs=min_required
+    )
+    if ic_mean is None or not np.isfinite(ic_mean):
+        return None
+    return round(float(ic_mean), 6)
+
+
+def compute_incremental_ic_from_wides(
+    factor_flat: pd.DataFrame,
+    returns_wide: pd.DataFrame,
+    library_wides: dict[str, pd.DataFrame],
+    min_obs: int = 30,
+) -> float | None:
+    """Wides-only variant — pivots only the candidate, reuses cached
+    library + returns wides for the OLS solve.
+
+    Drops the per-candidate ``multiindex_to_flat`` + per-library
+    ``set_index().unstack()`` round trip that ``compute_incremental_ic``
+    incurs. The Phase 2 batch runner caches the wides on
+    ``Phase2Inputs`` once per batch.
+    """
+    if not library_wides:
+        return None
+    target_wide = factor_flat.set_index(["time", "symbol"])["value"].unstack(level=-1)
+    min_required = max(min_obs, len(library_wides) + 2)
+    ic_mean, _ = incremental_ic_from_wides(
+        target_wide, returns_wide, library_wides, min_obs=min_required,
     )
     if ic_mean is None or not np.isfinite(ic_mean):
         return None

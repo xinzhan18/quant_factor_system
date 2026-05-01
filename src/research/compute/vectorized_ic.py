@@ -30,6 +30,7 @@ import pandas as pd
 
 from core.factor_stats import (
     daily_cross_sectional_ic,
+    daily_cross_sectional_ic_from_wides,
     estimate_half_life,
     ic_by_year,
     ic_summary,
@@ -104,13 +105,15 @@ def compute_multi_horizon_ic(
     train_range: tuple[str, str],
     validation_range: tuple[str, str],
     min_obs: int = 30,
+    *,
+    returns_wides_by_horizon: dict[int, pd.DataFrame] | None = None,
 ) -> dict[int, dict[str, Any]]:
     """Multi-horizon IC on train + validation.
 
-    Produces per-horizon stats for every key in ``returns_by_horizon`` —
-    intended as the single IC computation pass for the whole evaluation.
-    Callers derive ``ic.train / ic.validation`` (primary horizon) from
-    this result without rerunning ``compute_ic_series``.
+    Pivots the candidate's factor exactly once into wide format, then
+    reuses it across every (horizon × split) IC call. When
+    ``returns_wides_by_horizon`` is provided, the per-horizon returns
+    pivot is also skipped — Phase 2 caches both once per batch.
 
     Returns
     -------
@@ -118,16 +121,35 @@ def compute_multi_horizon_ic(
         ``{h: {"train": stats, "validation": stats, "ic_series_train":
         Series, "ic_series_validation": Series}}``
     """
-    fv_train = _filter_range(factor_flat, *train_range)
-    fv_val = _filter_range(factor_flat, *validation_range)
+    factor_wide = (
+        factor_flat
+        .set_index(["time", "symbol"])["value"]
+        .unstack(level=-1)
+    )
+    factor_wide.index = pd.DatetimeIndex(factor_wide.index)
+    train_start, train_end = (pd.Timestamp(train_range[0]), pd.Timestamp(train_range[1]))
+    val_start, val_end = (pd.Timestamp(validation_range[0]), pd.Timestamp(validation_range[1]))
+    fv_train_wide = factor_wide.loc[train_start:train_end]
+    fv_val_wide = factor_wide.loc[val_start:val_end]
 
     out: dict[int, dict[str, Any]] = {}
     for h, ret_flat in returns_by_horizon.items():
-        fr_train_h = _filter_range(ret_flat, *train_range)
-        fr_val_h = _filter_range(ret_flat, *validation_range)
+        if returns_wides_by_horizon is not None and int(h) in returns_wides_by_horizon:
+            ret_wide = returns_wides_by_horizon[int(h)]
+        else:
+            ret_wide = (
+                ret_flat.set_index(["time", "symbol"])["value"].unstack(level=-1)
+            )
+            ret_wide.index = pd.DatetimeIndex(ret_wide.index)
+        fr_train_wide = ret_wide.loc[train_start:train_end]
+        fr_val_wide = ret_wide.loc[val_start:val_end]
 
-        ic_train = compute_ic_series(fv_train, fr_train_h, min_obs=min_obs)
-        ic_val = compute_ic_series(fv_val, fr_val_h, min_obs=min_obs)
+        ic_train = daily_cross_sectional_ic_from_wides(
+            fv_train_wide, fr_train_wide, min_obs=min_obs,
+        )
+        ic_val = daily_cross_sectional_ic_from_wides(
+            fv_val_wide, fr_val_wide, min_obs=min_obs,
+        )
 
         out[int(h)] = {
             "train": compute_ic_stats(ic_train),

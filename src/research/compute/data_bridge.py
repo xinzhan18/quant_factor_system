@@ -693,6 +693,29 @@ def build_phase2_inputs(
         h: _extract_returns(_returns_col(h)) for h in decay_horizons
     }
 
+    # 5a. Pre-pivot library signals + primary returns + Barra styles to
+    # wide once per batch — Phase 2 reuses these so we save 51 lib
+    # unstacks + 1 returns unstack + 7 style unstacks per candidate.
+    library_wides = {
+        fid: (df.iloc[:, 0] if df.ndim == 2 else df).unstack(level=-1)
+        for fid, df in library_signals.items()
+    }
+    primary_returns_flat = forward_returns_by_horizon[int(primary_horizon)]
+    primary_returns_wide = (
+        primary_returns_flat
+        .set_index(["time", "symbol"])["value"]
+        .unstack(level=-1)
+    )
+    from research.compute.vectorized_barra import STYLE_NAMES
+    style_cols_present = [c for c in STYLE_NAMES if c in style_matrix.columns]
+    style_wides = {
+        col: style_matrix[col].unstack(level=-1) for col in style_cols_present
+    }
+    returns_wides_by_horizon = {
+        int(h): rf.set_index(["time", "symbol"])["value"].unstack(level=-1)
+        for h, rf in forward_returns_by_horizon.items()
+    }
+
     amount_data = market[["$amount"]].copy()
     amount_data.columns = ["$amount"]
     amount_data.index.names = ["datetime", "instrument"]
@@ -732,6 +755,10 @@ def build_phase2_inputs(
         paths=paths,
         library_rank_cache=library_rank_cache,
         liquid_flag=liquid_flag,
+        library_wides=library_wides,
+        primary_returns_wide=primary_returns_wide,
+        style_wides=style_wides,
+        returns_wides_by_horizon=returns_wides_by_horizon,
     )
 
 

@@ -200,6 +200,8 @@ def compute_barra_exposures(
     forward_returns_flat: pd.DataFrame,
     raw_view_ic: float,
     min_obs: int = 50,
+    *,
+    style_wides: dict[str, pd.DataFrame] | None = None,
 ) -> dict[str, Any]:
     """Batched Barra OLS + residual IC + crowding classification.
 
@@ -249,12 +251,18 @@ def compute_barra_exposures(
     fv_wide = fv_wide.loc[common_dates]
 
     # Build the (n_dates, n_symbols, n_styles) style tensor by pivoting
-    # each style column, aligning to fv_wide's symbol axis.
+    # each style column, aligning to fv_wide's symbol axis. ``style_wides``
+    # may be passed in pre-pivoted (Phase 2 caches it once per batch);
+    # otherwise we pivot here.
     symbols = fv_wide.columns
+    if style_wides is None:
+        style_wides = {col: style_matrix[col].unstack(level=-1) for col in style_cols}
     style_tensors = []
     for col in style_cols:
-        s_wide = style_matrix[col].unstack(level=-1)
-        s_wide.index = pd.DatetimeIndex(s_wide.index)
+        s_wide = style_wides[col]
+        if not isinstance(s_wide.index, pd.DatetimeIndex):
+            s_wide = s_wide.copy()
+            s_wide.index = pd.DatetimeIndex(s_wide.index)
         # Align to fv_wide index and columns (inserts NaN for missing)
         s_wide = s_wide.reindex(index=common_dates, columns=symbols)
         style_tensors.append(s_wide.to_numpy())
