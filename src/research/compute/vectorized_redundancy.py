@@ -140,14 +140,24 @@ def compute_pairwise_redundancy_precomputed(
                 continue
 
             # Mask-then-rank for the candidate matches legacy
-            # ``cand_a.where(joint).rank(...)`` directly (1 rank instead
-            # of 2). For the library side, the cached rank is over
-            # ``lib_valid`` only — the joint mask is stricter, so we still
-            # mask + re-rank to match what legacy did.
+            # ``cand_a.where(joint).rank(...)``. Stack candidate + library
+            # into a single (2D, S) array and rank once — pandas' C rank
+            # operates on the whole stack in one call, halving the
+            # Python overhead vs ranking each side separately. For the
+            # library side, the cached rank is over ``lib_valid`` only —
+            # the joint mask is stricter, so we still mask + re-rank to
+            # match legacy.
             cand_masked = np.where(joint, cand_arr, np.nan)
             lib_masked = np.where(joint, lib_rank, np.nan)
-            cr = pd.DataFrame(cand_masked).rank(axis=1, method="average").to_numpy()
-            lr = pd.DataFrame(lib_masked).rank(axis=1, method="average").to_numpy()
+            n_rows = cand_masked.shape[0]
+            stacked = np.concatenate([cand_masked, lib_masked], axis=0)
+            stacked_r = (
+                pd.DataFrame(stacked)
+                .rank(axis=1, method="average")
+                .to_numpy()
+            )
+            cr = stacked_r[:n_rows]
+            lr = stacked_r[n_rows:]
 
             mc = np.nanmean(cr, axis=1, keepdims=True)
             ml = np.nanmean(lr, axis=1, keepdims=True)
