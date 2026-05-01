@@ -59,8 +59,10 @@ from research.compute.vectorized_quintile import (
     compute_quintile_returns,
 )
 from research.compute.vectorized_redundancy import (
+    LibraryRankCache,
+    build_library_rank_cache,
     compute_incremental_ic,
-    compute_pairwise_redundancy,
+    compute_pairwise_redundancy_precomputed,
 )
 from research.compute.vectorized_stability import (
     compute_sign_consistency,
@@ -126,6 +128,11 @@ class Phase2Inputs:
     # ``paths.candidate_diagnostics_dir(batch_id, cand_id)`` and
     # ``result.yaml.candidates[].diagnostics_relpath`` references them.
     paths: StoragePaths | None = None
+
+    # Pre-computed wide-format ranks for the entire admitted library — built
+    # once per batch in ``build_phase2_inputs`` (or lazily by ``run_phase2``
+    # when None) and reused across every candidate's redundancy check.
+    library_rank_cache: LibraryRankCache | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -521,7 +528,9 @@ def _evaluate_candidate(
         split = compute_split_stability(ic_val_series)
 
         # --- 5. Uniqueness (library correlation + incremental IC) ---
-        redundancy = compute_pairwise_redundancy(cand_mi, inputs.library_signals)
+        redundancy = compute_pairwise_redundancy_precomputed(
+            cand_mi, inputs.library_rank_cache
+        )
 
         ret_flat = inputs.forward_returns_by_horizon[inputs.primary_horizon]
         library_flat = {
@@ -687,6 +696,8 @@ def _evaluate_candidate(
 
 def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
     """Run Phase 2 on all candidates in *inputs* and write ``result.yaml``."""
+    if inputs.library_rank_cache is None:
+        inputs.library_rank_cache = build_library_rank_cache(inputs.library_signals)
     results = [_evaluate_candidate(c, inputs) for c in inputs.candidates]
 
     n_ok = sum(1 for r in results if r.get("compute_error") is None)

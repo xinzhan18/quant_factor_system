@@ -659,6 +659,12 @@ def build_phase2_inputs(
         paths, start=full_start, end=full_end, market_df=market,
     )
 
+    # 3b. Pre-compute wide-format ranks for the whole library once — every
+    # candidate's pairwise redundancy reuses these and the per-candidate
+    # unstack/rank loop disappears.
+    from research.compute.vectorized_redundancy import build_library_rank_cache
+    library_rank_cache = build_library_rank_cache(library_signals)
+
     # 4. Candidate signals — use the primary universe's effective mask so
     # CP01–CP06 actually run on the configured primary universe (this used
     # to be a label-only field; pre-2026-04-25 admissions evaluated on
@@ -719,6 +725,7 @@ def build_phase2_inputs(
         secondary_universes=secondary_universe_names,
         universe_masks=universe_masks,
         paths=paths,
+        library_rank_cache=library_rank_cache,
     )
 
 
