@@ -168,30 +168,37 @@ def _strip_ic_series(by_horizon: dict[int, dict[str, Any]]) -> dict[int, dict[st
 
 
 def _basic_universe_metrics(
-    factor_series: pd.Series,
+    clean_series: pd.Series,
     universe_mask: pd.Series,
     primary_returns: pd.DataFrame,
     *,
     validation_range: tuple[str, str],
     primary_horizon: int,
-    preprocess_config: PreprocessConfig,
 ) -> dict[str, Any]:
-    """Run the 5 basic metrics for a single universe — no full eval.
+    """Run the 5 basic metrics for a single secondary universe.
 
     Returns ``{coverage, ic_mean, ic_ir, monotonicity, long_short_sharpe}``
     on the validation window only. Used for secondary-universe robustness
     snapshots; the primary universe still gets the full Phase 2 metric
     suite via ``_evaluate_candidate``.
+
+    Reuses the candidate's primary-universe ``clean_series`` rather than
+    re-running ``preprocess_factor`` per universe (which dominated single-
+    candidate runtime when ≥2 secondary universes were configured). MAD
+    winsorize + zscore happen on the primary cross-section, so on a
+    strict subset the rank ordering is unchanged — IC + quintile
+    monotonicity are rank-based, so this approximation preserves the
+    metrics that drive the robustness snapshot.
     """
-    aligned_mask = universe_mask.reindex(factor_series.index, fill_value=False).astype(bool)
+    aligned_mask = universe_mask.reindex(clean_series.index, fill_value=False).astype(bool)
     denom = int(aligned_mask.sum())
     if denom == 0:
         return {"error": "empty_universe_mask"}
 
-    clean = preprocess_factor(factor_series, preprocess_config, tradable_mask=aligned_mask)
-    coverage = float((clean.notna() & aligned_mask).sum() / denom)
+    sub = clean_series.where(aligned_mask, np.nan)
+    coverage = float((sub.notna() & aligned_mask).sum() / denom)
 
-    cand_mi = _series_to_mi_df(clean.dropna())
+    cand_mi = _series_to_mi_df(sub.dropna())
     if cand_mi.empty:
         return {
             "coverage": round(coverage, 4),
@@ -609,12 +616,11 @@ def _evaluate_candidate(
                 per_universe_basic[sec_name] = {"error": "missing_mask"}
                 continue
             per_universe_basic[sec_name] = _basic_universe_metrics(
-                cand.factor_series,
+                clean_series,
                 sec_mask,
                 primary_returns,
                 validation_range=inputs.validation_range,
                 primary_horizon=inputs.primary_horizon,
-                preprocess_config=inputs.preprocess_config,
             )
 
         return {
