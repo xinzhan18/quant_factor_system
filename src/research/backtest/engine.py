@@ -1,5 +1,11 @@
 """Engine — state machine main loop + per-day reconciliation invariant.
 
+Decision-time preprocessing (winsorize+zscore) is applied per-cross-section
+matching what Phase 2 mining did before computing IC. For an equal-weight
+Top-K it's mathematically a no-op except at the winsorize boundary, but it
+makes the "selected factor" identical between mining and backtest, which is
+what auditors expect.
+
 State machine sequence per trading day ``dt``:
 
 1. **Settle cash**: release pending_cash from sells executed on dates strictly
@@ -32,6 +38,19 @@ from research.backtest.data_view import PriceView
 from research.backtest.executor import Executor
 from research.backtest.filters import ExecutionPolicy, TradabilityMask
 from research.backtest.strategy import QuintilePortfolio, Strategy
+from research.compute.preprocess import PreprocessConfig, winsorize_mad, zscore_cross_section
+
+
+def _preprocess_one_day(values: pd.Series) -> pd.Series:
+    """Same MAD k=5 winsorize + cross-sectional zscore as Phase 2 mining."""
+    if values.empty:
+        return values
+    cfg = PreprocessConfig()
+    wide = values.to_frame().T
+    wide = winsorize_mad(wide, k=cfg.winsorize_mad_k, scale=cfg.winsorize_mad_scale)
+    if cfg.zscore:
+        wide = zscore_cross_section(wide)
+    return wide.iloc[0]
 
 
 RECONCILE_WARN_BPS = 5.0
@@ -133,12 +152,43 @@ class Engine:
             if dt in rebalance_days:
                 factor_vals = self.factor_loader.at(dt)
                 universe = self.calendar.universe_at(dt)
+                next_dt_for_decide = days[i + 1] if i + 1 < len(days) else None
+                # Pre-filter: drop stocks we already know we can't BUY at next_dt's
+                # open (suspended today / ST / newly listed / closed at limit-up).
+                # The "limit-up at next_dt open" check is forward-looking and stays
+                # in the executor — but we can still drop stocks that closed
+                # limit-up today since they almost certainly open at limit-up.
+                # Doing this BEFORE ranking ensures Top-K fills all slots with
+                # tradable names rather than wasting capacity on blocked picks.
+                if next_dt_for_decide is not None and not factor_vals.empty:
+                    candidate_syms = [s for s in factor_vals.dropna().index if s in universe]
+                    if candidate_syms:
+                        buyable = self.mask.can_buy(next_dt_for_decide, candidate_syms)
+                        keep = buyable[buyable].index
+                        factor_vals_for_main = factor_vals.loc[
+                            factor_vals.index.intersection(keep)
+                        ]
+                    else:
+                        factor_vals_for_main = factor_vals.iloc[:0]
+                else:
+                    factor_vals_for_main = factor_vals
+                # Mining-equivalent preprocess (MAD winsorize + zscore) for
+                # main strategy. For Top-K equal-weight this rarely changes
+                # selection but matches Phase 2's IC pipeline byte-for-byte.
+                factor_vals_for_main = _preprocess_one_day(factor_vals_for_main.dropna())
+                # Quintiles use the same preprocess (mining's diagnostic
+                # quintiles are also computed on preprocessed factor).
+                factor_vals_for_q = _preprocess_one_day(
+                    factor_vals.dropna()[
+                        factor_vals.dropna().index.isin(universe)
+                    ]
+                )
                 main_target = self.main_strategy.target_weights(
-                    dt, factor_vals, universe, self.view
+                    dt, factor_vals_for_main, universe, self.view
                 )
                 q_targets = [
                     self.quintile_strategy.target_for_quintile(
-                        q, factor_vals, universe, self.view
+                        q, factor_vals_for_q, universe, self.view
                     )
                     for q in range(5)
                 ]
@@ -229,6 +279,32 @@ class Engine:
         vol = ret.std() * (252 ** 0.5)
         sharpe = ann / vol if vol > 0 else 0.0
         max_dd = equity["drawdown"].min()
+
+        # Turnover stats — main account only (q1-q5 are diagnostic)
+        main = trades[trades.get("account", "main") == "main"] if not trades.empty else trades
+        n_days = max(int(len(equity)), 1)
+        if not main.empty and "fill_price" in main.columns and "shares" in main.columns:
+            main = main.copy()
+            main["notional"] = main["fill_price"] * main["shares"]
+            buy_notional_total = float(main.loc[main["side"] == "buy", "notional"].sum())
+            sell_notional_total = float(main.loc[main["side"] == "sell", "notional"].sum())
+            avg_equity = float(equity["total_equity"].mean())
+            n_rebalance_days = int(main["date"].nunique())
+            avg_trades_per_rebal = float(len(main) / n_rebalance_days) if n_rebalance_days else 0.0
+            avg_buy_per_rebal = (
+                float(main.loc[main["side"] == "buy", "notional"].groupby(
+                    main.loc[main["side"] == "buy", "date"]).sum().mean())
+                if (main["side"] == "buy").any() else 0.0
+            )
+            ann_turnover = (
+                buy_notional_total / avg_equity * (252.0 / n_days) if avg_equity > 0 else 0.0
+            )
+        else:
+            buy_notional_total = sell_notional_total = avg_buy_per_rebal = 0.0
+            n_rebalance_days = 0
+            avg_trades_per_rebal = 0.0
+            ann_turnover = 0.0
+
         return dict(
             full=dict(
                 ann_return=float(ann),
@@ -236,6 +312,14 @@ class Engine:
                 sharpe=float(sharpe),
                 max_dd=float(max_dd),
                 n_days=int(len(equity)),
+            ),
+            turnover=dict(
+                n_rebalance_days=n_rebalance_days,
+                avg_trades_per_rebalance=round(avg_trades_per_rebal, 2),
+                avg_buy_notional_per_rebalance=round(avg_buy_per_rebal, 2),
+                buy_notional_total=round(buy_notional_total, 2),
+                sell_notional_total=round(sell_notional_total, 2),
+                ann_turnover_x=round(ann_turnover, 2),
             ),
         )
 

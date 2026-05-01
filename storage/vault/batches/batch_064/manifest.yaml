@@ -1,0 +1,99 @@
+batch_id: batch_064
+round: 63
+direction: range_structure
+direction_md_ref: vault/directions/range_structure.md
+batch_goal: T003 round 2 sub-path A — 沿 b056 C001 reserve 的 ATOM1=Std((O-L)/(H-L),20)
+  open-lower-position-dispersion 衍生 6 候选 × 6 个跨字段族独立长窗 scale-free RHS（turnover_60
+  / H_C_60 / L_C_60 / pb_60 level / H_L_120 (dead-endpoint window 扩展) / 60d-mean-of-20d-autocorr
+  novel temporal），目标至少 1 admit 验证 (O-L)/(H-L) atom × 非 b056 已 reject RHS 维度可扩展。规避
+  b056 已 reject RHS（amount/volume, pe/pb, vwap/close, pe/ps, turnover/pb, amount/market_cap）+
+  死亡 endpoint（overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60/H_L_60_geo）+
+  daily-return/overnight-gap LHS（b056 C003/C004/C005 三连 reject）+ composite midpoint
+  LHS（b056 C006）+ pe/pb/ps fundamental 60d 复合（b056 三连 reject）。设计纪律：mono_is>=0.6 +
+  incr_ic>0.015 当 max_corr∈[0.30,0.70] borderline（P006 library-reducer 第 7 次律）+ LHS
+  单层 Std 二阶矩 + RHS scale-free positive ratio。规避：rate/delta/ratio LHS（lessons forbidden）+
+  higher-moment LHS regime sign-flip（仅 Std-of-scale-free-ratio safe）+ rank-preserving
+  单算子包装。
+active_threads_referenced:
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-28T08:57:33Z'
+frozen_at: '2026-04-28T08:57:33Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean($turnover_rate,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean($turnover_rate,60)))
+  rationale: 'LHS=Std((O-L)/(H-L),20) open-lower-position-dispersion (b056 C001 reserve
+    seed atom，sub-path A 起点)。RHS=Mean(turnover_rate,60) 60d turnover level——纯 share-base
+    流动性 level，与已 admit 库 RHS 完全跨字段族（F015 amihud-numerator，F016 amihud-turnover-numerator，F017
+    turnover_5 短窗，F018 amount_20，F019 price_vol_20，F020 body_ratio_20，F021 H_L_60，F022
+    amount_accel，F023 amount level，b056 C001 amount/volume）。turnover_60 NOT 在死亡 RHS
+    endpoints（overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60/H_L_60_geo）中。设计意图：测试
+    P005 F017 anchor cluster turnover-family 是否在 60d 长窗扩展（vs 5d 短窗已死）。Anti-recap:
+    b056 C001 RHS 是 amount/volume (VWAP magnitude)，本批 RHS 是 share-base turnover；几何完全不同
+    (price-base vs share-base)。预期 max_corr@F017<0.40 (turnover_60 vs turnover_5 长短窗+geometry)，incr_ic
+    目标 ≥0.015。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($high,$close),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($high,$close),60)))
+  rationale: 'LHS 同 C001。RHS=Mean(H/C,60) 60d high-close ratio mean——是当日 high 距 close
+    在长期均值意义下的上行幅度代理；与 F021 RHS H/L_60 死 endpoint 不同 (H/L vs H/C 分母不同：low vs close)；与
+    F019 RHS price_vol 20d 死 endpoint 不同 (RealizedVol vs ratio Mean)。设计意图：测试 ''H/C
+    这个 OHLC 比值组合'' 是否独立于 H/L 60d 死 endpoint 的 vol_20d 吸收簇。Anti-recap: 与 b055 C006
+    LHS Std((H-L)/C,60) 相反（本批 LHS 是 (O-L)/(H-L) 不是 (H-L)/C），且 RHS 是 H/C ratio 60d
+    Mean (level) 而非 size 60d Mean。Risk: H/C 与 H/L 几何相邻 (H 共字段)，但 Mean(H/C) 的 cross-section
+    主要由小盘股的 daily 上行幅度均值驱动，可能仍偏向 vol_20d；预期 max_corr@F021<0.50。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($low,$close),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($low,$close),60)))
+  rationale: 'LHS 同 C001。RHS=Mean(L/C,60) 60d low-close ratio mean——当日 low 距 close
+    的下行幅度代理；与 C002 RHS (H/C) 几何对偶 (高方向 vs 低方向)，与 F021 H/L_60 死 endpoint 不同 (L/C vs
+    H/L 共享 low 但分母不同：close vs high)。设计意图：成对设计 H/C 与 L/C 测两侧 anchor 几何效果差异。L/C ≤ 1
+    永远，与 vol_20d 关系应该比 H/C 更弱（low 主要由跌幅决定，跌幅在 csi1000 噪声较多）。Anti-recap: 与 C002 LHS
+    相同但 RHS 字段对偶；非 affine 等价 (H/C ≠ 1-L/C in general)。预期至少 1 admit between C002+C003，因为两者机制对偶但测的是相反方向
+    anchor effect；同 LHS shared anchor rule (P005#5)：max admit 1 per shared LHS family，但
+    RHS dual 不算共享。'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean($pb_ratio,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean($pb_ratio,60)))
+  rationale: 'LHS 同 C001。RHS=Mean(pb_ratio,60) 60d PB level——纯 fundamental level (NOT
+    rate/delta，规避 lessons forbidden patterns 的 fundamental_momentum b022 disprovel)；F002
+    (admit pb_amount_ratio_20) 用 PB/amount ratio 5d，本批 RHS 是 PB level 60d (无 amount
+    分母 + 长窗 mean)，几何完全不同。设计意图：F002 证明 PB level 在 fundamental 信息空间是 alive (与 momentum/rate
+    形式不同)；用 PB level 60d 作为 normalized basis 测 (O-L)/(H-L) intraday-position dispersion
+    在 PB 跨截面排名下的剩余 alpha。规避 b056 C002 (pe/pb 60d 复合 ratio - sign_flip)，本批是 raw PB
+    level。Anti-recap: 与 b022 fundamental_momentum disproved 的是 rate/delta 形式，本批是 level
+    形式（F002 路径）。预期 max_corr@F002<0.30 (geometry: rank-diff vs ratio multiplied)。'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($high,$low),120)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(Div($high,$low),120)))
+  rationale: 'LHS 同 C001。RHS=Mean(H/L,120) 120d H/L mean——直接扩展 H_L_60_geo 死亡 endpoint
+    到 120d。设计意图：科学测试''死亡 endpoint 是 geometry-specific 还是 window-specific''：若 geometry-specific
+    则 120d 仍死 → 我们就明确该结论；若 window-specific 则 120d 可能活——尚未明确。120d 比 60d 更平滑，可能减弱与 vol_20d
+    的耦合（vol_20d 是 20d std，120d Mean 是不同时间尺度）。Anti-recap: 与 F021 RHS Mean(H/L,60) 同字段几何但不同时间尺度；与
+    b055 C006 RHS Mean(circ_market_cap,60) 不同字段族。Risk: 若 H/L geometry 在所有窗口都 dead
+    则本候选很可能 reject (max_corr@F021 可能高至 0.7+)，但科学价值在于明确 geometry-vs-window 边界——若被 reject，将
+    H/L 在所有 window 都升格为 dead endpoint。'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(TsAutoCorr($close,20),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean(TsAutoCorr($close,20),60)))
+  rationale: 'LHS 同 C001。RHS=Mean(TsAutoCorr($close,20),60) 60d-mean of 20d 价格序列自相关——TsAutoCorr
+    是 unitless [-1,1] 的时序持续性度量，60d 平滑后捕捉长期价格 mean-reversion vs trending 倾向。完全跨字段族
+    (RHS 不在 OHLC ratio / fundamental / amount / turnover 任何已用空间)，是首次 temporal-statistic-based
+    RHS。设计意图：根据 P004 vol_20d 9+ direction 律，最有效的逃离方法是用 NON-magnitude 维度作 RHS——TsAutoCorr
+    测的是序列结构而非 cross-section 量级，理论上与 vol_20d 几何最远。Anti-recap: 不与任何 b043-b056 或 admit
+    库 RHS 重叠；不撞 7 律 (1) scale-invariance ✓ (autocorr ∈ [-1,1])；(2) raw field 异源 ✓
+    (LHS 用 OHLC 价位，RHS 用 close-only 时序自相关)；(3) 非 same-X-cross-window；(4) 非反号对偶；(5)
+    LHS 与 C001-C005 共享但 P005 #5 max admit 1 per shared LHS, 本批 6 候选承担 RHS 多样性测试任务；(6)/(7)
+    非 dead RHS endpoint, 非 anchor cluster。预期 max_corr<0.30 + incr_ic 高。Risk: signal
+    可能 weak (autocorr cross-section 信噪比不确定)。'

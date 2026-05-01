@@ -337,7 +337,19 @@ frozen_at: "2026-04-11T14:31:00+08:00"
 
 ## DSL whitelist
 
-**字段**：`$open $high $low $close $volume $amount $pe_ratio $pb_ratio $ps_ratio $market_cap $circ_market_cap $turnover_rate`
+**字段**（source-of-truth: `src/research/phases/phase1_start.py:DSL_FIELD_WHITELIST`）：
+
+- 价量：`$open $high $low $close $volume $amount`
+- 微观：`$turnover_rate $num_trades`
+- 估值 PIT：`$pe_ratio $pb_ratio $ps_ratio $pcf_ratio $market_cap $circ_market_cap`
+- 盈利 TTM：`$return_on_equity_ttm $return_on_asset_ttm $return_on_invested_capital_ttm $gross_profit_margin_ttm $operating_profit_margin_ttm`
+- 偿债 TTM：`$debt_to_asset_ratio_ttm $debt_to_equity_ratio_ttm $current_ratio_ttm`
+- 效率 TTM：`$total_asset_turnover_ttm $inventory_turnover_ttm $account_receivable_turnover_rate_ttm`
+- 成长 TTM：`$operating_revenue_growth_ratio_ttm $net_profit_growth_ratio_ttm $net_asset_growth_ratio_ttm`
+- 每股/收益率 TTM：`$eps_ttm $book_value_per_share_ttm $operating_cash_flow_per_share_ttm $dividend_yield_ttm`
+- 估值 TTM：`$pcf_ratio_total_ttm $peg_ratio_ttm`
+
+⚠️ 2026-05-01 扩展：新增 22 个基本面 / 微观字段（`$num_trades` + 20 TTM 财务比率），与已饱和 OHLCV 几何完全独立。优先尝试 quality / growth / leverage 类原子打开新方向。
 
 **算子**：
 - 数学/逻辑：`Add Sub Mul Div Abs Log Power Sign Not And Or Eq Ne Gt Ge Lt Le`

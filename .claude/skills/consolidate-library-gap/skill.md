@@ -52,7 +52,7 @@ suggested_new_direction: "orthogonal_residual_signals"   # 若建议新方向
 ## 识别启发
 
 - **算子族空白**：admitted 全部都用 `Std / Corr / Mean`；从未用过 `Slope / Resi / Skew / CsRank`
-- **字段族空白**：admitted 全部基于 OHLCV；`$pe_ratio / $ps_ratio / $pb_ratio` 相关方向少
+- **字段族空白**：admitted 几乎全部基于 OHLCV；2026-05-01 新增 22 字段（`$num_trades / $pcf_ratio + 20 TTM 财务比率`）— 基本面 quality / growth / leverage / efficiency 类原子是当前最大空白
 - **时间尺度空白**：admitted 全部 single-window；缺 multi-horizon blend
 - **条件算子空白**：admitted 几乎没有 `IfElse / Mask / Gt` 条件结构
 - **复合算子空白**：admitted 绝大多数 depth ≤ 3；深嵌套组合未探索

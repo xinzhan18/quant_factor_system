@@ -47,7 +47,12 @@ user_invocable: true
 
 当前系统是：
 - **日频优先**
-- 数据字段以 Phase 1 白名单为准：`$open $high $low $close $volume $amount $pe_ratio $pb_ratio $ps_ratio $market_cap $circ_market_cap $turnover_rate`
+- 数据字段以 Phase 1 白名单为准（source-of-truth: `src/research/phases/phase1_start.py:DSL_FIELD_WHITELIST`）：
+  - 价量：`$open $high $low $close $volume $amount`
+  - 微观：`$turnover_rate $num_trades`
+  - 估值 PIT：`$pe_ratio $pb_ratio $ps_ratio $pcf_ratio $market_cap $circ_market_cap`
+  - 基本面 TTM (20)：盈利 / 偿债 / 效率 / 成长 / 每股 / 估值（详见 `CLAUDE.md` "Available Fields"）
+  - 2026-05-01 扩展 22 字段：基本面方向打开
 - **DSL first**；DSL 不可表达但日频数据足够时，才走 Python escape hatch
 
 因此每个 paper idea 必须被分到四类之一：

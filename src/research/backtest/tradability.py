@@ -128,10 +128,10 @@ class TradabilityProvider:
         ts = pd.Timestamp(dt)
         try:
             day = self._st.xs(ts, level=0)
-            present = day["is_st"].reindex(syms).fillna(False)
+            present = day["is_st"].reindex(syms).fillna(False).astype(bool)
         except KeyError:
             present = pd.Series(False, index=syms)
-        return present.astype(bool)
+        return present
 
     def is_st(self, dt: date, sym: str) -> bool:
         return bool(self.st_mask(dt, [sym]).iloc[0])

@@ -29,8 +29,19 @@ source: Phase 5 consolidation — merged 13 specialist findings; codified rank-d
 
 ## Operator Registry
 
-- **白名单唯一**：DSL 算子 / 字段必须出现在 `src/research/execute/precheck.py` 白名单里（single source of truth）
-- **可用字段**：`$open, $high, $low, $close, $volume, $amount, $pe_ratio, $pb_ratio, $ps_ratio, $market_cap, $circ_market_cap, $turnover_rate`
+- **白名单唯一**：DSL 算子 / 字段必须出现在 `src/research/phases/phase1_start.py:DSL_FIELD_WHITELIST`（single source of truth）
+- **可用字段**（2026-05-01 扩展，新增 22 个基本面 / 微观字段）：
+  - **价量**：`$open $high $low $close $volume $amount`
+  - **微观**：`$turnover_rate $num_trades`（单日成交笔数）
+  - **估值 PIT**：`$pe_ratio $pb_ratio $ps_ratio $pcf_ratio $market_cap $circ_market_cap`
+  - **盈利 TTM**：`$return_on_equity_ttm $return_on_asset_ttm $return_on_invested_capital_ttm $gross_profit_margin_ttm $operating_profit_margin_ttm`
+  - **偿债 TTM**：`$debt_to_asset_ratio_ttm $debt_to_equity_ratio_ttm $current_ratio_ttm`
+  - **效率 TTM**：`$total_asset_turnover_ttm $inventory_turnover_ttm $account_receivable_turnover_rate_ttm`
+  - **成长 TTM**：`$operating_revenue_growth_ratio_ttm $net_profit_growth_ratio_ttm $net_asset_growth_ratio_ttm`
+  - **每股 / 收益率 TTM**：`$eps_ttm $book_value_per_share_ttm $operating_cash_flow_per_share_ttm $dividend_yield_ttm`
+  - **估值 TTM**：`$pcf_ratio_total_ttm $peg_ratio_ttm`
+  - **数据来源**：`ref_financials` (TTM, 米矿 get_factor 同步) / `ref_valuation` (PIT) / `ref_shares` (microstructure)；2026-05-01 同步全 11 年历史，~5500 股
+  - **新方向提示**：基本面 TTM 因子与已饱和的 OHLCV 几何**完全独立**，不撞 vol_20d / F015/F017 anchor。优先尝试 quality (ROE/ROA/margins) × growth × leverage 类原子，与价量字段做 ratio / sub / interaction
 - **自定义算子**（需要 `C.kernels = 1`）：`TsRank`, `TsMax`, `TsMin`, `TsAutoCorr`, `TsDecay`, `TsMomentum`, `RealizedVol`, `CsRank`, `CsZscore`, `CsDemean`, `AmihudIlliq`, `HHI`, `SignedPower`, `Tanh`, `Exp`, `Sigmoid`
 - **禁用算子**：`Neg`（用 `Mul($x, -1)`），`SMA`（用 `EMA` 或 `Mean`）
 - **横截面算子**（`CsRank` / `CsZscore` / `CsDemean`）无论挖掘 universe 是什么，始终在 `D.instruments("all")` 上计算

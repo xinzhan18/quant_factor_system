@@ -1,0 +1,305 @@
+batch_id: batch_067
+round: 67
+direction: microstructure_illiquidity
+direction_md_ref: vault/directions/microstructure_illiquidity.md
+batch_goal: 'T009 (NEW): Non-Amihud microstructure illiquidity proxies, vol_20d-orthogonal
+  LHS atoms
+
+  with non-turnover non-H-L-60 non-amount-derived RHS. Round 3/3 of orchestrator cycle
+  —
+
+  prior 2 rounds confirmed operator-family novelty != style novelty (rolling-regression
+
+  Slope/Resi, Skew/Kurt/autocorr/Rank-wrap all vol_20d-locked on csi1000 daily).
+
+
+  Atoms (LHS) targeted:
+
+  T009.a Roll-style serial covariance: -Cov(Delta close, Ref Delta close, 20) — Roll
+  (1984)
+
+  effective spread is sqrt(-cov of return changes); structurally different from variance
+
+  (covariance of CHANGES, not magnitude of changes). Hypothesis: Roll-cov captures
+  bid-ask
+
+  bounce / mean-reversion microstructure noise, NOT vol_20d magnitude.
+
+
+  T009.b Path-efficiency ratio (H-L vs |close-open|): Mean(|close-open| / (high-low+eps),
+  20)
+
+  — Kaufman efficiency ratio analog at bar level. High value = directional move
+
+  (informed-trader path); low value = noisy zigzag (uninformed liquidity-provider
+  path).
+
+  Scale-free, NOT magnitude-aggregation, NOT |return|-aggregation.
+
+
+  T009.c Order-flow imbalance proxy via close-vs-midpoint: Mean((close - (high+low)/2)
+  /
+
+  (high-low+eps), 20) signed quantity in [-0.5, 0.5]. Signed version of F022 close-position
+
+  (which is unsigned in [0,1]). Sign-content not magnitude-content; orthogonal to
+  F022
+
+  geometry.
+
+
+  T009.d Kyle-lambda directional proxy: Mean(Sign(close-open) × |close-open| / amount,
+  20)
+
+  — directional version of Amihud. Differs from F012 (unsigned |ret|/amount): captures
+
+  signed price impact per unit volume = Kyle''s price-impact coefficient analog. Note:
+  NOT
+
+  rank-diff geometry, level form.
+
+
+  RHS basis (escape turnover-family + H-L_60 + amount aggregations):
+
+  - $market_cap level (size factor, NOT in dead-endpoint list)
+
+  - $pe_ratio level (value factor, fresh basis)
+
+  - $ps_ratio level (sales-multiple, fresh)
+
+
+  Pre-checks: 4-anchor pre-check at design — F002 (PB×amount) RHS not used; F012 (Amihud
+
+  numerator) LHS atoms structurally distinct (Roll-cov, signed paths); F020 (gap-anti)
+  no
+
+  gap content; F022 (close-position cluster) signed not unsigned, also paired with
+  non-amount
+
+  RHS. P006 trap mitigation: no rank-diff anchor structure → max_corr expected <0.30.'
+active_threads_referenced:
+- T009
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T13:43:34Z'
+frozen_at: '2026-05-01T13:43:34Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mul(Cov(Delta($close, 1), Ref(Delta($close, 1), 1), 20), -1)
+  canonical: Mul(-1,Cov(Delta($close,1),Ref(Delta($close,1),1),20))
+  rationale: 'T009.a Roll (1984) effective-spread proxy. -Cov(Δp_t, Δp_{t-1}, 20)
+    is the
+
+    classical microstructure illiquidity measure. Geometry: covariance of return
+
+    CHANGES (signed first differences), NOT magnitude — structurally distinct from
+
+    vol_20d which is Std(returns). High value = strong negative serial dependence
+
+    = wide bid-ask bounce = high illiquidity.
+
+    LHS escape: NOT a |return| moment; NOT an OHLC ratio; this is a 2nd-order
+
+    cross-time covariance that vanishes for trend-driven names (which dominate
+
+    vol_20d cross-section). Anchor pre-check: F012 (Mean|ret|/amount) is positive-mean
+
+    level, Roll-cov is signed covariance — orthogonal mechanism. Anti-recap: NOT in
+
+    Known Failures (which are all Amihud-derivatives or sign-conditional means);
+
+    P003 sign-flip risk: covariance can be regime-stable since both regimes have
+
+    bid-ask bounce as universal microstructure phenomenon.
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Div(Abs(Sub($close, $open)), Add(Sub($high, $low), 0.0001)), 20)
+  canonical: Mean(Div(Abs(Sub($close,$open)),Add(0.0001,Sub($high,$low))),20)
+  rationale: 'T009.b Path-efficiency ratio: |close-open| / (high-low) is bar-level
+    Kaufman
+
+    efficiency. In [0, 1] scale-free. High = directional move (informed flow); low
+    =
+
+    zigzag chop (illiquidity / market-maker dominance). Geometric distinction from
+
+    F019 body-disp: F019 is Std(body_ratio) higher-moment magnitude; THIS is Mean
+    of
+
+    ratio (1st moment of efficiency). Distinct from F022 close-position in [0,1]
+
+    (location-of-close), this is shape-of-path. LHS escape: ratio is bounded [0,1]
+
+    not magnitude — vol_20d-orthogonal (a high-vol stock can have either high
+
+    efficiency [trend] or low efficiency [chop]; cross-section rank uncorrelated with
+
+    vol). RHS $pe_ratio level: fresh, NOT in dead endpoints.
+
+    Anti-recap: F019 in Known Failures uses Std(body_ratio); this uses Mean(|body|/range).
+
+    Not same construct.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($close, Div(Add($high, $low), 2)), Add(Sub($high,
+    $low), 0.0001)), 20)), CsRank($market_cap))
+  canonical: Sub(CsRank(Mean(Div(Sub($close,Div(Add($high,$low),2)),Add(0.0001,Sub($high,$low))),20)),CsRank($market_cap))
+  rationale: 'T009.c Order-flow imbalance proxy. (close - midpoint)/(high-low) in
+    [-0.5, 0.5] is
+
+    signed close-position; rolling Mean over 20d aggregates directional pressure.
+
+    Distinct from F022 (Sub(close,low)/(high-low) ∈ [0,1] UNSIGNED). Sign content
+
+    drives different cross-section vs F022 unsigned magnitude.
+
+    RHS $market_cap level: size factor, fresh — NOT used in any admitted rank-diff.
+
+    Pre-check: F022 RHS is amount-accel ratio (Mean5/Mean60), our RHS is market_cap
+
+    level — categorically different RHS basis.
+
+    P003 sign-flip mitigation: signed close-position has been shown sign-stable in
+
+    A-share intraday research (close near high persistent buying); regime drift small.
+
+    Rank-diff geometry usage justified per F002/F305 7-rule check: (1) both ends
+
+    scale-invariant ✓; (2) raw fields independent ✓ (LHS uses HLC, RHS uses market_cap);
+
+    (3) cross-window not applicable; (4) Sub direction picks signed-imbalance > size
+
+    (high imbalance / small cap = illiquid driven name); (5) batch anchor rule —
+
+    no other rank-diff in this batch shares LHS/RHS; (6) RHS market_cap fresh; (7)
+
+    F012/F015/F022 anchor pre-check — none use (close-mid)/(H-L) signed nor
+
+    $market_cap as level RHS.
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Div(Mul(Sign(Sub($close, $open)), Abs(Sub($close, $open))), $amount),
+    20)
+  canonical: Mean(Div(Mul(Abs(Sub($close,$open)),Sign(Sub($close,$open))),$amount),20)
+  rationale: 'T009.d Kyle''s lambda directional proxy. Sign(close-open) × |close-open|
+    / amount =
+
+    signed price-impact per unit dollar volume. Differs from F012 (Mean(|return|/amount,
+    20))
+
+    which is unsigned magnitude. Kyle (1985) lambda is signed because it measures
+    HOW
+
+    much price moves PER signed order flow — not just magnitude of impact.
+
+    Anti-recap: T005 sign-conditional Amihud DISPROVEN (b046 up/down split via If(),
+
+    max_corr 0.94 with F012 because day-level sign gate + window-mean abolishes
+
+    asymmetry). THIS candidate is structurally different: NOT a sign-gate
+
+    (If-conditional) splitting up/down days, but a SIGNED PRODUCT inside the Mean
+    —
+
+    preserves directional information without throwing away half the sample.
+
+    Mathematically: this is Mean(signed_body / amount, 20) ≠ |Mean(signed)| ≠
+
+    sign-conditional split. Should produce different cross-section ranking from F012.
+
+    Style risk: contains $amount in denominator like F012 → may collide. Mitigation:
+
+    signed numerator is mean-zero baseline → cross-section orthogonalizes magnitude.
+
+    Expected max_corr@F012 < 0.50.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mul(Cov(Delta($close, 1), Ref(Delta($close, 1), 1), 20),
+    -1)), CsRank($pe_ratio))
+  canonical: Sub(CsRank(Mul(-1,Cov(Delta($close,1),Ref(Delta($close,1),1),20))),CsRank($pe_ratio))
+  rationale: 'T009.a × T007: Roll-cov LHS (C001 atom) wrapped in rank-diff vs $pe_ratio
+    level RHS.
+
+    Tests whether rank-diff geometry generalizes to a NEW microstructure atom (Roll
+
+    effective-spread proxy) paired with valuation-multiple cross-section.
+
+    Anti-recap T007 generalization rules (F305): (1) both ends scale-invariant (Roll-cov
+
+    is scale-free as 2nd-order time differential covariance, $pe_ratio is dimensionless
+
+    ratio) ✓; (2) raw fields independent (LHS=$close-derived, RHS=$pe_ratio) ✓;
+
+    (3) cross-window N/A; (4) Sub direction: high Roll-cov / low PE = illiquid value
+
+    stock — economically meaningful sign; (5) batch anchor rule: C003 uses different
+
+    LHS (signed-imbalance) and different RHS (market_cap), no overlap; (6) RHS pe_ratio
+
+    fresh; (7) anchor pre-check: F015/F016 LHS use Mean(|ret|/amount) Amihud-numerator,
+
+    ours uses serial covariance — orthogonal numerator family.
+
+    P006 mitigation: if Roll-cov is genuinely orthogonal to F012 family (corr<0.30
+    at
+
+    raw level), wrapping in rank-diff with fresh PE RHS should NOT land in library
+
+    anchor — expected max_corr < 0.40.
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Abs(Sub($close, $open)), Add(Sub($high, $low), 0.0001)),
+    20)), CsRank($ps_ratio))
+  canonical: Sub(CsRank(Mean(Div(Abs(Sub($close,$open)),Add(0.0001,Sub($high,$low))),20)),CsRank($ps_ratio))
+  rationale: 'T009.b × T007: Path-efficiency LHS (C002 atom) in rank-diff vs $ps_ratio
+    level.
+
+    Tests whether efficiency-ratio (bounded shape-of-path metric) generalizes via
+
+    rank-diff with sales-multiple RHS. Distinct from C003 (which uses signed imbalance
+
+    and market_cap RHS) on both sides.
+
+    Anti-recap: F019 uses Std(body_ratio,20) which is 2nd-moment magnitude; OUR atom
+
+    is Mean(|body|/(H-L)) — 1st moment of efficiency RATIO, different geometry.
+
+    F022 LHS is (close-low)/(high-low) — close-position UNSIGNED; OUR atom is
+
+    |close-open|/(high-low) — body-vs-range path-efficiency. Both bounded but
+
+    semantically distinct (location vs shape).
+
+    RHS $ps_ratio: fresh basis, not in any rank-diff admitted (F002 uses pb*amount,
+
+    F015/F016 use amount/turnover CV, F017/F018/F022/F023 use turnover/amount derivatives).
+
+    7-rule rank-diff check: ✓ both scale-invariant, ✓ field-independent, ✓ Sub direction
+
+    (high efficiency / low PS = directional informed flow on undervalued names),
+
+    ✓ batch anchor (C003 different LHS+RHS, C005 different LHS+RHS), ✓ RHS fresh,
+
+    ✓ anchor pre-check: F019 different LHS construct, F020 different (gap), F022/F023
+
+    different RHS family.
+
+    P003 risk: efficiency ratio is bounded [0,1] → no regime-driven sign flip possible
+
+    (always positive). P006 risk: rank-diff with fresh PS basis, expected max_corr<0.35.
+
+    '

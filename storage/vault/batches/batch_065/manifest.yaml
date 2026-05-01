@@ -1,0 +1,137 @@
+batch_id: batch_065
+round: 64
+direction: trend_residual_geometry
+direction_md_ref: vault/directions/trend_residual_geometry.md
+batch_goal: 'T001/T002/T003 baseline — operator-family 0-admit 空缺补位首批：Slope (C001/C006)
+  / Resi (C002/C003) / Rsquare (C004/C005) 三 rolling-regression 算子在 csi1000 daily-bar
+  cross-section 上是否携带独立于 23 admit Mean/Std-base 因子的 alpha。
+
+  zero_admit_streak=5 saturation regime 下放弃 productive direction 的同 RHS family 重复
+  (overnight/ohlc/microstructure 已 atp/close-position/sign atom 几何穷尽)，
+
+  切换至 library_gap/002 (HIGH) + library_gap/005 (MEDIUM) 双 finding 推荐的 operator-family
+  novelty axis。
+
+  设计硬约束：(1) LHS atom 必 vol_20d 几何正交 — Slope/Ref / Resi / Rsquare 都是 first-order trend
+  或 detrend 残差，不是 |return|/range/amount 的二阶聚合；
+
+  (2) RHS 严避已知 dead endpoints (amount_20/turnover_5/overnight_5/body_ratio_20/price_vol_20/Amihud_20/H_L_60/circ_mktcap_60)
+  与饱和 anchor cluster (F017 turnover-family / F021 H/L_60 / F002 amount-denominator)；
+
+  (3) RHS 选 Mean(PE/PB/PS,60) raw fundamental level (区别于 fundamental_momentum dead
+  的 rate/Delta) 或 standalone (raw Slope/Resi)；
+
+  (4) 不嵌套 CsRank 内 custom ops (TsMin/TsMax/Tanh/HHI/RealizedVol/AmihudIlliq) — 使用
+  qlib 内置 Slope/Resi/Rsquare 直接；
+
+  (5) 6 候选每个对应不同 LHS atom (Slope-close / Resi-close / Rsquare-close / Slope-close-norm
+  / Resi-turnover / Rsquare-amount), 不重叠.
+
+  目标 ≥1 admit 兑现 max_corr@library<0.50 + alpha_surv≥0.30 + |ls_t|>2 + |incr_ic|≥0.015.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-28T11:10:42Z'
+frozen_at: '2026-04-28T11:10:42Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Slope($close, 20), Ref($close, 20))
+  canonical: Div(Slope($close,20),Ref($close,20))
+  rationale: 'T001 standalone Slope/Ref scale-free trend slope. raw factor 无 rank-diff
+    包装. csi1000 momentum=reversal (trend_quality_gated dead) 预期负 IC.
+
+    LHS 是日均收益率 (% per day) cross-section 形式, 与 Mean(daily_return,N) 几何同源但 Slope rolling
+    regression 加权远端样本不同 (Mean 等权 vs Slope 距离加权).
+
+    operator family 完全 novel (Slope on $close 历史 0 batch tested). 预期 max_corr@F010/F011
+    (overnight 5d/3d) <0.40.
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Resi($close, 60)), CsRank(Mean($pb_ratio, 60)))
+  canonical: Sub(CsRank(Resi($close,60)),CsRank(Mean($pb_ratio,60)))
+  rationale: 'T002 Resi time-series detrend residual rank-diff. LHS=Resi($close,60)
+    减去 60d 个股自身线性趋势的残差 (time-series idiosyncratic deviation).
+
+    与 F004/F005 (cross-sectional Barra residual) 几何完全独立 (一为时序自比, 一为横截面去市场风险).
+
+    RHS=Mean($pb_ratio,60) raw level (level form 区别于 fundamental_momentum dead 的 Delta/rate).
+    PB 长窗 level 在 23 admit 中 0 出现 (F002 用 PB level 但搭 amount, 非 long-window aggregation).
+
+    Resi atom + PB level RHS 两端皆 0-admit 字段几何, 预期 max_corr<0.30 双独立.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Resi($close, 20)), CsRank(Mean($pe_ratio, 60)))
+  canonical: Sub(CsRank(Resi($close,20)),CsRank(Mean($pe_ratio,60)))
+  rationale: 'T002 短窗 Resi (20d 而非 C002 60d) × PE level 60d. 测试 detrend 窗口对 cross-section
+    rank-order 的影响.
+
+    短窗 Resi 捕捉近 20d 偏离, 长窗 Resi 捕 60d 偏离 — 预期短窗 IC noisier 但 turnover 更高.
+
+    RHS=Mean($pe_ratio,60) — PE 长窗 level 在 23 admit 中 0 出现, $pe_ratio 字段在 admitted
+    集 0 使用. fundamental level 双 0 admit 字段交叉.
+
+    与 C002 的 RHS 不同 (PE vs PB, 4-channel valuation factor pair).
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Rsquare($close, 60)
+  canonical: Rsquare($close,60)
+  rationale: 'T003 standalone Rsquare 60d trend quality. LHS=R² of 60d linear trend
+    in close ∈ [0,1] — orderly trend (high R²) vs ranging market (low R²).
+
+    operator family 完全 novel (Rsquare 历史 0 batch tested). 直觉: 机构持续吸筹股票呈 orderly trend
+    (高 R²) → 短期 reversal 可能性低 (高 R² 股偏正 forward IC).
+
+    标准化范围 [0,1] 内 — vol_20d 正交性强 (R² 是 fit quality, 不是 magnitude). raw standalone
+    不依赖 RHS 选择.
+
+    预期 max_corr@F022 close-position<0.30 (geometry 完全不同), max_corr@F010 overnight<0.30.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Rsquare($close, 60)), CsRank(Mean($ps_ratio, 60)))
+  canonical: Sub(CsRank(Rsquare($close,60)),CsRank(Mean($ps_ratio,60)))
+  rationale: 'T003 Rsquare rank-diff 包装 × PS level 60d. 同 C004 LHS 但加 rank-diff geometry
+    + PS RHS.
+
+    RHS=Mean($ps_ratio,60) — $ps_ratio 在 admitted 集 0 使用. raw level (区别于 fundamental_momentum
+    dead Delta).
+
+    与 C004 (standalone) 同 LHS 但不同结构 — 测 rank-diff 包装是否提升 R² LHS 的 cross-section 信号清洁度
+    (b057 Skew reserve 类似路径: standalone reserve, rank-diff 包装可能 admit).
+
+    预期 max_corr@C004<0.5 (rank-diff 改变 cross-section rank 加权), max_corr@F002<0.30
+    (无 amount 分母).
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Div(Slope($close, 60), Ref($close, 60))), CsRank(Mean($pb_ratio,
+    60)))
+  canonical: Sub(CsRank(Div(Slope($close,60),Ref($close,60))),CsRank(Mean($pb_ratio,60)))
+  rationale: 'T001 长窗 Slope/Ref 60d × PB level 60d rank-diff. 同 C001 LHS atom 但长窗
+    + rank-diff 包装.
+
+    区别 C001: 长窗 Slope 平滑短期噪声更接近 60d 趋势强度 (long-horizon momentum), 与 trend_quality_gated
+    dead 的 Mean(returns,5)×amount-gate 不同 (Slope rolling regression 距离加权 + 60d 长窗).
+
+    RHS=Mean($pb_ratio,60) 同 C002 RHS — 测同 PB-RHS 下 Resi (C002) vs Slope (C006) LHS
+    哪个更 cross-section 干净.
+
+    预期 max_corr@C001<0.6 (60d vs 20d 窗口差 + rank-diff 加成), max_corr@F010<0.5 (long-Slope
+    vs 5d-overnight-Mean 几何不同).
+
+    '

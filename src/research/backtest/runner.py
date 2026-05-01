@@ -73,6 +73,15 @@ class CachedFactorLoader:
                 non_meta = [c for c in df.columns if c.lower() not in ("datetime", "instrument")]
                 df = df[[non_meta[0]]]
             df = df.iloc[:, 0]
+        # Auto-flip sign for negative-IC factors so Top-K picks the predictively
+        # best stocks rather than the worst. Reads validation_metrics.ic_mean
+        # from the factor yaml; fallback to long_short_mean.
+        vm = meta.get("validation_metrics") or {}
+        ic = vm.get("ic_mean", vm.get("long_short_mean", 0.0))
+        self.sign = -1.0 if ic < 0 else 1.0
+        if self.sign < 0:
+            df = -df
+            logger.info("F%s ic_mean=%.4f<0 → flipping factor sign for Top-K", factor_id, ic)
         self._series: pd.Series = df
 
     def at(self, dt: date) -> pd.Series:
@@ -143,16 +152,78 @@ def run_backtest(
         "val": cfg.periods.val,
         "holdout": cfg.periods.holdout,
     }
+    period_results: dict[str, dict] = {}
     for period_name in cfg.periods.run:
         start, end = period_table[period_name]
         result = engine.run(start, end)
         out_dir = base_out / period_name
         Reporter().write(result, out_dir)
         full = result.metrics.get("full", {})
+        tov = result.metrics.get("turnover", {})
+        period_results[period_name] = dict(
+            equity_curve=result.equity_curve,
+            metrics=result.metrics,
+            start=start, end=end,
+        )
         print(
             f"[{factor_id}] {period_name}: "
             f"Sharpe={full.get('sharpe', 0):.2f} "
             f"AnnRet={full.get('ann_return', 0):.2%} "
             f"MaxDD={full.get('max_dd', 0):.2%} "
-            f"n_days={full.get('n_days', 0)}"
+            f"n_days={full.get('n_days', 0)} "
+            f"AvgTradesPerRebal={tov.get('avg_trades_per_rebalance', 0):.1f} "
+            f"AnnTurnoverX={tov.get('ann_turnover_x', 0):.2f}"
         )
+
+    if len(period_results) >= 2:
+        _write_combined_chart(period_results, base_out / "combined.png")
+        print(f"[{factor_id}] combined chart: {base_out}/combined.png")
+
+
+def _write_combined_chart(period_results: dict, out_path) -> None:
+    """One equity chart with all periods stitched, vertical lines at boundaries.
+
+    Each period is normalized to start at 1.0 (so we compare the *strategy's*
+    behavior in each regime rather than blending three resets of capital).
+    Top-K is solid, Q1/Q5 are dashed for context.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    fig, ax = plt.subplots(figsize=(14, 5))
+    period_order = ["train", "val", "holdout"]
+    colors = {"train": "#888", "val": "#1f77b4", "holdout": "#d62728"}
+    boundaries: list = []
+
+    for pname in period_order:
+        if pname not in period_results:
+            continue
+        ec = period_results[pname]["equity_curve"]
+        if ec.empty:
+            continue
+        idx = ec.index
+        if not isinstance(idx, pd.DatetimeIndex):
+            idx = pd.to_datetime(idx)
+        topk = ec["total_equity"] / ec["total_equity"].iloc[0]
+        ax.plot(idx, topk, color=colors[pname], lw=2, label=f"{pname} Top-K")
+        for q, ls in [("q1_equity", ":"), ("q5_equity", "--")]:
+            if q in ec.columns:
+                series = ec[q] / ec[q].iloc[0]
+                ax.plot(idx, series, color=colors[pname], lw=1, alpha=0.5,
+                        linestyle=ls,
+                        label=f"{pname} {q.split('_')[0].upper()}")
+        boundaries.append(idx[-1])
+
+    for b in boundaries[:-1]:
+        ax.axvline(b, color="black", linestyle="--", alpha=0.3, lw=1)
+
+    ax.axhline(1.0, color="grey", linestyle=":", alpha=0.5)
+    ax.set_title("Equity (each period normalized to 1.0)")
+    ax.set_ylabel("Cumulative return × initial")
+    ax.legend(loc="best", fontsize=8, ncol=3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=110)
+    plt.close(fig)

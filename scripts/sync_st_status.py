@@ -2,8 +2,9 @@
 """Sync A-share ST status history into ``instrument_st_status``.
 
 Reads the qlib instruments list (avoiding a full RQ all_instruments call), then
-calls ``rq.is_st_stock`` per (date, symbol). Inserts ``(date, symbol, True)`` for
-every (date, symbol) pair where the stock is ST.
+calls ``rq.is_st_stock(order_book_ids, start_date, end_date)`` once per yearly
+chunk. Returns a DataFrame indexed by date with symbols as columns (bool).
+Inserts ``(date, symbol, True)`` for every (date, symbol) cell that is True.
 
 Run after ``migrations/2026-05-01-backtest-tradability-tables.sql``.
 
@@ -83,43 +84,45 @@ def main() -> None:
     conn = psycopg2.connect(**_db_dsn())
     cur = conn.cursor()
 
-    dates = pd.bdate_range(args.start, args.end).date
-    logger.info("scanning %d trading days × %d symbols", len(dates), len(syms))
+    start = pd.Timestamp(args.start)
+    end = pd.Timestamp(args.end)
+    logger.info("scanning %s → %s × %d symbols", start.date(), end.date(), len(syms))
 
-    rows: list[tuple] = []
-    BATCH = 50_000
-    for i, dt in enumerate(dates):
-        # rq.is_st_stock is vectorized over symbols; one call per date
+    INSERT_SQL = (
+        "INSERT INTO instrument_st_status (datetime, instrument, is_st) "
+        "VALUES (%s,%s,%s) ON CONFLICT DO NOTHING"
+    )
+
+    # Yearly chunks: rq.is_st_stock(ids, start, end) returns wide DataFrame
+    # (index=date, cols=symbols, bool). One call per year keeps memory bounded.
+    cur_start = start
+    while cur_start <= end:
+        cur_end = min(cur_start + pd.DateOffset(years=1) - pd.Timedelta(days=1), end)
         try:
-            mask = rq.is_st_stock(rq_ids, date=str(dt))
+            df = rq.is_st_stock(rq_ids, start_date=cur_start.date(), end_date=cur_end.date())
         except Exception as exc:
-            logger.warning("is_st_stock failed @ %s: %s", dt, exc)
+            logger.warning("is_st_stock failed %s ~ %s: %s", cur_start.date(), cur_end.date(), exc)
+            cur_start = cur_end + pd.Timedelta(days=1)
             continue
-        if isinstance(mask, dict):
-            iter_pairs = mask.items()
-        else:
-            iter_pairs = zip(rq_ids, mask)
-        for rq_id, is_st in iter_pairs:
-            if bool(is_st):
-                rows.append((dt, sym_by_rq[rq_id], True))
-        if len(rows) >= BATCH:
-            cur.executemany(
-                "INSERT INTO instrument_st_status (datetime, instrument, is_st) "
-                "VALUES (%s,%s,%s) ON CONFLICT DO NOTHING",
-                rows,
-            )
+        if df is None or df.empty:
+            cur_start = cur_end + pd.Timedelta(days=1)
+            continue
+        # Stack True cells: melt to long, filter is_st==True
+        st_long = df.stack().reset_index()
+        st_long.columns = ["datetime", "rq_id", "is_st"]
+        st_long = st_long[st_long["is_st"]]
+        st_long["instrument"] = st_long["rq_id"].map(sym_by_rq)
+        st_long = st_long.dropna(subset=["instrument"])
+        rows = list(zip(
+            st_long["datetime"].dt.date,
+            st_long["instrument"],
+            [True] * len(st_long),
+        ))
+        if rows:
+            cur.executemany(INSERT_SQL, rows)
             conn.commit()
-            rows.clear()
-        if (i + 1) % 250 == 0:
-            logger.info("scanned %d / %d dates", i + 1, len(dates))
-
-    if rows:
-        cur.executemany(
-            "INSERT INTO instrument_st_status (datetime, instrument, is_st) "
-            "VALUES (%s,%s,%s) ON CONFLICT DO NOTHING",
-            rows,
-        )
-        conn.commit()
+        logger.info("chunk %s ~ %s: %d ST cells", cur_start.date(), cur_end.date(), len(rows))
+        cur_start = cur_end + pd.Timedelta(days=1)
 
     cur.execute("SELECT COUNT(*) FROM instrument_st_status")
     n = cur.fetchone()[0]

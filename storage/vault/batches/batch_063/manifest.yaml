@@ -1,0 +1,81 @@
+batch_id: batch_063
+round: 62
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: T012 higher-moment OHLC × non-vol-cluster RHS 第二轮——延伸 F019 (Std body_ratio,20
+  × price_vol_60) 的复活路径，测 4 个 NEW OHLC 原子 (close_position / range_norm_prev_close
+  / O-C / open_position) 的 higher-moment LHS × 4 个非 dead-endpoint RHS (turnover_60
+  / pe_60 / pb_60 amount_60)。所有 LHS scale-free + 单层 moment + 窗口 ≤20d 满足 P003 atom-orthogonality
+  三件套；严避 F006/F007/F019 anchor cluster；不嵌套 compound moment；不踩 dead RHS endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60)。目标：≥1
+  admit 兑现 max_corr<0.70 + alpha_surv≥0.30 + ls_t>2 + incr_ic≥0.015 (rank-diff borderline
+  死区)。
+active_threads_referenced:
+- T012
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-04-28T07:48:31Z'
+frozen_at: '2026-04-28T07:48:31Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($close,$low),Sub($high,$low)),20)), CsRank(Mean($turnover_rate,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($close,$low),Sub($high,$low)),20)),CsRank(Mean($turnover_rate,60)))
+  rationale: 'LHS=Std(close_position,20) higher-moment of NEW atom (close_position=(C-L)/(H-L)
+    与 F007 open_position=(O-L)/(H-L) 不同字段)；RHS=turnover_60 60d 流动性长窗 (避 turnover_5/amount_20/body_ratio_20
+    dead endpoints)。原子 scale-free + moment 单层 + 窗口 20d 满足 higher-moment safe 三件套。F019
+    LHS=body_ratio Std 不同 atom (close_position 关注收盘位置 vs body_ratio 关注开收差)。绕开 anchor:
+    F019 corr 待验，预期 close_position 与 body_ratio Std 跨 atom 几何独立。'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$low),Ref($close,1)),20)), CsRank(Mean($pe_ratio,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$low),Ref($close,1)),20)),CsRank(Mean($pe_ratio,60)))
+  rationale: 'LHS=Std(range_norm_prev_close,20) range/prev_close 形态的 dispersion (range
+    是 price-vol 但 normalize by prev_close 后 scale-free)；RHS=pe_60 fundamental value
+    basis 完全跳出 OHLC + liquidity cluster。range_norm_prev_close 与已 admit OHLC ratio
+    独立 (F006/F007/F008 全是 H-L denom; 本 atom 是 prev_close denom)。F019 anchor 检验通过预期
+    (price_vol RHS 与 pe RHS 不同 cluster)。注意: range/prev_close 因 ±10% A股约束有 cap，但 Std
+    测 dispersion 而非 level，应可逃 F003 gap-cluster。'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($close,$open),Ref($close,1)),20)), CsRank(Mean($pb_ratio,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($close,$open),Ref($close,1)),20)),CsRank(Mean($pb_ratio,60)))
+  rationale: 'LHS=Std(intraday_return_normalized,20) 日内收益 / 前收 dispersion 原子；RHS=pb_60
+    跳出 OHLC/liquidity/price-vol。与 F019 LHS=Std(|C-O|/(H-L),20) 区别: 本 LHS denom=prev_close
+    (跨日 normalize), F019 denom=H-L (intraday range normalize) → 几何 cluster 应分离。intraday_return_normalized
+    不含 abs 故有 sign 信息——但单层 Std 测 dispersion 不带方向。窗口 20d 满足 higher-moment safe + 单层
+    moment + 非嵌套 compound。绕开 b053 hard-locked (rank-diff intraday saturated): 本批是
+    ohlc_temporal_aggregation 方向, RHS=pb 而非 Amihud_60/RV_60 (F012/price_vol cluster)。'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)), CsRank(Mean($amount,60)))
+  canonical: Sub(CsRank(Std(Div(Sub($open,$low),Sub($high,$low)),20)),CsRank(Mean($amount,60)))
+  rationale: 'LHS=Std(open_position,20) higher-moment 复用 F007 open_position 原子但移到
+    dispersion 维度——F007 是 Mean (5d) magnitude=position level; 本是 Std (20d) dispersion=position
+    波动。RHS=amount_60 跳过 amount_20 (F018 死 endpoint)。与 F007 Mean(open_position,5) 几何应独立
+    (Mean vs Std 不同 moment)。与 F019 Std(body_ratio) 不同 atom; 与 F020 Std(gap_ret) 不同
+    atom。三 anchor 各自独立。注: Std(open_position,20) 是 OHLC 三段 ratio dispersion 第三独立轴 (close_position=C001
+    第二; body_ratio=F019 第一)。'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($high,$close),Sub($high,$low)),20)), CsRank(Mean($pe_ratio,20)))
+  canonical: Sub(CsRank(Std(Div(Sub($high,$close),Sub($high,$low)),20)),CsRank(Mean($pe_ratio,20)))
+  rationale: 'LHS=Std(upper_shadow_ratio,20) higher-moment 复用 F006 upper_shadow 原子但
+    Mean→Std + 5d→20d (atom 复用、moment 切换)。注: lower_shadow ≡ -upper_shadow algebraic
+    mirror → Std(upper)=Std(lower) 同 sign rank → 单一独立维度。RHS=pe_20 fundamental 短窗 (与
+    C002 pe_60 不同窗口 + 不同 LHS, 满足 rank-diff geometry rule 3 同字段跨窗口禁止 only when LHS=RHS,
+    本案 LHS≠RHS)。F019 anchor 可能 cluster (二者都是 OHLC ratio Std), pre-pack 预期 max_corr<0.50
+    但需 audit 验证。'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Abs(Sub($open,Ref($close,1))),Sub($high,$low)),20)),
+    CsRank(Mean($amount,60)))
+  canonical: Sub(CsRank(Std(Div(Abs(Sub($open,Ref($close,1))),Sub($high,$low)),20)),CsRank(Mean($amount,60)))
+  rationale: 'LHS=Std(|gap|/range,20) 跨日 gap magnitude 归一化 dispersion——abs(gap) scale-free
+    + range denom + Std 单层 + 20d 窗口。RHS=amount_60 (避 amount_20 F018 dead)。与 F020 区别:
+    F020=Std(gap_ret,20) 含 sign; 本=Std(|gap|/range,20) 无 sign + 不同 denom (F020 prev_close
+    vs 本 H-L)。F003 anchor (gap_normalized) 是 Mean level 不是 Std dispersion → 几何独立。注:
+    |gap| 是 gap 的 abs 形态有 sign-stripped 几何，与 sign-aggregation 类（F018 overnight_sign）
+    不同维度。'

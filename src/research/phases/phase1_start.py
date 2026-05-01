@@ -78,9 +78,31 @@ DSL_OPERATOR_WHITELIST: frozenset[str] = frozenset(
 
 DSL_FIELD_WHITELIST: frozenset[str] = frozenset(
     {
+        # Price / volume
         "$open", "$high", "$low", "$close", "$volume", "$amount",
-        "$pe_ratio", "$pb_ratio", "$ps_ratio",
-        "$market_cap", "$circ_market_cap", "$turnover_rate",
+        # Microstructure
+        "$turnover_rate", "$num_trades",
+        # Valuation (point-in-time)
+        "$pe_ratio", "$pb_ratio", "$ps_ratio", "$pcf_ratio",
+        "$market_cap", "$circ_market_cap",
+        # Profitability (TTM)
+        "$return_on_equity_ttm", "$return_on_asset_ttm",
+        "$return_on_invested_capital_ttm",
+        "$gross_profit_margin_ttm", "$operating_profit_margin_ttm",
+        # Solvency (TTM)
+        "$debt_to_asset_ratio_ttm", "$debt_to_equity_ratio_ttm",
+        "$current_ratio_ttm",
+        # Efficiency (TTM)
+        "$total_asset_turnover_ttm", "$inventory_turnover_ttm",
+        "$account_receivable_turnover_rate_ttm",
+        # Growth (TTM)
+        "$operating_revenue_growth_ratio_ttm", "$net_profit_growth_ratio_ttm",
+        "$net_asset_growth_ratio_ttm",
+        # Per-share / Yield (TTM)
+        "$eps_ttm", "$book_value_per_share_ttm",
+        "$operating_cash_flow_per_share_ttm", "$dividend_yield_ttm",
+        # Valuation (TTM)
+        "$pcf_ratio_total_ttm", "$peg_ratio_ttm",
     }
 )
 

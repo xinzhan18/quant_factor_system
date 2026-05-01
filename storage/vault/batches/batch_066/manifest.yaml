@@ -1,0 +1,145 @@
+batch_id: batch_066
+round: 66
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 'T014/T015/T016/T017 baseline — overnight/intraday segment 内部异质性 atom
+  探索. close_position (T012 EXHAUSTED) + sign-discretization hybrid (T013 DISPROVEN)
+  + close-position 4 代几何已封闭后, 开新四 thread:
+
+  T014 (autocorr via Corr+Ref): overnight_ret 与 intraday_ret 的 lag-1 自相关 (用 qlib 内置
+  Corr(X, Ref(X,1), 20) 等价 TsAutoCorr) — 持续性方向信号 (institutional accumulation 几何 vs
+  random walk).
+
+  T015 (shape moments Skew/Kurt): overnight_ret 分布形状 (非 magnitude) — Skew/Kurt 是 scale-free
+  shape moment. 用 qlib 内置 Skew/Kurt (区别 custom TsSkew/TsKurt) — 单层 20d safe per F019/F020
+  律.
+
+  T016 (Rank within-window): overnight_5d_mean 在 60d 内的 time-series rank — within-name
+  相对强度. 用 qlib 内置 Rank.
+
+  T017 (Corr atom): volume × overnight_gap 20d 滚动 correlation — 量价共振 within-name 时序
+  Corr.
+
+  设计硬约束: (1) LHS atom 全部 vol_20d 几何正交 — Corr/Skew/Kurt/Rank 都是 ordinal/shape/correlation
+  形式不嵌入 magnitude basis; (2) 全部 LHS 触及 overnight 或 intraday 字段 (direction-coherent);
+  (3) RHS 全部 fresh categories: $volume level / $pe_ratio / $pb_ratio / $ps_ratio /
+  $amount 长窗 — 严避 turnover-family + H-L_60 family + dead RHS endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60);
+  (4) 6 候选每个对应不同 LHS atom 不重叠, RHS 错开 (volume_60 / pe_60 / pb_60 / ps_60 / volume_std_60
+  / amount_120); (5) F018/F022/F023 anchor cluster pre-check — Corr/Skew/Kurt/Rank
+  与 sign-freq/close-position/gap-body magnitude 几何无 affine 关系; (6) **关键修正**: 不嵌套 custom
+  ops (TsAutoCorr/TsSkew/TsKurt/TsRank) 在 CsRank 内部, 改用 qlib 内置 (Corr+Ref / Skew /
+  Kurt / Rank) 绕开 operators.py:428 _build_cs_cache __str__ 类名悬挂 bug; (7) 6 候选 LHS
+  atom 全部 0-admit operator family 在本 direction (Skew/Kurt/Rank/Corr 在 F009-F023 中
+  0 出现).
+
+  目标 ≥1 admit 兑现 max_corr@library<0.50 + alpha_surv≥0.30 (rank_diff_geometry floor)
+  + |ls_t|≥2 + incr_ic≥0.015 (borderline 区间). 风险: P003 higher-moment regime drift
+  在 Skew/Kurt 形状 moment 上是否同样作用 — C003+C006 双侧验证形状 moment 在 csi1000 train→val 上的 regime
+  stability.'
+active_threads_referenced:
+- T014
+- T015
+- T016
+- T017
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T13:00:03Z'
+frozen_at: '2026-05-01T13:00:03Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Corr(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), Ref(Div(Sub($open,
+    Ref($close, 1)), Ref($close, 1)), 1), 20)), CsRank(Mean($volume, 60)))
+  canonical: Sub(CsRank(Corr(Div(Sub($open,Ref($close,1)),Ref($close,1)),Ref(Div(Sub($open,Ref($close,1)),Ref($close,1)),1),20)),CsRank(Mean($volume,60)))
+  rationale: 'T014 overnight_ret lag-1 自相关 via Corr(X, Ref(X,1), 20) × volume_60 level.
+    LHS atom: 用 qlib 内置 Corr 嵌套 Ref 等价 TsAutoCorr (绕 _build_cs_cache 类名悬挂 bug). Corr
+    在 [-1,1] scale-free, 0-admit operator family 进入本 direction — 测 stocks with persistent
+    overnight directionality (institutional accumulation vs random walk). 与 F010/F011
+    (overnight_ret Mean) 几何完全独立 — autocorr 测时序持续性, Mean 测水平; 与 F018 (overnight Sign-freq)
+    也独立 — autocorr 含方向反转信息 (frequent flips → low autocorr) 而 sign-freq 仅累积方向. RHS=Mean($volume,60)
+    — volume level (NOT amount=price*vol, NOT turnover) 是 fresh RHS 类目. 60d 窗口避开 dead
+    amount_20 endpoint. vol_20d orthogonality: autocorr 是 ordinal 持续性度量, 不嵌入 daily-vol
+    magnitude basis.
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Corr(Div(Sub($close, $open), $open), Ref(Div(Sub($close,
+    $open), $open), 1), 20)), CsRank(Mean($pe_ratio, 60)))
+  canonical: Sub(CsRank(Corr(Div(Sub($close,$open),$open),Ref(Div(Sub($close,$open),$open),1),20)),CsRank(Mean($pe_ratio,60)))
+  rationale: 'T014 mirror — intraday_ret lag-1 autocorr via Corr+Ref × PE_60 level.
+    测试 intraday 段 autocorr 是否独立于 overnight 段. 与 C001 LHS 字段 (overnight vs intraday)
+    几何对偶, 与 F009 (overnight-intraday spread Mean) 完全独立 — autocorr 是单段时序持续性. RHS=Mean($pe_ratio,60)
+    — raw PE level (区别 fundamental_momentum dead 的 Delta/rate). PE level 60d 不在 dead
+    RHS endpoint 列表. 跨 LHS/RHS 双 0-admit field combination, 预期 max_corr@F018<0.30
+    (sign-freq 与 autocorr 几何不同), max_corr@F023<0.30. 风险: intraday body autocorr 在
+    csi1000 大概率 ~0 (T003 disprove "intraday 是 random walk"), IC 强度可能弱.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Skew(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 20)),
+    CsRank(Mean($pb_ratio, 60)))
+  canonical: Sub(CsRank(Skew(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)),CsRank(Mean($pb_ratio,60)))
+  rationale: 'T015 overnight_ret 20d Skew × PB_60 level. LHS atom: 用 qlib 内置 Skew
+    (非 custom TsSkew, 绕 _build_cs_cache bug). Skew 是 shape moment (3rd standardized)
+    — scale-free 形状度量, 与 magnitude (Std/Var) 几何正交. P003 验证: Std/Var on raw signed
+    return 会 regime sign-flip; **Skew shape moment 是否同律未实证** — 本批 + C006 (Kurt) 双侧验证形状
+    moment 在 csi1000 train→val 上的 regime stability. 单层 20d 窗口 + scale-free ratio 字段
+    (overnight ratio, 非 raw level), 满足 F019/F020 安全反例三条件: (a) scale-free ratio + (b)
+    ≤20d + (c) 单层 moment. RHS=Mean($pb_ratio,60) — raw PB level fresh RHS. 与 F019/F020
+    (Std on body/gap_ret) 几何不同 — Std 是 2nd, Skew 是 3rd 矩, 跨阶不重叠. 预期 max_corr<0.40.
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Rank(Mean(Div(Sub($open, Ref($close, 1)), Ref($close, 1)),
+    5), 60)), CsRank(Mean($ps_ratio, 60)))
+  canonical: Sub(CsRank(Rank(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5),60)),CsRank(Mean($ps_ratio,60)))
+  rationale: 'T016 overnight_5d_mean 60d Rank (qlib 内置时序 rank, 非 custom TsRank) ×
+    PS_60 level. LHS atom: Rank(X, 60) 测 X 在最近 60d 内的 within-name 相对位置 (0-1). 用于 overnight_5
+    (F010-base atom) 转换为 within-name historical relative position — Rank wrapper 保持
+    same field 但生成新的 cross-section 信号. 与 F010 cross-section corr 预期 ~0.40-0.55 (rank-order
+    部分保留, 但 within-name normalization 改变 cross-section ordering). RHS=Mean($ps_ratio,60)
+    — raw PS level, fresh RHS. 用 qlib 内置 Rank 绕 _build_cs_cache __str__ bug. 风险: Rank
+    包装 F010-base atom 的 incr_ic 可能受 F010 cluster 影响; 但 RHS 切换 (PS level vs F017/F018
+    turnover/amount) 提供独立维度.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Corr($volume, Sub($open, Ref($close, 1)), 20)), CsRank(Std($volume,
+    60)))
+  canonical: Sub(CsRank(Corr($volume,Sub($open,Ref($close,1)),20)),CsRank(Std($volume,60)))
+  rationale: 'T017 量价共振 Corr atom × volume_dispersion. LHS atom: Corr($volume, overnight_gap_raw,
+    20) 测 within-name 时序 — 高量伴随大幅 overnight gap 的股票具有更强 institutional driver (vs 散户随机
+    gap). 注意: overnight_gap_raw 用 raw level (Sub($open, Ref($close,1))) 不是 ratio,
+    但 Corr 是 scale-free correlation — Corr(raw_volume, raw_gap, 20) 与 Corr(volume,
+    gap_ratio) 等价 (Corr 不受双线性 rescale 影响). 0-admit operator family 进入本 direction.
+    RHS=Std($volume,60) — volume dispersion (不是 mean level), 完全 fresh — 60d Std($volume)
+    在所有 admitted 因子中 0 出现, 也不在 dead endpoint 列表. **关键 hypothesis**: F018 (overnight
+    sign-freq × amount level) + F023 (gap*body magnitude × amount level) 已捕捉 magnitude/sign
+    维度, 时序 Corr 维度 (within-name across-time covariance) 几何独立. 风险: Corr 信号在 csi1000
+    1d horizon 历史在其他方向 (pv_covariance b039 6/6 reject) 全 reject, 可能 noise-bound; rank-diff
+    包装 + fresh RHS 是否能救 Corr 是测试核心.
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Kurt(Div(Sub($open, Ref($close, 1)), Ref($close, 1)), 20)),
+    CsRank(Mean($amount, 120)))
+  canonical: Sub(CsRank(Kurt(Div(Sub($open,Ref($close,1)),Ref($close,1)),20)),CsRank(Mean($amount,120)))
+  rationale: 'T015 mirror — overnight_ret 20d Kurt (qlib 内置, 非 custom TsKurt) × amount_120
+    level. LHS atom: Kurt 是 4th standardized shape moment — 测 overnight return 分布的
+    fat-tailedness (高 kurt = 频繁极端 gap, 低 kurt = 平稳 gap). 与 C003 Skew (asymmetry) 几何独立
+    — Kurt 测 tail thickness, Skew 测 asymmetry, 双独立 shape moment. 与 magnitude moments
+    (Std/Var) 正交 — kurt_norm = E[(X-μ)^4] / σ^4 是 shape ratio. RHS=Mean($amount,120)
+    — long-window amount level, 区别于 dead amount_20 endpoint 与 F023 amount_60. 120d
+    窗口在所有 admitted 因子中 0 出现. vol_20d orthogonality: kurt 是 4th shape moment, 与 daily
+    vol Barra basis 几何不同 — vol_20d 主导 magnitude (2nd), kurt 主导 tail-shape (4th). P003
+    风险并行 C003: Skew/Kurt 形状 moment regime stability 双侧验证.
+
+    '

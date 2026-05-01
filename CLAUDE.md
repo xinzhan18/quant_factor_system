@@ -108,6 +108,26 @@ Phase 3 pre-pack scans `batches/batch_*/manifest.yaml` (judged-only) for cumulat
 - **Qlib binary format**: `[start_index:f32][data:f32×N]` — data starts at `start_index`, no leading NaNs.
 - **Barra OLS**: `vectorized_barra.py` uses `pinv + einsum` on 3D tensor — 6× faster than per-date lstsq.
 
+## Available Fields (DSL whitelist)
+
+Source of truth: `src/research/phases/phase1_start.py:DSL_FIELD_WHITELIST`.
+Synced via `scripts/resync_qlib.py` (TimescaleDB → Qlib binary).
+
+| Group | Fields |
+|---|---|
+| **Price/Volume** | `$open $high $low $close $volume $amount` |
+| **Microstructure** | `$turnover_rate` `$num_trades` (单日成交笔数) |
+| **Valuation (PIT)** | `$pe_ratio $pb_ratio $ps_ratio $pcf_ratio $market_cap $circ_market_cap` |
+| **Profitability TTM** | `$return_on_equity_ttm $return_on_asset_ttm $return_on_invested_capital_ttm $gross_profit_margin_ttm $operating_profit_margin_ttm` |
+| **Solvency TTM** | `$debt_to_asset_ratio_ttm $debt_to_equity_ratio_ttm $current_ratio_ttm` |
+| **Efficiency TTM** | `$total_asset_turnover_ttm $inventory_turnover_ttm $account_receivable_turnover_rate_ttm` |
+| **Growth TTM** | `$operating_revenue_growth_ratio_ttm $net_profit_growth_ratio_ttm $net_asset_growth_ratio_ttm` |
+| **Per-share TTM** | `$eps_ttm $book_value_per_share_ttm $operating_cash_flow_per_share_ttm $dividend_yield_ttm` |
+| **Valuation TTM** | `$pcf_ratio_total_ttm $peg_ratio_ttm` |
+| **Forbidden** | `$vwap` (zero) |
+
+**Fundamental fields** are stored in `ref_financials` (TTM) / `ref_valuation` (daily PIT) / `ref_shares` (microstructure). Full sync: `scripts/sync_financials.py` (rqdatac → DB) → `scripts/resync_qlib.py` (DB → Qlib binary). LLM may use any whitelisted `$field` directly in DSL expressions.
+
 ## Autonomous Mining Mode
 
 `/factor-mine` 循环进入全自主模式：不停下问确认，候选失败自动跳下一个，冻结/admit/reserve/reject 按 6 CP + §7.MT 自行裁决，admitted 自动启动 report subagent，一轮结束检查 consolidation 触发。**只在系统级错误时停下**（DB 断、文件损坏、Python 崩溃）。

@@ -36,9 +36,28 @@ QLIB_DIR = Path("~/.qlib/qlib_data/cn_data_1d").expanduser()
 
 MARKET_FIELDS = ["open", "high", "low", "close", "volume", "amount", "vwap",
                  "returns", "returns_1d", "limit_up", "limit_down"]
-REF_FIELDS = ["turnover_rate", "market_cap", "circ_market_cap",
-              "pe_ratio", "pb_ratio", "ps_ratio"]
-FIELDS = MARKET_FIELDS + REF_FIELDS
+REF_FIELDS = ["turnover_rate", "num_trades",
+              "market_cap", "circ_market_cap",
+              "pe_ratio", "pb_ratio", "ps_ratio", "pcf_ratio"]
+FINANCIAL_FIELDS = [
+    # Profitability
+    "return_on_equity_ttm", "return_on_asset_ttm", "return_on_invested_capital_ttm",
+    "gross_profit_margin_ttm", "operating_profit_margin_ttm",
+    # Solvency
+    "debt_to_asset_ratio_ttm", "debt_to_equity_ratio_ttm", "current_ratio_ttm",
+    # Efficiency
+    "total_asset_turnover_ttm", "inventory_turnover_ttm",
+    "account_receivable_turnover_rate_ttm",
+    # Growth
+    "operating_revenue_growth_ratio_ttm", "net_profit_growth_ratio_ttm",
+    "net_asset_growth_ratio_ttm",
+    # Per-share / Yield
+    "eps_ttm", "book_value_per_share_ttm", "operating_cash_flow_per_share_ttm",
+    "dividend_yield_ttm",
+    # Valuation
+    "pcf_ratio_total_ttm", "peg_ratio_ttm",
+]
+FIELDS = MARKET_FIELDS + REF_FIELDS + FINANCIAL_FIELDS
 
 
 # ── Step 1: Load from DB ────────────────────────────────────────────
@@ -61,11 +80,10 @@ def load_from_db() -> pd.DataFrame:
 
     df["time"] = pd.to_datetime(df["time"])
 
-    # Load ref_shares (turnover_rate)
+    # Load ref_shares (turnover_rate + num_trades)
     logger.info("Loading ref_shares...")
     ref_shares = pd.read_sql(
-        "SELECT time, symbol, turnover_rate FROM ref_shares "
-        "WHERE turnover_rate IS NOT NULL",
+        "SELECT time, symbol, turnover_rate, num_trades FROM ref_shares",
         conn,
     )
     if not ref_shares.empty:
@@ -73,19 +91,40 @@ def load_from_db() -> pd.DataFrame:
         df = df.merge(ref_shares, on=["time", "symbol"], how="left")
     else:
         df["turnover_rate"] = np.nan
+        df["num_trades"] = np.nan
 
-    # Load ref_valuation (market_cap, PE, PB, PS)
+    # Load ref_valuation (market_cap, PE, PB, PS, PCF)
     logger.info("Loading ref_valuation...")
     ref_val = pd.read_sql(
         "SELECT time, symbol, market_cap, circ_market_cap, "
-        "pe_ratio, pb_ratio, ps_ratio FROM ref_valuation",
+        "pe_ratio, pb_ratio, ps_ratio, pcf_ratio FROM ref_valuation",
         conn,
     )
     if not ref_val.empty:
         ref_val["time"] = pd.to_datetime(ref_val["time"])
         df = df.merge(ref_val, on=["time", "symbol"], how="left")
     else:
-        for col in ["market_cap", "circ_market_cap", "pe_ratio", "pb_ratio", "ps_ratio"]:
+        for col in ["market_cap", "circ_market_cap",
+                    "pe_ratio", "pb_ratio", "ps_ratio", "pcf_ratio"]:
+            df[col] = np.nan
+
+    # Load ref_financials (20 TTM financial factors)
+    logger.info("Loading ref_financials...")
+    fin_cols = ", ".join(FINANCIAL_FIELDS)
+    try:
+        ref_fin = pd.read_sql(
+            f"SELECT time, symbol, {fin_cols} FROM ref_financials",
+            conn,
+        )
+    except Exception as e:
+        logger.warning("ref_financials not loadable (%s) — skipping", e)
+        ref_fin = pd.DataFrame()
+    if not ref_fin.empty:
+        ref_fin["time"] = pd.to_datetime(ref_fin["time"])
+        df = df.merge(ref_fin, on=["time", "symbol"], how="left")
+        logger.info("  Merged ref_financials: %d rows", len(ref_fin))
+    else:
+        for col in FINANCIAL_FIELDS:
             df[col] = np.nan
 
     conn.close()
@@ -197,15 +236,15 @@ def write_qlib(df: pd.DataFrame) -> dict:
         matrix = pivot_df.values.astype(np.float32)  # shape: (n_days, n_symbols)
         col_to_idx = {col: i for i, col in enumerate(pivot_df.columns)}
 
-        # Write each symbol's column as a binary file
+        # Write each symbol's column as a binary file. Symbols missing
+        # this field entirely (e.g. banks have no $inventory_turnover_ttm)
+        # still get an all-NaN file so qlib lookup is uniform.
+        nan_col = np.full(n_days, np.nan, dtype=np.float32)
         for sym_idx, symbol in enumerate(symbols):
             col_idx = col_to_idx.get(symbol)
-            if col_idx is None:
-                # Symbol has no data for this field — skip
-                continue
-            col = matrix[:, col_idx]
+            col = matrix[:, col_idx] if col_idx is not None else nan_col
 
-            # Find start_index
+            # Find start_index — if all NaN, write start_idx=0 + full NaN data
             non_nan = np.where(~np.isnan(col))[0]
             start_idx = int(non_nan[0]) if len(non_nan) > 0 else 0
 

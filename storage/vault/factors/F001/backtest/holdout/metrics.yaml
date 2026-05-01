@@ -1,0 +1,82 @@
+metrics:
+  full:
+    ann_return: 0.11965038269718743
+    volatility: 0.20183973805524136
+    sharpe: 0.5927989396440874
+    max_dd: -0.12423611591315498
+    n_days: 242
+  turnover:
+    n_rebalance_days: 48
+    avg_trades_per_rebalance: 88.15
+    avg_buy_notional_per_rebalance: 4537192.86
+    buy_notional_total: 217785257.33
+    sell_notional_total: 213174017.57
+    ann_turnover_x: 22.15
+  reconciliation:
+    invariant_violations: 1374
+    max_violation_bps: 1080.1265449237533
+config_snapshot:
+  universe: csi1000
+  initial_capital: 10000000.0
+  signal_recompute: true
+  rebalance:
+    freq_days: 5
+    anchor: monday
+  portfolio:
+    holdings_n: 50
+    weight_scheme: equal
+    max_single_weight: 0.05
+  matching:
+    match_price: open
+    price_adjust: hfq
+  cost:
+    stamp_schedule:
+    - from_date: '2015-01-01'
+      to_date: '2023-08-27'
+      sell_bps: 10.0
+    - from_date: '2023-08-28'
+      to_date: '9999-12-31'
+      sell_bps: 5.0
+    commission_bps: 3.0
+    slippage_bps: 5.0
+    min_commission_cny: 5.0
+  capital:
+    allow_intraday_netting: false
+  filters:
+    block_st: true
+    block_suspended: true
+    block_limit_up_at_buy: true
+    block_limit_down_at_sell: true
+    cooldown_days_after_unsuspend: 1
+    newly_listed_days: 60
+    stale_position_days_max: 5
+  periods:
+    train:
+    - '2015-01-01'
+    - '2021-12-31'
+    val:
+    - '2022-01-01'
+    - '2023-12-31'
+    holdout:
+    - '2024-01-01'
+    - '2024-12-31'
+    run:
+    - train
+    - val
+    - holdout
+  benchmark:
+    kind: csi1000_total_return
+  output:
+    save_trades: true
+    save_positions: true
+    figs:
+    - equity
+    - drawdown
+    - monthly_heatmap
+    - layer_decomp
+    - cost_drag
+    - blocked_trades
+runtime_meta:
+  snapshot_ts: '2024-12-31 00:00:00'
+  signal_recompute: true
+  price_adjust: hfq
