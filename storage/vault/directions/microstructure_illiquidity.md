@@ -1,31 +1,87 @@
 ---
 direction_tag: microstructure_illiquidity
-status: productive
+status: saturated
 priority: low
-rounds: 6
+rounds: 8
 admits: 4
-last_batch: batch_061
+last_batch: batch_067
 last_admits: []
-last_goal: 'T008 (NEW) — atp = $amount/$volume avg-trade-price as new microstructure
-  atom (price-discovery vs Amihud price-impact).
+last_goal: 'T009 (NEW): Non-Amihud microstructure illiquidity proxies, vol_20d-orthogonal
+  LHS atoms
 
-  Open new microstructure atom independent from F012/F015/F016 Amihud family.
+  with non-turnover non-H-L-60 non-amount-derived RHS. Round 3/3 of orchestrator cycle
+  —
 
-  atp/close deviation captures intraday-VWAP-vs-close gap; atp_range_position captures
-  where avg-trade clustered within today range.
+  prior 2 rounds confirmed operator-family novelty != style novelty (rolling-regression
 
-  Wrapped in rank-diff geometry with FRESH RHS basis (not in dead endpoints overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/Amihud_20/circ_mktcap_60/H_L_60_geo).
+  Slope/Resi, Skew/Kurt/autocorr/Rank-wrap all vol_20d-locked on csi1000 daily).
 
-  Apply cockpit (a) Std-of-product non-Mean aggregation as 2nd-order LHS variant (single-layer,
-  scale-free) — designed to satisfy P003 escape path (atom orthogonal to vol_20d via
-  cross-day VWAP-deviation structure, not |return|/range/amount Std).
 
-  Front-load incr_ic estimation: avoid P006 library-reducer trap by ensuring RHS truly
-  fresh (max_corr@anchor < 0.30 expected).
+  Atoms (LHS) targeted:
 
-  Also test T005 quantile-asymmetry of Amihud (P90-P10 rolling) wrapped in rank-diff
-  geometry to escape vol_20d via cross-family (existing T005 ACTIVE evidence chain).'
-last_activity: '2026-04-28T05:06:24Z'
+  T009.a Roll-style serial covariance: -Cov(Delta close, Ref Delta close, 20) — Roll
+  (1984)
+
+  effective spread is sqrt(-cov of return changes); structurally different from variance
+
+  (covariance of CHANGES, not magnitude of changes). Hypothesis: Roll-cov captures
+  bid-ask
+
+  bounce / mean-reversion microstructure noise, NOT vol_20d magnitude.
+
+
+  T009.b Path-efficiency ratio (H-L vs |close-open|): Mean(|close-open| / (high-low+eps),
+  20)
+
+  — Kaufman efficiency ratio analog at bar level. High value = directional move
+
+  (informed-trader path); low value = noisy zigzag (uninformed liquidity-provider
+  path).
+
+  Scale-free, NOT magnitude-aggregation, NOT |return|-aggregation.
+
+
+  T009.c Order-flow imbalance proxy via close-vs-midpoint: Mean((close - (high+low)/2)
+  /
+
+  (high-low+eps), 20) signed quantity in [-0.5, 0.5]. Signed version of F022 close-position
+
+  (which is unsigned in [0,1]). Sign-content not magnitude-content; orthogonal to
+  F022
+
+  geometry.
+
+
+  T009.d Kyle-lambda directional proxy: Mean(Sign(close-open) × |close-open| / amount,
+  20)
+
+  — directional version of Amihud. Differs from F012 (unsigned |ret|/amount): captures
+
+  signed price impact per unit volume = Kyle''s price-impact coefficient analog. Note:
+  NOT
+
+  rank-diff geometry, level form.
+
+
+  RHS basis (escape turnover-family + H-L_60 + amount aggregations):
+
+  - $market_cap level (size factor, NOT in dead-endpoint list)
+
+  - $pe_ratio level (value factor, fresh basis)
+
+  - $ps_ratio level (sales-multiple, fresh)
+
+
+  Pre-checks: 4-anchor pre-check at design — F002 (PB×amount) RHS not used; F012 (Amihud
+
+  numerator) LHS atoms structurally distinct (Roll-cov, signed paths); F020 (gap-anti)
+  no
+
+  gap content; F022 (close-position cluster) signed not unsigned, also paired with
+  non-amount
+
+  RHS. P006 trap mitigation: no rank-diff anchor structure → max_corr expected <0.30.'
+last_activity: '2026-05-01T14:15:47Z'
 created_batch: batch_030
 members:
 - F012
@@ -118,6 +174,28 @@ merged_into: null
 > - [[batches/batch_047/candidates/C006|b047 C006]] TsMax-TsMin Amihud 5d → max_corr=**0.862** reserve
 > - [[batches/batch_061/candidates/C005|b061 C005]] **quantile-Amihud P90-P10 rolling 20d × Mean(pe,60)** → ls_t=3.21 + mono=1.0/1.0 + 9/9 yr 全正 + ls_sharpe=2.31 但 **incr_ic=-0.0023 NEG** P006 library-reducer 第 6 次复现 → reject
 
+### T009: non-Amihud microstructure proxies (Roll/Kyle/path-efficiency/signed-imbalance) [✗ DISPROVEN batch_067] (NEW thread, born-disproven)
+
+> [!failure]+ Thread 结论
+> **Question**: non-Amihud microstructure proxies (Roll covariance / Kaufman path-efficiency / Kyle signed-product / signed close-vs-midpoint imbalance) 是否在 csi1000 daily-bar cross-section 下携带独立于 Amihud (F012/F015/F016) family 的新 alpha?
+>
+> **Answer**: **non-Amihud microstructure 4 atoms 在 daily-bar 层全证伪**. 4 类 LHS 几何形式 (covariance / bounded-ratio / signed-product / signed-positional) 全部 vol_20d-嵌入 (P004) + 全部库 anchor cluster locked (P005, F009/F020/F022 anchor) + 三 PASS hard_gate 候选 P006 dual-gate 100% 命中 (incr_ic 全 ≤ 0.0017).
+>
+> **Evidence trail**:
+> - [[batches/batch_067/candidates/C001|batch_067 C001]] Roll-cov level → ic_oos=-0.012 + max_corr=0.07 库内最 clean + incr_ic=-0.011 NEG + alpha_surv=0.23 → reject (P006 第 8 次复现, "clean-but-empty" 形式)
+> - [[batches/batch_067/candidates/C002|batch_067 C002]] path-efficiency Mean → |IC_OOS|=0.0011 + decay 0.163 → reject (hard_gate, atom alpha density 不足 floor)
+> - [[batches/batch_067/candidates/C003|batch_067 C003]] signed close-mid × $market_cap rank-diff → sign_flip + mono IS=-0.9→OOS=+0.9 catastrophic regime reversal → reject (hard_gate)
+> - [[batches/batch_067/candidates/C004|batch_067 C004]] Kyle signed-product → ls_t=-3.0 + mono=-0.9/-0.9 强 + max_corr=0.37@F009 dead zone + incr_ic=-0.010 NEG + cum_mdd=-54.5 → reject (P006 第 9 次复现, "dead-zone-classic" 形式)
+> - [[batches/batch_067/candidates/C005|batch_067 C005]] Roll-cov × pe rank-diff → |IC_OOS|=0.0009 + decay 0.131 → reject (hard_gate)
+> - [[batches/batch_067/candidates/C006|batch_067 C006]] path-efficiency × ps rank-diff → ic_oos=+0.020 + mono=1.0/1.0 PERFECT + cum_mdd=-1.12 极浅 + max_corr=-0.59@F020 anti-cluster + incr_ic=+0.0017<<0.015 dual-gate → reject (P006 第 10 次复现, "illusion-form" 新形式)
+>
+> **升格 lessons 候选** (本 thread 贡献 3 条):
+> 1. **non-Amihud microstructure atom 4 类几何全证伪 (csi1000 daily-bar)**: covariance / bounded-ratio / signed-product / signed-positional 4 类 LHS atom 形式跨 round 1-3 (rolling-regression / Skew-Kurt / Roll-Kyle-efficiency-imbalance) 全部 vol_20d-locked. minute-bar 数据接入前 microstructure direction daily-bar 探索路径关闭.
+> 2. **P006 illusion-form 升格** (C006 新形态): mono=1.0 perfect + cum_mdd<-5 浅 + incr_ic<0.005 极低 + max_corr in [0.30, 0.70] = "PnL 美感掩盖 incremental 价值" trap. 应 codify 至 lessons.md P006 顶部反例段防止后续 LLM 被 PnL shape 美感诱导.
+> 3. **F020 anchor cluster 跨 LHS/RHS 角色泛化**: F020 的 path-efficiency atom 作 RHS, 本批 C006 把同 atom 搬到 LHS, 仍 anti-cluster -0.59 — anchor 不仅占据 LHS+RHS 字段配对, 还占据 atom 在 Sub 两侧角色调换的 anti-mirror 位置 (P005 第 N 次扩展).
+>
+> **保留 OFF**: T009 thread closed. **复活路径**: (a) minute-bar 数据接入 (intraday Roll-cov / path-efficiency 在 5min bar 不被 daily vol 吸收); (b) F020 / F012 退役后重测 path-efficiency atom + ps_ratio rank-diff (C006 cum_mdd=-1.12 极浅 PnL 形状有 standalone value, 仅库 anchor 限制 admit); (c) Python OLS Barra residualize (DSL `Div(atom, vol_20d)` 不是真 orth, 已升格 lessons F304).
+
 ### T008: atp = $amount/$volume avg-trade-price atom [✗ DISPROVEN batch_061] (NEW thread, born-disproven)
 
 > [!failure]+ Thread 结论
@@ -206,6 +284,12 @@ merged_into: null
 | [[batches/batch_047/candidates/C003\|b047 C003]] | `Sub(CsRank(amount_CV_10), CsRank(overnight_gap_20))` | CP05 max_corr=0.692@F001 + signed incr_ic=-0.0038 |
 | [[batches/batch_047/candidates/C004\|b047 C004]] | `Sub(CsRank(turnover_CV_20), CsRank(Amihud_20))` | C001 Sub 翻转数学反号；同批 anchor rule |
 | [[batches/batch_047/candidates/C005\|b047 C005]] | `Mean(If(ret>0,ret/amount,0), 5)` | CP04 alpha_surv=0.149 + max_corr=0.754@F012 |
+| [[batches/batch_067/candidates/C001\|b067 C001]] | `-Cov(Δp, Ref(Δp,1), 20)` Roll-cov level | CP05 incr_ic=-0.011 NEG + alpha_surv=0.23 + ls_t=-2.12 weak (P006 第 8 次复现, "clean-but-empty" 形式) |
+| [[batches/batch_067/candidates/C002\|b067 C002]] | `Mean(\|body\|/(H-L), 20)` path-efficiency | CP01 hard_gate \|IC_OOS\|=0.0011<0.008 + decay 0.163 (atom alpha density 不足) |
+| [[batches/batch_067/candidates/C003\|b067 C003]] | `Sub(CsRank(signed_close_mid),CsRank($market_cap))` | CP01 hard_gate sign_flip + mono IS=-0.9→OOS=+0.9 (P003 regime reversal) |
+| [[batches/batch_067/candidates/C004\|b067 C004]] | `Mean(sign(close-open)·\|body\|/$amount, 20)` Kyle signed | CP05 incr_ic=-0.010 NEG + max_corr=0.37@F009 dead zone + alpha_surv=0.19 + cum_mdd=-54.5 (P006 第 9 次复现, "dead-zone-classic") |
+| [[batches/batch_067/candidates/C005\|b067 C005]] | `Sub(CsRank(-Cov(Δp,Δp_{t-1},20)),CsRank($pe_ratio))` | CP01 hard_gate \|IC_OOS\|=0.0009<0.008 + decay 0.131 (T007 atom 复合需 ≥0.015 floor) |
+| [[batches/batch_067/candidates/C006\|b067 C006]] | `Sub(CsRank(Mean(\|body\|/(H-L),20)),CsRank($ps_ratio))` | CP05 max_corr=-0.59@F020 anti-cluster + incr_ic=+0.0017<<0.015 dual-gate floor (P006 第 10 次复现, "illusion-form": mono=1.0 + cum_mdd=-1.12 美感掩盖 incremental 不足) |
 
 ---
 
@@ -248,7 +332,22 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-28 · [[batches/batch_061/judge|batch_061]] · T005 DISPROVEN · T008 NEW BORN-DISPROVEN · productive (admits 4 保持 / priority medium → low)
+> [!quote]+ 2026-05-01 · [[batches/batch_067/judge|batch_067]] · T009 NEW BORN-DISPROVEN · **productive → saturated** (admits 4 保持 / priority low 保持)
+> admit=0 / reserve=0 / reject=6. 本批 zero admit, T009 (NEW non-Amihud microstructure 4 atoms) 全证伪. /factor-mine cycle Round 3/3.
+> - **T009 NEW thread born-disproven**: 4 类 LHS atom 几何形式 (Roll covariance / Kaufman path-efficiency / Kyle signed-product / signed close-vs-midpoint imbalance) 跨 6 候选全 reject. PASS hard_gate 三候选 (C001/C004/C006) **P006 dual-gate 100% 命中** (incr_ic 全 ≤ 0.0017, 三种 typology 形态完整呈现): C001 "clean-but-empty" (max_corr=0.07 库内最 clean + incr_ic=-0.011 NEG) / C004 "dead-zone-classic" (max_corr=0.37 + incr_ic=-0.010 NEG + ls_t=-3.0 强 PnL 但 cum_mdd=-54.5 灾难) / C006 "illusion-form" (mono=1.0 PERFECT + cum_mdd=-1.12 极浅 PnL 美感 + max_corr=-0.59@F020 anti-cluster + incr_ic=+0.0017<<0.015 dual-gate). FAIL hard_gate 三候选: C002 (atom alpha density 不足 floor) / C003 (signed positional × size factor regime catastrophic 翻盘 P003) / C005 (Roll-cov × pe rank-diff atom 信号被 PE RHS 稀释).
+> - **P004 vol_20d structural absorption 跨第 4 类 atom 复现**: round 1 (rolling-regression) + round 2 (Skew/Kurt/autocorr/Rank-wrap) + **本批 round 3 (Roll-cov/path-efficiency/Kyle-signed/signed-close-mid)** 三轮跨 12 候选独立证实 csi1000 daily-bar cross-section 上 vol_20d-orthogonal subspace 已被 F002/F012/F018/F020/F022/F023 anchor cluster 完全占据. C006 vol_20d exposure=17.63 整库顶级极值 (efficiency ratio 看似 bounded [0,1] vol-orthogonal 但深度嵌入). C004 vol_20d=9.32 + str_1m=4.00 双 absorber. C001 vol_20d=7.26 (Roll covariance 本应 vol-orthogonal 但 cross-section 仍部分嵌入).
+> - **F020 anchor cluster 跨 LHS/RHS 角色泛化**: F020 的 path-efficiency atom 在原表达式作 RHS (`Sub(CsRank(Std(gap_ret,20)), CsRank(Mean(|body|/(H-L),20)))`); 本批 C006 把同 atom 搬到 **LHS**, 仍 anti-cluster -0.59 — anchor 不仅占据字段配对 (P005), 还占据 atom 在 Sub 两侧角色调换的 anti-mirror 位置. P005 第 N 次扩展.
+> - **direction status 转换**: 信号设计层证据 ≥4 路径 cluster ✓ (Amihud-family + non-Amihud 4 atoms 全 closed) + 数据契约层 minute-bar 不可达 ✓ + Python OLS Barra residual 已 DISPROVEN (T004 b031). **双层 saturated 证据律满足** → status `productive → saturated`. T005/T008/T009 三 thread 全 DISPROVEN; T007 ACTIVE 但本批未推进; T001/T006 ANSWERED (admits 4 保持). priority 保持 low.
+> - **MT budget**: cumulative 360→**366** · direction 30→**36** · bucket `high` (search_adjusted `medium-low`)
+> - **zero_admit_streak**: 系统级 7→8 · **rounds_since_consolidation**: 7→8 (距 10 阈值 2 批, 临近 consolidation 触发)
+>
+> **Operations**: status `productive → saturated` (T009 NEW + 双层证据律) · priority `low` 保持 · rounds 6→7 · admits 4 保持 · members [F012, F015, F016] 保持
+>
+> **复活路径** (saturated → productive 重启条件): (a) minute-bar 数据接入 (intraday Roll-cov / path-efficiency 在 5min bar 不被 daily vol 吸收); (b) F020 / F012 anchor 退役后重测 C006 path-efficiency × ps_ratio rank-diff (cum_mdd=-1.12 极浅 + mono=1.0 perfect + 9/9 年全正 magnitude 稳定 — standalone value 真实, 仅库 anchor 限制 admit); (c) Python OLS Barra residualize 于原始 atom 层 (DSL `Div(atom, vol_20d)` 已 DISPROVEN F304); (d) Kyle/Roll family 长 horizon evaluation policy 调整 (10d-20d C006 IC 上升 0.034-0.051 显示长 horizon 信号增强).
+>
+> **升格 lessons 候选 (3 条)**: (1) non-Amihud microstructure atom 4 类几何全证伪; (2) P006 illusion-form 新形态 codify; (3) F020 anchor cluster 跨 LHS/RHS 角色泛化.
+
+> [!quote]- 2026-04-28 · [[batches/batch_061/judge|batch_061]] · T005 DISPROVEN · T008 NEW BORN-DISPROVEN · productive (admits 4 保持 / priority medium → low)
 > admit=0 / reserve=0 / reject=6。本批 zero admit, T005 quantile path + T008 atp atom 双 thread 关闭。
 > - **T005 quantile-Amihud P90-P10 path P006 library-reducer 实证**: C005 ls_t=3.21 + mono=1.0/1.0 + 9/9 yr 全正 + ls_sharpe=2.31 + lowest vol_20d=7.47 + style_r²=0.20 (整批最干净 risk profile) BUT **incr_ic=-0.0023 NEG** P006 第 6 次跨 family 复现。**T005 thread DISPROVEN**: quantile spread (P90-P10) of magnitude-distribution 几何线性独立但 Barra + library 组合层冗余, 三 Amihud factor (F012 Mean / F015 CV / F016 turnover-CV) 联合已捕获分布形状 sufficient statistic。
 > - **T008 (NEW) atp = $amount/$volume avg-trade-price atom 4 代变体全 reject**: atp atom 真实是 NEW dimension (与 F012/F015/F016 Amihud family corr 全 |<0.13|, 与 F019/F020/F021 OHLC family corr ≤|0.31|) BUT atp + amount-derived RHS 几何位置落入 F017 anchor cluster (4/6 候选 max_corr 0.51-0.60@F017)。**升格教训 (3 条 lessons 候选)**: (1) F017 anchor cluster 占位律泛化 (跨 RHS family 任意聚合形式锁定, 而非局限原字段窗口); (2) higher-moment LHS axis 迁移条件收窄 (atom 必须与单日 |daily_return| / range 几何正交否则 Std 二阶聚合直接落入 vol_20d 吸收); (3) NEW atom 几何独立 ≠ admit-eligible (atom + RHS 组合不落入已 admitted factor 的 cross-section anchor cluster 才充分)。
