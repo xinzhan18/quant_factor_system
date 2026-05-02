@@ -1,23 +1,31 @@
 ---
 direction_tag: alpha191_universal_subset
-status: exploring
+status: productive
 priority: high
-rounds: 0
-admits: 0
-last_batch: pending
-last_admits: []
-last_goal: null
-last_activity: null
+rounds: 1
+admits: 2
+last_batch: batch_085
+last_admits:
+- F027
+- F028
+last_goal: 首批实装 paper-vetted Alpha191 子集 (Du-Walter-Ulrich 2026 17 因子白名单中 5 个 + alpha071
+  BIAS 长窗 mean-reversion 第 6) 作为 csi1000 daily DSL baseline，验证 cross-market universal
+  alpha 在散户主导小盘 universe 是否仍有 carry，目标 ≥1 admit + ≥2 reserve，机制层覆盖 multi-MA mean reversion
+  / signed cumulative volume (OBV) / DMI directional pressure / ATR cross-day true
+  range / Volume MACD / BIAS long-window % deviation 共 6 个互补 mechanism family
+last_activity: '2026-05-02T17:52:48Z'
 created_batch: batch_080
-members: []
+members:
+- F027
+- F028
 merged_into: null
 ---
 # alpha191_universal_subset
 
 > [!abstract]+ 方向概要
-> - **状态**　🔵 `exploring` · priority `high` · rounds = 0 · admits = 0
-> - **最近**　— · 来源 [[../papers/arxiv_2601_06499v1|arXiv 2601.06499v1 Cross-Market Alpha (Du-Walter-Ulrich 2026)]] · 待 batch_080 首批
-> - **一句话**　从 GTJA Alpha191 库中筛取经过美股 DS-LASSO + 151 fundamental control 跨市场存活的 17 因子白名单，**优先实装库内尚未同形覆盖的 4-5 个 mechanism family**：multi-MA mean reversion (Alpha 046)、signed-volume accumulation/OBV (Alpha 084)、DMI directional pressure (Alpha 049)、跨日 true range/ATR (Alpha 161)、volume momentum/MACD (Alpha 155)。
+> - **状态**　🟢 `productive`（首次 admit by Phase 4） · priority `high` · rounds = 1 · admits = 2
+> - **最近**　[[batches/batch_085/judge|batch_085]] · 2026-05-02 · 2/1/3 (admit/reserve/reject) · 来源 [[papers/arxiv_2601_06499v1|arXiv 2601.06499v1 Cross-Market Alpha (Du-Walter-Ulrich 2026)]]
+> - **一句话**　paper-vetted 17-因子白名单首批兑现 multi-MA reversion + DMI 双 admit, alpha_survival>1.0 第二/三例顶级实证 csi1000 反向迁移成立。
 
 ---
 
@@ -80,46 +88,55 @@ merged_into: null
 
 ## Threads
 
-### T001: Alpha 046 multi-window MA composite ratio 是否在 csi1000 上独立于现有 mean-reversion 家族提供新 alpha [◉ ACTIVE]
+### T001: Alpha 046 multi-window MA composite ratio 是否在 csi1000 上独立于现有 mean-reversion 家族提供新 alpha [✓ ANSWERED batch_085]
 
-> [!note]+ Thread 当前
+> [!success]+ Thread 结论
 > **Question**: 4 个 MA 窗口 (3/6/12/24) 算术平均除以 spot price 的复合 mean-reversion 比率, 在 csi1000 daily 上是否携带与库内 F011 williams_r_variant / F022 close_position_amount_accel / F004 std_vol_20 (Grade B 73.1) 不冗余的信号? 多窗 vote 是否减少单窗 phase 噪声?
 >
-> **Evidence trail**:
-> - (待 batch_080 C001 baseline) `Div(Add(Add(Add(Mean($close,3),Mean($close,6)),Mean($close,12)),Mean($close,24)),Mul($close,4))`
->
-> **Next probes**: 若 baseline admit, round 2 探 4 窗替换为 (5/10/20/60) 长窗组合; 若 collapse 到单窗 mean-reversion, 改测 Alpha 071 (24d % dev from mean) 单窗对照, 验证多窗 vote 是否真的提供增量。
-
-### T002: Alpha 084 OBV-style signed cumulative volume 是否在 csi1000 散户市携带与 F009 pv_corr 不冗余的方向 imbalance 信号 [◉ ACTIVE]
-
-> [!note]+ Thread 当前
-> **Question**: `Sum(sign(close - prev_close) × volume, 20)` 这种 sign-aggregation 是否独立于 F009 pv_corr_times_vol (Grade A 79.9) 的 covariance 几何? OBV 累积"买卖方向不平衡", F009 度量"价量同向一致性强度"——机制是否真不同?
+> **Answer**: ✓ admit. Alpha 046 multi-MA composite mean-reversion ratio 在 csi1000 daily 上**独立于现有 mean-reversion family** 提供新 alpha. ICIR=0.31, ls_t=4.36, alpha_survival=1.13 (Barra 空间真独立), incr_ic=0.034 (库增值 7 倍标准). 多窗 vote 通过 phase 噪声平均 + 跨 horizon 趋势-反转混合编码, 与现有库 OHLC daily intraday geometry 几何独立. C006 BIAS-24 长窗 mean-reversion 单窗对照 reject (max_corr 0.42@F009 越过 P008 frontier 阈值) — 说明多窗 vote 形式比单窗 % deviation form 更真实独立.
 >
 > **Evidence trail**:
-> - (待 batch_080 C002 baseline) `Sum(Mul(Sign(Sub($close,Ref($close,1))),$volume),20)`
-> - (待 batch_080 C005 第二线) `Sub(Sub(EMA($volume,13),EMA($volume,27)),EMA(Sub(EMA($volume,13),EMA($volume,27)),10))` Volume MACD
+> - [[batches/batch_085/candidates/C001|batch_085 C001]] `Div(Add(Add(Add(Mean($close,3),Mean($close,6)),Mean($close,12)),Mean($close,24)),Mul($close,4))` IC_oos=0.049 ICIR=0.31 alpha_surv=1.13 → **admit → [[factors/F027]]**
+> - [[batches/batch_085/candidates/C006|batch_085 C006]] `TsRank(Div(Sub($close,Mean($close,24)),Mean($close,24)),60)` BIAS-24 + TsRank60 max_corr=0.42@F009 → **reject (P008 frontier 失败)**
 >
-> **Next probes**: 若 OBV admit, round 2 探短窗 (5d/10d) + 长窗 (60d/120d); 若 collapse @F009, 改测 OBV × turnover_rate composite; 若 sign-flip in csi1000 (散户主导短期 noise), 改测 abs(OBV) magnitude-only proxy。
+> **Next probes**: round 2 可探 (5/10/20/60) 长窗组合 vs (3/6/12/24) 短窗组合对比, 验证 multi-MA composite 是否在更长 horizon 上仍独立; T001 已封闭。
 
-### T003: Alpha 049 DMI directional pressure 在 csi1000 小盘震荡市是否需要 sign 翻转 [◉ ACTIVE]
+### T002: Alpha 084 OBV-style signed cumulative volume 是否在 csi1000 散户市携带与 F009 pv_corr 不冗余的方向 imbalance 信号 [✗ DISPROVEN batch_085] (OBV) + Volume MACD reserved
 
-> [!note]+ Thread 当前
-> **Question**: Welles Wilder DMI 的 -DI/(+DI + -DI) 在大盘趋势市 (paper SPX 测) 显著为正, csi1000 小盘震荡为主, sign 是否翻转? IC sign 不稳时改测 abs(DMI) 是否仍 carry alpha (作为 momentum-magnitude proxy)。
+> [!failure]+ Thread 结论 (OBV-20d)
+> **Question**: `Sum(sign(close - prev_close) × volume, 20)` 这种 sign-aggregation 是否独立于 F009 pv_corr_times_vol 的 covariance 几何?
+>
+> **Answer**: ✗ DISPROVEN. OBV-20d 在 csi1000 散户市 (a) sign 翻转 (paper 正预测 vs IC=-0.027 全负 9 年); (b) Barra 完全吞噬 (alpha_survival=0.17 < 0.40 threshold, 残差仅 17%); (c) Q5-only 一桨 mono_oos=-0.3 弱单调; (d) incr_ic=-0.005 library reducer. F018 (overnight_sign_freq_amount_rank_diff_20) 已占据 sign-aggregation rank-diff 几何 prototype. paper-vetted ≠ csi1000 universal 实证。
 >
 > **Evidence trail**:
-> - (待 batch_080 C003 baseline) Alpha 049 DMI Down ratio 直译
+> - [[batches/batch_085/candidates/C002|batch_085 C002]] `Sum(Mul(Sign(Sub($close,Ref($close,1))),$volume),20)` IC_oos=-0.027 alpha_surv=0.17 mono_oos=-0.3 → **reject**
+> - [[batches/batch_085/candidates/C005|batch_085 C005]] `Sub(Sub(EMA($volume,13),EMA($volume,27)),EMA(Sub(EMA($volume,13),EMA($volume,27)),10))` Volume MACD alpha_surv=1.39 (Barra 真独立) 但 mono_oos=-0.3 + incr_ic=-0.015 → **reserve (P008 软判定区火种)**
 >
-> **Next probes**: 若 sign-stable PASS, 验证机制独立于 range_structure / asymmetric_momentum; 若 sign-flip 但 |DMI| 显著, 改测 abs(directional_pressure_diff) 作 momentum-magnitude proxy; 若全 reject, 升格 "DMI 在 csi1000 散户市 alpha 不存在" 入 lessons。
+> **Next probes**: T002 split 为两条 — T002a OBV DISPROVEN; **T002b Volume MACD ratio-form 复测 ACTIVE** (优先路径: `MACD_hist / Mean(volume,27)` dim-less 化, round 2 测试)。
 
-### T004: Alpha 161 12d ATR 跨日 jump 维度是否独立于库内单日 range 信号 [◉ ACTIVE]
+### T003: Alpha 049 DMI directional pressure 在 csi1000 小盘震荡市是否需要 sign 翻转 [✓ ANSWERED batch_085]
 
-> [!note]+ Thread 当前
-> **Question**: True Range = max(单日 H-L, |prev_close - H|, |prev_close - L|) 包含跨日 gap jump, 而库内 F021 upper_shadow_disp_range_compress / F022 close_position_amount_accel 都是单日 (H-L) 几何。ATR 的跨日 jump 维度是否提供新信号? 还是 collapse 到 std_returns_20 (F001 score=65.5)?
+> [!success]+ Thread 结论
+> **Question**: Welles Wilder DMI 的 -DI/(+DI + -DI) 在大盘趋势市 (paper SPX 测) 显著为正, csi1000 小盘震荡为主, sign 是否翻转?
+>
+> **Answer**: ✓ admit. **csi1000 sign 未翻转**, paper 同向 (train +0.040, val +0.033, 9 年同号正). DMI directional pressure asymmetry 在散户震荡市仍保持 paper sign, 不需 abs(DMI) magnitude proxy 替代. ICIR=0.23 borderline 但 ls_t=3.03 + 9 年同号 + cum_ic_mdd 仅 -1.23 时序极稳. 库内首次直接的 directional sign-aggregated magnitude ratio mechanism family.
 >
 > **Evidence trail**:
-> - (待 batch_080 C004 baseline) `Mean(Max(Max(Sub($high,$low),Abs(Sub(Ref($close,1),$high))),Abs(Sub(Ref($close,1),$low))),12)`
+> - [[batches/batch_085/candidates/C003|batch_085 C003]] DMI Down ratio 12d IC_oos=0.033 ls_t=3.03 alpha_surv=0.66 → **admit → [[factors/F028]]**
 >
-> **Next probes**: 若 admit + max_corr@F001 < 0.7, 验证跨日 jump 几何独立; 若 collapse @F001, 改测 ATR-of-overnight-only (剔除单日 H-L 项), 隔离跨日 jump 单独效应; 若全 collapse, 升格 "ATR ≡ vol_20d basis" 入 lessons (P018 律的 ATR 扩展)。
+> **Next probes**: T003 已封闭; round 2 可探 DMI Up (Sum(up DM,12)/(up+down)) 对偶形式 / DMI window 替换 (8/24) / DMI × turnover composite。
+
+### T004: Alpha 161 12d ATR 跨日 jump 维度是否独立于库内单日 range 信号 [✗ DISPROVEN batch_085]
+
+> [!failure]+ Thread 结论
+> **Question**: True Range = max(单日 H-L, |prev_close - H|, |prev_close - L|) 包含跨日 gap jump, 跨日 jump 维度是否提供新信号? 还是 collapse 到 vol_20d?
+>
+> **Answer**: ✗ DISPROVEN. ATR-12d **完全 collapse 到 vol_20d** — vol_20d_exposure=31.4 整库顶级 (alpha killer 教科书级), alpha_survival=0.064 残差仅 6.4%. max_corr=0.66@F019 (high), incr_ic=-0.018 (强负). P006 library-reducer trio 齐全. 跨日 jump 项 (|prev_close-H|, |prev_close-L|) 在 cross-section 上与 single-day vol monotone-equivalent — 因为 vol_20d basis 计算就含 close-to-close return std. ATR ≡ vol_20d 升格 lessons "P018 律 ATR 扩展" 候选教训.
+>
+> **Evidence trail**:
+> - [[batches/batch_085/candidates/C004|batch_085 C004]] ATR-12d IC_oos=-0.058 alpha_surv=0.064 max_corr=0.66@F019 vol_20d_exp=31.4 → **reject (P006 trio)**
+>
+> **Next probes**: T004 已封闭; ATR-of-overnight-only (剔除单日 H-L 项) 单独测试也大概率失败因 overnight gap 与 close-to-close return 同源 — **不建议复活**。
 
 ### T005: Paper-vetted but 库内邻接 / blocked 的 12 个因子何时复活 [◉ ACTIVE]
 
@@ -127,15 +144,23 @@ merged_into: null
 > **Question**: 5×5-only tail-sensitivity 子集 (Alpha 022/031/006/187/089/052/002/044/011/026/136/170) + vwap-blocked (Alpha 073/039) + benchmark-blocked (Alpha 181) + borderline-DSL (Alpha 190) 何时纳入测试? 触发条件是什么?
 >
 > **Evidence trail**:
-> - (paper note 主结论) 仅 round 2+ 触发, round 1 不开
+> - (round 1 trigger 条件已满足 batch_085: ≥2 admit ✓ C001+C003 + ≥1 mechanism family alpha_surv 显著独立 ✓ C001 alpha_surv=1.13 + C005 alpha_surv=1.39)
 >
-> **Next probes**: Round 2 触发条件 = (round 1 ≥2 admit + 至少 1 个 mechanism family alpha_surv 显著独立 from existing 库) → 开 5×5 tail-sensitivity 子集; vwap proxy (`$amount/$volume`) 触发条件 = round 1 至少 1 admit 证明 paper-vetted prior 在 csi1000 有效 → 试 Alpha 073 nested PV corr 的 vwap proxy 形式; benchmark proxy (universe-mean) 触发条件 = Phase 5 architecture 升级支持 cross-sectional benchmark filter。
+> **Next probes**: Round 2 触发条件**全部满足** → 下批可推进:
+> - 5×5 tail-sensitivity 子集首测 (Alpha 022/031/006 优先, 其 5×5 t > 3.0 + 库内未覆盖 mechanism)
+> - vwap proxy `$amount/$volume`: Alpha 073 nested PV corr 的 vwap proxy 路径
+> - C005 Volume MACD ratio-form 复测 (`MACD_hist / Mean(volume,27)` dim-less 化)
+> - 后续 thread T006 待新候选设计后定。
 
 ---
 
 ## Known Failures
 
-(空——本方向尚未提交任何候选)
+| Candidate | Expression | Reject Reason |
+|---|---|---|
+| [[batches/batch_085/candidates/C002\|C002]] | `Sum(Mul(Sign(Sub($close,Ref($close,1))),$volume),20)` | OBV-20d csi1000 sign 翻转 + alpha_surv=0.17 Barra 吞噬 + mono_oos=-0.3 Q5-only 一桨 + incr_ic=-0.005 library reducer |
+| [[batches/batch_085/candidates/C004\|C004]] | `Mean(Greater(Greater(Sub($high,$low),Abs(Sub(Ref($close,1),$high))),Abs(Sub(Ref($close,1),$low))),12)` | ATR-12d ≡ vol_20d (exposure=31.4 顶级) + alpha_surv=0.064 + max_corr=0.66@F019 + incr_ic=-0.018: P006 trio 齐 |
+| [[batches/batch_085/candidates/C006\|C006]] | `TsRank(Div(Sub($close,Mean($close,24)),Mean($close,24)),60)` | BIAS-24 + TsRank60 P008 frontier escape 失败 (max_corr=0.42@F009 越过 0.40 阈值) + incr_ic=-0.019 软判定区 reject |
 
 ---
 
@@ -151,11 +176,22 @@ merged_into: null
 - 🟢 [[liquidity_acceleration]] `productive` — Alpha 155 Volume MACD 邻接, 需 Phase 3 看 max_corr@F033 mean_turnover_5
 - 🟢 [[microstructure_illiquidity]] `productive` — F012 amihud 系列邻接, 本方向无 illiq 同形候选
 - 🔵 [[fundamental_quality_carry]] `exploring` — 完全独立 (本方向无 TTM 字段)
-- [[../lessons#Structural Constraints]]
-- [[../papers/arxiv_2601_06499v1]] — 来源 paper note (含 17 因子完整白名单 + DSL 转写 + 隐藏假设)
+- [[lessons#Structural Constraints]]
+- [[papers/arxiv_2601_06499v1]] — 来源 paper note (含 17 因子完整白名单 + DSL 转写 + 隐藏假设)
 
 ---
 
 ## Narrative Log
 
-(空——本方向尚未提交任何 batch)
+> [!quote]+ 2026-05-02 · [[batches/batch_085/judge|batch_085]]
+> **paper-vetted Alpha191 universal-subset 首批兑现 2/6 admit + 1/6 reserve · 50% 信号留存** · admit = 2 / reserve = 1 / reject = 3
+>
+> - **paper 反向迁移假设部分成立**: 5 paper 主线候选 (C001-C005) 中 2 admit + 1 reserve, 与 paper 17/168 = 10.1% 期望兑现率比较, csi1000 反向迁移 (50%) 显著强于 paper SPX. 主要失败模式是 **csi1000 散户市 sign 翻转** (C002 OBV) + **vol_20d 结构性吸收** (C004 ATR), 与 paper 警告 "universe asymmetry" 一致.
+> - **alpha_survival > 1.0 频次升级**: C001=1.13 + C005=1.39 一次性产出两例 daily-resolution Barra 真独立载体, 超过 lessons.md "P008 escape 机制层验证" 历史仅 b081 C006 一例 ≈1.0. 升格证据: P008 escape 不是 b081 一次性巧合.
+> - **F009 anchor 显化**: 6 候选中 4 个 nearest=F009 (overnight_intraday_spread_5d), max_corr 0.21-0.54. F009 之前未被 lessons/INDEX 识别为 anchor, 本批显示 F009 是 daily close-anchor cluster prototype, 与 F025/F026 daily intraday position anchor 共同形成 csi1000 daily 三大 anchor. 提议 INDEX HOT-TOPICS-LLM 升格.
+> - **新 admitted 因子**: F{next} multi_ma_reversion_4w (paper Alpha 046, ICIR=0.31 ls_t=4.36 alpha_surv=1.13) + F{next+1} dmi_down_ratio_12 (paper Alpha 049, ls_t=3.03 alpha_surv=0.66 9 年同号).
+> - **MT budget**: cumulative 468 → 474 · direction 0 → 6 · bucket `medium`
+>
+> **Operations**　`status: exploring → productive` (Phase 4 auto on first admit) · priority `high` 保持 · T001+T003 ANSWERED · T002 split (T002a OBV DISPROVEN + T002b Volume MACD ACTIVE reserve) · T004 DISPROVEN · T005 round 2 trigger 满足
+>
+> **下一步**: round 2 推进 — (1) 5×5 tail-sensitivity 子集首测 (Alpha 022/031/006); (2) vwap proxy ($amount/$volume) for Alpha 073 nested PV corr; (3) C005 Volume MACD ratio-form 复测 (`MACD_hist / Mean(volume,27)`).

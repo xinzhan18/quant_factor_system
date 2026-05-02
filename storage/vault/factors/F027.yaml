@@ -1,0 +1,51 @@
+factor_id: F027
+name: multi_ma_reversion_4w
+family_tag: alpha191_universal_subset
+source_type: dsl
+admitted_at: '2026-05-02T17:43:23Z'
+admitted_in_batch: batch_085
+status: active
+diagnostics_ref: cache/batch_diagnostics/batch_085/C001
+direction: alpha191_universal_subset
+expression: Div(Add(Add(Add(Mean($close,3),Mean($close,6)),Mean($close,12)),Mean($close,24)),Mul($close,4))
+canonical: Div(Add(Add(Add(Mean($close,3),Mean($close,6)),Mean($close,12)),Mean($close,24)),Mul($close,4))
+validation_metrics:
+  ic_mean: 0.04946905842592712
+  ic_ir: 0.3094711692835281
+  ic_win_rate: 0.5909090909090909
+  monotonicity: 0.7
+  long_short_mean: 0.0018607199806955736
+  long_short_sharpe: 3.1435
+risk_metrics:
+  style_r_squared: 0.558006499019543
+  alpha_survival_ratio: 1.1256
+validation_metrics_by_universe:
+  all_tradable:
+    coverage: 1.0
+    ic_mean: 0.049469
+    ic_ir: 0.3095
+    monotonicity: 0.7
+    long_short_sharpe: 3.1435
+  csi300:
+    coverage: 1.0
+    ic_mean: 0.01508
+    ic_ir: 0.0697
+    monotonicity: 0.5
+    long_short_sharpe: 0.6895
+  csi1000:
+    coverage: 1.0
+    ic_mean: 0.045297
+    ic_ir: 0.2689
+    monotonicity: 1.0
+    long_short_sharpe: 2.5396
+universe_robustness:
+  icir_min: 0.0697
+  icir_max: 0.3095
+  icir_robustness_ratio: 0.2252
+  ic_mean_min: 0.01508
+  ic_mean_max: 0.049469
+  mono_min: 0.5
+  mono_max: 1.0
+  ic_sign_consistent_across_universes: true
+  primary_universe: all_tradable
+primary_universe: all_tradable

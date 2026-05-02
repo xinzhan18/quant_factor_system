@@ -1,0 +1,97 @@
+batch_id: batch_085
+round: 85
+direction: alpha191_universal_subset
+direction_md_ref: vault/directions/alpha191_universal_subset.md
+batch_goal: 首批实装 paper-vetted Alpha191 子集 (Du-Walter-Ulrich 2026 17 因子白名单中 5 个 + alpha071
+  BIAS 长窗 mean-reversion 第 6) 作为 csi1000 daily DSL baseline，验证 cross-market universal
+  alpha 在散户主导小盘 universe 是否仍有 carry，目标 ≥1 admit + ≥2 reserve，机制层覆盖 multi-MA mean reversion
+  / signed cumulative volume (OBV) / DMI directional pressure / ATR cross-day true
+  range / Volume MACD / BIAS long-window % deviation 共 6 个互补 mechanism family
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T17:18:05Z'
+frozen_at: '2026-05-02T17:18:05Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Div(Add(Add(Add(Mean($close,3),Mean($close,6)),Mean($close,12)),Mean($close,24)),Mul($close,4))
+  canonical: Div(Add(Add(Add(Mean($close,3),Mean($close,6)),Mean($close,12)),Mean($close,24)),Mul($close,4))
+  rationale: 'T001 Alpha 046 Multi-MA Mean Reversion Ratio (Du-Walter-Ulrich 2026
+    white-list, 3x2 t=3.68 / 5x5 t=4.33 / PCA t=5.29 / ENet t=4.34 三估计器 top). 4 个
+    MA 窗口 (3/6/12/24) 算术平均除以 spot price. 库内无 multi-window MA composite mean-reversion
+    factor. anti-recap: 不重演 asymmetric_momentum/return_momentum_acceleration dead
+    family (机制反号: mean-reversion 而非 momentum); 与 F004 std_vol_20 / F011 williams_r_variant
+    / F022 close_position_amount_accel 几何独立 (multi-window vote 减单窗 phase 噪声). 4 atom
+    Mean 跨同字段 - 不属 P021 cross-field Mul. 不属 P008 frontier 但 dim-less ratio. 预估 max_corr<0.40
+    vs F025/F026 (这俩是 daily intraday position; C001 是 daily close 多窗).'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sum(Mul(Sign(Sub($close,Ref($close,1))),$volume),20)
+  canonical: Sum(Mul($volume,Sign(Sub($close,Ref($close,1)))),20)
+  rationale: 'T002 Alpha 084 OBV-20d (white-list 3x2 t=3.68 / 5x5 t=3.39). Sign(close-prev_close)*volume
+    cumulative 20d. 库内无 OBV / signed-volume accumulation 同形. anti-recap: F009 pv_corr_times_vol
+    (Grade A 79.9) 是 covariance 几何而非 sign-aggregation, 机制独立 (sign accumulation 度量方向
+    imbalance, F009 度量价量同向一致性强度); F018 是 overnight gap sign×amount rank-diff 而非日内
+    close-to-close sign; 不属 P021 cross-field Mul wrapper (Sign 输出 ∈{-1,0,1}, Mul(Sign,
+    volume) 是 sign-conditional volume, 单一逻辑). 预估 max_corr<0.40 vs F009 (covariance)
+    与 F018 (overnight). Sum 20d - 不 frontier-bound (raw cumulative, 非 ratio 几何 → P008
+    frontier 不直接适用).'
+- candidate_id: C003
+  source_type: dsl
+  expression: Div(Sum(Mul(Lt(Add($high,$low),Add(Ref($high,1),Ref($low,1))),Greater(Abs(Sub($high,Ref($high,1))),Abs(Sub($low,Ref($low,1))))),12),Add(Sum(Mul(Lt(Add($high,$low),Add(Ref($high,1),Ref($low,1))),Greater(Abs(Sub($high,Ref($high,1))),Abs(Sub($low,Ref($low,1))))),12),Sum(Mul(Gt(Add($high,$low),Add(Ref($high,1),Ref($low,1))),Greater(Abs(Sub($high,Ref($high,1))),Abs(Sub($low,Ref($low,1))))),12)))
+  canonical: Div(Sum(Mul(Greater(Abs(Sub($high,Ref($high,1))),Abs(Sub($low,Ref($low,1)))),Lt(Add($high,$low),Add(Ref($high,1),Ref($low,1)))),12),Add(Sum(Mul(Greater(Abs(Sub($high,Ref($high,1))),Abs(Sub($low,Ref($low,1)))),Gt(Add($high,$low),Add(Ref($high,1),Ref($low,1)))),12),Sum(Mul(Greater(Abs(Sub($high,Ref($high,1))),Abs(Sub($low,Ref($low,1)))),Lt(Add($high,$low),Add(Ref($high,1),Ref($low,1)))),12)))
+  rationale: 'T003 Alpha 049 DMI Down (white-list 3x2 t=3.12 / 5x5 t=3.41 三估计器). 12d
+    directional pressure ratio = Sum(down DM,12)/(Sum(down DM,12)+Sum(up DM,12)).
+    库内无 DMI 同形. anti-recap: range_structure saturated (F021) 是 magnitude 几何; DMI 是
+    directional sign-aggregated magnitude 比例, 机制不同; 不属 P021 (Mul(Lt, magnitude) 是
+    conditional pressure mask, 内层非两 admit-factor cross-product). 预估 max_corr<0.40
+    vs F021/F022/F018. 风险：A 股 csi1000 散户震荡市 sign 可能翻转, 但 dim-less ratio (down/(down+up))
+    在 [0,1] 区间, 不是 magnitude vol 同源 → 与 F004 std_vol_20 几何独立.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Greater(Greater(Sub($high,$low),Abs(Sub(Ref($close,1),$high))),Abs(Sub(Ref($close,1),$low))),12)
+  canonical: Mean(Greater(Greater(Sub($high,$low),Abs(Sub(Ref($close,1),$high))),Abs(Sub(Ref($close,1),$low))),12)
+  rationale: 'T004 Alpha 161 12d ATR (white-list 3x2 t=2.57). 12d Mean(max(单日 H-L,
+    |prev_close-H|, |prev_close-L|)). 库内仅有单日 range 信号 (F021) 不含跨日 jump. anti-recap:
+    F001 std_returns_20 / F004 std_vol_20 是 close-to-close 收益方差; ATR 包含跨日 gap jump
+    (|prev_close-H|/|prev_close-L| 项), 这个跨日维度库内未覆盖; 与 vol_shock_signals dead family
+    区别在 ATR 是 raw magnitude 而非 vol-shock asymmetric form. 风险：本身是 vol 度量, 可能 max_corr@F001
+    > 0.55, 但跨日 jump 项独立于 close-to-close std. 不属 P021 / P019 (全 OHLC). dim-less? 不
+    — magnitude 单位是 price; 不在 P008 frontier 但跨日 jump 几何独立.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(Sub(EMA($volume,13),EMA($volume,27)),EMA(Sub(EMA($volume,13),EMA($volume,27)),10))
+  canonical: Sub(Sub(EMA($volume,13),EMA($volume,27)),EMA(Sub(EMA($volume,13),EMA($volume,27)),10))
+  rationale: 'T002 Alpha 155 Volume MACD Histogram (white-list 3x2 t=2.82 / 5x5 t=3.67,
+    5x5 更强). MACD 配方应用 volume 而非 price: EMA(13)-EMA(27)-EMA(diff,10) histogram. 库内无
+    volume momentum/MACD 同形. anti-recap: F033/F029 mean_turnover (legacy single-window)
+    已饱和; volume MACD 是三窗 EMA 复合 histogram (短长 spread 减去 spread 的 EMA), 机制不同; 不用 turnover_rate
+    而用 volume - 与 turnover-cluster 隔开. 不属 P021 (同字段 EMA difference, 单字段). 不属 P019
+    (单字段无 Corr). 风险: volume momentum 可能与 liquidity_acceleration dead family 同源 - 但
+    Volume MACD histogram 是 second-order momentum (level→1st diff→2nd EMA), 比 raw
+    rate-of-change 更稳.'
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Sub($close,Mean($close,24)),Mean($close,24)),60)
+  canonical: TsRank(Div(Sub($close,Mean($close,24)),Mean($close,24)),60)
+  rationale: 'Alpha191 alpha071 BIAS-24 % deviation from MA + P008 escape outer wrap.
+    库内 long-window mean-reversion 稀缺 (cockpit hint); BIAS 在 Alpha191 是经典 mean-reversion
+    模板. 设计走 P008 frontier 真路径: 内层 dim-less ratio (close/Mean - 1, % deviation 自然 dim-less
+    + scale-free) + 外层 TsRank 60d (时序量纲化). anti-recap: 与 F011 williams_r_variant 几何不同
+    (williams_r 是 (high-close)/(high-low) 单日 anchor; BIAS 是跨 24d 中长期 mean deviation);
+    F022 close_position_amount_accel 是 daily intraday 不同 horizon; F025/F026 是 daily
+    intraday TsRank 60d, BIAS 是 24d MA cross 60d TsRank, max_corr 预估 < 0.40. 满足 P008
+    三件套: (a) daily atom dim-less [-1,inf) ratio (BIAS 数学上 % deviation), (b) outer
+    TsRank≥60d 时序量纲化, (c) library distance from F025/F026 anchor. 单字段 OHLCV-only (P019
+    safe). baseline-first: 直接用 baseline 推荐表达式 TsRank-60 形式 (close 已 single-atom 但
+    TsRank 已少, 这 candidate 是 close 在 TsRank-60 + 中长 24d MA scaffold 复合, 满足设计构成 baseline-first
+    候选 - close TsRank scaffold 涵盖).'
