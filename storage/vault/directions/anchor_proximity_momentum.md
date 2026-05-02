@@ -1,23 +1,29 @@
 ---
 direction_tag: anchor_proximity_momentum
-status: exploring
+status: productive
 priority: medium
-rounds: 0
-admits: 0
-last_batch: pending
-last_admits: []
-last_goal: null
-last_activity: null
+rounds: 2
+admits: 2
+last_batch: batch_082
+last_admits:
+- F026
+last_goal: P008 escape 跨 direction 复现：TsRank window 60d on bounded [0,1] dimless close-anchor
+  proximity ratios — 验证 alpha_surv≈1.0 generalizability 跨方向（b081 C006 hl_norm_sym
+  单例首证）。本批 6 候选全是 close-anchor proximity dimless ratio + TsRank 60d 不同 atom，验证 vol_20d-escape
+  路径在 anchor_proximity_momentum 方向是否可复现并产生 admittable alpha；同时严守 P019 数据契约（不用 fundamental
+  TTM 作 Corr 内层）+ P021（避免 Mul wrapper 跨字段）+ Geometric absorbing-factor 律（max_corr<0.40
+  vs F024/F025/F018/F021）。
+last_activity: '2026-05-02T15:56:58Z'
 created_batch: batch_080
-members: []
+members:
+- F026
 merged_into: null
 ---
-
 # anchor_proximity_momentum
 
 > [!abstract]+ 方向概要
 > - **状态**　🔵 `exploring` · priority `medium` · rounds = 0 · admits = 0
-> - **最近**　未运行 · seeded from [[../papers/george_hwang_52weekhigh_2004|George & Hwang JF 2004]] + Chen-Stivers-Sun 2025 PTA × momentum interaction extension
+> - **最近**　未运行 · seeded from [[papers/george_hwang_52weekhigh_2004|George & Hwang JF 2004]] + Chen-Stivers-Sun 2025 PTA × momentum interaction extension
 > - **一句话**　测试 **price-to-52w-high 单边 anchor envelope 比率**（PTA = `Div($close, Max($close, 250))`）在 csi1000 daily 上是否独立于 `stochastic_position` (DEAD) 的双边 range 归一族
 
 ---
@@ -72,15 +78,18 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 
 ## Threads
 
-### T001: PTA 单边 anchor envelope 是否独立于双边 range 归一族 [◉ ACTIVE]
+### T001: PTA 单边 anchor envelope 是否独立于双边 range 归一族 [✓ ANSWERED batch_082]
 
-> [!note]+ Thread 当前
+> [!success]+ Thread 结论
 > **Question**: `Div($close, Max($close, 250))` 这种**单边非降 envelope**几何，在 csi1000 daily 是否携带独立 forward IC，而不重演 stochastic_position 双边 range %K/TsRank 的 vol_20d 吞噬？关键审计：style_r² 与 dominant_style；与 admitted alpha 的 max_corr。
 >
 > **Evidence trail**:
-> - （待 batch_080 首批结果填入 — C001 baseline 250d）
+> - [[batches/batch_082/candidates/C001|batch_082 C001]]　TsRank(stochastic_position, 60)　ic_oos=-0.027 ls_t=-1.98 mono=-0.4 style_r²=0.36 → **reject** (60d 双边 range %K TsRank 包装重演 stochastic_position 同律)
+> - [[batches/batch_082/candidates/C002|batch_082 C002]]　TsRank((h-c)/(h-l), 60)　ic_oos=0.046 ls_t=6.40 mono=1.0 alpha_surv=1.20 style_r²=0.062 → **reserve** (数学镜像 C006，自身够 admit 但避免库重复)
+> - [[batches/batch_082/candidates/C004|batch_082 C004]]　TsRank(close/TsMax($close,60), 60) PTA 60d　ic_oos=-0.026 ls_t=-2.14 mono=-0.7 style_r²=0.327 vol_exp=19.82 → **reject** (PTA 60d 短窗口 envelope 仍被 vol 撑大)
+> - [[batches/batch_082/candidates/C006|batch_082 C006]]　TsRank((c-l)/(h-l), 60)　ic_oos=-0.046 ls_t=-6.31 mono=**-1.0 PERFECT** alpha_surv=1.13 style_r²=0.068 → **admit → [[factors/F026]]** (P008 escape 跨 direction 复现核心证据)
 >
-> **Next probes**: baseline 通过则进 T002 nested test；不通过则验证是否 100% 重演 stochastic_position 同律（dominant_style=vol_20d + alpha_surv<0.4）。
+> **结论**: T001 question 通过 daily-resolution 几何 (单日 (h-l) 分母) **YES**——bounded [0,1] dimless close-anchor proximity ratio + TsRank 60d 在 csi1000 daily 上**结构性可逃 vol_20d 吞噬律**。但 60d 跨日 envelope/range/mean 几何**全部失败**——P008 escape 关键不是"TsRank 60d wrapper"而是"atom 不被未来累积 vol 污染"。
 
 ### T002: PTA × past-winner 交互在 csi1000 是否携 incremental IC over PTA alone [◉ ACTIVE]
 
@@ -92,15 +101,15 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 >
 > **Next probes**: 若 C004 incremental IC > C001 (PTA alone) → 论文 nested test 的 daily 版本本地 confirm；若 < C001 → 论文 nested 在 A 股不复现，回到 PTA 单变量主线。
 
-### T003: PTL (52w 低距离) 镜像是否携带 PTA 之外独立 alpha [◉ ACTIVE]
+### T003: PTL (52w 低距离) 镜像是否携带 PTA 之外独立 alpha [✗ DISPROVEN batch_082]
 
-> [!note]+ Thread 当前
+> [!failure]+ Thread 结论
 > **Question**: `Div($close, Min($close, 250))` 在 A 股散户 disposition effect 强环境下是否携带 PTA 之外独立 alpha？还是与 PTA 仅是负相关镜像？关键审计：`Corr(PTA, PTL)`，期望 |corr| < 0.8（不可能完全相关，因 high/low 时点可在窗口内不同）。
 >
 > **Evidence trail**:
-> - （待 batch_080 首批结果填入 — C003 PTL baseline + C005 PTA-PTL spread）
+> - [[batches/batch_082/candidates/C005|batch_082 C005]]　TsRank((close - TsMin(close,60))/TsMin(close,60), 60) PTL mirror 60d　ic_oos=-0.032 ls_t=-2.39 mono=-0.2 style_r²=0.387 → **reject** (PTL 60d 与 C004 PTA 60d 同号 negative, 同 style vol_20d 主导，非 mirror 异号独立维度)
 >
-> **Next probes**: PTL 单变量 ic 显著 → 开新 thread 测 PTL × past-loser 交互（disposition 学术对应）；PTL 与 PTA 高度负相关且 ic 反号 → 合并入 T001 作镜像 ablation。
+> **结论**: hypothesis H3 mirror disposition asymmetry 在 60d 窗口**partial 反驳**——PTL 与 PTA 同号同 style，是同 vol_20d 吸收族的 sign-equivalent 投影而非独立维度。本批仅在 60d 窗口反驳；250d 长窗口空间未测，T003 在长窗口仍开放，但本批已 close 60d 窗口分支。
 
 ### T004: 锚窗口曲线 60d → 120d → 250d → 500d 寻找 sweet spot [◉ ACTIVE]
 
@@ -108,15 +117,31 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 > **Question**: 论文锚 250d 但脚注提及 6m/24m 定性一致；A 股散户记忆周期可能 30-60d 远短于 12m。窗口越短越接近 cumulative momentum（已 dead）；窗口越长越纯 anchor。sweet spot 在哪？60d 是危险窗口（接近 dead momentum），120d 是首批中窗口对照，250d 是论文标定窗口，500d 是上界 ablation 留 batch_081。
 >
 > **Evidence trail**:
-> - （待 batch_080 首批结果填入 — C002 120d + C006 60d falsifier）
+> - [[batches/batch_082/candidates/C003|batch_082 C003]]　TsRank(close/Mean($close,60), 60)　ic_oos=-0.036 ls_t=-2.87 mono=-0.3 style_r²=0.448 → **reject** (`Mean($close,60)` dynamic mean 分母被 vol 撑大，非 monotone envelope)
+> - [[batches/batch_082/candidates/C004|batch_082 C004]]　TsRank(close/TsMax($close,60), 60) PTA 60d　ic_oos=-0.026 ls_t=-2.14 mono=-0.7 style_r²=0.327 vol_exp=19.82 → **reject** (PTA 60d 短窗口 envelope 仍 follow vol regime, vol_20d exposure 本批最高)
 >
-> **Next probes**: 若 60d 与 dead momentum 同 reject 模式 + 250d alive → 锚 horizon 边界证据；若 60d alive 而 250d dead → A 股锚周期短于美股。
+> **本批进展**: 60d 窗口下 PTA envelope 不够"刚性"（vol_20d exposure=19.82 本批最高）；论文 250d 长窗口期 envelope 更刚性的 hypothesis 仍开放。下批应保留 PTA 250d / PTA 120d 长窗口探索。
+>
+> **Next probes**: 250d 长窗口 PTA 是否 alpha_surv > 1.0 + style_r² < 0.12？或 30d 短窗口若仍 dead 则确认"daily-resolution 几何 dominates 跨日 envelope" 律。
+
+### T005: daily-resolution dim-less anchor ratio + TsRank 60d 跨方向 generalizability 边界 [◉ ACTIVE]
+
+> [!note]+ Thread 当前
+> **Question**: 承接 T001 主线 P008 escape 机制 distillation：**"daily-resolution dim-less close-anchor ratio (单日 (h-l) 分母) + TsRank 60d"** 是否是结构性 generalizable 律——可跨 direction 复现产生 alpha_surv > 1.0 + style_r² < 0.10 + mono_oos PERFECT？还是 anchor_proximity_momentum 方向特例？
+>
+> **Evidence trail**:
+> - [[batches/batch_082/candidates/C006|batch_082 C006]]　TsRank((c-l)/(h-l), 60)　alpha_surv=1.13 mono_oos=-1.0 style_r²=0.068 → **admit** (b081 C006 hl_norm_sym alpha_surv=0.99 在 anchor_proximity_momentum 方向跨方向复现成功首证)
+>
+> **Next probes**: 在 [[intraday_price_formation]] / [[ohlc_temporal_aggregation]] 等其它方向用同 schema (单日 dim-less 比率 + TsRank 60d) 复现，确认这一律的边界——是否 vol_20d 吞噬律的通用 escape，还是仅 anchor proximity 几何独有？
 
 ---
 
 ## Known Failures
 
-（暂无；首批 batch_080 待跑）
+- C001 `TsRank(Div(Sub($close, TsMin($low, 60)), Sub(TsMax($high, 60), TsMin($low, 60))), 60)` — 60d 双边 range stochastic position TsRank 包装重演 stochastic_position DEAD 同律；style_r²=0.36 + dom=vol_20d exposure 12.04
+- C003 `TsRank(Div($close, Mean($close, 60)), 60)` — `Mean($close,60)` dynamic mean 分母非 monotone envelope，被 vol 主动撑大；style_r²=0.448 远超 poor 阈
+- C004 `TsRank(Div($close, TsMax($close, 60)), 60)` — PTA 60d 短窗口 envelope 不够刚性，vol_20d exposure=19.82 本批最高 high crowding；论文 250d 长窗口 hypothesis 仍开放
+- C005 `TsRank(Div(Sub($close, TsMin($close, 60)), TsMin($close, 60)), 60)` — PTL mirror 60d 与 PTA 60d 同号同 style，反驳 H3 mirror disposition asymmetry 的 mirror 独立性 (60d 窗口下)
 
 ---
 
@@ -139,14 +164,33 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 - 🟡 [[intraday_price_formation]] `saturated` — F003 / F022 等 close-position intraday 形式；与 cross-day anchor 同 "close 在某尺度内的位置" 大类但不同 horizon
 - 🟡 [[ohlc_temporal_aggregation]] `saturated` — F006/F007/F008 5d body aggregation 占位；本方向 PTA 不依赖 body 几何，应正交
 - 🟡 [[fundamental_quality_carry]] `saturated` — 完全不同字段族，仅作 INDEX 登记参考
-- 📖 [[../lessons#Structural Constraints]] — vol_20d 吞噬律 (F301)；PTA 单边 envelope 是潜在 escape 路径（dim-less anchor ratio，与 P012 dim-less count ratio 同 spirit）
-- 📖 [[../lessons#Forbidden Patterns]] — rate-form failure (F300)；PTA 是 level/ratio，**不撞**该律
+- 📖 [[lessons#Structural Constraints]] — vol_20d 吞噬律 (F301)；PTA 单边 envelope 是潜在 escape 路径（dim-less anchor ratio，与 P012 dim-less count ratio 同 spirit）
+- 📖 [[lessons#Forbidden Patterns]] — rate-form failure (F300)；PTA 是 level/ratio，**不撞**该律
 
 ---
 
 ## Narrative Log
 
-> [!quote]+ 2026-05-02 · seeded from [[../papers/george_hwang_52weekhigh_2004|George & Hwang JF 2004]]
+### 2026-05-02 [[batches/batch_082/judge|batch_082]]
+admit=1 (C006 daily_close_position_tsrank_60) · reserve=1 (C002 数学镜像 C006) · reject=4 (C001/C003/C004/C005)
+
+**核心发现**：
+1. **P008 escape 跨 direction 复现成功** — TsRank((c-l)/(h-l), 60) 在 anchor_proximity_momentum 方向打出 alpha_surv=1.13 + mono_oos=-1.0 PERFECT + ls_t=-6.31 + style_r²=0.068；验证 b081 C006 hl_norm_sym (对称版 alpha_surv=0.99) 不是单例 fluke 而是结构性 generalizable
+2. **关键 distillation**：P008 escape 的关键机制不是"TsRank 60d wrapper"而是"atom 不被未来累积 vol 污染"——daily-resolution 单日 (h-l) 分母 (C002/C006) 全部成功；60d 跨日 envelope/range/mean (C001/C003/C004/C005) 全部失败 (vol_20d exposure 10.79-19.82 high crowding)
+3. **C002 / C006 数学镜像**：(h-c)/(h-l) + (c-l)/(h-l) ≡ 1 + TsRank monotone-invariance → corr ≈ -1；admit C006 canonical, C002 reserve 等下轮独立性测试
+
+**Thread 进展**：
+- T001: ✓ ANSWERED — daily-resolution 几何 P008 escape YES, 60d 跨日 envelope NO
+- T002: ◉ ACTIVE 本批未测 (PTA × past-winner 交互留下批)
+- T003: ✗ DISPROVEN (60d) — PTL 与 PTA 同号同 style 不是独立 mirror 维度
+- T004: ◉ ACTIVE — 60d 短窗口已证伪，250d 长窗口仍开放
+- T005: ◉ ACTIVE 🆕 — daily-resolution dim-less ratio + TsRank 60d 跨方向 generalizability 边界
+
+**下一步**: batch_083 优先 PTA 250d 长窗口 + T002 daily PTA × past-winner 交互 + T005 跨方向边界测试 ([[intraday_price_formation]] / [[ohlc_temporal_aggregation]]); 不再设 60d 跨日 envelope/range/mean 类候选 (已证伪)。
+
+**Operations**：`status: exploring → productive` (首次 admit C006); `rounds: 0 → 1`; `admits: 0 → 1`; `last_batch: batch_082`
+
+> [!quote]+ 2026-05-02 · seeded from [[papers/george_hwang_52weekhigh_2004|George & Hwang JF 2004]]
 > Direction created from foundational US-equity paper intake. PTA = `Div($close, Max($close, 250))` 是 30 年前的 well-known 信号，但库内零因子使用 `Max($close, ≥120)` 作 anchor —— 完全空白。
 >
 > - 与 [[stochastic_position]] DEAD 的关键几何区分：单边 envelope vs 双边 range，前者不被 vol 主动撑大

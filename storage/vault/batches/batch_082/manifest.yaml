@@ -1,0 +1,86 @@
+batch_id: batch_082
+round: 82
+direction: anchor_proximity_momentum
+direction_md_ref: vault/directions/anchor_proximity_momentum.md
+batch_goal: P008 escape 跨 direction 复现：TsRank window 60d on bounded [0,1] dimless
+  close-anchor proximity ratios — 验证 alpha_surv≈1.0 generalizability 跨方向（b081 C006
+  hl_norm_sym 单例首证）。本批 6 候选全是 close-anchor proximity dimless ratio + TsRank 60d 不同
+  atom，验证 vol_20d-escape 路径在 anchor_proximity_momentum 方向是否可复现并产生 admittable alpha；同时严守
+  P019 数据契约（不用 fundamental TTM 作 Corr 内层）+ P021（避免 Mul wrapper 跨字段）+ Geometric absorbing-factor
+  律（max_corr<0.40 vs F024/F025/F018/F021）。
+active_threads_referenced:
+- T001
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T15:27:00Z'
+frozen_at: '2026-05-02T15:27:00Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div(Sub($close, TsMin($low, 60)), Sub(TsMax($high, 60), TsMin($low,
+    60))), 60)
+  canonical: TsRank(Div(Sub($close,TsMin($low,60)),Sub(TsMax($high,60),TsMin($low,60))),60)
+  rationale: T001 主线 P008 escape 复现：60d stochastic position [0,1] bounded dimless
+    ratio (paper Williams %K close-only) + TsRank 60d 时序量纲化。机制：bounded ratio 的 self-history
+    rank 应该对 vol_20d 强独立（b081 C006 alpha_surv=0.993 单例首证，本候选测 stochastic position
+    几何上的复现）。区别于 stochastic_position DEAD batch_041 C001：那批是 raw ratio 无 TsRank wrapper，会被
+    vol_20d 主动撑大；本候选 TsRank 60d 把 cross-section level 替换为个股自身分位，逃离 cross-section vol_20d
+    basis ranking。期望 alpha_survival ≥0.4。Step 1.5 baseline-first：close 字段 TsRank 已做
+    2 次但都不是 stochastic 形式；新 atom 形式。
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $close), Sub($high, $low)), 60)
+  canonical: TsRank(Div(Sub($high,$close),Sub($high,$low)),60)
+  rationale: T001 P008 escape 复现：upper shadow ratio (h-c)/(h-l) [0,1] bounded dimless
+    + TsRank 60d。这就是 b081 C006 hl_norm_sym 同 family 但 upper-shadow 几何（C006 是 (2c-h-l)/(h-l)
+    对称 hl_norm_sym，本候选是单边 upper shadow）。机制：upper shadow rank 反映卖压结构，TsRank 60d self-history
+    把它转化为 anchor-proximity proxy。F025 shadow_asymmetry_tsrank_60 是 (h+l-2c)/(h-l)
+    对称形式 max_corr 必查，期望 < 0.40 因不对称 vs 对称。验证 P008 escape 在 anchor proximity 方向的不同
+    atom 复现。
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div($close, Mean($close, 60)), 60)
+  canonical: TsRank(Div($close,Mean($close,60)),60)
+  rationale: 'T004 中窗口 anchor proximity：close/MA60 ratio 是 price 相对 60d 均线的位置 — bounded
+    approx [0.5, 2] dimless ratio + TsRank 60d。区别于 PTA `Div($close, Max($close, N))`（PTA
+    用单调非降 envelope 分母，本候选用动态 mean 分母）：分母都不是 rolling range（不被 vol 主动撑大）。机制：MA60-anchored
+    proximity rank 是论文 Frazzini disposition effect 的均线版。Adjacency: 与 stochastic_position
+    DEAD 不同（无 TsMin floor）；与 F021 `Mean(H/L, 60)` 几何不同（log-volatility vs price-anchor）。期望
+    alpha_surv ≥0.4。'
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank(Div($close, TsMax($close, 60)), 60)
+  canonical: TsRank(Div($close,TsMax($close,60)),60)
+  rationale: T001 paper baseline PTA at 60d window：George-Hwang 2004 PTA = close /
+    60d max — 单边非降 envelope ratio [0,1] bounded + TsRank 60d 双层量纲化。**这是 anchor_proximity_momentum
+    方向的 raison d'etre**：单边 envelope 几何不同于 stochastic_position 双边 range。原 batch_080
+    设计 250d window，本候选用 60d 中窗对照 P008 frontier（TsRank 必须 ≥60d 且 atom window 也 60d
+    才同步 P008）。机制：PTA 60d 比 250d 更接近 momentum，TsRank 把 cross-section level → self-history
+    rank，逃 vol_20d 同时不退化为 dead momentum。**关键 differentiator vs stochastic_position**：分母是
+    monotone non-decreasing envelope (TsMax) 不是 range (TsMax - TsMin)，envelope 不被
+    vol 主动撑大。
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div(Sub($close, TsMin($close, 60)), TsMin($close, 60)), 60)
+  canonical: TsRank(Div(Sub($close,TsMin($close,60)),TsMin($close,60)),60)
+  rationale: 'T003 镜像 PTL：close 距 60d 低距离 ratio = (close - 60d_low) / 60d_low [0,
+    ∞) but typically [0, 0.5] bounded dimless + TsRank 60d。区别于 PTA：分母是 TsMin floor（单调非升
+    envelope 反方向），不是 range 也不是 max envelope。disposition effect 假设：散户从 52w 低反弹时 reluctant
+    to sell at low price → forward continuation; 本候选 TsRank 60d 量纲化逃 vol_20d。Adjacency:
+    与 F018 overnight_sign 几何独立；与 stochastic_position DEAD 不同（单边 floor envelope vs
+    双边 range）。期望 |corr(C004, C005)| < 0.7（论文 Table V mirror asymmetry）。'
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Sub($close, $low), Sub($high, $low)), 60)
+  canonical: TsRank(Div(Sub($close,$low),Sub($high,$low)),60)
+  rationale: T001 daily intraday close-position dimless ratio + TsRank 60d：(c-l)/(h-l)
+    是 daily close 在 daily range 内位置 [0,1]，与 C001 60d-window stochastic position 不同（C001
+    是 60d 跨日范围，本候选是单日）；daily 分辨率反映短期买卖压力。机制：单日 (c-l)/(h-l) self-history rank 60d 是日内
+    anchor proximity 的时序聚合 — 与 F021 upper_shadow_disp_range_compress (Std × Mean range
+    compression) 几何独立（rank-diff 单一 atom 而非 dispersion product）。与 F019 body_disp_pricevol_rank_diff
+    不同（rank-diff 跨 RHS, 本候选纯单 atom TsRank）。验证 P008 escape 在 daily-resolution 单层 dimless
+    ratio 上的复现。
