@@ -1,0 +1,94 @@
+batch_id: batch_079
+round: 79
+direction: cov_ratio_long_window
+direction_md_ref: vault/directions/cov_ratio_long_window.md
+batch_goal: 'Round 79 orchestrator-dispatch NEW direction. Validate TsRank≥60d wrap
+  on long-window Corr(liquidity, valuation/quality_ratio) as P008-validated vol_20d-escape
+  path for the otherwise-dead Cov(.,.,N) family (P018). 2 baseline candidates fill
+  untouched peg_ratio_ttm + pcf_ratio_total_ttm (Step 1.5 律). 4 TsRank-Corr candidates
+  probe (a) PE/PCF/dividend_yield/peg yield-basis × turnover/amount/num_trades/volume
+  liquidity-basis cross-products (b) 60d vs 120d window selection (c) self-normalized
+  inner Corr + outer TsRank time-series quantile dual-protection vs raw Cov vol_20d
+  basis. Hard targets: ≥1 admit alpha_surv≥0.40 + ic_oos≥0.008 + max_corr<0.40 + ic_by_year
+  2022/2023 sign-stable. Fail → direction dead, escalate lesson ''TsRank wrap insufficient
+  for long-window covariation in csi1000 daily fundamental absorption family''.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T07:08:53Z'
+frozen_at: '2026-05-02T07:08:53Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: CsRank($peg_ratio_ttm)
+  canonical: CsRank($peg_ratio_ttm)
+  rationale: 'T001 baseline — peg_ratio_ttm is in 16-untouched-field list (Step 1.5
+    baseline-first 律强制). PEG = PE × growth composite ratio, never tested in any atom
+    form. Pure CsRank baseline establishes whether the field carries any independent
+    cross-section alpha at all, before any composite wrap. Anti-recap: not isomorphic
+    to b070 PB→PE/PCF replacement (those were rank×rank Mul composites, this is single-atom).
+    Adjacent dead direction pit_valuation_pure (b069/b070) tested rank×rank Mul on
+    PE/PCF/PS/dividend_yield against 1/PB; never tested PEG single-atom CsRank.'
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank($pcf_ratio_total_ttm, 60)
+  canonical: TsRank($pcf_ratio_total_ttm,60)
+  rationale: 'T001 baseline — pcf_ratio_total_ttm is in 16-untouched-field list (Step
+    1.5 baseline-first 律强制) AND in single-atom field list (only CrossFieldCov tested
+    via b075 C002, never TsRank). TsRank-60 baseline directly applies P008 escape
+    geometry to TTM cash-flow yield ratio. Anti-recap: b075 C002 was Cov($turnover,$pcf,60)
+    — raw Cov form, P018 disproven; this is TsRank single-atom baseline, geometrically
+    independent. b070 was rank×rank Mul, not TsRank single.'
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Corr($volume, $close, 60), 60)
+  canonical: TsRank(Corr($volume,$close,60),60)
+  rationale: 'T002 — TsRank-Corr long-window pivot, OHLCV-only RHS (data-contract
+    forced retreat from PIT valuation AND from $turnover_rate: $turnover_rate qlib
+    binary has different start_index than core OHLCV → all Corr involving $turnover_rate
+    crash on broad universe). Inner Corr 60d captures volume × close comovement (alpha101-style
+    momentum-volume confirmation but at 60d window vs typical 5-20d). Outer TsRank-60
+    applies P008 vol_20d-escape. Anti-recap: F021 range_compress_rd is rank-diff not
+    Corr; F022 close_position uses level not 60d Corr. Novel TsRank-of-Corr geometry
+    in library. NOTE: data-contract retreats (PIT valuation + $turnover_rate) are
+    P019-grade systemic findings for cov_ratio_long_window direction.'
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank(Corr($amount, $high, 60), 60)
+  canonical: TsRank(Corr($amount,$high,60),60)
+  rationale: 'T002 — TsRank-Corr on $high (daily OHLCV; revised from $pb_ratio due
+    to PIT data-contract failure). Inner Corr 60d captures amount × price-high comovement:
+    when amount rises with high, retail enthusiasm; when amount diverges, institutional
+    distribution. Outer TsRank-60 applies P008 vol_20d-escape. Anti-recap: F002 PB/amount
+    is point-in-time level (different geometry); F008 upper_shadow_persistence uses
+    H-O level not Corr. This explores 60d-window Corr cross-OHLCV geometry not in
+    library. Same data-contract retreat note as C003.'
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Corr($num_trades, $close, 60), 60)
+  canonical: TsRank(Corr($num_trades,$close,60),60)
+  rationale: 'T002 — institutional flow proxy × price TsRank-Corr (revised from $pcf_ratio
+    PIT to $close due to data-contract failure). $num_trades raw level was b072 C002
+    NEAR_DUPLICATE F012 (size共线), but here wrapped in Corr × outer TsRank double-strip
+    of cross-section level. Inner Corr 60d captures institutional concentration × price
+    comovement direction. Outer TsRank applies P008 escape. Anti-recap: F012 amihud
+    is illiquidity ratio; F024 trade_density_tsrank_60 is TsRank of amount/num_trades
+    ratio — both different geometry. This is 60d Corr of $num_trades × $close wrapped
+    in TsRank-60 outer.'
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Corr($volume, $low, 120), 60)
+  canonical: TsRank(Corr($volume,$low,120),60)
+  rationale: 'T003 — long-window 120d TsRank-Corr on $low (revised from $ps_ratio
+    due to PIT data-contract failure). Tests window-selection (60d vs 120d) within
+    OHLCV-only family: 120d captures lower-frequency volume × low-price comovement
+    (proxies long-cycle accumulation/distribution). Outer TsRank-60 applies P008 escape.
+    Anti-recap: F009/F010 overnight family uses (C-O)/O ratios not Corr; F021 range_compress_rd
+    is rank-diff form not Corr. Provides 60d (C003-C005) vs 120d (C006) window comparison
+    with otherwise identical TsRank-Corr-OHLCV geometry — pure window ablation.'

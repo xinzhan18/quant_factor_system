@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-05-02T06:20:11Z
-round: 79
-total_active_directions: 18
+generated_at: 2026-05-02T07:46:42Z
+round: 80
+total_active_directions: 19
 total_factors_admitted: 25
-last_batch: batch_078
+last_batch: batch_079
 last_consolidation_round: null
 ---
 
@@ -15,14 +15,18 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**79** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_078/judge|batch_078]] → [[directions/reserve_revival_paths]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`active`
-> **健康** · rounds_since_consolidation=**6** · active_directions=**18** · zero-admit streak=**2**
-> **⚠️ 预警** · 空 factor.md: F017.backtest
+> **状态** · round=**80** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_079/judge|batch_079]] → [[directions/cov_ratio_long_window]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`dead`
+> **健康** · rounds_since_consolidation=**7** · active_directions=**19** · zero-admit streak=**3**
+> **⚠️ 预警** · 空 factor.md: F017.backtest · 待 intake papers: arxiv_2601_06499v1
+> **📄 Intake Queue** · `arxiv_2601_06499v1` ← `storage/vault/raw/papers/arXiv-2601.06499v1.pdf` · target=`storage/vault/papers/arxiv_2601_06499v1.md`
+> **下一条论文 intake 命令** · `PYTHONPATH=src python3 scripts/extract_paper_pdf.py --pdf storage/vault/raw/papers/arXiv-2601.06499v1.pdf`
 >
 > **🎯 下一步（按优先级）**
 > 1. ⚠️ **修空报告**：F017.backtest 的 `.md` 为空或缺 H1 → 对每个 F{id} 重新 dispatch `/factor-report` subagent
-> 2. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
+> 2. 🧪 **阈值校准**：连续 3 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 3. 📄 **新论文待 intake**：arxiv_2601_06499v1 → 先跑 PDF 抽取，再用 `/factor-paper` subagent 按 `.claude/skills/factor-paper/paper-note-template.md` 生成 `papers/{slug}.md`；若 paper note 判定全部 blocked，再回到常规选方向
+> 4. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
 
@@ -64,7 +68,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **79** · Admitted: **25** · Active directions: **18**
-> - Last batch: **batch_078**
+> - Round: **80** · Admitted: **25** · Active directions: **19**
+> - Last batch: **batch_079**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
