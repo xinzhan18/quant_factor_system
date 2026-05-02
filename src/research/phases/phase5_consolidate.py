@@ -358,20 +358,50 @@ def _build_specialist_packet_library_gap(paths: StoragePaths) -> str:
 
 
 def _build_specialist_packet_calibration(paths: StoragePaths) -> str:
+    from research.cli.audit_reserves import collect_reserves, render_report
+
+    try:
+        reserve_rows = collect_reserves(paths, refresh_uniqueness=False)
+        reserve_audit = render_report(reserve_rows)
+    except Exception as exc:  # noqa: BLE001 — best-effort packet enrichment
+        reserve_audit = (
+            f"_reserve audit unavailable: {type(exc).__name__}: {exc}_\n"
+        )
+
     return (
         "# Distillation Packet — calibration\n\n"
         "## Task\n\n"
-        "Scan recent judge.md `阈值校准诊断` sections. Identify "
-        "**threshold tuning proposals** with concrete evidence (which "
-        "threshold, current value, proposed value, which reserve "
-        "candidates would have flipped). Each proposal becomes one "
-        "`{NNN}.md` in "
+        "**Two perspectives are mandatory** — both must produce findings:\n\n"
+        "**(A) Trigger-driven (recent batches)**: Scan recent judge.md "
+        "`阈值校准诊断` sections. Identify **threshold tuning proposals** "
+        "with concrete evidence (which threshold, current value, proposed "
+        "value, which reserve candidates would have flipped).\n\n"
+        "**(B) Asset-driven (full reserve pool retro triage)**: Process "
+        "the `## Reserve Pool Retro Audit` section below — it lists "
+        "**every** historical reserve re-evaluated under current "
+        "config.yaml. For every `re-judge` flip-candidate row with "
+        "ic_oos_clean + mono_strong flags, decide whether to "
+        "**recommend revival** (via `suggested_revival_path`: change "
+        "RHS basis / Python residualize / window sweep / etc.). "
+        "Asset-driven findings do **not** propose threshold changes — "
+        "they propose **revival paths** that work under current "
+        "thresholds. This perspective catches single-edge-borderline "
+        "candidates (e.g. only `incr_ic` NEG, only `max_corr` 0.40-0.50) "
+        "that fail trigger-driven gates but have 4+ CP top-tier metrics.\n\n"
+        "Each finding becomes one `{NNN}.md` in "
         "`storage/vault/_consolidation/findings/calibration/` "
         "(zero-padded, mkdir -p). Frontmatter must set "
         "`specialist: calibration` and `finding_id` to the digits. "
-        "Severity reflects how many retro candidates would flip.\n\n"
+        "Severity reflects how many retro candidates would flip / "
+        "how many revivals are recommended.\n\n"
+        "**Required asset-driven coverage**: at least one finding "
+        "must summarize the reserve-pool triage outcome — list top-N "
+        "revival recommendations with concrete `suggested_revival_path` "
+        "for each, even if zero threshold changes are proposed.\n\n"
         "## Recent judge.md bodies\n\n"
-        f"{_recent_judge_bodies(paths)}\n"
+        f"{_recent_judge_bodies(paths)}\n\n"
+        "## Reserve Pool Retro Audit (full history, current thresholds)\n\n"
+        f"{reserve_audit}\n"
     )
 
 
