@@ -475,6 +475,7 @@ def run_phase4_archive(inputs: Phase4Inputs) -> Phase4Result:
             paths.state_file,
             paths.vault_index_file,
             direction_path,
+            paths.batch_dir(inputs.batch_id),
         ]
         for a in archived:
             files_to_stage.append(a.yaml_path)
