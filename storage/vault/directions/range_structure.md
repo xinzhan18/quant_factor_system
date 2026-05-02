@@ -1,23 +1,23 @@
 ---
 direction_tag: range_structure
-status: saturated
-priority: medium
-rounds: 8
+status: dead
+priority: low
+rounds: 9
 admits: 2
-last_batch: batch_064
+last_batch: batch_083
 last_admits: []
-last_goal: T003 round 2 sub-path A — 沿 b056 C001 reserve 的 ATOM1=Std((O-L)/(H-L),20)
-  open-lower-position-dispersion 衍生 6 候选 × 6 个跨字段族独立长窗 scale-free RHS（turnover_60
-  / H_C_60 / L_C_60 / pb_60 level / H_L_120 (dead-endpoint window 扩展) / 60d-mean-of-20d-autocorr
-  novel temporal），目标至少 1 admit 验证 (O-L)/(H-L) atom × 非 b056 已 reject RHS 维度可扩展。规避
-  b056 已 reject RHS（amount/volume, pe/pb, vwap/close, pe/ps, turnover/pb, amount/market_cap）+
-  死亡 endpoint（overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60/H_L_60_geo）+
-  daily-return/overnight-gap LHS（b056 C003/C004/C005 三连 reject）+ composite midpoint
-  LHS（b056 C006）+ pe/pb/ps fundamental 60d 复合（b056 三连 reject）。设计纪律：mono_is>=0.6 +
-  incr_ic>0.015 当 max_corr∈[0.30,0.70] borderline（P006 library-reducer 第 7 次律）+ LHS
-  单层 Std 二阶矩 + RHS scale-free positive ratio。规避：rate/delta/ratio LHS（lessons forbidden）+
-  higher-moment LHS regime sign-flip（仅 Std-of-scale-free-ratio safe）+ rank-preserving
-  单算子包装。
+last_goal: 'T004 round 1 — P008 escape mechanism cross-direction test: daily-resolution
+  intraday range/structure geometry × TsRank 60d. Hypothesis: P008 (single-day OHLC
+  ratio + TsRank>=60d wrap escapes vol_20d absorption because per-day denominator
+  is not polluted by future cumulative vol) generalizes from F025 (shadow asymmetry,
+  midpoint anchor) + F026 (close position, low-anchor) to range_structure direction.
+  Test 6 distinct daily-resolution intraday ratios wrapped in TsRank 60d, all max_corr<0.40
+  vs F021/F025/F026. C001 raw range/close baseline; C002/C006 open-to-high/open-to-low
+  fraction (symmetric pair); C003 body/range (completely different geometry from shadow);
+  C004 outer-wrap Std-of-range 5d then TsRank 60d (composite test); C005 range/open
+  (denominator robustness vs C001). Skip baseline-first per Step 1.5 exception: all
+  15 untouched fields are fundamental TTM, structurally unrelated to OHLC range geometry
+  direction.'
 last_goal_legacy: T003 round 1 — 沿 F021 (C005 admit) 衍生 intraday position dispersion
   family。6 LHS 全部为不同 numerator 的 close/open/prev_close 在 H-L 范围内的 position Std 二阶矩
   (开盘下/上影位置/return-per-range/gap/range/composite midpoint)，与 F021 atom (H-C)/(H-L)
@@ -30,7 +30,7 @@ last_goal_legacy: T003 round 1 — 沿 F021 (C005 admit) 衍生 intraday positio
   内嵌 CsRank (operators.py:428 bug)；rank-diff geometry 7 律 max_corr@F021<0.30 + max_corr@all_rank_diff<0.30。预期至少
   1 admit 验证 intraday position dispersion family 在 F021 之外可扩展，确认 'lower-shadow / open-position
   / midpoint-deviation 等同 LHS 几何位置 × 不同 RHS basis' 是 range_structure direction 的可挖路径。
-last_activity: '2026-04-28T10:32:24Z'
+last_activity: '2026-05-02T16:33:34Z'
 created_batch: batch_043
 members:
 - F021
@@ -39,9 +39,9 @@ merged_into: null
 # range_structure
 
 > [!abstract]+ 方向概要
-> - **状态**　🟢 `productive` · priority `medium` · rounds = 4 · admits = 1 · reserve = 1（历史）
-> - **最近**　[[batches/batch_055/judge|batch_055]] 2026-04-25 admit=1 (C005→F{next} upper_shadow_disp_range_compress_rd_20) reserve=0 reject=5 · **range family 首 admit + P002 跨 5 family 第 6 admit 兑现**
-> - **一句话**　range/intraday position **结构**（timing、frequency、dispersion、shape、shadow-position）通过 rank-diff geometry 在 cross-section 上突破 vol_20d std-of-return 空间——首条成功路径：upper-shadow position Std × long-window range compression rank-diff
+> - **状态**　🟡 `saturated` · priority `low`（**low**, b083 后下转）· rounds = 9 · admits = 1（F021）· reserve = 1（C006 b083 P008 ext 等下批 family 衍生）
+> - **最近**　[[batches/batch_083/judge|batch_083]] 2026-05-02 admit=0 reserve=1 reject=5 · **T004 round 1: P008 escape mechanism cross-direction test FAILS**（raw range magnitude + outer Std-wrap 全部 incremental_ic NEG，仅 (O-L)/(H-L) reserve）
+> - **一句话**　range_structure 9 rounds 实质收窄到 saturated；T001 closed / T002 disprove / T003 sub-path A disprove / T004 round 1 disprove。P008 escape mechanism 关键 boundary：仅"位置/比例" geometry (F025/F026) 有效，raw range magnitude TsRank wrap + outer Std-wrap 落回 vol-CV family
 
 ---
 
@@ -127,7 +127,7 @@ csi1000 特征：
 >
 > **Next probes (T003 接力)**: 沿 C005 衍生 intraday position dispersion 维度——见 [[directions/range_structure#T003]]
 
-### T003: intraday position dispersion 衍生路径是否构成可扩展 alpha family [◉ ACTIVE]
+### T003: intraday position dispersion 衍生路径是否构成可扩展 alpha family [✗ DISPROVEN batch_083]
 
 > [!note]+ Thread 当前
 > **Question**: 在 C005 admit (Std((H-C)/(H-L), 20) × Mean(H/L, 60)) 验证"intraday position dispersion × long-window scale-free RHS"成功后，该 LHS atom family 是否可扩展？具体试 (C-L)/(H-L) Std (lower-shadow position)、(C-prev_close)/(H-L) Std (gap-anchored position)、Mean(body_position, N) Std 等其它 intraday position atoms × 不同 long-window scale-free RHS。
@@ -154,6 +154,29 @@ csi1000 特征：
 > - **H/L geometry 120d 仍 dead**——dead-endpoint 是 geometry-specific 而非 window-specific（升格新 lessons 候选）
 >
 > **Next probes**: T003 sub-path A 已基本回答不可行；sub-path B [(C-L)/(H-L)] 必要性需评估（建议先休 1-2 batch 等 ortho-by-style 工具或新 RHS 类型出现）。若再 1-2 batch 仍 admit=0 → T003 整体 DISPROVEN + direction status: saturated → dead。
+
+### T004: daily-resolution intraday range/structure geometry × TsRank 60d 是否构成 P008 escape 机制的可扩展 alpha family [✗ DISPROVEN batch_083]
+
+> [!note]+ Thread 当前
+> **Question**: P008 distillation 揭示"daily-resolution 单日 OHLC 几何 (h-l, h-c, c-l) + TsRank≥60d 成功；60d 跨日 envelope (TsMax/TsMin) / range / mean 几何全失败（vol_20d 吞噬）"——核心是"原子分母不被未来累积 vol 污染"。F025 (shadow asymmetry midpoint) + F026 (close position) 已验证 admit cluster。本 thread 测试该路径在 range_structure direction 的可扩展性：raw range/close、open-to-high fraction、body/range、range volatility wrap，是否能在不撞 F021/F025/F026 几何的前提下产生独立 alpha。
+>
+> **Evidence trail**:
+> - [[batches/batch_083/candidates/C001|batch_083 C001]]　TsRank((H-L)/C, 60) raw range/close — ic_oos=-0.037 strong + ls_t=-3.43 strong 但 mono_oos=-0.40 Q5 一桨 + **incr_ic=-0.033 NEG** + dom=vol_20d 12.6 + cum_ic_mdd=-106 → **reject**（**P008 NEGATIVE: raw range magnitude 不适 P008 wrap**）
+> - [[batches/batch_083/candidates/C002|batch_083 C002]]　TsRank((H-O)/(H-L), 60) open-to-high fraction — ic_oos=-0.017 weak + ls_t=-0.39 weak + max_corr=**0.65@F025** + incr_ic≈0 → **reject**（F025 midpoint 几何退化 open-anchor 单边变体）
+> - [[batches/batch_083/candidates/C003|batch_083 C003]]　TsRank(\|C-O\|/(H-L), 60) body/range — ic_oos=+0.009 borderline + IS_ic=+0.0015 ≈ 0 + train_val_decay=5.75 unstable + alpha_surv=**0.33<threshold** poor → **reject**（body/range 几何 style 独立但 IS-OOS regime overfit）
+> - [[batches/batch_083/candidates/C004|batch_083 C004]]　TsRank(Std((H-L)/C, 5), 60) outer Std-wrap — ic_oos=-0.030 strong + ls_t=-3.93 strong 但 **incr_ic=-0.017 NEG** + dom=vol_20d **16.4 (本批最高)** + cum_ic_mdd=-82.7 → **reject**（**P008 NEGATIVE key: 5d Std-wrap break P008 mechanism**）
+> - [[batches/batch_083/candidates/C005|batch_083 C005]]　TsRank((H-L)/O, 60) range/open — 与 C001 数值完全相同 (incr_ic=-0.033 NEG, vol_20d 12.45 vs 12.64, mono Q5 一桨, max_corr 0.27@F022) → **reject**（**denominator anchor open ≈ close 在 csi1000 cross-section 完全同源 — F005 共动律延伸验证**）
+> - [[batches/batch_083/candidates/C006|batch_083 C006]]　TsRank((O-L)/(H-L), 60) open-to-low fraction — ic_oos=+0.017 strong + 9 年 sign-consistent 全正 + cum_ic_mdd=**-2.15 库内最浅** + style_r²=0.06 极 clean；但 ls_t=+0.48 weak + mono_oos=+0.30 weak + max_corr=**0.65@F025** cluster + incr_ic=+0.0038 borderline → **reserve**（错杀 4 条件检查：max_corr>0.30 + mono<0.80 → 非真错杀；下批观察 family ext）
+>
+> **Round 1 累积发现** (T004 共 6 candidates / 0 admit / 1 reserve / 5 reject):
+> - **P008 escape mechanism is atom-specific NOT wrap-pattern-general**：raw range magnitude (C001/C005) 全部 incremental_ic NEG 落回 vol-CV family；outer Std-wrap (C004) 反将 vol_20d exposure 推到本批最高 16.4，证实 5d Std inner-wrap break P008 escape 必要条件"原子分母不被未来累积 vol 污染"。
+> - **Daily open ≈ close 在 vol-orthogonal cross-section 完全同源**：C001/C005 所有 OOS metric 在小数点 2 位以内一致，验证 F005 algebraic 共动律的 daily 频率延伸——下批设计可直接舍去 open/close anchor 选择中的一个。
+> - **Geometric pair break under TsRank wrap**: (H-O)/(H-L) + (O-L)/(H-L) = 1 严格几何约束在 TsRank 60d wrap 下破坏，corr ≈ -0.5 而非 -1.0；anchor 方向 (from-high vs from-low) 在 csi1000 信号含量不对称——open-from-low (C006) 是 9 年 sign-consistent 稳定 alpha，open-from-high (C002) 是 weak signal。
+> - **library reducer 律累积 11 次** (b042-b083)：max_corr<0.40 + incr_ic≤-0.010 + alpha_surv>0.80 模式应升格 hard_block automatic reject criterion。
+>
+> **Next probes**: T004 round 2 必要性低——除非 (a) Python barra orthogonalize 工具链解锁 + 拯救 C001/C006 style_r² clean 候选；或 (b) C006 family 沿 (O-L)/(H-L) atom 衍生 1 候选验证 reserve 复活；或 (c) minute-bar resolution data infra。否则下批 0 admit → T004 DISPROVEN + direction 转 saturated→dead。
+
+
 
 ### T002: Range 短/长比与变化率是否独立于 F001 amount CV [✗ DISPROVEN batch_043]
 
@@ -194,10 +217,41 @@ csi1000 特征：
 | [[batches/batch_064/candidates/C003\|batch_064 C003]] | `Sub(CsRank(Std((O-L)/(H-L),20)), CsRank(Mean(L/C,60)))` | ic_oos=-0.0436 + ls_t=-1.91 weak + incr_ic=-0.008 NEG (**library reducer 第 8 次重现**) + cum_ic_mdd=-57.7 < -50 警戒线 + ic_by_year 9 年单调恶化 (2015 +0.0007 → 2023 -0.047) + style_r²=0.365 + alpha_surv=0.134 + vol_20d_exp=47.0 极端 + 与 F021 H/L 60d 反号几何对偶 (corr=-0.4629) — **L/C 60d 与 H/L 60d 是 csi1000 反号对偶载体，永久库 reducer 模式** |
 | [[batches/batch_064/candidates/C004\|batch_064 C004]] | `Sub(CsRank(Std((O-L)/(H-L),20)), CsRank(Mean(pb_ratio,60)))` | ic_oos=+0.0252 + mono=+1.0 + ls_t=2.40 表面健康；但 alpha_survival=0.179 + style_r²=0.388 + dom=vol_20d (13.42) × book_to_price (2.16) **双载体渗漏** + incr_ic=0.0054 admit 下界边缘 + MT bucket=high — **PB level RHS 通过 book_to_price barra style 渗漏；P004 vol_20d 9+ direction 律第 10 次跨方向独立确认** |
 | [[batches/batch_064/candidates/C006\|batch_064 C006]] | `Sub(CsRank(Std((O-L)/(H-L),20)), CsRank(Mean(TsAutoCorr($close,20),60)))` | hard_gate fail：ic_oos=+0.0014 < 0.008 + ICIR=0.020 + ls_t=0.13 + ic_std_oos=0.068 (远小于其它候选 0.12-0.14) — **TsAutoCorr 60d-Mean cross-section 区分度过低**；TsAutoCorr 是 [-1,1] unitless 数，60d Mean 在 csi1000 大量股票收敛到相近均值 → CsRank 后区分度被压扁 → **temporal-statistic RHS 在 csi1000 daily 频率信噪比下界律** |
+| [[batches/batch_083/candidates/C001\|batch_083 C001]] | `TsRank(Div(Sub($high, $low), $close), 60)` | **incremental_ic=-0.033 NEG (库 reducer 第 9 次)** + dom=vol_20d 12.6 + cum_ic_mdd=-106 + mono_oos=-0.40 Q5 一桨；**P008 NEGATIVE: raw range magnitude TsRank 60d 不适 P008 escape**——与 F022 反号镜像同载体 |
+| [[batches/batch_083/candidates/C002\|batch_083 C002]] | `TsRank(Div(Sub($high, $open), Sub($high, $low)), 60)` | CP03 weak (ls_t=-0.39 + ICIR=-0.15 weak + mono Q1Q5 双负 U-shape) + max_corr=0.65@F025 (F025 midpoint 几何退化 open-anchor 单边变体) + incr_ic≈0 |
+| [[batches/batch_083/candidates/C003\|batch_083 C003]] | `TsRank(Div(Sub(Greater($open, $close), Less($open, $close)), Sub($high, $low)), 60)` | IS_ic=+0.0015 ≈ 0 + train_val_decay=5.75 (OOS regime overfit) + alpha_survival=0.33 < threshold 0.40 poor + ls_t=+1.80 weak; body/range 几何独立但 IS 期信号不存在 |
+| [[batches/batch_083/candidates/C004\|batch_083 C004]] | `TsRank(Std(Div(Sub($high, $low), $close), 5), 60)` | **incremental_ic=-0.017 NEG (库 reducer 第 10 次)** + dom=vol_20d **16.4 (本批最高)** + cum_ic_mdd=-82.7；**P008 KEY NEGATIVE: outer 5d Std-wrap break P008 escape mechanism**——inner Std 把单日 ratio 聚合成 5d vol 重新落回 vol-CV family |
+| [[batches/batch_083/candidates/C005\|batch_083 C005]] | `TsRank(Div(Sub($high, $low), $open), 60)` | **与 C001 数值完全相同 (incr_ic=-0.033 NEG, vol_20d 12.45, mono Q5 一桨, max_corr 0.27@F022)**——**daily open ≈ close 在 csi1000 cross-section 完全同源**，F005 共动律延伸验证；library reducer 第 11 次 |
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-28 · [[batches/batch_064/judge|batch_064]]
+> [!quote]+ 2026-05-02 · [[batches/batch_083/judge|batch_083]]
+> **T004 round 1 — P008 escape mechanism cross-direction test FAILS** · admit=0 / reserve=1 (C006) / reject=5
+>
+> - **C001 / C005 → reject (P008 NEGATIVE for raw range magnitude)**: TsRank((H-L)/C, 60) 与 TsRank((H-L)/O, 60) 所有 OOS metric 在小数点 2 位以内一致 (incr_ic=-0.033 同, vol_20d 12.45 vs 12.64, max_corr 0.27@F022 同, mono Q5 一桨同)。**denominator anchor (open vs close) 在 csi1000 vol-orthogonal cross-section 完全同源**——F005 OHLC algebraic 共动律的 daily 频率延伸验证。两候选与 F022 反号镜像 corr=-0.27/-0.30 + 与 F001 amount_cv 同号 corr=+0.18/+0.18 → 同 vol-CV family 减值簇。**P008 escape mechanism 对 raw range magnitude TsRank 60d wrap 不成立**。
+> - **C004 → reject (P008 KEY NEGATIVE for outer Std-wrap)**: TsRank(Std((H-L)/C, 5), 60) — inner 5d Std 把单日 ratio 聚合成 5d vol，**break P008 escape 关键条件"原子分母不被未来累积 vol 污染"**。dom=vol_20d=**16.4 (本批最高 + range_structure 史上最高)** + incremental_ic=-0.017 NEG + cum_mdd=-82.7。outer Std-wrap 不仅未拯救反将 vol_20d exposure 推到本批最高——P008 mechanism is **single-atom geometric specific, NOT outer-wrap generalizable**——这是 P008 boundary 关键数据点，应升格 lessons.md。
+> - **C002 → reject**: TsRank((H-O)/(H-L), 60) — F025 midpoint 几何的退化 open-anchor 单边变体，corr=0.65@F025 + incremental_ic≈0 + ls_t=-0.39 weak + Q1Q5 U-shape rank-order non-monotone。
+> - **C003 → reject**: TsRank(\|C-O\|/(H-L), 60) body/range — style_r²=0.03 极 clean 但 IS_ic=+0.0015 essentially zero + train_val_decay=5.75 揭示 OOS regime overfit 而非 stable mechanism + alpha_survival=0.33 < threshold poor。说明 P008 escape 机制可能仅适用于"位置/比例" geometry，body/range "实体填充度" 在 csi1000 cross-section 区分度 too low。
+> - **C006 → reserve**: TsRank((O-L)/(H-L), 60) open-to-low fraction — 9 年 ic_by_year 全正同号 + cum_ic_mdd=-2.15 (本批最浅+库内罕见) + style_r²=0.06 极 clean + ic_oos=+0.017 strong + alpha_survival=1.21；但 ls_t=+0.48 weak + ICIR=+0.14 weak + mono_oos=+0.30 weak Q1 一桨 + max_corr=**0.65@F025** cluster + incremental_ic=+0.0038 borderline。**错杀 4 条件不满足**（max_corr>0.30 + mono<0.80）→ 非真错杀。Reserve 等下批沿 (O-L)/(H-L) atom 衍生看 family 是否可延展。
+> - **结构性发现 (升格 lessons 候选 3 项)**:
+>   1. **P008 escape mechanism is atom-specific NOT wrap-pattern-general**: TsRank≥60d wrap 仅对"位置/比例" geometry (close position F026, shadow asymmetry F025) 有效，raw range magnitude (range/close, range/open) 全部 incremental_ic NEG 落回 vol-CV family；outer Std-wrap 反深陷 vol_20d (16.4 本批最高)
+>   2. **Daily open ≈ close in vol-orthogonal cross-section** (csi1000): denominator anchor (open vs close) 在单日 OHLC 几何 TsRank 形式下无独立 alpha——F005 共动律的 daily 频率延伸；下批设计可直接舍去任一一个
+>   3. **Geometric pair break under TsRank wrap**: (H-O)/(H-L) + (O-L)/(H-L) = 1 严格 sum-to-1 几何约束在 TsRank 60d wrap 下被破坏 (corr ≈ -0.5 而非 -1.0)；anchor 方向 (from-high vs from-low) 在 csi1000 信号含量不对称
+> - **library reducer 律累积 11 次** (b042-b083): max_corr<0.40 + incr_ic≤-0.010 + alpha_surv>0.80 模式应升格 hard_block automatic reject criterion
+> - **错杀侦测扫描**：唯一 reserve C006 经 4 条件检查（max_corr=0.65>0.30 + mono=+0.30<0.80 → 非真错杀）；其它 5 reject 全部明确机制问题（库 reducer / weak CP03 / regime overfit）。`calibration_trigger=false`。
+> - MT budget cumulative 456 → **462** · direction 30 → **36** · bucket `high`（已超容忍）
+>
+> **下一步**: T004 round 2 必要性低——除非 Python barra orthogonalize / minute-bar data / C006 family 衍生。若下批 0 admit → T004 DISPROVEN + direction 转 saturated → dead。建议 orchestrator 暂停 range_structure 1-2 rounds 切换其它 direction（hot_topics 提及 anchor_proximity_momentum/ohlc_temporal_aggregation 仍有 reserve 待延展）；或 batch_084 测试 C006 family ext 1 候选 + 5 候选其它 direction 混编。
+>
+> **Operations**: `status: saturated` 维持（连续 b056+b064+b083 三 batch 0 admit；累积 9 rounds 36 candidates / 2 admit；T001/T002 closed, T003 sub-path A disprove, T004 round 1 disprove）· `priority: medium → low`（连续 3 batch 0 admit + 4 个挖掘空间 3 个工具链阻塞 + sub-path B/C006 family ext 期望 ≤30% 概率）
+>
+> **新 dead patterns 候选（交 /pattern-scout 或 Phase 5 升格 lessons.md）**:
+> 1. P008 escape mechanism is atom-specific NOT wrap-pattern-general (range_structure b083 关键)
+> 2. Daily open ≈ close in vol-orthogonal cross-section (F005 共动律 daily 延伸)
+> 3. Geometric pair break under TsRank wrap (H-O 与 O-L geometric pair break)
+> 4. library reducer 律 11 次重现 → 升格 hard_block automatic reject
+
+> [!quote]- 2026-04-28 · [[batches/batch_064/judge|batch_064]]
 > **T003 round 2 sub-path A：(O-L)/(H-L) atom × 6 RHS 跨字段族系统验证 → 0 admit / 3 reserve / 3 reject — RHS 跨字段族独立性失败**
 >
 > - **C001/C002/C005 → reserve**：3 reserve 信号实在但 alpha_survival 全 < 0.40。C005 是本批最强（incr_ic=0.0103 + cum_mdd=-1.79 + ic_by_year 单调加强 + ls_t=2.62）但 (a) MT bucket=high 强制压制 + (b) 与 C001/C002 共 LHS atom 受 P005 #5 anchor rule 限制 + (c) 直接扩展 H/L geometry dead-endpoint 到 120d。C002 incr=0.0089 库增值清晰但 vol_20d 暴露 22.0 极深。C001 incr=0.0053 边缘 + dom=turnover_20d crowding=high。

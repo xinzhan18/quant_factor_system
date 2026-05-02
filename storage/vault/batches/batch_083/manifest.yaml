@@ -1,0 +1,74 @@
+batch_id: batch_083
+round: 83
+direction: range_structure
+direction_md_ref: vault/directions/range_structure.md
+batch_goal: 'T004 round 1 — P008 escape mechanism cross-direction test: daily-resolution
+  intraday range/structure geometry × TsRank 60d. Hypothesis: P008 (single-day OHLC
+  ratio + TsRank>=60d wrap escapes vol_20d absorption because per-day denominator
+  is not polluted by future cumulative vol) generalizes from F025 (shadow asymmetry,
+  midpoint anchor) + F026 (close position, low-anchor) to range_structure direction.
+  Test 6 distinct daily-resolution intraday ratios wrapped in TsRank 60d, all max_corr<0.40
+  vs F021/F025/F026. C001 raw range/close baseline; C002/C006 open-to-high/open-to-low
+  fraction (symmetric pair); C003 body/range (completely different geometry from shadow);
+  C004 outer-wrap Std-of-range 5d then TsRank 60d (composite test); C005 range/open
+  (denominator robustness vs C001). Skip baseline-first per Step 1.5 exception: all
+  15 untouched fields are fundamental TTM, structurally unrelated to OHLC range geometry
+  direction.'
+active_threads_referenced:
+- T004
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T16:06:50Z'
+frozen_at: '2026-05-02T16:06:50Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), $close), 60)
+  canonical: TsRank(Div(Sub($high,$low),$close),60)
+  rationale: T004 baseline — raw daily range / close, TsRank 60d wrap. Tests whether
+    the simplest (H-L)/C ratio under TsRank escapes vol_20d like F026's (C-L)/(H-L).
+    Geometry is range magnitude relative to price level, distinct from F025 (midpoint
+    anchor shadow asymmetry) and F026 (close position in range).
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $open), Sub($high, $low)), 60)
+  canonical: TsRank(Div(Sub($high,$open),Sub($high,$low)),60)
+  rationale: T004 — open-to-high fraction of range (upper opening shadow position).
+    Numerator (H-O), denominator (H-L). Distinct from F025 (midpoint anchor) and F026
+    (close, not open). Tests whether opening-anchor variant of P008 mechanism produces
+    independent alpha.
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div(Sub(Greater($open, $close), Less($open, $close)), Sub($high,
+    $low)), 60)
+  canonical: TsRank(Div(Sub(Greater($open,$close),Less($open,$close)),Sub($high,$low)),60)
+  rationale: T004 — body / range ratio. Numerator |C-O|=max(O,C)-min(O,C), denominator
+    (H-L). Geometrically completely different from F025 (shadow asymmetry) and F026
+    (close position) — measures intraday body fullness (how much of the range is body
+    vs shadow). This is candle compression signal.
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank(Std(Div(Sub($high, $low), $close), 5), 60)
+  canonical: TsRank(Std(Div(Sub($high,$low),$close),5),60)
+  rationale: 'T004 — outer-wrap test: Std-of-range-ratio 5d window first, then TsRank
+    60d. Tests whether composite operator structure (rolling Std of single-day ratio
+    + TsRank) preserves P008 escape, or breaks it (5d Std may aggregate vol back in).
+    Critical to determine if P008 is single-atom-specific or wrap-pattern-general.'
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), $open), 60)
+  canonical: TsRank(Div(Sub($high,$low),$open),60)
+  rationale: T004 — range / open denominator robustness vs C001 (range/close). Tests
+    whether the choice of denominator within the same per-day ratio shifts behavior,
+    or whether all per-day-anchored TsRank-60d wraps cluster identically.
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Sub($open, $low), Sub($high, $low)), 60)
+  canonical: TsRank(Div(Sub($open,$low),Sub($high,$low)),60)
+  rationale: T004 — open-to-low fraction of range (lower opening shadow position).
+    Symmetric pair to C002. Numerator (O-L), denominator (H-L). Should anti-correlate
+    with C002 by construction (sum to range-deltas). Tests whether opening-anchor
+    lower variant produces alpha distinct from F026 (close position).
