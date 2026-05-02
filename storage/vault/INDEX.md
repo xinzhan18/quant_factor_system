@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-05-02T16:33:35Z
-round: 84
+generated_at: 2026-05-02T17:10:00Z
+round: 85
 total_active_directions: 22
 total_factors_admitted: 26
-last_batch: batch_083
+last_batch: batch_084
 last_consolidation_round: null
 ---
 
@@ -15,9 +15,9 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**84** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_083/judge|batch_083]] → [[directions/range_structure]] · admit=**0**/6 (reserve=1, reject=5) · direction.status=`dead`
-> **健康** · rounds_since_consolidation=**2** · active_directions=**22** · zero-admit streak=**1**
+> **状态** · round=**85** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_084/judge|batch_084]] → [[directions/anchor_proximity_momentum]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`saturated`
+> **健康** · rounds_since_consolidation=**3** · active_directions=**22** · zero-admit streak=**2**
 > **⚠️ 预警** · 空 factor.md: F017.backtest · consolidation 触发: active_directions=22 ≥ 20
 >
 > **🎯 下一步（按优先级）**
@@ -65,7 +65,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **84** · Admitted: **26** · Active directions: **22**
-> - Last batch: **batch_083**
+> - Round: **85** · Admitted: **26** · Active directions: **22**
+> - Last batch: **batch_084**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移

@@ -1,19 +1,25 @@
 ---
 direction_tag: anchor_proximity_momentum
-status: productive
-priority: medium
-rounds: 2
-admits: 2
-last_batch: batch_082
-last_admits:
-- F026
-last_goal: P008 escape 跨 direction 复现：TsRank window 60d on bounded [0,1] dimless close-anchor
-  proximity ratios — 验证 alpha_surv≈1.0 generalizability 跨方向（b081 C006 hl_norm_sym
-  单例首证）。本批 6 候选全是 close-anchor proximity dimless ratio + TsRank 60d 不同 atom，验证 vol_20d-escape
-  路径在 anchor_proximity_momentum 方向是否可复现并产生 admittable alpha；同时严守 P019 数据契约（不用 fundamental
-  TTM 作 Corr 内层）+ P021（避免 Mul wrapper 跨字段）+ Geometric absorbing-factor 律（max_corr<0.40
-  vs F024/F025/F018/F021）。
-last_activity: '2026-05-02T15:56:58Z'
+status: saturated
+priority: low
+rounds: 4
+admits: 1
+last_batch: batch_084
+last_admits: []
+last_goal: 'Round 84 — anchor_proximity_momentum continue_direction. zero_admit_streak=1
+  (b083 range_structure dead 0/6); F025+F026 cluster占据 daily-resolution intraday position/ratio
+  几何，新候选必须 max_corr<0.40 vs F025/F026/F018/F021/F022/F009. 本批 6 候选探索 (a) T004 PTA
+  250d 长窗口 envelope（论文标定窗口，60d/120d 均失败 vol_20d 撑大）; (b) T002 PTA × past-winner 嵌套维度（CsRank-rank-diff
+  form 而非 Mul wrapper, 避 P021）; (c) T005 wick-asymmetry ratio (upper/lower wick) —
+  daily-resolution dim-less ratio 非对称版本 (F025 是对称 shadow asymmetry midpoint); (d)
+  T005 CsRank-wrapper Mean(close_position, 20) — 测 P008 escape 是否 wrapper-conditional
+  (无 TsRank); (e) T004 distance-from-MA60 z-score — 测 z-score 几何是否绕过 P008 specific
+  atom 限制; (f) T004 PTA 250d × CsRank-wrapper baseline-first variant. 全候选避 F025/F026/F018/F021/F022/F009
+  cluster, 严守 P019 数据契约（Corr 仅 OHLCV+amount+num_trades, 本批无 Corr 算子使用）+ P021（无 Mul
+  wrapper 跨字段）+ rate-form forbidden（no Delta/Sub of PTA）. Hard targets: ≥1 admit alpha_surv≥0.40
+  + max_corr<0.40 + style_r²<0.12 + mono_oos≥0.7. Fail → 报告"PTA 长窗口 envelope 与 F025/F026
+  daily ratio 不可分"边界.'
+last_activity: '2026-05-02T17:10:00Z'
 created_batch: batch_080
 members:
 - F026
@@ -91,15 +97,15 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 >
 > **结论**: T001 question 通过 daily-resolution 几何 (单日 (h-l) 分母) **YES**——bounded [0,1] dimless close-anchor proximity ratio + TsRank 60d 在 csi1000 daily 上**结构性可逃 vol_20d 吞噬律**。但 60d 跨日 envelope/range/mean 几何**全部失败**——P008 escape 关键不是"TsRank 60d wrapper"而是"atom 不被未来累积 vol 污染"。
 
-### T002: PTA × past-winner 交互在 csi1000 是否携 incremental IC over PTA alone [◉ ACTIVE]
+### T002: PTA × past-winner 交互在 csi1000 是否携 incremental IC over PTA alone [✗ DISPROVEN batch_084]
 
-> [!note]+ Thread 当前
-> **Question**: 论文 Table III/V 嵌套排序的日频版本——`Mul(CsRank(PTA), CsRank(past_return_120d))` 是否携 incremental IC over PTA alone？csi1000 cumulative momentum 已 dead，所以这一交互如果有效，alpha 来源**必须**是 PTA × momentum 的乘积形式而非任一单变量。
+> [!failure]+ Thread 结论
+> **Question**: 论文 Table III/V 嵌套排序的日频版本——`Sub(CsRank(PTA), CsRank(past_return_60/120))` 是否携 incremental IC over PTA alone？
 >
 > **Evidence trail**:
-> - （待 batch_080 首批结果填入 — C004 PTA × past-winner rank 乘积）
+> - [[batches/batch_084/candidates/C002|batch_084 C002]]　Sub(CsRank((c-l)/(h-l)), CsRank(Mean(ret60d, 60)))　ic_oos=-0.024 mono_oos=-1.0 PERFECT alpha_surv=1.92 max_corr=**0.68@F026** incr_ic=-0.006 → **reject** (LHS atom = F026 daily snapshot, 不构成新维度)
 >
-> **Next probes**: 若 C004 incremental IC > C001 (PTA alone) → 论文 nested test 的 daily 版本本地 confirm；若 < C001 → 论文 nested 在 A 股不复现，回到 PTA 单变量主线。
+> **结论**: 论文 nested independence 在 csi1000 daily DISPROVEN — daily PTA 几何空间已被 F026 占据 + past-return 是 dead 维度，rank-diff 不能创造新空间。论文 monthly horizon 上的 PTA 与 past-return 双独立维度在 A 股 daily csi1000 不再成立。
 
 ### T003: PTL (52w 低距离) 镜像是否携带 PTA 之外独立 alpha [✗ DISPROVEN batch_082]
 
@@ -111,18 +117,19 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 >
 > **结论**: hypothesis H3 mirror disposition asymmetry 在 60d 窗口**partial 反驳**——PTL 与 PTA 同号同 style，是同 vol_20d 吸收族的 sign-equivalent 投影而非独立维度。本批仅在 60d 窗口反驳；250d 长窗口空间未测，T003 在长窗口仍开放，但本批已 close 60d 窗口分支。
 
-### T004: 锚窗口曲线 60d → 120d → 250d → 500d 寻找 sweet spot [◉ ACTIVE]
+### T004: 锚窗口曲线 60d → 120d → 250d → 500d 寻找 sweet spot [✗ DISPROVEN batch_084]
 
-> [!note]+ Thread 当前
-> **Question**: 论文锚 250d 但脚注提及 6m/24m 定性一致；A 股散户记忆周期可能 30-60d 远短于 12m。窗口越短越接近 cumulative momentum（已 dead）；窗口越长越纯 anchor。sweet spot 在哪？60d 是危险窗口（接近 dead momentum），120d 是首批中窗口对照，250d 是论文标定窗口，500d 是上界 ablation 留 batch_081。
+> [!failure]+ Thread 结论
+> **Question**: PTA 单边 envelope 在 [60d, 250d, 500d] 哪个窗口形成 vol_20d-escape sweet spot？
 >
 > **Evidence trail**:
-> - [[batches/batch_082/candidates/C003|batch_082 C003]]　TsRank(close/Mean($close,60), 60)　ic_oos=-0.036 ls_t=-2.87 mono=-0.3 style_r²=0.448 → **reject** (`Mean($close,60)` dynamic mean 分母被 vol 撑大，非 monotone envelope)
-> - [[batches/batch_082/candidates/C004|batch_082 C004]]　TsRank(close/TsMax($close,60), 60) PTA 60d　ic_oos=-0.026 ls_t=-2.14 mono=-0.7 style_r²=0.327 vol_exp=19.82 → **reject** (PTA 60d 短窗口 envelope 仍 follow vol regime, vol_20d exposure 本批最高)
+> - [[batches/batch_082/candidates/C003|batch_082 C003]]　TsRank(close/Mean($close,60), 60)　style_r²=0.448 → **reject** (Mean60 分母被 vol 撑大)
+> - [[batches/batch_082/candidates/C004|batch_082 C004]]　TsRank(close/TsMax($close,60), 60) PTA 60d　style_r²=0.327 vol_exp=19.82 → **reject** (60d 短窗口 envelope 不够刚性)
+> - [[batches/batch_084/candidates/C001|batch_084 C001]]　TsRank(close/Max(close,250),250) PTA 250d　alpha_surv=**0.10** style_r²=0.244 → **reject** (论文标定窗口 alpha_surv hard fail; envelope 创新高频率低 → 大部分股票钉在 1，cross-section 区分度差)
+> - [[batches/batch_084/candidates/C006|batch_084 C006]]　Sub(CsRank(close/Max(close,250)), CsRank(Std(close,60))) PTA 250d rank-diff　alpha_surv=**0.15** ls_t=0.35 mono=0.1 vol_20d_exp=30.3 → **reject** (CsRank-rank-diff form vol_60 减法不净化 vol_20d basis)
+> - [[batches/batch_084/candidates/C005|batch_084 C005]]　TsRank((close-Mean60)/Std60, 60) z-score 60d　style_r²=0.403 vol_20d HIGH → **reject** (Std denominator 不解决 vol absorption; cross-day Mean/Std atom 不属 P008 适用域)
 >
-> **本批进展**: 60d 窗口下 PTA envelope 不够"刚性"（vol_20d exposure=19.82 本批最高）；论文 250d 长窗口期 envelope 更刚性的 hypothesis 仍开放。下批应保留 PTA 250d / PTA 120d 长窗口探索。
->
-> **Next probes**: 250d 长窗口 PTA 是否 alpha_surv > 1.0 + style_r² < 0.12？或 30d 短窗口若仍 dead 则确认"daily-resolution 几何 dominates 跨日 envelope" 律。
+> **结论**: csi1000 daily 上 PTA 在 [60d, 250d] 全窗口空间无 vol_20d-escape sweet spot；论文 monthly horizon 上的 anchoring effect 在 A 股 daily 频率失活。500d 不必再测（机理上更稀释；envelope 更钉在 1）。Z-score cross-day form (60d Mean/Std) 也不属 P008 适用域。
 
 ### T005: daily-resolution dim-less anchor ratio + TsRank 60d 跨方向 generalizability 边界 [◉ ACTIVE]
 
@@ -130,18 +137,39 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 > **Question**: 承接 T001 主线 P008 escape 机制 distillation：**"daily-resolution dim-less close-anchor ratio (单日 (h-l) 分母) + TsRank 60d"** 是否是结构性 generalizable 律——可跨 direction 复现产生 alpha_surv > 1.0 + style_r² < 0.10 + mono_oos PERFECT？还是 anchor_proximity_momentum 方向特例？
 >
 > **Evidence trail**:
-> - [[batches/batch_082/candidates/C006|batch_082 C006]]　TsRank((c-l)/(h-l), 60)　alpha_surv=1.13 mono_oos=-1.0 style_r²=0.068 → **admit** (b081 C006 hl_norm_sym alpha_surv=0.99 在 anchor_proximity_momentum 方向跨方向复现成功首证)
+> - [[batches/batch_082/candidates/C006|batch_082 C006]]　TsRank((c-l)/(h-l), 60)　alpha_surv=1.13 mono_oos=-1.0 style_r²=0.068 → **admit → [[factors/F026]]** (P008 跨 direction 复现成功首证)
+> - [[batches/batch_084/candidates/C003|batch_084 C003]]　TsRank(upper_wick/lower_wick, 60) wick-asymmetry boundary　ic_oos=+0.019 mono_oos=+1.0 style_r²=0.026 alpha_surv=1.14 max_corr=**0.89@F025** → **reject** (与 F025 midpoint 对称版本 colinear；几何已被 F025 占据)
+> - [[batches/batch_084/candidates/C004|batch_084 C004]]　CsRank(Mean((c-l)/(h-l), 20)) — P008 wrapper-conditional test　ic_oos=-0.011 alpha_surv=0.90 style_r²=0.279 vol_20d_exp=17.87 HIGH → **reject** (CsRank wrap **NOT** equivalent to TsRank wrap as vol-escape; P008 必须 daily atom + TsRank ≥60d wrap 双条件)
 >
-> **Next probes**: 在 [[intraday_price_formation]] / [[ohlc_temporal_aggregation]] 等其它方向用同 schema (单日 dim-less 比率 + TsRank 60d) 复现，确认这一律的边界——是否 vol_20d 吞噬律的通用 escape，还是仅 anchor proximity 几何独有？
+> **本批进展 (P008 boundary 三批累积 distillation)**:
+> - ✓ Success: daily atom (单日 (h-l) 分母 dim-less ratio) + TsRank wrapper window ≥ 60d (F025 + F026)
+> - ✗ Fail (b082+b083+b084 全部累积):
+>   - cross-day envelope/range/mean (b082 C001/C003/C004/C005, b084 C001/C006)
+>   - raw range magnitude (b083 C001/C005)
+>   - outer Std-wrap composite (b083 C004)
+>   - z-score cross-day form (b084 C005)
+>   - CsRank wrapper instead of TsRank (b084 C004) — wrapper-conditional 律
+>   - wick-asymmetry boundary version (b084 C003) — F025 midpoint colinear
+>   - PTA × past-winner CsRank-rank-diff (b084 C002) — F026 atom 重复
+>
+> **P008 完整律 (consolidation candidate)**: vol_20d-escape via daily-resolution close-anchor 几何 在 csi1000 daily 上 **必须** 同时满足 (a) atom 用单日 OHLC dim-less fraction-of-range ([0,1] bounded), (b) outer wrap 用 TsRank window ≥ 60d (time-series rank), (c) 几何脱 F025/F026 anchor cluster (max_corr<0.40)。三条件之一缺失即 fail。
+>
+> **Next probes**: T005 question 现已 partially answered — 在 anchor_proximity_momentum 方向内 daily intraday position/ratio 几何空间已被 F025+F026 cluster 完整占据 (max_corr 检验 8/8 候选触及)；继续探测必须跨 direction (intraday_price_formation/ohlc_temporal_aggregation/range_structure)，但 b083 range_structure 0/6 + b081 ohlc_temporal_aggregation 0/6 已显示其他方向 P008 schema 难复现产生 admittable alpha (可能因为 atom 选择上必须脱 F025/F026 cluster + 同时落在 daily-resolution dim-less ratio + 同时不撞已 saturated 方向几何)。
 
 ---
 
 ## Known Failures
 
-- C001 `TsRank(Div(Sub($close, TsMin($low, 60)), Sub(TsMax($high, 60), TsMin($low, 60))), 60)` — 60d 双边 range stochastic position TsRank 包装重演 stochastic_position DEAD 同律；style_r²=0.36 + dom=vol_20d exposure 12.04
-- C003 `TsRank(Div($close, Mean($close, 60)), 60)` — `Mean($close,60)` dynamic mean 分母非 monotone envelope，被 vol 主动撑大；style_r²=0.448 远超 poor 阈
-- C004 `TsRank(Div($close, TsMax($close, 60)), 60)` — PTA 60d 短窗口 envelope 不够刚性，vol_20d exposure=19.82 本批最高 high crowding；论文 250d 长窗口 hypothesis 仍开放
-- C005 `TsRank(Div(Sub($close, TsMin($close, 60)), TsMin($close, 60)), 60)` — PTL mirror 60d 与 PTA 60d 同号同 style，反驳 H3 mirror disposition asymmetry 的 mirror 独立性 (60d 窗口下)
+- [b082] C001 `TsRank(Div(Sub($close, TsMin($low, 60)), Sub(TsMax($high, 60), TsMin($low, 60))), 60)` — 60d 双边 range stochastic position TsRank 包装重演 stochastic_position DEAD 同律；style_r²=0.36 + dom=vol_20d exposure 12.04
+- [b082] C003 `TsRank(Div($close, Mean($close, 60)), 60)` — `Mean($close,60)` dynamic mean 分母非 monotone envelope，被 vol 主动撑大；style_r²=0.448 远超 poor 阈
+- [b082] C004 `TsRank(Div($close, TsMax($close, 60)), 60)` — PTA 60d 短窗口 envelope 不够刚性，vol_20d exposure=19.82 本批最高 high crowding；论文 250d 长窗口 hypothesis 仍开放
+- [b082] C005 `TsRank(Div(Sub($close, TsMin($close, 60)), TsMin($close, 60)), 60)` — PTL mirror 60d 与 PTA 60d 同号同 style，反驳 H3 mirror disposition asymmetry 的 mirror 独立性 (60d 窗口下)
+- [b084] C001 `TsRank(Div($close, Max($close, 250)), 250)` — PTA 250d 论文标定窗口 alpha_surv=0.10 << 0.40 hard fail；250d envelope 创新高频率低 → 大部分股票 PTA≈1 cross-section 区分度差；vol_20d 反成 PTA 高低代理
+- [b084] C002 `Sub(CsRank(Div(Sub($close, $low), Sub($high, $low))), CsRank(Mean(Div(Sub($close, Ref($close, 60)), Ref($close, 60)), 60)))` — T002 PTA × past-winner CsRank-rank-diff form: LHS = F026 atom (close-position from low) daily snapshot, max_corr=0.68@F026 + incr_ic=-0.006 NEG library reducer; 论文 nested independence 在 csi1000 daily 不复现
+- [b084] C003 `TsRank(Div(Add(Sub($high, Greater($open, $close)), 0.0001), Add(Sub(Less($open, $close), $low), 0.0001)), 60)` — wick-asymmetry boundary 版本 (upper_wick/lower_wick) 与 F025 midpoint symmetric 版本 colinear (max_corr=0.89)；几何空间已被 F025 完整占据；表面 strong stats (mono=+1.0, ls_t=+6.63) 但 near_duplicate hard fail
+- [b084] C004 `CsRank(Mean(Div(Sub($close, $low), Sub($high, $low)), 20))` — P008 wrapper-conditional 测试 fail: CsRank wrap 替代 TsRank wrap 不构成 vol-escape 通道; style_r²=0.279 (>0.12 poor) + vol_20d_exp=17.87 HIGH crowding + incr_ic=-0.018 NEG; **P008 完整律 = daily atom + TsRank ≥60d wrapper 双条件**
+- [b084] C005 `TsRank(Div(Sub($close, Mean($close, 60)), Add(Std($close, 60), 0.0001)), 60)` — z-score cross-day form (close-Mean60)/Std60 + TsRank60: Std denominator 显式 vol normalize 不解决 vol absorption; style_r²=0.403 vol_20d HIGH; cross-day Mean/Std atom 不属 P008 适用域 (P008 仅 daily-resolution single-bar dim-less ratio)
+- [b084] C006 `Sub(CsRank(Div($close, Max($close, 250))), CsRank(Std($close, 60)))` — PTA 250d CsRank-rank-diff vs vol-level subtractor: alpha_surv=0.15 + ls_t=0.35 + mono=+0.1 完全无 ranking power; vol_20d_exp=30.3 本批最高; rank-diff 减去 Std60 不净化 vol_20d basis; PTA 双形式 (TsRank + CsRank-rank-diff) 全部 fail → T004 close as DISPROVEN
 
 ---
 
@@ -170,6 +198,24 @@ A 股 T+1 + 散户高占比 + 单边做空管制 → disposition effect 跨国�
 ---
 
 ## Narrative Log
+
+### 2026-05-02 [[batches/batch_084/judge|batch_084]]
+admit=0 · reserve=0 · reject=6 (C001/C002/C003/C004/C005/C006)
+
+**核心发现**：
+1. **PTA 长窗口 250d 双形式失败** — TsRank wrap (C001 alpha_surv=0.10) + CsRank-rank-diff (C006 alpha_surv=0.15) 全部 alpha_survival 远低于 0.40 hard 阈；论文 12-month anchor effect 在 csi1000 daily 频率不复现。**T004 thread close as DISPROVEN**: csi1000 daily 上 PTA 在 [60d, 250d] 全窗口空间无 vol_20d-escape sweet spot。
+2. **F025/F026 anchor cluster 占据 daily intraday position/ratio 几何完整** — C002 max_corr=0.68@F026 (CsRank-rank-diff PTA × past-winner LHS 重复 F026 atom)，C003 max_corr=0.89@F025 (wick-asymmetry 边界版 vs midpoint 对称版 colinear)，C004 max_corr=0.55@F022。任何 daily [0,1] bounded fraction-of-range 几何都触及 F025/F026 cluster。
+3. **P008 wrapper-conditional 律确认 (C004 关键证据)** — F026 = TsRank((c-l)/(h-l), 60) 成功 vs C004 = CsRank(Mean((c-l)/(h-l), 20)) 失败 (style_r²=0.279, vol_20d HIGH)。**P008 完整律 = "daily atom + TsRank ≥60d wrapper"** 双条件不可减项；CsRank cross-section rank 不构成 vol-escape 通道。
+4. **z-score cross-day form 不属 P008 适用域 (C005)** — (close-Mean60)/Std60 + TsRank60 假设 disprove，style_r²=0.403 vol_20d HIGH。机理：Std 分母正比 vol，分子 ~vol×Z，cross-section ranking 仍线性载 vol level。
+
+**Thread 进展**：
+- T002: ✗ DISPROVEN — CsRank-rank-diff PTA × past-winner LHS 是 F026 atom 重复，论文 nested independence 在 csi1000 daily 不复现
+- T004: ✗ DISPROVEN — PTA [60d, 250d] 全窗口空间无 vol-escape sweet spot, 500d 不必再测
+- T005: ◉ ACTIVE — P008 boundary distillation 累积三批 (b082+b083+b084), 完整律出炉；anchor_proximity_momentum 内 daily intraday geometry 已被 F025+F026 占据，跨方向探测受其他方向 P008 复现难度限制
+
+**下一步**: 方向状态 `productive → saturated` (3 rounds 累积 1 admit + 此批 0 admit 全 reject + 主线 thread 全 closed)；priority `medium → low`。anchor_proximity_momentum 在 csi1000 daily 上 F026 已是该几何空间最优表达；新候选必须脱 F025/F026 cluster (max_corr<0.40) + 不撞已 saturated direction，组合空间已极小。**升格 lessons 候选**: P008 完整律 (daily atom + TsRank ≥60d wrapper + 脱 F025/F026 cluster 三条件) — 给 Phase 5 hypothesis_promoter 评估升格。
+
+**Operations**：`status: productive → saturated`; `priority: medium → low`; `rounds: 2 → 3`; `admits: 1 → 1` (无新增); `last_batch: batch_084`
 
 ### 2026-05-02 [[batches/batch_082/judge|batch_082]]
 admit=1 (C006 daily_close_position_tsrank_60) · reserve=1 (C002 数学镜像 C006) · reject=4 (C001/C003/C004/C005)

@@ -1,0 +1,98 @@
+batch_id: batch_084
+round: 84
+direction: anchor_proximity_momentum
+direction_md_ref: vault/directions/anchor_proximity_momentum.md
+batch_goal: 'Round 84 — anchor_proximity_momentum continue_direction. zero_admit_streak=1
+  (b083 range_structure dead 0/6); F025+F026 cluster占据 daily-resolution intraday position/ratio
+  几何，新候选必须 max_corr<0.40 vs F025/F026/F018/F021/F022/F009. 本批 6 候选探索 (a) T004 PTA
+  250d 长窗口 envelope（论文标定窗口，60d/120d 均失败 vol_20d 撑大）; (b) T002 PTA × past-winner 嵌套维度（CsRank-rank-diff
+  form 而非 Mul wrapper, 避 P021）; (c) T005 wick-asymmetry ratio (upper/lower wick) —
+  daily-resolution dim-less ratio 非对称版本 (F025 是对称 shadow asymmetry midpoint); (d)
+  T005 CsRank-wrapper Mean(close_position, 20) — 测 P008 escape 是否 wrapper-conditional
+  (无 TsRank); (e) T004 distance-from-MA60 z-score — 测 z-score 几何是否绕过 P008 specific
+  atom 限制; (f) T004 PTA 250d × CsRank-wrapper baseline-first variant. 全候选避 F025/F026/F018/F021/F022/F009
+  cluster, 严守 P019 数据契约（Corr 仅 OHLCV+amount+num_trades, 本批无 Corr 算子使用）+ P021（无 Mul
+  wrapper 跨字段）+ rate-form forbidden（no Delta/Sub of PTA）. Hard targets: ≥1 admit alpha_surv≥0.40
+  + max_corr<0.40 + style_r²<0.12 + mono_oos≥0.7. Fail → 报告"PTA 长窗口 envelope 与 F025/F026
+  daily ratio 不可分"边界.'
+active_threads_referenced:
+- T002
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T16:38:01Z'
+frozen_at: '2026-05-02T16:38:01Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div($close, Max($close, 250)), 250)
+  canonical: TsRank(Div($close,Max($close,250)),250)
+  rationale: 'T004 PTA 250d 长窗口 envelope (论文标定窗口). Numerator $close, denominator monotone-non-decreasing
+    250d max envelope (创新高才更新), TsRank 250d 长窗口 wrap. 与 b082 C004 PTA 60d (vol_exp=19.82
+    reject) 关键区别：250d 窗口 envelope 更刚性， 创新高频率远低于 60d，分母 less polluted by recent vol.
+    几何 distinct from F026 (daily intraday close-position) — F026 是单日 (h-l) 分母，C001
+    是 250d 跨日 max envelope. Tests T004 long-window hypothesis: 250d 是否 sweet spot
+    vol_20d-escape. Adjacency check: vs F026 (single-day position), vs stochastic_position
+    DEAD (双边 range), vs F009 (overnight spread).'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Div(Sub($close, $low), Sub($high, $low))), CsRank(Mean(Div(Sub($close,
+    Ref($close, 60)), Ref($close, 60)), 60)))
+  canonical: Sub(CsRank(Div(Sub($close,$low),Sub($high,$low))),CsRank(Mean(Div(Sub($close,Ref($close,60)),Ref($close,60)),60)))
+  rationale: T002 论文 nested-sort 的 CsRank-rank-diff form (避 P021 Mul wrapper 跨字段 塌缩).
+    LHS = CsRank(daily close position from low) snapshot — daily intraday geometry
+    distinct from F026 TsRank wrap. RHS = CsRank(Mean(60d return rate, 60)) past-winner
+    ranking, 60d cumulative. 论文 Table III/V 嵌套排序 daily 版本：anchor × past-winner 是两个独立维度
+    (csi1000 cumulative momentum 已 dead → 真正测试 PTA 与 past-return 嵌套独立性). 几何 distinct
+    from F018/F022 (overnight/amount rank-diff). 注意：rate-form Mean(return_60d, 60)
+    在 nested context 中非纯 rate-form factor (是 RHS subtractor)，不撞 F300 forbidden.
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div(Add(Sub($high, Greater($open, $close)), 0.0001), Add(Sub(Less($open,
+    $close), $low), 0.0001)), 60)
+  canonical: TsRank(Div(Add(0.0001,Sub($high,Greater($open,$close))),Add(0.0001,Sub(Less($open,$close),$low))),60)
+  rationale: T005 wick-asymmetry ratio 非对称版本 (区分 F025 shadow_asymmetry 对称 midpoint
+    geometry). Numerator = upper_wick (H - max(O,C)) — 上影线长度; Denominator = lower_wick
+    (min(O,C) - L) — 下影线长度. F025 用 (H - midpoint)/(midpoint - L) midpoint 对称，C003
+    用 max(O,C) / min(O,C) 边界非对称（body 顶 / body 底）. Add(..., 0.0001) 防零分母. TsRank 60d
+    续 P008 escape schema. 几何 distinct from F025 midpoint (>0.40 corr 概率 LOW since
+    boundary geometry 不同). 当 body 是 doji 时 max≈min，C003 退化 ≈ F025；当 body 大时分子分母均 contracted
+    distinct.
+- candidate_id: C004
+  source_type: dsl
+  expression: CsRank(Mean(Div(Sub($close, $low), Sub($high, $low)), 20))
+  canonical: CsRank(Mean(Div(Sub($close,$low),Sub($high,$low)),20))
+  rationale: T005 P008 wrapper-conditional 边界测试：CsRank-wrapper instead of TsRank wrap
+    在 daily close_position 几何上. 与 F026 = TsRank((c-l)/(h-l), 60) 关键区别： (a) outer wrapper
+    从 TsRank(time-series rank) 换 CsRank(cross-section rank); (b) 内层 Mean 20d 平均 daily
+    ratio 而非 raw daily; (c) 窗口 20d vs F026 60d. P008 H1 (essential rule)：daily-resolution
+    atom + TsRank wrapper 是 vol-escape 充分条件。本候选验证 P008 H2：是否 atom 单独足够（而 wrapper choice
+    任意）？ 若 alpha_surv≥0.40 + style_r²<0.12 → P008 拓展为 wrapper-agnostic; 若 reject →
+    P008 拓展为"必须 TsRank wrapper". F026 max_corr 预期 ∈ [0.30, 0.50] borderline.
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div(Sub($close, Mean($close, 60)), Add(Std($close, 60), 0.0001)),
+    60)
+  canonical: TsRank(Div(Sub($close,Mean($close,60)),Add(0.0001,Std($close,60))),60)
+  rationale: T004 distance-from-MA60 z-score — daily $close 距 60d 均线的标准化距离. Numerator
+    = (close - SMA60), denominator = Std($close, 60) + epsilon, TsRank 60d wrap. 与
+    b082 C003 (Mean分母 vol-inflated reject) 关键区别：z-score 用 Std 分母显式归一化 vol，理论上对冲 vol_20d
+    主动撑大. b082 C003 = close/Mean60, Mean 分母被 vol 撑大 vs C005 = (close-Mean)/Std, Std
+    分母正是 vol normalizer. 几何 distinct from F026 (daily ratio) + F009 (overnight). 测
+    T004：是否 z-score 形式 + TsRank 60d wrap 比 raw envelope/Mean ratio 更能逃 vol_20d 吞噬律.
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Div($close, Max($close, 250))), CsRank(Std($close, 60)))
+  canonical: Sub(CsRank(Div($close,Max($close,250))),CsRank(Std($close,60)))
+  rationale: 'T004 PTA 250d 不带 TsRank wrapper 验证 P008 wrapper-conditional. 与 C001
+    关键区别：C001 用 TsRank 250d 时序 rank 包装；C006 用 CsRank 截面 rank + rank-diff 减去 vol level
+    proxy. RHS = CsRank(Std($close, 60)) 是 vol_60d cross-section ranking (intentional
+    vol-level subtractor — rank-diff form). 几何上 PTA 250d 单边 envelope LHS - vol cross-section
+    RHS = anchor_proximity 净化 vol level. 若 PTA 250d 在 TsRank-wrap (C001) 与 rank-diff
+    (C006) 形式都 fail → P008 拓展为"必须 atom 是 daily-resolution"; 若 C001 admit, C006 reject
+    → wrapper TsRank +60d-window 是关键; 若 C006 admit → CsRank-rank-diff PTA 是新空间. baseline-first
+    variant: PTA × vol-level subtractor.'
