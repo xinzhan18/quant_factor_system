@@ -29,9 +29,36 @@ user_invocable: true
 
 ```bash
 PYTHONPATH=src python3 -m research memory snapshot --recent 10
+PYTHONPATH=src python3 -m research audit field-coverage   # refresh field × atom matrix
 ```
 
-输出三张聚合 markdown 表（方向 / 因子库 / 近 10 batch），filter 语义与 Obsidian Bases 完全一致 —— 这是 LLM 看 vault 状态的**唯一入口**。INDEX.md 本身只有 Bases embed（给人看的，Read 读不到数据），不用再去读它的 body。
+`memory snapshot` 输出三张聚合 markdown 表（方向 / 因子库 / 近 10 batch），filter 语义与 Obsidian Bases 完全一致 —— 这是 LLM 看 vault 状态的**唯一入口**。INDEX.md 本身只有 Bases embed（给人看的，Read 读不到数据），不用再去读它的 body。
+
+`audit field-coverage` 把每个 `$field × atom` 形式的覆盖率刷到 `vault/_meta/field_coverage_latest.md`——下一步 Step 1.5 必读。
+
+### Step 1.5 — LLM: read field-coverage audit（**必做**）
+
+```
+Read storage/vault/_meta/field_coverage_latest.md
+```
+
+报告分四段：
+
+1. **Untouched fields**：从未做过任何 atom 实验的字段（baseline 完全空白）
+2. **Single-atom fields**：只测过一种 atom 形式的字段
+3. **Coverage matrix**：完整字段 × atom 矩阵
+4. **Recommended baseline candidates**：现成 DSL 表达式（`CsRank` / `TsRank-60` / `AnnualChange`）
+
+**baseline-first 律（强制）**：
+
+- 若 § 1 列表非空（即有"untouched fields"），本批 6 候选中至少 **2 个必须**是某个 untouched field 的 baseline atom（直接抄 § 4 推荐表达式，无需 composite 包装）。例外：本批 direction 与所有 untouched field 完全不相关（如纯 OHLC microstructure direction 跟 fundamental TTM untouched 字段不相关）——此时在 spec 的 batch_goal 中显式写明"刻意 skip baseline-first，理由 ..."
+- 若所有 untouched field 都已扫过但 § 2 单 atom 字段非空，每批至少 **1 个**候选填一个 missing atom（优选 `AnnualChange` for fundamentals / `Std/Skew` for microstructure）
+- 复合 composite 候选（rank × rank Mul / Sub-Cov / 嵌套 Div）**只在所有相关 untouched field 都做过 baseline 之后**才设计
+
+为什么强制 baseline-first：
+
+- composite 表达式会把字段嵌入更复杂几何，**字段是否独立 alpha 与字段在某 composite 形式下是否 alpha 是两件事**。先 baseline 才能正确归因。
+- 历史教训（2026-05-02 round 79）：22 新增 fundamental 字段中 16 个**从未做过 baseline 直接测试**，5 个新方向 30 候选全是 composite 形式 → 4 方向 dead，归因失真。
 
 ### Step 2 — LLM: select direction
 
@@ -80,6 +107,7 @@ PYTHONPATH=src python3 -m research memory snapshot --recent 10
 2. **邻近方向失败**：Step 2.3 adjacent scan 读到的 dead/saturated direction 里，是否已有相同 formula family × data family 被证伪？
 3. **HOT-TOPICS-LLM 警示**：是否撞上 INDEX 里当前跨批 hot topic（如同一 dominant_style 吸收、同一 ratio/magnitude 家族反复失败、同一 nearest factor 饱和）？
 4. **绕开理由**：若有重叠，必须说明本候选如何真正绕开：换字段族、换条件、换算子结构、或推进不同 active thread。只换窗口长度 / 浅层 estimator 名称，不算有效绕开。
+5. **baseline-first 守则**（对照 Step 1.5 的 field_coverage_latest.md）：本批整体是否满足该 direction 涉及字段的 baseline 配额？若 direction 涉及 ≥1 个 untouched field 而本批 0 个 baseline 候选 → **必须改写**至少 2 个候选为推荐 baseline 表达式后再 Step 5。
 
 判定规则：
 

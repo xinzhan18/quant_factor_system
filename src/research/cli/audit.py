@@ -115,6 +115,9 @@ def register_audit_subcommand(subparsers: argparse._SubParsersAction) -> None:
     from research.cli.audit_reserves import register_audit_reserves
     register_audit_reserves(audit_sub)
 
+    from research.cli.audit_field_coverage import register_audit_field_coverage
+    register_audit_field_coverage(audit_sub)
+
 
 def _run_mt_budget(args: argparse.Namespace) -> None:
     storage_root = Path(getattr(args, "storage_root", "storage"))
