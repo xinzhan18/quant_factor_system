@@ -1,0 +1,158 @@
+batch_id: batch_076
+round: 76
+direction: tsrank_candlestick_ratio
+direction_md_ref: vault/directions/tsrank_candlestick_ratio.md
+batch_goal: "Round 76 NEW direction (b073 admit F024 frontier 几何扩展). 假设:\n把 F024 admit\
+  \ 验证的 TsRank-60-on-dimensionless-ratio 几何 (vol_20d_exp 65%↓ 到 ~10.6,\nstyle_r² 75%↓\
+  \ 到 0.051, max_corr 0.13@F001) 从 count ratio (num_trades/volume) 扩展到\nOHLC dimensionless\
+  \ candlestick shape ratios. F024 是 \"trade density\" count 量纲,\n本批是 \"candlestick\
+  \ shape\" geometric 量纲, 几何上 cross-section level 完全独立, 共享\nTsRank time-series rank-form\
+  \ 量纲化机制. 库内现状: F006/F008 是 Mean(upper_shadow,N),\nF021 是 Mean(H/L,60) cross-section\
+  \ level form, 本批 TsRank time-series 形式与 Mean\n几何不同 (位置 vs 持续性). 6 候选探索 OHLC shape\
+  \ ratio × TsRank-60 矩阵:\n  (a) close_position TsRank: 收盘在日内位置 (Williams %R 反向)\n\
+  \  (b) upper_shadow_ratio TsRank: 上影占全日 range 比例\n  (c) body_ratio TsRank: 实体占全日\
+  \ range 比例\n  (d) range_to_close TsRank: 全日 range 占收盘价比 (波动率 proxy 但 normalized)\n\
+  \  (e) midprice_to_close TsRank: 中价/收盘价 (intraday drift proxy)\n  (f) shadow_asymmetry\
+  \ TsRank: 上下影长之比 (非对称性)\n红线: max_corr<0.30 to library (含 F024); alpha_survival>=0.40\
+  \ + ic_by_year sign-stable\n+ incr_ic POS (P008/P011); |corr $market_cap|<0.3; +1e-9\
+  \ epsilon 防 div-by-zero (P018).\nAnti-recap: 不重 b068-b075 reject; F006/F008 (Mean\
+  \ shadow) / F021 (Mean H/L 60) /\nF011 williams_r_variant (cross-section level)\
+  \ 时序量纲化形式都未被 admit, 库内 0\nTsRank-OHLC shape 几何. 警示与 F011 cross-section level 撞 atom\
+  \ (close_position) — 重\n几何独立性靠 TsRank time-series rank-form 解耦. 目标 ≥1 admit 验证 TsRank-OHLC\
+  \ frontier\n真度; 否则首批反向证伪 → 方向 dead."
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T21:52:58Z'
+frozen_at: '2026-05-01T21:52:58Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div(Sub($close, $low), Add(Sub($high, $low), 1e-9)), 60)
+  canonical: TsRank(Div(Sub($close,$low),Add(1e-9,Sub($high,$low))),60)
+  rationale: 'T001 close_position TsRank 60d — Williams %R 几何反向 (close 在 [low, high]
+
+    区间位置). cross-section level form 已被 F011 williams_r_variant Grade B 占领
+
+    (max_corr 风险点), 本候 TsRank time-series rank-form 把 cross-section level 替换为
+
+    "个股自身 60d 内位置分位", 几何独立机制 = b073 F024 frontier 真生效路径. 期望
+
+    vol_20d_exp <15, style_r²<0.20, max_corr to F011 <0.30 (cross-section vs time-series
+
+    rank decoupling). 假设 forward sign: 高 close_position TsRank (近期连续收高) → forward
+
+    reversal NEG (类似 williams_r 反转律). Pre-check: coverage>0.85, |corr market_cap|<0.3.
+
+    WARNING: 若 max_corr to F011 >0.5 → cross-section vs time-series 解耦失败 reject;
+
+    若 alpha_surv<0.40 → vol_20d 仍吸 reject (frontier 局部 KO).
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $open), Add(Sub($high, $low), 1e-9)), 60)
+  canonical: TsRank(Div(Sub($high,$open),Add(1e-9,Sub($high,$low))),60)
+  rationale: 'T001 upper_shadow_ratio TsRank 60d — 上影 / 全日 range. 几何与 F006 (Mean upper_shadow
+
+    5d) / F008 (Mean upper_shadow 3d) atom 共享但 form 不同 — Mean 是短窗 persistence,
+
+    TsRank 60d 是个股长期分位. 期望: 库内 0 TsRank-on-shadow-ratio, 几何独立性高于
+
+    C001 (close_position). 假设 forward sign: 高 upper_shadow TsRank (近期连续大上影 = 卖压)
+
+    → forward reversal POS (短期超卖反弹) 或 NEG (持续抛压). Pre-check: coverage>0.85,
+
+    |corr market_cap|<0.3. WARNING: F008 Grade A score=78.0 库内权重大,
+
+    max_corr 风险 0.4-0.6; 需测 TsRank 量纲化是否破 Mean 共线性.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div(Abs(Sub($close, $open)), Add(Sub($high, $low), 1e-9)), 60)
+  canonical: TsRank(Div(Abs(Sub($close,$open)),Add(1e-9,Sub($high,$low))),60)
+  rationale: 'T002 body_ratio TsRank 60d — 实体 / 全日 range = 趋势力度 dimensionless metric.
+
+    F020 gap_vol_body_ratio_rank_diff 含 Mean(body_ratio,20) atom 但形式 cross-section
+
+    rank diff, TsRank 60d time-series form 几何独立. 假设 forward sign: 高 body_ratio
+
+    TsRank (近期连续大实体) → forward reversal NEG (趋势耗尽 mean reversion).
+
+    Pre-check: coverage>0.85, |corr market_cap|<0.3. WARNING: Abs 算子可能放大噪声,
+
+    若 vol_20d_exp>20 → 信号被 vol basis 吸 reject; 与 F020 max_corr 检测 (Mean body
+
+    vs TsRank body cross-section level vs time-series rank 应解耦).
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), Add($close, 1e-9)), 60)
+  canonical: TsRank(Div(Sub($high,$low),Add($close,1e-9)),60)
+  rationale: 'T003 range_to_close TsRank 60d — 全日 range / 收盘价 = normalized intraday
+    volatility
+
+    proxy. 与 F021 (Mean H/L 60) atom 相似但 (a) form 不同 (TsRank vs Mean) (b) 分母不同
+
+    ($close vs $low). 假设: range/close 是个股相对 vol 水平, 60d TsRank 把绝对 vol 换为
+
+    "个股自身 60d 内 vol 分位". 高 TsRank = 近期高 vol → forward reversal NEG (vol 衰减).
+
+    Pre-check: coverage>0.90, |corr market_cap|<0.3. WARNING: range/close 几何接近
+
+    vol_20d basis 直接载体, vol_20d_exp 可能高; 若 >25 reject (frontier 失效局部点).
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div(Mul(Add($high, $low), 0.5), Add($close, 1e-9)), 60)
+  canonical: TsRank(Div(Mul(0.5,Add($high,$low)),Add($close,1e-9)),60)
+  rationale: 'T003 midprice_to_close TsRank 60d — 中价 (H+L)/2 / 收盘价 = intraday drift
+    indicator.
+
+    midprice > close 表示日内冲高回落, midprice < close 表示日内拉升收阳. TsRank 60d 把
+
+    drift 时序量纲化. 几何独立性: 库内 0 midprice-based 因子, 完全新 atom. 假设 forward sign:
+
+    高 midprice/close TsRank (近期连续冲高回落) → forward reversal POS (超卖反弹).
+
+    Pre-check: coverage>0.95 (无 sparse 风险), |corr market_cap|<0.3.
+
+    WARNING: midprice/close 量纲差异极小 (日内幅度 1-3%), 信号噪声可能高,
+
+    若 ic_oos<0.008 hard_gate fail → 几何弱 reject.
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Add(Sub($high, Mul(Add($open, $close), 0.5)), 1e-9), Add(Sub(Mul(Add($open,
+    $close), 0.5), $low), 1e-9)), 60)
+  canonical: TsRank(Div(Add(1e-9,Sub($high,Mul(0.5,Add($close,$open)))),Add(1e-9,Sub(Mul(0.5,Add($close,$open)),$low))),60)
+  rationale: 'T003 shadow_asymmetry TsRank 60d — (high - mid_oc) / (mid_oc - low)
+    上影/下影
+
+    不对称比例 (mid_oc = (open+close)/2 实体中点). 高 ratio = 上影远长于下影 = 卖压主导;
+
+    低 ratio = 下影远长于上影 = 买盘主导. 60d TsRank 把不对称性时序量纲化. 几何与 C002
+
+    (upper shadow 单边) 互补 — 本候同时考虑双侧影长比. Anti-IfElse: +1e-9 epsilon 而非
+
+    Abs/IfElse (P018 lesson). 假设 forward sign: 高 asymmetry TsRank (近期连续卖压主导)
+
+    → forward reversal NEG (持续抛压) 或 POS (超卖反弹). Pre-check: coverage>0.85,
+
+    |corr market_cap|<0.3. WARNING: 表达式复杂可能命中 generator audit, 需 hint
+
+    summary 校验 atom 唯一性; 若 alpha_surv<0.40 → 高阶 OHLC composition 不破
+
+    vol_20d basis reject.
+
+    '

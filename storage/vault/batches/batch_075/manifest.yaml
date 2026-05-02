@@ -1,0 +1,154 @@
+batch_id: batch_075
+round: 75
+direction: cov_microstructure_valuation
+direction_md_ref: vault/directions/cov_microstructure_valuation.md
+batch_goal: "Round 75 首批 — NEW direction (library_gap/010 顶上). 假设: Cov(microstructure_LHS,\n\
+  valuation_RHS, window>=60d) 是 lessons.md 显式指认的 \"Cov(liquidity, valuation_ratio)\n\
+  long-window family\" frontier (round 73 round 73 Phase 5 升格语句). 当前 24 admit 中 0\
+  \ 个 Cov 形态;\npv_covariance dead 是因为 RHS=return/body 撞 reversal cluster (F001 amount_cv\
+  \ / F009\novernight_spread / F012 amihud), 本批 RHS 是 valuation ratio (PE/PB/PCF/dividend_yield_ttm)\n\
+  与 reversal cluster 几何独立. 6 候选探索 LHS×RHS 配对矩阵 + window 选择:\n  (a) Cov($turnover_rate,\
+  \ $pe_ratio, 60) — flagship: liquidity × earning yield 60d\n  (b) Cov($turnover_rate,\
+  \ $pcf_ratio, 60) — cash-flow yield, 2026-05-01 新字段\n  (c) Cov($num_trades, $pe_ratio,\
+  \ 60) — institutional flow proxy × earning yield\n  (d) Cov($num_trades, $pb_ratio,\
+  \ 60) — institutional flow × book yield\n  (e) Cov($amount, $pcf_ratio_total_ttm,\
+  \ 120) — TTM cash flow, 长窗口, 注意 sparse risk\n  (f) Cov($num_trades, $dividend_yield_ttm,\
+  \ 60) — institutional × yield TTM\n红线: max_corr<0.30 to library; alpha_survival>=0.40\
+  \ + ic_by_year sign-stable\n(P008 lesson); avoid $market_cap proxy (|corr|<0.3);\
+  \ 避开 cap-denominator dim-less\nratio frontier (P016). Anti-recap: 不重 b068-b074 reject\
+  \ 候选 (那些是 Div/Mul DSL +\npython residualize, 与 Cov 形态几何不同); 不重 pv_covariance b039\
+  \ 失败几何\n(RHS=return/body, 本批 RHS=valuation ratio). 目标: ≥1 admit 验证 Cov family 是新空间;\n\
+  否则首批反向证伪 → 方向 dead."
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T21:29:24Z'
+frozen_at: '2026-05-01T21:29:24Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Cov($turnover_rate, $pe_ratio, 60)
+  canonical: Cov($turnover_rate,$pe_ratio,60)
+  rationale: 'T001 flagship: liquidity × earning yield 60d 协动. Cov 高正 = 在
+
+    liquidity-up 日 PE 同步 expand (估值跟着 hype 走, 买家追高); Cov 高负 = liquidity-up
+
+    日 PE compress (机构压价吸筹). 假设 forward sign: 高 Cov (追高 hype) → forward
+
+    reversal NEG. 与已 admit 24 因子几何独立 (F012 Amihud 是 |return|/amount level,
+
+    F022 close_position×amount_accel 是 cross-section rank diff, 不是 Cov 协动).
+
+    Anti-cluster: 与 pv_covariance b039 reject 不同 — 那批 RHS 是 daily_ret / body
+
+    被 F001/F009/F012 反转簇吞噬, 本候 RHS=$pe_ratio 是 valuation level,
+
+    reversal cluster 不携 valuation 信号. Pre-check: coverage>0.80, |corr $market_cap|<0.3,
+
+    vol_20d_exp<20%. WARNING: 若 max_corr to F012 Amihud >0.5 → liquidity 通道仍归簇
+
+    reject; 若 alpha_surv<0.40 → barra absorb reject.
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: Cov($turnover_rate, $pcf_ratio, 60)
+  canonical: Cov($turnover_rate,$pcf_ratio,60)
+  rationale: 'T001 same LHS 替换 RHS 为 cash flow yield (2026-05-01 新增 $pcf_ratio). Cov
+    与
+
+    C001 不同分子在 RHS — earnings 与 cash flow 在 csi1000 cross-section 上行业差异
+
+    (科技股高 PE 低 PCF, 制造业反之), 提供独立估值通道. 期望 Cov sign 与 C001 同向但
+
+    ic_oos 差异显示 cash flow 是否独立 alpha 还是 PE 镜像. Pre-check: coverage>0.80,
+
+    |corr $market_cap|<0.3. WARNING: $pcf_ratio 含负值 (亏现金流公司), 协动方向解释
+
+    复杂; 若 ic_oos sign 与 C001 反向 → 信号噪 reject.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Cov($num_trades, $pe_ratio, 60)
+  canonical: Cov($num_trades,$pe_ratio,60)
+  rationale: 'T002 institutional flow proxy × earning yield 60d. $num_trades = 单日成交笔数,
+
+    institutional_flow_proxy direction (saturated, C006 reserve 火种) 元素. 与
+
+    F012 Amihud (|return|/amount) 几何不同 — Amihud 是单日 illiquidity, $num_trades
+
+    是流量 frequency, Cov 与 PE 协动捕获 "大笔进场日 PE 同步变化". 假设 institutional
+
+    flow 推 PE 上行 → forward reversal NEG. Pre-check: coverage>0.85, |corr $market_cap|<0.3,
+
+    vol_20d_exp<20%. WARNING: $num_trades 与 size 高相关 (大盘股交易笔数多), Cov 长窗口
+
+    可能放大 size 暴露 → 若 |corr market_cap|>0.3 reject (size proxy 红线).
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Cov($num_trades, $pb_ratio, 60)
+  canonical: Cov($num_trades,$pb_ratio,60)
+  rationale: 'T002 same LHS 替换 RHS book yield. PB 在 csi1000 是 hard-asset 估值通道
+
+    (中小盘 PB 分布更宽); Cov 协动捕获 "高频交易日 PB 同步变化" — 大笔买入推
+
+    growth 估值 vs 小盘价值股 institutional flow 分歧. 与 C003 ($pe_ratio) 对照
+
+    earnings vs book 哪个 valuation channel 与 institutional flow 协动更强.
+
+    Anti-recap: 不与 F002 (Div(pb, mean(amount,20))) 几何重叠 — F002 是 cross-section
+
+    level ratio, 本候 Cov 是时间序列协动. Pre-check: coverage>0.85, |corr $market_cap|<0.3.
+
+    WARNING: PB 分布右偏 (科技股 PB>10), Cov 可能被 outlier 主导 → preprocess MAD k=5
+
+    处理后看 ic_oos 是否稳定.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Cov($amount, $pcf_ratio_total_ttm, 120)
+  canonical: Cov($amount,$pcf_ratio_total_ttm,120)
+  rationale: 'T003 长窗口 + TTM RHS. $amount = 成交金额 (vs $turnover_rate 是流通占比, 量纲不同),
+
+    $pcf_ratio_total_ttm 是 2026-05-01 新增 cash flow TTM ratio. 120d 长窗口对齐
+
+    TTM 报告周期 (4 季度). 假设: 长窗口 Cov 协动 = 大成交日 cash flow 估值同步变化,
+
+    可能捕获 institutional 调仓节奏. Pre-check: coverage>0.70 (TTM sparse 容忍降低),
+
+    |corr $market_cap|<0.3, vol_20d_exp<25%. WARNING: TTM 字段 NaN 比例 ~10-30%
+
+    (lessons P 段升格), Cov 在 NaN 上不容错; 若 coverage<0.70 hard_gate fail → 转
+
+    Python ffill rescue 路径 (本批不实施, reserve 候选).
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Cov($num_trades, $dividend_yield_ttm, 60)
+  canonical: Cov($num_trades,$dividend_yield_ttm,60)
+  rationale: 'T002 institutional × yield TTM. $dividend_yield_ttm 在 b069 C001 单独 CsRank
+
+    被 F001 吸收 (max_corr=0.50), 但 Cov 与 institutional flow 协动是新组合.
+
+    假设: 高股息股 institutional 持有, 大笔交易 = 机构再平衡 → Cov 协动稳定; 低股息股
+
+    Cov 噪声大. Cross-section 上 dividend_yield 与 size/value 高相关, 要严测 alpha_surv.
+
+    Pre-check: coverage>0.80, |corr $market_cap|<0.3, vol_20d_exp<20%.
+
+    WARNING: 若 alpha_surv<0.40 → 信号被 Barra value 通道吞 reject (lessons "alpha
+
+    真饱和" 含 dividend_yield_ttm 路径警示).
+
+    '

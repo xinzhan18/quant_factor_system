@@ -1,0 +1,93 @@
+batch_id: batch_074
+round: 74
+direction: tsrank_timeseries_ratio
+direction_md_ref: vault/directions/tsrank_timeseries_ratio.md
+batch_goal: '续探 b073 admit hot streak（F024 Grade A score=87.0 落地）— 沿 next_hint 三轴扩展
+  frontier: (a) window ablation 30d/45d/90d 测 sweet spot 边界 (b073 锚定 60d>120d，本批补
+  30d/45d/90d 完整曲线); (b) cross-atom dimensionless count ratio 拓展 ($num_trades/$circ_market_cap
+  mass-normalized + 镜像 $volume/$num_trades = avg_trade_size) — P012 dimensionless
+  count ratio 真红利原子类型续探; (c) cross-product Mul(F024_atom, CsRank(short-momentum))
+  测复合 alpha 维度。红线: alpha_survival ≥ 0.40 + ic_by_year sign-stable + incr_ic POS +
+  max_corr<0.30 to library (含 F024)。Anti-recap: 不重 b068-b073 reject 候选；不重 b072 C006
+  mirror atom 几何 (Div($amount,$num_trades) 已 reject)。 目标: window 曲线找到 30d/45d 是否更优
+  sweet spot + cross-atom 至少 1 admit + cross-product max_corr<0.30 to F024 验证独立维度。'
+active_threads_referenced:
+- T004
+- T007
+- T008
+- T009
+- T010
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T20:59:22Z'
+frozen_at: '2026-05-01T20:59:22Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div($num_trades, $volume), 30)
+  canonical: TsRank(Div($num_trades,$volume),30)
+  rationale: 'T007 window ablation 30d. F024 atom ($num_trades/$volume) at 30d vs
+    60d sweet spot. b073 P013 锚定 60d>120d，但 30d/45d 未测；30d 短窗口可能捕捉更新鲜的 retail attention
+    切换. 短窗口 trade-off: faster reaction vs less stable rank distribution. Anti-recap:
+    与 F024 (60d) 仅 window 不同 — 预期 max_corr to F024 高 (>0.6)，admit 必须 incr_ic > 0.015
+    POS + ic_oos 显著优于 F024。Pre-check: coverage>0.85, |corr $market_cap|<0.3, vol_20d_exp<15%
+    (frontier dim-less count ratio 期望). WARNING: 若 max_corr to F024 >0.7 + incr_ic
+    < 0.010 → 直接 reject (近似复制 F024).'
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div($num_trades, $volume), 45)
+  canonical: TsRank(Div($num_trades,$volume),45)
+  rationale: 'T007 window ablation 45d. F024 atom at 45d — 60d 与 30d 之间。可能是 sweet
+    spot 边界 (45d 类似月度+换手周期). Anti-recap: 同 C001 风险 — max_corr to F024 高，admit 需 incr_ic
+    POS 独立维度. Pre-check: coverage>0.85, vol_20d_exp<15%. 期望: 若 30d/45d/90d 曲线显示 60d
+    是局部最大，则本族 window 探索完结，frontier 锚定 60d；若 45d 更优，方向新 sweet spot。'
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div($num_trades, $volume), 90)
+  canonical: TsRank(Div($num_trades,$volume),90)
+  rationale: 'T007 window ablation 90d. F024 atom at 90d — 60d 与 120d 之间。b073 C006
+    (120d) 比 60d 恶化 (vol_20d_exp 12.6→21.0)，但 90d 可能仍在 sweet spot 平台。Anti-recap: 与
+    F024 仅 window 不同 — 高 corr 风险 (TsRank rolling window 自相关). Pre-check: coverage>0.85,
+    vol_20d_exp<18% (90d 比 60d 略高但应低于 120d 21%). 期望: 90d 退化 → 锚定 60d 是 plateau 顶点;
+    90d 持平 60d → window 宽容区间.'
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank(Div($num_trades, $circ_market_cap), 60)
+  canonical: TsRank(Div($num_trades,$circ_market_cap),60)
+  rationale: 'T008 cross-atom dim-less count ratio. $num_trades/$circ_market_cap =
+    retail attention per unit流通市值 (mass-normalized retail intensity). 与 F024 不同分母
+    (volume vs circ_market_cap) — 分母换字段切断 F024 几何重叠。TsRank60 把 cross-section level
+    替换为个股自身分位. P012 dimensionless count ratio 真生效原子类型续探 (counts per shares vs counts
+    per share-volume). Anti-recap: 与 F024 atom 不同 (volume vs circ_market_cap) — max_corr
+    期望 < 0.30 (库空间独立); 与 b072 C006 ($amount/$num_trades) 不同分子分母. ratio 含 circ_market_cap
+    分母 → 类似 b073 C005 ($turnover_rate/$market_cap) frontier 部分失效风险，但 num_trades 不是
+    turnover-derived， 可能不重蹈覆辙. Pre-check: coverage>0.85, |corr $market_cap|<0.3, vol_20d_exp<20%.
+    WARNING: 若 vol_20d_exp>25% → 含 cap 分母 frontier 部分失效，reject; 若<15% → P012 cross-atom
+    续证铁证.'
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div($volume, $num_trades), 60)
+  canonical: TsRank(Div($volume,$num_trades),60)
+  rationale: 'T009 mirror atom of F024 (inverse). $volume/$num_trades = avg trade
+    size (单笔均量) — F024 倒数. 高 avg trade size = 大单主导 (institutional flow proxy); F024
+    高 = 小单主导. 猜测 sign 反向 (F024 mono=+1.00, 本候 mono=-1.00 期望). Anti-recap: 与 F024 atom
+    数学倒数 — TsRank(1/x, 60) ≠ -TsRank(x, 60) 一般情形 (rank 非线性), 但相关性高. 与 b072 C006 (Div($amount,$num_trades))
+    不同分子 (volume vs amount). Pre-check: coverage>0.85, vol_20d_exp<15% (P012 dim-less
+    count ratio frontier 期望). WARNING: 若 max_corr to F024 >0.6 + 镜像 sign 翻 → 几乎是同一信号反号，admit
+    必须 incr_ic >0.015 POS 否则 reject.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(TsRank(Div($num_trades, $volume), 60), CsRank(Sub($close, Ref($close,
+    5))))
+  canonical: Mul(CsRank(Sub($close,Ref($close,5))),TsRank(Div($num_trades,$volume),60))
+  rationale: 'T010 cross-product F024_atom × CsRank short-momentum. F024 retail-attention
+    分位 × 5d 价格变动 cross-section rank. 假设: retail high attention + 短期动量 conviction 强
+    → forward continuation 加强；retail high attention + 短期反向动量 → 阻力 reversal 弱化. Anti-recap:
+    F024 自身已 admit；本候 Mul cross-product 必须独立 alpha (max_corr to F024<0.30 + incr_ic
+    POS) 否则就是 F024 wrapper 复制. 与 b070-b072 多个 Mul cross-product reject 区别在 lhs 是已验证
+    frontier admit (F024) 而非未验证 atom. Pre-check: coverage>0.80, |corr $market_cap|<0.3,
+    vol_20d_exp<15%. WARNING: Mul cross-product 几何在 b070-b072 多次失败 (incr_ic 不达标);
+    若 max_corr to F024>0.5 → 相关复制风险, reject; 若 < 0.30 + incr_ic > 0.015 → 真复合.'

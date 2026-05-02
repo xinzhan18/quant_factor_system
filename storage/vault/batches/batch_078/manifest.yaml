@@ -1,0 +1,141 @@
+batch_id: batch_078
+round: 78
+direction: reserve_revival_paths
+direction_md_ref: vault/directions/reserve_revival_paths.md
+batch_goal: "Round 78 NEW direction — reserve_pool retro audit driven (51 flip-candidates).\n\
+  6 candidates 直接处理最强 reserve 复活路径, \"改表达式不改阈值\":\n  C001 rhs_change   — TsRank(midprice/Mean(C,5),\
+  \ 60)  ← b076/C005\n  C002 mean_centering — TsRank(close_position - 0.5, 60) ← b076/C001\n\
+  \  C003 window_sweep — TsRank(amount/num_trades, 30)  ← b072/C006\n  C004 retro_post_floor\
+  \ — Sub(CsRank(Std(body/range,20)), CsRank(Mean(amihud_proxy,60))) ← b053/C001\n\
+  \  C005 rhs_change   — Sub(CsRank(Mean(body/range,5)), CsRank(Mean(num_trades,20)))\
+  \ ← b050/C001\n  C006 rhs_change   — Sub(CsRank(Mean(Sign(open-Ref(close,1)),60)),\
+  \ CsRank(Mean(num_trades,20))) ← b058/C001\n红线: alpha_surv>=0.40 (TsRank fam) /\
+  \ >=0.30 (rank_diff_geometry fam); max_corr<0.30; |corr market_cap|<0.3"
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T05:52:54Z'
+frozen_at: '2026-05-02T05:52:54Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div(Mul(Add($high,$low),0.5), Add(Mean($close,5),1e-9)), 60)
+  canonical: TsRank(Div(Mul(0.5,Add($high,$low)),Add(1e-9,Mean($close,5))),60)
+  rationale: 'T001 rhs_change revival of b076/C005 TsRank((H+L)/2 / C, 60).
+
+    Original alpha_surv=1.43 incr_ic=+0.042 (strong POS), blocked by max_corr=0.45@F008.
+
+    Path: 把 RHS 从 raw $close 换成 Mean($close,5) 做 5d 趋势剔除——midprice 相对短期 trend
+
+    的 deviation, 不再直接耦合 F008 (Mean upper_shadow). 期望 max_corr to F008 <0.30,
+
+    vol_20d_exp 仍维持 b076 良好水平 (~10).
+
+    derives_from: batch_076/C005 (reserve, ic_oos=+0.038 ICIR=0.30 alpha_surv=1.43)
+
+    revival_path_type: rhs_change
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Sub(Div(Sub($close,$low),Add(Sub($high,$low),1e-9)),0.5), 60)
+  canonical: TsRank(Sub(Div(Sub($close,$low),Add(1e-9,Sub($high,$low))),0.5),60)
+  rationale: 'T001 mean_centering revival of b076/C001 close_position TsRank.
+
+    Original mono=-1.00 PERFECT, alpha_surv=1.18, blocked by max_corr=0.47@F008 +
+    incr_ic=-0.040.
+
+    Path: 把 close_position [0,1] 中心化到 -0.5..+0.5 = "上影/下影对称基准之偏离".
+
+    减常数 0.5 不改变信号秩序, 但破 raw level cross-sectional mean 与 F008 的耦合
+
+    (TsRank 后 sign-flip preservation, max_corr 应 <0.30).
+
+    derives_from: batch_076/C001 (reserve, ic_oos=-0.047 ICIR=-0.38 alpha_surv=1.18)
+
+    revival_path_type: mean_centering
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div($amount, Add($num_trades,1e-9)), 30)
+  canonical: TsRank(Div($amount,Add($num_trades,1e-9)),30)
+  rationale: 'T001 window_sweep revival of b072/C006 TsRank(amount/num_trades, 60).
+
+    Original ls_t=-7.54 (整库顶级), mono=-1.00, max_corr=0.24, blocked by incr_ic=-0.018.
+
+    Path: 60d → 30d 窗口收缩, 测 short-window 是否破除原 60d 与 F009 family 的 incr_ic
+
+    negative coupling. avg trade size 短窗 momentum 信号 (机构 batch trade 30d intensity).
+
+    derives_from: batch_072/C006 (reserve, ic_oos=-0.054 ls_t=-7.54 mono=-1.00 alpha_surv=0.45)
+
+    revival_path_type: window_sweep
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Std(Div(Sub($close,$open),Add(Sub($high,$low),1e-9)),20)),CsRank(Mean(Div(Abs(Sub($close,Ref($close,1))),Add($amount,1e-9)),60)))
+  canonical: Sub(CsRank(Std(Div(Sub($close,$open),Add(1e-9,Sub($high,$low))),20)),CsRank(Mean(Div(Abs(Sub($close,Ref($close,1))),Add($amount,1e-9)),60)))
+  rationale: 'T002 retro_post_floor revival of b053/C001 (rank_diff_geometry family).
+
+    Original mono PERFECT, ls_Sharpe=2.45, max_corr=-0.694@F020 (反向耦合 = 互补 NOT redundant!),
+
+    alpha_surv=0.37. 原阈值 0.40 卡, post-floor codify (rank_diff_geometry floor=0.30)
+    下应 PASS.
+
+    Body/range Std (20d) - Amihud proxy mean (60d) rank diff: intraday body volatility
+
+    stability 减 illiquidity carry. 反向耦合 F020 = 互补信号 (orthogonal contribution).
+
+    derives_from: batch_053/C001 (reserve, ic_oos=-0.024 mono PERFECT ls_Sharpe=2.45
+    alpha_surv=0.37)
+
+    revival_path_type: retro_post_floor
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Abs(Sub($close,$open)),Add(Sub($high,$low),1e-9)),5)),CsRank(Mean($num_trades,20)))
+  canonical: Sub(CsRank(Mean(Div(Abs(Sub($close,$open)),Add(1e-9,Sub($high,$low))),5)),CsRank(Mean($num_trades,20)))
+  rationale: 'T002 rhs_change revival of b050/C001 (rank_diff_geometry family).
+
+    Original mono PERFECT, incr_ic=+0.013, alpha_surv=0.33, blocked by max_corr=0.50@F017
+
+    (turnover_rate family saturated). Path: RHS 从 turnover_rate 换成 num_trades — 离开
+
+    turnover family, num_trades 是 frequency 量纲 vs turnover 是 ratio 量纲, geometric
+
+    independence. body_ratio mean (5d) - num_trades mean (20d) cross-section rank
+    diff.
+
+    derives_from: batch_050/C001 (reserve, ic_oos=+0.018 mono PERFECT alpha_surv=0.33)
+
+    revival_path_type: rhs_change
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),60)),CsRank(Mean($num_trades,20)))
+  canonical: Sub(CsRank(Mean(Sign(Sub($open,Ref($close,1))),60)),CsRank(Mean($num_trades,20)))
+  rationale: 'T002 rhs_change revival of b058/C001 (rank_diff_geometry family).
+
+    Original ic_oos=+0.055 (batch high), ICIR=+0.40, mono PERFECT, blocked by alpha_surv=0.31
+
+    + max_corr=0.576@F018 (Mean H/L 60d family). Path: RHS 从 Div(Mean(H,60),Mean(L,60))
+
+    换成 Mean(num_trades,20) — 离开 H/L_60 family, 用微观结构频率 basis 替换价格几何 basis.
+
+    sign-frequency overnight 60d - num_trades 20d cross-section rank diff.
+
+    derives_from: batch_058/C001 (reserve, ic_oos=+0.055 ICIR=+0.40 mono PERFECT alpha_surv=0.31)
+
+    revival_path_type: rhs_change
+
+    '

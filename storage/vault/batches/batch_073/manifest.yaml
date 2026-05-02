@@ -1,0 +1,163 @@
+batch_id: batch_073
+round: 73
+direction: tsrank_timeseries_ratio
+direction_md_ref: vault/directions/tsrank_timeseries_ratio.md
+batch_goal: '首批 6 候选验证 lessons P008 frontier — TsRank window≥60d on ratio fields 是新
+  vol_20d-escape 路径
+
+  （b072 C006 vol_20d_exp 10.87 + style_r² 0.15 + max_corr 0.24 实证）。把成功几何扩展到其他 ratio
+  字段族
+
+  (amount/volume, H-L/C, C-O/H-L, num_trades/volume, turnover/market_cap)；window 60d
+  起步，T006 用 120d
+
+  对照。红线：alpha_survival ≥ 0.40 + ic_by_year 后期同号；max_corr<0.30 to library；|corr|>0.3
+  to
+
+  $market_cap reject。目标 ≥1 admit 验证 frontier 真度，否则 frontier 单点伪相关，方向 dead。'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T20:29:31Z'
+frozen_at: '2026-05-01T20:29:31Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div($amount, $volume), 60)
+  canonical: TsRank(Div($amount,$volume),60)
+  rationale: 'T001 VWAP proxy time-series rank. amount/volume = average price (VWAP
+    proxy)，TsRank60 = 个股层
+
+    VWAP 60d 历史分位。高分位 = 当前 VWAP 异常高（机构买在高位）→ forward reversal 假设。Anti-recap：
+
+    与 b072 C006 (amount/num_trades) 不同字段族（分母 volume vs num_trades）；与 F047 vwap_close_ratio
+
+    (legacy v1) 几何不同（TsRank 时序 vs cross-section ratio）；TsRank 几何在 51 admit 中 0 先例。
+
+    Pre-check 期望: coverage>0.85 (60d rolling), |corr to $market_cap|<0.3 (TsRank [0,1]
+    消除 size),
+
+    vol_20d_exp<20% (frontier 期望 b072 C006 同水平 ≈10-15%)。WARNING: 若 vol_20d_exp>25%
+    说明 ratio
+
+    + TsRank60 仍未脱 vol，frontier 单点伪相关警示。
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), $close), 60)
+  canonical: TsRank(Div(Sub($high,$low),$close),60)
+  rationale: 'T002 Normalized intraday range time-series rank. (H-L)/C = 日内振幅归一 close，TsRank60
+    = 个股层
+
+    "异常波动日"分位。高分位 = 当前波动异常高 → forward reversal（A 股 reversal 律）。Anti-recap：
+
+    与 F021 upper_shadow_disp_range_compress_rd_20 (rank-diff 形式) 几何不同（单 TsRank vs
+    rank-diff）；
+
+    与 F022 close_position_amount_accel (Sub 形式) 不同。Pre-check 期望: coverage>0.85,
+
+    vol_20d_exp<15% (TsRank60 on (H-L)/C 是 frontier 测试的关键 — H-L 是 vol_20d 直接载体，TsRank60
+
+    量纲化能否脱嵌入决定 frontier 真伪)，|corr $market_cap|<0.2。WARNING: H-L/C raw form 在
+
+    lessons.md 是 vol_20d 第 11+ direction 历史失败族，TsRank60 是首次时序量纲化测试。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div(Sub($close, $open), Sub($high, $low)), 60)
+  canonical: TsRank(Div(Sub($close,$open),Sub($high,$low)),60)
+  rationale: 'T003 Body ratio time-series rank. (C-O)/(H-L) = real body / total range
+    已 0-1 normalize（除涨跌停
+
+    边缘 = signed 0-1），TsRank60 = 个股层 conviction signal 60d 历史分位。高分位 = 当前买盘 conviction
+
+    异常强 → forward continuation 或 reversal 待验证。Anti-recap：与 F019 body_disp_pricevol_rank_diff
+
+    (higher-moment rank-diff) 几何不同（TsRank60 单 atom vs rank-diff Skew/Kurt）；body ratio
+    在 lessons
+
+    Forbidden Patterns 是 higher-moment trap 字段，但本候选用 raw ratio + TsRank60 不取 Skew/Kurt。
+
+    Pre-check 期望: coverage>0.85, vol_20d_exp<15% (body ratio 是无量纲 0-1，TsRank 应几乎不嵌
+    vol_20d
+
+    — 候选最强 vol_20d 抗衡), |corr $market_cap|<0.2。猜测最强 candidate 因为 body_ratio 自身已 normalize。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: TsRank(Div($num_trades, $volume), 60)
+  canonical: TsRank(Div($num_trades,$volume),60)
+  rationale: 'T004 Trade density time-series rank. num_trades/volume = 单笔均量倒数（small
+    order frequency proxy
+
+    = retail 主导度），TsRank60 = 个股层 retail attention 60d 分位。与 b072 C006 (amount/num_trades)
+
+    atom 完全互补（分子分母互换 — 这里分母 volume，b072 分母 num_trades），几何独立。Anti-recap：
+
+    避免 b072 已测 5 候选 ($num_trades 字段族 raw level / Std / rank-diff / Corr / cross-product)；
+
+    $num_trades 在分子位置 + ratio 形式 + TsRank60 是 b072 未触及的几何切片。
+
+    Pre-check 期望: coverage>0.85, |corr to b072 C006 reserve| 中等（互补 atom 但同字段族），vol_20d_exp<20%。
+
+    WARNING: trade density 与 amount/num_trades 都涉 num_trades，可能与 reserve C006 有 corr，但
+    incr_ic
+
+    仍需独立验证。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div($turnover_rate, $market_cap), 60)
+  canonical: TsRank(Div($turnover_rate,$market_cap),60)
+  rationale: 'T005 Turnover-per-cap time-series rank. turnover_rate/market_cap = 每元市值
+    turnover (excessive
+
+    retail concentration proxy)，TsRank60 = 个股层"超常 turnover"分位。Anti-recap：与 F029
+
+    mean_turnover_20 (legacy v1) / F031 turnover_vol_20 (legacy v1) 不同（TsRank 时序 vs
+    横截面统计）；
+
+    分母含 $market_cap 直接 size 风险，但 TsRank60 在 [0,1] 应消除大部分 size 共线。
+
+    Pre-check 期望: coverage>0.85, |corr to $market_cap|<0.3 (TsRank 在 [0,1] 消除 size
+    共线，但分母含
+
+    market_cap 是高风险 — 必须监控 hard_gate)，vol_20d_exp<20%。WARNING: 若 |corr $market_cap|>0.3
+
+    直接 reject — A股市值代理红线。
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), $close), 120)
+  canonical: TsRank(Div(Sub($high,$low),$close),120)
+  rationale: 'T006 Window 120d 对照 — T002 同 atom 换 window=120d。测试是否 60d 是最优参数还是更长窗口更优。
+
+    120d 时序分位 = 半年级"长期 anomaly"signal。Anti-recap：与 C002 同 atom 不同 window，与 F022
+
+    close_position 不同（TsRank 时序而非横截面 Sub）。
+
+    Pre-check 期望: coverage>0.80 (120d rolling 数据需求更高), vol_20d_exp<15% (longer window
+    应进一步
+
+    降低 vol_20d 嵌入), |corr $market_cap|<0.2。WARNING: 120d 窗口 coverage 边缘 (min 80%);
+    若
+
+    coverage<0.80 hard_gate fail。对照 C002 (60d) 是 frontier 参数曲线测试 —— 若 C006 更强则 frontier
+
+    关键参数应放宽至 ≥60d (含 120d)。
+
+    '

@@ -1,0 +1,183 @@
+batch_id: batch_077
+round: 77
+direction: tsrank_candlestick_ratio
+direction_md_ref: vault/directions/tsrank_candlestick_ratio.md
+batch_goal: "Round 77 续探 (b073 admit F024 + b076 admit F025 hot streak). 假设:\n方向 admits=2\
+  \ 后, frontier 真度律已实证 — 高阶 OHLC composition (b076 P019/P020 升格) 比\nsingle-atom 更彻底破\
+  \ cross-section 几何同源 (F025 max_corr 0.29 vs C001/C005 0.45-0.47).\n本批沿 b076 next_hint\
+  \ 三条路径续探 frontier 上限:\n  (1) 三层 OHLC composition 嵌套 — shadow_asymmetry × body_ratio\
+  \ (C001 nested Div + C005 Mul form,\n      测 frontier 多层化是否仍守 max_corr<0.30 line)\n\
+  \  (2) Std/CsRank 双量纲化 — TsRank(Std(range/close,20),60) + Mul(CsRank,CsRank) 跨域\
+  \ cross-product\n  (3) 替换分母法 — range/midprice (C006) vs F021 H/L; range/(C+O) (C003)\
+  \ double-arm normalization\n\n6 candidates 矩阵:\n  C001 三层 nested Div: TsRank(shadow_asym\
+  \ / (body_ratio + 1e-9), 60) — frontier 上限测试\n  C002 range vol TsRank: TsRank(Std((H-L)/C,\
+  \ 20), 60) — 双量纲化 (vol-of-vol-proxy)\n  C003 double-arm normalization: TsRank((H-L)/(C+O),\
+  \ 60) — 替换分母 (vs C004 b076 H-L/C reject)\n  C004 cross-product Mul: Mul(CsRank(num_trades/volume),\
+  \ CsRank(shadow_asym)) — F024 atom × F025 atom\n  C005 Mul composition: TsRank(body_ratio\
+  \ * shadow_asym, 60) — Mul 替代 Div 的高阶 composition\n  C006 range/midprice TsRank:\
+  \ TsRank((H-L)/midprice, 60) — midprice 替换分母\n\n红线 (P011/P014):\n  - max_corr <\
+  \ 0.30 to library (incl F024+F025+F007+F008)\n  - alpha_survival >= 0.40 + ic_by_year\
+  \ sign-stable + incr_ic POS\n  - |corr $market_cap| < 0.3\n  - +1e-9 epsilon 防 div-by-zero\
+  \ (P018)\n\nAnti-recap (don't retread b068-b076):\n  - C001 close_position TsRank\
+  \ (b076 reserve, max_corr 0.47@F008) — 本批 NOT retried (P019 复活路径需 Python residualize)\n\
+  \  - C002 raw upper_shadow ratio (b076 reject) — NOT retried\n  - C003 raw body_ratio\
+  \ TsRank (b076 hard_gate) — 本批 C005 是 body × shadow 复合形式 (composition 破 mean-reversion)\n\
+  \  - C004 range/close TsRank (b076 reject sty_r²=0.13) — 本批 C002 加 Std 双量纲化, C003\
+  \ 改分母 (C+O), C006 改分母 (midprice)\n  - C005 midprice/close TsRank (b076 reserve,\
+  \ max_corr 0.45@F008) — NOT retried\n  - C006 shadow_asymmetry TsRank (b076 admit\
+  \ F025) — NOT retried; 本批用作 atom 合成\n\n目标 ≥1 admit 验证 frontier 真度上限 (高阶 composition\
+  \ / Std×TsRank / CsRank-Mul 三路径).\n失败模式: 全 reject → frontier 几何已饱和, b078 切换 direction\
+  \ (e.g. python_ttm_residual_quality 复活 fundamental 路径)."
+active_threads_referenced:
+- T001
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-01T22:24:45Z'
+frozen_at: '2026-05-01T22:24:45Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div(Add(Sub($high, Mul(Add($open, $close), 0.5)), 1e-9), Mul(Add(1e-9,
+    Sub(Mul(Add($open, $close), 0.5), $low)), Add(Div(Abs(Sub($close, $open)), Add(Sub($high,
+    $low), 1e-9)), 1e-9))), 60)
+  canonical: TsRank(Div(Add(1e-9,Sub($high,Mul(0.5,Add($close,$open)))),Mul(Add(1e-9,Div(Abs(Sub($close,$open)),Add(1e-9,Sub($high,$low)))),Add(1e-9,Sub(Mul(0.5,Add($close,$open)),$low)))),60)
+  rationale: 'T003 三层 OHLC composition frontier 上限测试 — shadow_asymmetry / body_ratio
+    嵌套.
+
+    分子 = (H - mid_oc) (上影长), 分母 = (mid_oc - L) × body_ratio (下影长 × 实体比例).
+
+    高 ratio = 上影主导 + 实体小 (典型 doji-bearish 复合形态).
+
+    几何独立性: 在 F025 (shadow_asym TsRank) 上加 body_ratio 分母, 把"形态非对称性"
+
+    与"形态强度"两个维度复合, 期望 max_corr to F025 < 0.5 (composition 破解共线性).
+
+    期望 vol_20d_exp < 10 (高阶 composition 实证 P019), style_r² < 0.05.
+
+    假设 forward sign POS (上影长 + 实体小 = 卖压主导但承接弱 → 反弹).
+
+    Pre-check: coverage > 0.85, |corr market_cap| < 0.3.
+
+    WARNING: 表达式 depth ~9, 接近 MAX_DEPTH=10; 若 max_corr > 0.5 to F025
+
+    则三层化无收益 reject; 若 alpha_surv < 0.40 → frontier 上限确认饱和.
+
+    '
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Std(Div(Sub($high, $low), Add($close, 1e-9)), 20), 60)
+  canonical: TsRank(Std(Div(Sub($high,$low),Add($close,1e-9)),20),60)
+  rationale: 'T003 Std × TsRank 双量纲化 — 把 range/close (b076 C004 reject sty_r²=0.13)
+
+    先做 20d Std (内 range vol-of-vol), 再 60d TsRank (外时序量纲化), 双层抑制
+
+    vol_20d basis 直接载体. 几何与 F019 (Std body_disp 20) 形式相似但内核 ratio
+
+    不同 — F019 用 body/range, 本候用 range/close. 期望 vol_20d_exp 比 b076 C004
+
+    (>20) 显著降低; 若仍 > 15 reject.
+
+    假设 forward sign NEG (高 vol-of-range = 不稳定波动 → forward reversal).
+
+    Pre-check: coverage > 0.90, |corr market_cap| < 0.3.
+
+    WARNING: vol-of-vol 信号常脆弱, 若 ls_t < 2.5 信号弱 reject.
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), Add(Add($close, $open), 1e-9)), 60)
+  canonical: TsRank(Div(Sub($high,$low),Add(1e-9,Add($close,$open))),60)
+  rationale: 'T003 double-arm normalization — range 除以 (close + open) 而非单独 close.
+
+    (C+O)/2 是日内"双锚均价", 比单 close 更稳健 (避免收盘瞬时噪声).
+
+    期望比 b076 C004 (range/close, sty_r²=0.13) 改善 — (C+O) 平滑分母, 削弱 vol-cap basis.
+
+    假设 forward sign NEG (高 normalized range = 振幅大 → forward 衰减).
+
+    Pre-check: coverage > 0.90, |corr market_cap| < 0.3.
+
+    WARNING: (C+O) 与 close 高度相关, 若 sty_r² 仍 > 0.10 → 改善有限 reject;
+
+    与 F021 Mean(H/L,60) 几何相近 max_corr 风险, 需检 < 0.30.
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Mul(CsRank(Div($num_trades, Add($volume, 1e-9))), CsRank(Div(Add(Sub($high,
+    Mul(Add($open, $close), 0.5)), 1e-9), Add(Sub(Mul(Add($open, $close), 0.5), $low),
+    1e-9))))
+  canonical: Mul(CsRank(Div($num_trades,Add($volume,1e-9))),CsRank(Div(Add(1e-9,Sub($high,Mul(0.5,Add($close,$open)))),Add(1e-9,Sub(Mul(0.5,Add($close,$open)),$low)))))
+  rationale: 'T001 cross-product Mul — F024 atom (num_trades/volume = trade density)
+
+    × F025 atom (shadow_asymmetry). 两 admit 因子的 raw atom 在 cross-section 上
+
+    做 CsRank 后乘积. 几何上是 "count ratio × shape ratio" frontier 复合维度.
+
+    与 F024/F025 max_corr 风险点高 (本质是它们的乘积) — 但 CsRank 双量纲化 +
+
+    Mul (而非 TsRank) 是不同 form, 期望 max_corr to F024/F025 < 0.5.
+
+    假设 forward sign: F024 IC POS + F025 IC POS → Mul POS (双 confirmation).
+
+    Pre-check: coverage > 0.85, |corr market_cap| < 0.3.
+
+    WARNING: max_corr 是本候最高风险点; 若 > 0.40 to F024 or F025 → 信息冗余
+
+    reject; 若 ic_oos < 0.012 → cross-product 形式衰减 reject.
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Mul(Div(Abs(Sub($close, $open)), Add(Sub($high, $low), 1e-9)),
+    Div(Add(Sub($high, Mul(Add($open, $close), 0.5)), 1e-9), Add(Sub(Mul(Add($open,
+    $close), 0.5), $low), 1e-9))), 60)
+  canonical: TsRank(Mul(Div(Abs(Sub($close,$open)),Add(1e-9,Sub($high,$low))),Div(Add(1e-9,Sub($high,Mul(0.5,Add($close,$open)))),Add(1e-9,Sub(Mul(0.5,Add($close,$open)),$low)))),60)
+  rationale: 'T003 Mul-form composition — body_ratio × shadow_asymmetry, 用 Mul 替代
+
+    C001 的 Div, 几何独立. body_ratio 是趋势力度 dimensionless metric (b076 C003
+
+    作为 raw form hard_gate fail 因 mean-reversion 太强), 但乘以 shadow_asymmetry
+
+    把"力度 × 非对称"复合, 60d TsRank 化解短期 mean-reversion.
+
+    期望 vol_20d_exp 类似 F025 (~6-10), max_corr to F025 < 0.4 (Mul 形式破共线性).
+
+    假设 forward sign: shadow_asym POS (b076 F025 实证) × body 中性 → POS.
+
+    Pre-check: coverage > 0.85, |corr market_cap| < 0.3.
+
+    WARNING: body 单独 mean-reverted, Mul 后若整体 ic_by_year sign-stable < 7/9
+
+    → mean-reversion 未化解 reject; max_corr 检 to F025 高优先.
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), Add(Mul(Add($high, $low), 0.5), 1e-9)),
+    60)
+  canonical: TsRank(Div(Sub($high,$low),Add(1e-9,Mul(0.5,Add($high,$low)))),60)
+  rationale: 'T003 range / midprice 替换分母 — (H-L) / ((H+L)/2). midprice 是日内中价,
+
+    与 close/open 完全不同 atom (close/open 受收/开瞬时影响, midprice 是日内中点).
+
+    几何上 (H-L)/midprice ≈ 2*(H-L)/(H+L) 是 doji-style 振幅相对中价比.
+
+    期望与 F021 Mean(H/L,60) 几何不同 (H/L vs (H-L)/midprice, range vs ratio).
+
+    vol_20d_exp 期望 < 15 (midprice 平滑分母比 close 更稳).
+
+    假设 forward sign NEG (高振幅相对中价 = 大波动 → forward 衰减).
+
+    Pre-check: coverage > 0.90, |corr market_cap| < 0.3.
+
+    WARNING: 与 F021 max_corr 风险, 需检 < 0.30; 若 ic_oos < 0.010 → 信号弱
+
+    (midprice 分母削弱信号) reject.
+
+    '
