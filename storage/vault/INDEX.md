@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-05-02T15:05:02Z
+generated_at: 2026-05-02T15:23:41Z
 round: 82
 total_active_directions: 23
 total_factors_admitted: 25
@@ -17,7 +17,7 @@ last_consolidation_round: null
 > [!note]+ 🧭 LLM Cockpit
 > **状态** · round=**82** · phase=`null` (idle) · no batch in flight
 > **上一批** · [[batches/batch_081/judge|batch_081]] → [[directions/ohlc_temporal_aggregation]] · admit=**0**/6 (reserve=1, reject=5) · direction.status=`saturated`
-> **健康** · rounds_since_consolidation=**9** · active_directions=**23** · zero-admit streak=**5**
+> **健康** · rounds_since_consolidation=**0** · active_directions=**23** · zero-admit streak=**5**
 > **⚠️ 预警** · 空 factor.md: F017.backtest · consolidation 触发: active_directions=23 ≥ 20
 >
 > **🎯 下一步（按优先级）**
