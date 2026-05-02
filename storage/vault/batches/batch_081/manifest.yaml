@@ -1,0 +1,106 @@
+batch_id: batch_081
+round: 81
+direction: ohlc_temporal_aggregation
+direction_md_ref: vault/directions/ohlc_temporal_aggregation.md
+batch_goal: 'Round 81 zero_admit_streak=4 (b063/b076/b079/b080), rounds_since_consolidation=8
+  approaching 10 cap. ohlc_temporal_aggregation reactivation per cockpit guidance:
+  long-window mean-reversion focus on OHLC ratio Mean/Std/Skew × {60d, 60d, 60d} combinations,
+  with the explicit goal of escaping (a) vol_20d basis (P004) via symmetric normalizers
+  (H+L), (b) OHLC algebraic mirror cluster (b063 lesson) via non-mirror atom geometry,
+  (c) library reducer hard-block (P006) via TsRank window≥60d on ratio path (P008),
+  (d) library OHLC family anchors F006/F007/F008 (Mean 5d) and F019/F020/F021 (Std/rank-diff
+  20d) via 3× window separation + 3rd moment (Skew). 6 candidates: C001 standalone
+  Mean(hl_norm_sym,60); C002 standalone Skew(body_ratio,60); C003 rank-diff hl_norm_sym
+  × num_trades_60; C004 standalone Mean(co_norm_sym,60) signed long-drift; C005 rank-diff
+  Skew(body_ratio,60) × amount_60; C006 TsRank(hl_norm_sym,60) P008-escape. ≥3 candidates
+  touch baseline-first untouched atom × moment × window combinations: hl_norm_sym
+  (H-L)/(H+L) is bounded scale-free, never admitted, and not a vol_20d direct proxy
+  (unlike H-L/Ref(close,1)); co_norm_sym (C-O)/(C+O) similarly novel. Hard targets:
+  ≥1 admit max_corr<0.40 (since b080 zero-admit-streak demands cleanest geometry)
+  + alpha_surv≥0.30 + ls_t≥2 + incr_ic≥0.015 + 9/9 sign consistency. Fail → consolidation_trigger=true
+  (rounds_since=8→9 next approaches 10 cap) + status productive→saturated transition
+  recommend.'
+active_threads_referenced:
+- T012
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T08:36:45Z'
+frozen_at: '2026-05-02T08:36:45Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Div(Sub($high,$low),Add(Add($high,$low),0.0001)),60)
+  canonical: Mean(Div(Sub($high,$low),Add(0.0001,Add($high,$low))),60)
+  rationale: 'T012 baseline-first: hl_norm_sym = (H-L)/(H+L) is bounded [0,1) scale-free
+    range ratio. Distinct from F021 RHS Mean(Div($high,$low),60) which is (H/L) —
+    different normalizer geometry. Symmetric H+L normalizer is NOT vol_20d direct
+    proxy (unlike H-L/Ref(close,1) atom — b063 C002 vol_20d=53 lesson). 60d Mean =
+    long-window range compression mean-reversion direction. Untouched atom × window
+    combination per field_coverage_latest audit. Standalone (no rank-diff) — first-pass
+    independent axis test.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Skew(Div(Abs(Sub($close,$open)),Add(Sub($high,$low),0.0001)),60)
+  canonical: Skew(Div(Abs(Sub($close,$open)),Add(0.0001,Sub($high,$low))),60)
+  rationale: 'T012 3rd-moment axis: Skew(body_ratio, 60). F019 admit was Std (2nd
+    moment) at 20d — Skew (3rd moment) at 60d is structurally separate axis. Skew
+    untouched on body_ratio per coverage matrix. Captures distributional asymmetry
+    of intraday body — positive skew = occasional large positive body bursts. Standalone
+    (no rank-diff) tests if higher-moment OHLC axis has independent cross-section
+    alpha without rank-diff scaffolding. Long window 60d minimizes within-window noise
+    of 3rd moment estimator. Body-ratio atom is sign-stripped abs() — F019/F020 lesson:
+    sign-preserved required when atom geometry depends on direction; here we test
+    3rd-moment of magnitude alone (skew naturally captures asymmetry without sign
+    info).'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Div(Sub($high,$low),Add(Add($high,$low),0.0001)),60)),CsRank(Mean($num_trades,60)))
+  canonical: Sub(CsRank(Mean(Div(Sub($high,$low),Add(0.0001,Add($high,$low))),60)),CsRank(Mean($num_trades,60)))
+  rationale: 'T012 rank-diff form of C001 LHS × num_trades_60 RHS. Tests if cross-section
+    rank-diff scaffolding (a la F019/F020/F021 admits) lifts standalone hl_norm_sym
+    60d signal. RHS num_trades_60 (microstructure count intensity) is fresh — distinct
+    from F021 RHS Mean(H/L,60) and F023 RHS amount_60. Per Rank-Diff 7-rule: (1) LHS
+    scale-free ✓ (2) RHS scale-free ✓ (3) raw field independent (hl vs num_trades)
+    ✓ (4) no same-field cross-window ✓ (5) LHS atom distinct from C001-C006 anchor
+    ✓ (6) RHS num_trades_60 NOT in dead-RHS endpoints (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20).'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Div(Sub($close,$open),Add(Add($close,$open),0.0001)),60)
+  canonical: Mean(Div(Sub($close,$open),Add(0.0001,Add($close,$open))),60)
+  rationale: 'T012 baseline-first: co_norm_sym = (C-O)/(C+O) signed body normalized
+    by C+O symmetric scale. Distinct from F019 abs body / range and F007 (O-L)/(H-L).
+    60d Mean tests sustained intraday close-vs-open drift over long horizon — if C>O
+    persistent for 60d, signal of upward order flow. Sign-preserved (F020 lesson).
+    Symmetric C+O normalizer minimizes sensitivity to absolute price level (cross-section
+    rank stable across price tiers). Standalone test of long-window OHLC mean-reversion
+    direction (cockpit hint: library mostly momentum/dispersion, mean-reversion candidate
+    sparse).'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Skew(Div(Abs(Sub($close,$open)),Add(Sub($high,$low),0.0001)),60)),CsRank(Mean($amount,60)))
+  canonical: Sub(CsRank(Skew(Div(Abs(Sub($close,$open)),Add(0.0001,Sub($high,$low))),60)),CsRank(Mean($amount,60)))
+  rationale: 'T012 3rd-moment × amount_60 rank-diff form of C002 LHS. Tests if higher-moment
+    OHLC × already-validated amount RHS (F023 also uses amount_60) composition lifts
+    the 3rd-moment standalone signal. F023 LHS is 20d body-product; C005 LHS is 60d
+    Skew of body_ratio — distinct atom geometry + 3× window + higher moment. Per Rank-Diff
+    7-rule: LHS scale-free ✓; RHS scale-free (amount is monetary but Mean(amount,60)
+    cross-section ranks across stocks) — risk flagged: amount_60 used by F023 so cluster
+    risk; mitigated by 60d Skew LHS being structurally distant from F023 20d Mean(gap×body).
+    Sign-stripped Skew is natural (asymmetry of magnitude distribution, sign meaningless).'
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Sub($high,$low),Add(Add($high,$low),0.0001)),60)
+  canonical: TsRank(Div(Sub($high,$low),Add(0.0001,Add($high,$low))),60)
+  rationale: 'P008 escape route: TsRank window≥60d on ratio fields is established
+    vol_20d-escape path (per cockpit hint). C006 = TsRank of hl_norm_sym at 60d =
+    each stock-day, where does today hl_norm_sym rank within its own past 60d distribution.
+    Time-series rank captures temporal mean-reversion: high TsRank = currently in
+    expanded-range phase relative to own history → expect range contraction → mean-reversion
+    of underlying return. Distinct from cross-section CsRank and from Mean (C001)
+    — temporal rank operator is separate axis. P008 constraint: short window (60d)
+    + single atom (hl_norm_sym) — both satisfied. Sign-stripped (TsRank naturally
+    direction-agnostic on already-positive ratio field). Untouched: TsRank not used
+    in any admitted ohlc_temporal_aggregation factor.'
