@@ -1,0 +1,122 @@
+batch_id: batch_080
+round: 80
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 'Round 80 zero_admit_streak=3, 6 closed threads (T012-T016) + T017 reserve.
+  Probe T011 (magnitude-weighted product) extension axis with FRESH atom geometries
+  not tried in 12 rounds: (a) overnight × volume-delta product (volume change as
+  weight, distinct from F023 gap×body); (b) overnight magnitude × turnover (level
+  product, distinct from F017 sign-magnitude rank-diff); (c) overnight × intraday
+  range product (range vs body distinct geometry); (d) signed-asymmetric joint
+  60d (overnight × Sign(intraday) — overnight magnitude survives, intraday only
+  contributes direction, 60d untried window); (e) acceleration: Mean_5 - Mean_20
+  short-vs-long overnight reversion premium; (f) overnight × turnover product
+  60d long-window. RHS uses 4 fresh fundamental TTM endpoints (peg_ratio_ttm /
+  dividend_yield_ttm / pcf_ratio_total_ttm / num_trades_60/120) NOT in dead RHS
+  list (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/circ_mktcap_60/H_L_60).
+  Hard targets: ≥1 admit alpha_surv≥0.30 (rank_diff floor) + max_corr<0.50 +
+  incr_ic≥0.015 borderline + ls_t≥2 + 9/9 sign_consistency. P019 data-contract
+  obeyed: no Corr cross-field with TTM (Corr-safe set only OHLCV+amount+num_trades).
+  Fail → escalate consolidation trigger ready (rounds_since=7 → 8 next).'
+active_threads_referenced:
+- T011
+- T017
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-02T08:00:00Z'
+frozen_at: '2026-05-02T08:00:00Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),Div(Sub($volume,Ref($volume,1)),Add(Ref($volume,1),1))),20)),CsRank(Mean($num_trades,60)))
+  canonical: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),Div(Sub($volume,Ref($volume,1)),Add(Ref($volume,1),1))),20)),CsRank(Mean($num_trades,60)))
+  rationale: 'T011 axis: overnight × volume_pct_change product 20d. RHS num_trades_60
+    is fresh microstructure intensity (count of trades, distinct from amount/turnover).
+    Volume delta is rate-of-change which is normally Forbidden but here weights
+    overnight gap (not standalone), so creates volume-confirmed overnight signal.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Abs(Div(Sub($open,Ref($close,1)),Ref($close,1))),$turnover_rate),20)),CsRank(Mean($pcf_ratio_total_ttm,60)))
+  canonical: Sub(CsRank(Mean(Mul(Abs(Div(Sub($open,Ref($close,1)),Ref($close,1))),$turnover_rate),20)),CsRank(Mean($pcf_ratio_total_ttm,60)))
+  rationale: 'T011 axis with absolute overnight magnitude × turnover intensity 20d.
+    Distinct from F017 (signed overnight × turnover via rank-diff geometry).
+    abs() drops direction, retains only magnitude — overnight volatility weighted
+    by liquidity. RHS pcf_ratio_total_ttm fresh fundamental (operating CF
+    valuation, distinct from PE/PB/PS/PEG).'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),Div(Sub($high,$low),Ref($close,1))),20)),CsRank(Mean($dividend_yield_ttm,60)))
+  canonical: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),Div(Sub($high,$low),Ref($close,1))),20)),CsRank(Mean($dividend_yield_ttm,60)))
+  rationale: 'T011 axis: overnight × intraday range (H-L) — distinct from F023
+    (overnight × body C-O). Range carries broader intraday volatility, body only
+    open-close excursion. Range usually >>|body|. Tests if range vs body weighting
+    geometry distinguishes. RHS dividend_yield_ttm fresh income basis (income
+    vs growth/value).'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),Sign(Sub($close,$open))),60)),CsRank(Mean($peg_ratio_ttm,60)))
+  canonical: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),Sign(Sub($close,$open))),60)),CsRank(Mean($peg_ratio_ttm,60)))
+  rationale: 'Asymmetric magnitude × sign 60d — overnight magnitude survives,
+    intraday only contributes ±1 direction. 60d untried (T011 b059 admit at 20d).
+    Distinct from F018 (Sign(overnight) only) + F023 (overnight × body magnitude).
+    LHS = signed overnight gap, sign tracking intraday direction. RHS peg_ratio_ttm
+    fresh growth-adjusted PE.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Sub(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5),Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),20))),CsRank(Mean($num_trades,120)))
+  canonical: Sub(CsRank(Sub(Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),5),Mean(Div(Sub($open,Ref($close,1)),Ref($close,1)),20))),CsRank(Mean($num_trades,120)))
+  rationale: 'Short-vs-long overnight reversion premium (Mean_5 - Mean_20 of
+    same field is INSIDE CsRank, not rank-diff cross-window — does not violate
+    constraint #3 which forbids Sub(CsRank(X_5),CsRank(X_20))). Distinct atom:
+    overnight acceleration/reversion. RHS num_trades_120 fresh long-window
+    microstructure intensity. Tests if cross-window overnight delta has independent
+    cross-section signal.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),$turnover_rate),60)),CsRank(Std($num_trades,60)))
+  canonical: Sub(CsRank(Mean(Mul(Div(Sub($open,Ref($close,1)),Ref($close,1)),$turnover_rate),60)),CsRank(Std($num_trades,60)))
+  rationale: 'T011 axis but 60d long window (b059 was 20d, b058 60d alpha_surv
+    fail). Tests if turnover-weighted overnight at 60d escapes vol_20d basis
+    that was previously locked. RHS Std(num_trades,60) fresh dispersion of trade
+    counts (distinct from level Mean of num_trades). Long horizon × dispersion
+    RHS combines two fresh axes.'
+notes: |
+  Hard constraints checked:
+  1. scale-invariant: all LHS dimensionless ratios or magnitude-products of
+     dimensionless ratios; all RHS Mean of fundamental ratios or microstructure
+     count.
+  2. raw field independence: LHS uses {open, close, high, low, volume, turnover_rate};
+     RHS uses {num_trades, pcf_ratio_total, dividend_yield, peg_ratio} — fully
+     disjoint per candidate.
+  3. no same-field cross-window in Sub(CsRank,CsRank) (C005 inner Sub is INSIDE
+     a single CsRank, so not violating).
+  4. Sub direction-dedup: A=LHS B=RHS distinct atoms.
+  5. same-batch LHS anchor: 6 candidates have 6 distinct LHS atoms (no shared
+     anchor).
+  6. RHS NOT in dead-RHS list: num_trades_60/120, pcf_ratio_total_ttm,
+     dividend_yield_ttm, peg_ratio_ttm, Std($num_trades,60) — all fresh
+     (verified against dead list overnight_5/turnover_5/amount_20/body_ratio_20/
+     price_vol_20/circ_mktcap_60/H_L_60).
+  7. anchor pre-check (F002/F012/F020/F022): C001-C006 LHS construction is
+     overnight-anchored, NOT close-position (F022) / NOT amihud (F012) /
+     NOT body_ratio_higher_moment (F020); RHS not amount/turnover-direct
+     (F002 PB/amount). Cluster risk medium with F018/F023 (overnight × X
+     family); incr_ic gate at borderline.
+
+  P019 data contract obeyed: no Corr cross-field, all Mul/Sub atoms.
+  P008 boundary obeyed: no TsRank≥60d on Cov/Corr inner.
+  P006 reducer trap mitigated: 6 candidates structurally distinct from F015-F023
+  (different atom/window/RHS combinations).
+
+  Note on $num_trades_60 RHS use: $num_trades is microstructure count, not in
+  dead-RHS list. Distinct from $turnover_rate (turnover_5 is dead). Distinct
+  from $amount (amount_20 dead, amount_60 = F023 RHS so used cautiously here
+  with different LHS).
+
+  Acknowledge: no novel single-atom axes — direction is genuinely nearing
+  saturation. T011 magnitude-weighted product is the only ANSWERED non-disproven
+  thread. If 0/6 admits, escalate to consolidation_trigger=true (rounds_since=7
+  approaching 10 cap) + status saturated transition recommend.
