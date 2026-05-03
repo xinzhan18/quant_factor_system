@@ -1,12 +1,32 @@
 ---
 direction_tag: overnight_intraday_split
-status: productive
+status: saturated
 priority: medium
-rounds: 14
+rounds: 16
 admits: 9
-last_batch: batch_080
+last_batch: batch_087
 last_admits: []
-last_goal: 'Round 80 zero_admit_streak=3, 6 closed threads (T012-T016) + T017 reserve.
+last_goal: 'Round 87 — overnight_intraday_split continue_direction (cockpit hint:
+  唯一 productive direction, alpha191 saturated). zero_admit_streak=4 (b066/b080 + 跨方向
+  b081-b086). T011 axis ANSWERED-saturated (b080); T012-T016 全 closed; 仅 T017 (Corr
+  volume × overnight_gap atom) reserve 火种 (b066 C005 alpha_surv=1.16 Barra cleanest
+  但 ls_t_oos=1.26 不投资). 本批 6 候选探索 P008 escape (TsRank window≥60d on ratio fields =
+  vol_20d-escape) 与 T017 axis 双路径: (a) T017 extension 20d→60d Corr 长窗 + RHS axis swap
+  (b066 C005 RHS=Std(volume,60) borderline F002 → 改 H-L_60 range RHS); (b) overnight/intraday
+  body ratio TsRank 60d standalone (microstructure-only ratio, P008 escape 候选); (c)
+  overnight signed-flow microstructure rank-diff (volume×ret/amount Inner ratio TsRank
+  60d × num_trades_60); (d) overnight magnitude TsRank 60d × num_trades_60 fresh RHS
+  (T011 axis 唯一未撞死 RHS); (e) Cov(overnight_gap, intraday_body, 20) microstructure
+  rank-diff × amount_120 fresh RHS (双 OHLCV-derived 操作数, P019 Corr-safe 双端); (f) TsRank
+  long-window ratio with $num_trades flow signal 镜像 — 测 P008 escape 是否 cross-direction
+  复现. 全候选避 F010/F018/F023 anchor cluster (b080 4-anchor cluster), 严守 P019 Corr-safe
+  数据契约 (双端均 ∈ OHLCV+amount+num_trades 集), 避 P016 cap-denominator, 避 P004/P021 Mul(overnight,
+  vol_proxy) wrapper 跨字段塌缩. 刻意 skip baseline-first (15 untouched fields 全为 TTM fundamental
+  字段, 与本 OHLC/microstructure direction 完全不相关). Hard targets: ≥1 admit alpha_surv≥0.30
+  (rank_diff floor) + max_corr<0.50 + incr_ic≥0.015 (borderline gate) + ls_t≥2 + sign_consistency=1.0.
+  Fail → 触 consolidation_trigger (rounds_since_consolidation=5+1=6 临近 10 阈值, zero_admit_streak=5
+  强证据 T017/P008 escape 双路径在本方向真饱和).'
+prev_goal: 'Round 80 zero_admit_streak=3, 6 closed threads (T012-T016) + T017 reserve.
   Probe T011 (magnitude-weighted product) extension axis with FRESH atom geometries
   not tried in 12 rounds: (a) overnight × volume-delta product (volume change as weight,
   distinct from F023 gap×body); (b) overnight magnitude × turnover (level product,
@@ -21,7 +41,7 @@ last_goal: 'Round 80 zero_admit_streak=3, 6 closed threads (T012-T016) + T017 re
   borderline + ls_t≥2 + 9/9 sign_consistency. P019 data-contract obeyed: no Corr cross-field
   with TTM (Corr-safe set only OHLCV+amount+num_trades). Fail → escalate consolidation
   trigger ready (rounds_since=7 → 8 next).'
-last_activity: '2026-05-02T08:28:57Z'
+last_activity: '2026-05-03T08:25:26Z'
 created_batch: batch_025
 members:
 - F009
@@ -144,7 +164,7 @@ merged_into: null
 
 ---
 
-### T011 · overnight×intraday joint magnitude/sign 共方向交互 [✓ ANSWERED batch_059]
+### T011 · overnight×intraday joint magnitude/sign 共方向交互 [✗ DISPROVEN batch_087]
 
 > [!success]+ Thread 结论：magnitude-weighted product 救活短窗 — sign-only 路径在 1d primary_horizon 下封闭
 >
@@ -165,6 +185,8 @@ merged_into: null
 > - [[batches/batch_080/candidates/C005|batch_080 C005]]　Sub_inside_CsRank: Sub(Mean(overnight,5),Mean(overnight,20)) × num_trades_120, ls_t=3.62 mono=1.0 + 9/9 年正 但 alpha_surv=0.143 critical + max_corr=0.56@F010 + incr_ic=-0.003 → **reject** (加速度 vol_20d 二阶载体, 与 b066 T015/T014 同律)
 >
 > **Key finding (b080 update)**: **T011 axis 6 fresh atom 全失败 (1 reserve borderline) — ANSWERED-saturated 升格**. magnitude-weighted product 在 csi1000 daily-bar cross-section 上仅 (overnight × intraday body 短窗 20d × amount_60 RHS) 一种几何 admitted (F023 b059), 其他 weighting field (volume_delta / abs() / intraday range / Sign(intraday) / 加速度 / turnover 60d) 均 vol_20d-locked 或 horizon-mismatch 或 4 anchor cluster 占据. 仅 60d turnover-weighted overnight (b080 C006) 全 metric 绿但 incr_ic=0.0098 距 F203 0.015 borderline gate ~33% 缺口 → reserve 火种. **核心律**: T011 axis 已结构性饱和.
+>
+> **Key finding (b087) — DISPROVEN-comprehensive (n=10+ atom)**: b087 4 fresh probes (C002 standalone TsRank ratio / C003 signed flow density rank-diff / C004 |overnight| Rank-60 rank-diff / C005 Cov(o,i,20)) 再 0/4 admit, 累计 b080+b087 ≥ 10 fresh atom 跨 form (magnitude / ratio / signed-flow / Cov / TsRank wrap / standalone) 全失败. T011 axis 真饱和升级到 DISPROVEN-comprehensive. **C005 新升格 lessons 候选**: csi1000 daily zero-mean stationary return-pair 下 `Cov(X,Y,N) ≈ Mean(X*Y,N) - Mean(X,N)*Mean(Y,N) ≈ Mean(X*Y,N)` (Mean(return) ≈ 0 让 cov 二阶项消失), F023 (Mean of product) admit 后所有 Cov(overnight, intraday, N) atom 自动 cross-section near_dup (本批 C005 实测 0.927 与 F023). 与 P024 In-batch denominator equivalence 同律, 应升格 Phase 1 generator AST 自检第 9 条.
 
 > **Key finding (b059)**: **magnitude weighting 是短窗 sign-product 失败的解药** — `(gap)*(body)` 直乘比 `Sign(gap)*Sign(body)` 频率在 csi1000 1d primary_horizon 下信噪比高 ~4×。原 "20d → 60d 长窗清洁 cross-section rank" 律 (b058 发现) 被 b059 C003 反例修正 — 长窗在跨 family RHS 下也未必脱 noise。**新升格 lessons 候选**: "sign-only product LHS 在 csi1000 1d evaluation 下 family-agnostic 不达标;magnitude-weighted product 在 20d 短窗即可 admit"。
 
@@ -293,6 +315,10 @@ merged_into: null
 > - 验证 lessons.md "Barra-clean ≠ library-clean" 律反向亦成立
 >
 > **下一步**: T017 仅 reserve 火种待 evaluation policy 调长 horizon (10d-20d C005 IC 显著上升 0.016-0.025 + ICIR 0.17-0.27) 或 F002/F012 anchor 退役后重测.
+>
+> - [[batches/batch_087/candidates/C001|batch_087 C001]]　Sub(CsRank(Corr($volume, overnight_gap, **60**)), CsRank(Mean($high-$low, 60))) — 长窗 + RHS axis swap. ic_oos=**0.032** (b066 C005 0.009 → b087 C001 0.032 显著强化) + icir_oos=0.224 + ls_t=1.77 (still <2) + mono_oos=**1.00 完美** + 9/9 年正 (0.006-0.033) + IC anti-decay (IS=0.014 → OOS=0.032) + horizon ladder 1d=0.032→20d=0.073 强长 horizon 真信号 + cum_ic_mdd=-2.77, **alpha_surv=0.20 < rank_diff floor 0.30 (vol_20d_exp=17.78 dominant) + max_corr=0.45@F019 borderline + incr_ic=0.011 < F203 borderline gate 0.015 缺口 25%** → **reserve** (T017 跨 batch 火种续命第 2 reserve)
+>
+> **Key finding (b087) — Corr atom 长窗 + RHS swap 兑现强信号但 alpha_surv 退化**: C001 ic_oos 较 b066 C005 强化 ~3.5×, ls_t 1.26→1.77 但 alpha_surv 1.16→0.20 大幅退化 — RHS 从 Std(volume,60) (vol-magnitude basis 自然减除) 换为 Mean(H-L,60) (cross-section vol_20d basis 重新嵌入). **机理**: Mean(H-L,N) 是 daily 振幅 cross-section level, 与 vol_20d basis 共线; Std(volume,60) 虽 vol-magnitude 但 cross-section 上是 secondary basis. **新发现**: T017 axis 的 RHS 选择决定 alpha_surv vs ls_t 的 trade-off — 不存在两端都满足的 RHS, 真正复活路径不是"换 RHS"而是 (a) Python OLS residualize on vol_20d (但 b071 此路径 OOS sign-flip 风险高); (b) evaluation policy 调长 horizon 评估 (本候选 20d IC=0.073 显著); (c) F019/F002/F012 anchor 退役.
 
 ---
 
@@ -327,6 +353,11 @@ merged_into: null
 | batch_066 | C003 | `Sub(CsRank(Skew(overnight_ret,20)),CsRank(Mean($pb_ratio,60)))` | T015 形状 moment — **不 P003-flip** (sign_consistency=1.0 + 9/9 年 7 positive) **但 P004 absorb** — alpha_surv=0.07 + ls_t=1.07 weak (str_1m=1.99 + vol_20d=5.77 双吞噬) |
 | batch_066 | C004 | `Sub(CsRank(Rank(Mean(overnight_ret,5),60)),CsRank(Mean($ps_ratio,60)))` | T016 Rank wrap — max_corr=**0.611@F010 borderline cluster** + incr_ic=**-0.005 negative reducer** + alpha_surv=0.03 critical — TsRank wrapper 不脱 F010 anchor cluster |
 | batch_066 | C006 | `Sub(CsRank(Kurt(overnight_ret,20)),CsRank(Mean($amount,120)))` | T015 mirror — Kurt 形状 moment — ls_t=**3.22 本批最强** + mono=1.0 + 9/9 年 8 positive + horizon anti-decay (1d=0.024→20d=0.079) **不 P003-flip** 但 alpha_surv=0.07 + max_corr=0.602@F012 borderline + incr_ic=+0.006<0.015 (F203 borderline gate) — **形状 moment cross-section rank 仍 vol_20d-locked** |
+| batch_087 | C002 | `TsRank(Div(Sub($open,Ref($close,1)),Add(Abs(Sub($close,$open)),0.0001)),60)` | P008 escape standalone — overnight gap / |intraday body| ratio TsRank 60d — ic_oos=0.0017<0.008 + max_corr=0.828@F003 (single overnight geometry overlap) — P008 escape 不能在 overnight family standalone 兑现, 必须配 rank-diff + 跨段 RHS basis |
+| batch_087 | C003 | `Sub(CsRank(Rank(Div(Mul($volume,Sub($close,Ref($close,1))),Add($amount,0.0001)),60)),CsRank(Mean($num_trades,60)))` | T017 cross-axis signed flow density — ic_oos=-0.0033<0.008 sub-threshold 反向 + max_corr=0.586@F012 borderline cluster (共享 amount denominator) — signed-flow 60d Rank wrap 不构成 cross-section 独立轴 |
+| batch_087 | C004 | `Sub(CsRank(Rank(Mean(Abs(Div(Sub($open,Ref($close,1)),Ref($close,1))),20),60)),CsRank(Mean($num_trades,60)))` | T011 axis fresh RHS — \|overnight_ret\| 20d Mean → Rank 60d rank-diff × num_trades_60 — sign_flip catastrophic (train -0.0002 / val +0.0032 翻号) + ic≈0 + decay=-14.78 — P008 escape 不能拯救 magnitude form, vol_20d 二阶载体律 b066 复现 |
+| batch_087 | C005 | `Sub(CsRank(Cov(Sub($open,Ref($close,1)),Sub($close,$open),20)),CsRank(Mean($amount,120)))` | hard_gate fail near_dup max_corr=**0.927@F023** — **Cov ≈ Mean of product 数学等价律新升格** (csi1000 daily zero-mean stationary return-pair 下 Cov(X,Y,N) ≈ Mean(X*Y,N), F023 已 admit 让所有 Cov(o,i,N) atom 必 near_dup) |
+| batch_087 | C006 | `TsRank(Div(Mul($num_trades,Abs(Sub($close,Ref($close,1)))),Add($amount,0.0001)),60)` | T017 P008 escape mirror — num_trades × \|Δret\| / amount TsRank 60d — train→val regime sign-flip catastrophic (train -0.0176 / val +0.0011) + decay=-0.06 + max_corr=**0.133@F022 库最 clean** 但 OOS dead — "库 clean ≠ tradable alpha" 反例 |
 
 ---
 
@@ -352,7 +383,20 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-05-02 · [[batches/batch_080/judge|batch_080]] · zero admit (1 reserve) · T011 ANSWERED-saturated + T011 axis exhaustion 升格律
+> [!quote]+ 2026-05-03 · [[batches/batch_087/judge|batch_087]] · zero admit (1 reserve) · T011 DISPROVEN-comprehensive + T017 火种续命 · status `productive → saturated`
+> **zero admit · T011 axis 4 fresh probes 再 0/4 admit 累计 ≥10 atom DISPROVEN-comprehensive + T017 Corr-60 长窗 RHS-swap 第 2 reserve 火种续命** · admit=0 / reserve=1 (C001) / reject=5 (C002/C003/C004/C005/C006)
+>
+> - **C001 T017 reserve 跨 batch 火种续命**: `Sub(CsRank(Corr($volume, overnight_gap_raw, 60)), CsRank(Mean(H-L, 60)))` — b066 C005 (Corr 20d × Std(volume,60) reserve, alpha_surv=1.16 但 ls_t=1.26<2 + IC 52% decay) 长窗 + RHS axis swap 兑现尝试. ic_oos=**0.032** 较 b066 强化 ~3.5× + ls_t=1.77 (still <2) + mono_oos=**1.00** + 9/9 年正 + IC anti-decay (IS=0.014 → OOS=0.032) + horizon ladder 1d→20d IC 0.032→0.073 长 horizon 真信号 + cum_ic_mdd=-2.77 浅, **alpha_surv=0.20 < rank_diff floor 0.30 (vol_20d_exp=17.78 dominant) + max_corr=0.45@F019 borderline + incr_ic=0.011 < F203 borderline gate 0.015 缺 25%** → **reserve** (4 项 risk flags 联立但 9/9 年同号 + horizon ladder + anti-decay 三好信号火种续命).
+> - **T017 axis RHS 选择 trade-off (新发现)**: b066 C005 RHS=Std(volume,60) (vol-magnitude basis 自然减除) → alpha_surv=1.16 但 ls_t=1.26<2; b087 C001 RHS=Mean(H-L,60) (cross-section vol_20d basis 重新嵌入) → ls_t=1.77 但 alpha_surv=0.20. **不存在两端都满足的 RHS** — T017 axis 复活路径不是"换 RHS"而是 (a) Python OLS residualize on vol_20d basis (但 b071 此路径 OOS sign-flip 风险); (b) evaluation policy 调长 horizon (本候选 20d IC=0.073 显著); (c) F019/F002/F012 anchor 退役.
+> - **T011 axis DISPROVEN-comprehensive (≥10 atom 跨 form 实证)**: b080 6 + b087 4 = 累计 ≥ 10 fresh atom 跨 magnitude / ratio / signed-flow / Cov / TsRank wrap / standalone 形式全失败. C002 (overnight/intraday body ratio TsRank-60 standalone) 撞 F003 0.828 max_corr; C003 (signed flow density Rank-60 rank-diff) 共享 amount denominator 撞 F012 0.586 cluster + 信号反向; C004 (|overnight| Rank-60 rank-diff) sign_flip + decay=-14.78 catastrophic; C005 (Cov(o,i,20)) 0.927 near_dup F023. T011 thread 状态升级 `[✓ ANSWERED batch_059] → [✗ DISPROVEN-comprehensive batch_087]`.
+> - **C005 Cov ≈ Mean of product 等价律新升格 lessons 候选**: csi1000 daily zero-mean stationary return-pair 下 `Cov(X,Y,N) = Mean(XY,N) - Mean(X,N)*Mean(Y,N) ≈ Mean(XY,N)` (Mean(daily return) ≈ 0 让 cov 二阶项消失). F023 (Mean of product) admit 让所有 Cov(overnight, intraday, N) atom 自动 cross-section near_dup (本批实测 0.927). 应升格 Phase 1 generator AST 自检第 9 条, 与 P024 In-batch denominator equivalence 同律.
+> - **C006 P008 escape "库 clean ≠ tradable alpha" 反例**: max_corr=**0.133@F022 库最 clean** + 库内 F012/F022/F024 三 cluster 全独立, 但 train→val regime sign-flip (train -0.0176 / val +0.0011) + decay=-0.06 catastrophic. 形态独立性不预测 OOS sign 稳定性, 与 b066 T014 形状 moment / b071 6/6 sign-flip 同律 (alpha_surv 顶级 PASS 但 OOS sign-flip).
+> - **Status `productive → saturated`**: 14 rounds 9 admits + 连续 3 round zero-admit (b066/b080/b087) + 5/6 thread closed + 仅 T017 reserve 火种 — saturated 触发条件 (连续 2+ batch reject > 80%, 已超 3 倍).
+> - **MT budget**: cumulative 480 → **486** · direction 51 → **57** · bucket `high` (search_adjusted=medium)
+>
+> **Operations**　direction `productive → saturated` (LLM 在 frontmatter status field 已翻 saturated) · `priority: medium` 保持 · T011 `[✓ ANSWERED batch_059] → [✗ DISPROVEN-comprehensive batch_087]` (累计 ≥10 fresh atom 跨 form 全失败) · T017 `[◉ ACTIVE]` 保持 (跨 batch 火种续命 b066→b087, 第 2 reserve) · zero_admit_streak 4→5 · 不触 calibration trigger (本批 reserve C001 不满足 over-rejection 4 条件: max_corr=0.45 不<0.30 + alpha_surv=0.20 不达 0.30 floor) · **触 consolidation_trigger 候选** (rounds_since_consolidation=5+1=6 临近 10 阈值, zero_admit_streak=5 + 多方向 saturated + lessons 升格累积 3 条: T011 comprehensive saturation + Cov ≈ Mean of product 等价律 + "库 clean ≠ tradable alpha" 又一反例) · Phase 4 archive 后 commit message: `[mine] batch_087 | overnight_intraday_split | admits=0 reserves=1 rejects=5`
+
+> [!quote]- 2026-05-02 · [[batches/batch_080/judge|batch_080]] · zero admit (1 reserve) · T011 ANSWERED-saturated + T011 axis exhaustion 升格律
 > **zero admit · T011 唯一未 disprove thread 6 fresh atom 全失败 + 1 reserve borderline** · admit=0 / reserve=1 (C006) / reject=5 (C001/C002/C003/C004/C005)
 >
 > - **T011 (magnitude-weighted product) ANSWERED-saturated 升格**: 6 fresh atom geometries 全部受阻. 历史 admit 路径仅 (overnight × intraday body 短窗 20d × amount_60 RHS) → F023 (b059); b066 Barra-clean reserve C005 (Corr atom); 本批 C006 60d turnover-weighted overnight reserve (ic_oos=0.0295 ls_t=4.06 mono=0.9 9/9 年正 cum_mdd=-1.37 浅 worst_q 永正 alpha_surv=0.61 PASS — 但 max_corr=0.56@F018 borderline + incr_ic=0.0098<0.015 F203 borderline gate + 4 anchor cluster F002 0.48 / F012 0.50 / F018 0.56 / F023 0.40). 其他 5 fresh weighting (volume_delta / abs() × turnover / intraday range / Sign(intraday) 60d / 短-长加速度 Sub_inside_CsRank) 全失败. **T011 axis 已结构性饱和**.
