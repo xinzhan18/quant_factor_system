@@ -1,0 +1,110 @@
+batch_id: batch_086
+round: 86
+direction: alpha191_universal_subset
+direction_md_ref: vault/directions/alpha191_universal_subset.md
+batch_goal: 'Round 2 续探 paper-vetted Alpha191 universal subset 三条路径: (a) 5×5 tail-sensitivity
+  子集 Alpha 022 (二阶 mean-reversion / change-in-BIAS) + Alpha 031 (BIAS-12 单窗 baseline)
+  + Alpha 006 cross-section sign-of-delta; (b) Alpha 073 nested PV corr 用 $amount/$volume
+  作 vwap proxy 的 P019-safe rank-spread 形式; (c) C005 Volume MACD ratio-form 复测 dim-less
+  化. 避免 ATR (alpha161 vol_20d 吞噬) + OBV (csi1000 sign 翻转). T005 round 2 推进.'
+active_threads_referenced:
+- T002
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-03T07:05:28Z'
+frozen_at: '2026-05-03T07:05:28Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: EMA(Sub(Div(Sub($close,Mean($close,6)),Mean($close,6)),Ref(Div(Sub($close,Mean($close,6)),Mean($close,6)),3)),12)
+  canonical: EMA(Sub(Div(Sub($close,Mean($close,6)),Mean($close,6)),Ref(Div(Sub($close,Mean($close,6)),Mean($close,6)),3)),12)
+  rationale: 'T005 path (a) — Alpha 022 (5x5 tail-sensitivity, paper t=3.41/4.29)
+    二阶 mean-reversion: BIAS-6 减去其 3-day-lagged 版本再 EMA-12 平滑. 机制层独立于 F027 multi_ma_reversion_4w
+    (4 窗算术平均) — F027 是 cross-window 复合, C001 是 within-window 时间差分 (change-in-BIAS
+    / acceleration-of-percent-deviation), 数学上不同几何. 与 F011 williams_r_variant 区别: F011
+    是 (close-low)/(high-low) intraday position, C001 是 (close-MA)/MA temporal mean-reversion.
+    与 [✗ DISPROVEN T002a OBV] 无机制重叠 (无 sign-aggregation). 与 batch_085 C006 [reject
+    BIAS-24 + TsRank60] 区别: C006 是单窗 + TsRank P008 escape 失败; C001 是 cross-time-difference
+    + EMA temporal smooth, 完全不同. P006 风险: 邻近 F027 max_corr 需观察 (同 mean-reversion family).
+    P019 安全: 仅用 $close, 无 cross-field Corr/Cov. P008 不适用: 非 ratio + TsRank 形式.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Mul(Sub(Div($close,Mean($close,12)),1),100)
+  canonical: Mul(100,Sub(Div($close,Mean($close,12)),1))
+  rationale: 'T005 path (a) — Alpha 031 BIAS-12 单窗 baseline 复测 (paper t=2.0+ 5x5 tail).
+    ''Div($close, Mean($close,12)) - 1'' 是经典 % deviation from MA-12 形式. 机制层最简 — 作为
+    C001 二阶 acceleration 形式的对照基准; 若 C001 admit 而 C002 reject, 证明二阶差分形式比单窗 % dev 更独立
+    (与 batch_085 C006 BIAS-24+TsRank60 reject 一致, 即单窗 BIAS 在 csi1000 已饱和). 若 C002
+    admit 则单窗 BIAS-12 在 12d 短窗仍有独立 alpha (区别于 b085 C006 24d 长窗 + TsRank60 escape 失败).
+    P006 风险: 与 F027 同 mean-reversion family, max_corr 警惕; 但窗口=12 与 F027 multi-MA(3,6,12,24)
+    含 12 项, 可能高重叠 — Phase 3 Verdict 关键是 incr_ic 与 alpha_surv. P019 安全: 仅 $close. 预期:
+    borderline reject 或 reserve.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mul(CsRank(Sign(Sub(Add(Mul($open,0.85),Mul($high,0.15)),Ref(Add(Mul($open,0.85),Mul($high,0.15)),4)))),-1)
+  canonical: Mul(-1,CsRank(Sign(Sub(Add(Mul($high,0.15),Mul($open,0.85)),Ref(Add(Mul($high,0.15),Mul($open,0.85)),4)))))
+  rationale: 'T005 path (a) — Alpha 006 (5x5 tail-sensitivity) 4日 weighted-price (0.85
+    OPEN + 0.15 HIGH) delta sign 的 cross-section rank, 取负号. 机制: 4日 weighted-price
+    短期方向变动的 cross-section rank-of-sign — ''rank of weighted-price short-trend direction
+    reversal'' (paper t=2.5+ 5x5). 库内邻接: F009 overnight_intraday_spread_5d 用 ($open
+    vs ref close), 但 F009 是 5日 overnight-intraday spread 加和, C003 是 4日 weighted-price
+    delta 的 sign 的 CsRank — 几何不同. 与 [✗ DISPROVEN asymmetric_momentum] 区别: 后者是 raw
+    acceleration (一阶 magnitude); C003 是 rank-of-sign-of-Δ4 (二值化 sign 后 rank), 符号信息保留但
+    magnitude discarded. 在散户主导小盘市场, weighted-price 短期 reversal sign 可能携带与 F010 overnight_return_persistence_5d
+    / F018 overnight_sign_freq 不同的''白天反转 vs 夜间持续''信号. 注意 batch_085 OBV [✗ DISPROVEN
+    T002a] 警示: csi1000 sign 翻转风险, 但 C003 是 cross-section rank-of-sign 而非 cumulative-signed-volume,
+    机制不同 — paper 把 *-1 包装作 ''reverse rank'' 显式预期 negative IC 方向. P019 安全: 仅 $open,
+    $high. P006 风险: 库内 weighted-price delta 与 short-MA-reversion 邻接 — alpha_surv 需观察.
+    预期: borderline.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount,$volume),60),TsRank(Mean($volume,30),60))
+  canonical: Sub(TsRank(Div($amount,$volume),60),TsRank(Mean($volume,30),60))
+  rationale: 'T005 path (b) — Alpha 073 nested PV corr 的 vwap proxy 重写, 同时融合 P008
+    escape 路径. Paper Alpha 073 用 Corr(VWAP, Mean(Volume,30), 16); $vwap 全零 — 改用 $amount/$volume
+    作 vwap proxy. 但 P019 数据契约: $amount/$volume 是 cross-field ratio, 与 OHLCV 的 start_index
+    一致 (都来自 daily_ohlcv 同源 sync) → 但 Corr(safe, unsafe) 仍存在风险, 故改写为 rank-spread (TsRank-60
+    of vwap_proxy MINUS TsRank-60 of volume_mean) 而非 Corr/Cov 形式. P008 frontier: 两端都是
+    ratio + TsRank-60, 且 ratio 是 microstructure-only ($amount, $volume 同源), 不是 cap-denominator
+    形式 (P016 警告). 与 vwap_proxy_signals direction (saturated) 区别: 该方向已饱和但本候选是 long-window
+    TsRank-60 of vwap-proxy (非 short Mean/Std), 且 paper-vetted 高强度先验. 与 F024 trade_density_tsrank_60
+    ($num_trades/$volume TsRank-60) 邻接 — F024 是 PairwiseRatio TsRank-60, C004 是 PairwiseRatio
+    TsRank-60 的 SPREAD 形式, 几何不同 (双 TsRank rank-spread vs 单 TsRank). P006 风险: F024
+    max_corr 需观察 (相同 microstructure family). P019 安全: 仅 PairwiseRatio + 单字段 TsRank,
+    无 Corr/Cov 跨字段. P008 应用: ratio + TsRank≥60d 标准 escape 形式. 预期: borderline reserve.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Div(Sub(Sub(EMA($volume,13),EMA($volume,27)),EMA(Sub(EMA($volume,13),EMA($volume,27)),10)),Mean($volume,27))
+  canonical: Div(Sub(Sub(EMA($volume,13),EMA($volume,27)),EMA(Sub(EMA($volume,13),EMA($volume,27)),10)),Mean($volume,27))
+  rationale: 'T002b path (c) — C005 Volume MACD ratio-form dim-less 化复测. batch_085
+    C005 reserve (alpha_surv=1.39 Barra 真独立, 但 mono_oos=-0.3 + incr_ic=-0.015) — Phase
+    3 判定为 reserve 火种, P008 软判定区. 改写: MACD_hist / Mean(volume, 27) 量纲归一化, 把 raw volume
+    MACD histogram 转成 dimensionless ratio. 假设: dim-less 化后 cross-section 比较更稳定, 减少
+    size-induced volume scale 的横截面干扰, 可能修正 mono_oos 弱单调问题 (-0.3 → ≥0.7 阈值). 与 b085
+    C005 区别仅在 ratio normalization (paper Alpha 155 原始公式无 ratio, 但 paper 在 SPX 月频 aggregated
+    自然 cross-section 归一化, 日频需手动). 与 [direction liquidity_acceleration saturated] 区别:
+    该方向是 short/long volume spread 简单形式, C005 是 MACD 配方 (含 EMA-of-EMA-of-spread 二阶
+    smooth) + ratio 归一化, 机制更复杂. P006 风险: F033 mean_turnover_5 / F034 amount_cv 邻接,
+    max_corr 需观察 (volume momentum family). P019 安全: 仅 $volume 单字段, 无 cross-field.
+    P008 不严格适用: 非 TsRank 形式但 EMA-13/27 长窗 + ratio 归一化属同精神. 预期: 改善 mono → admit 或继续
+    reserve.'
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Sub(Div($close,Mean($close,6)),Ref(Div($close,Mean($close,6)),3)),60)
+  canonical: TsRank(Sub(Div($close,Mean($close,6)),Ref(Div($close,Mean($close,6)),3)),60)
+  rationale: 'T005 path (a) 备用 — Alpha 022 二阶 mean-reversion 的 P008 escape 形式. C001
+    是 EMA-12 of (BIAS_6 - lag3(BIAS_6)) 直译; C006 替换为 TsRank-60 of (BIAS_6 - lag3(BIAS_6))
+    — 同样 二阶 change-in-BIAS 但用 TsRank-60 percentile 形式而非 EMA. P008 frontier: ratio
+    (BIAS_6 = close/MA6) + TsRank≥60d, 标准 escape 形式 (b082 F026 daily_close_position_tsrank_60
+    admit + b085 C006 BIAS-24 reject 的中间形态). 与 b085 C006 区别: 后者是 TsRank-60 of 单一 BIAS-24
+    (单窗 % dev), C006 是 TsRank-60 of 二阶 (BIAS_6 - lag3(BIAS_6)) 差分形式 — 增加 momentum-of-mean-reversion
+    这一层信息, 数学独立度更高. 与 C001 区别: C001 是 EMA-12 平滑 (低通); C006 是 TsRank-60 percentile
+    (rank transform). 两者机制不同, paper 的 SMEAN(...,12,1) 接近 EMA, 但 TsRank 形式更可能逃离 vol_20d
+    basis. P006 风险: F027 multi_ma_reversion_4w max_corr (同 mean-reversion family);
+    F026 daily_close_position_tsrank_60 max_corr (同 TsRank-60 形式). P019 安全: 仅 $close.
+    P008 应用: BIAS_6 ratio + TsRank-60 标准 escape 路径; 但内层是二阶差分形式, 比 b085 C006 单窗形式更可能成功.
+    预期: P008 escape borderline 测试.'
