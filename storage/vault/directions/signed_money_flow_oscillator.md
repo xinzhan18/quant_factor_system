@@ -1,24 +1,47 @@
 ---
 direction_tag: signed_money_flow_oscillator
-status: exploring
+status: dead
 priority: medium
-rounds: 0
+rounds: 2
 admits: 0
-last_batch: pending
+last_batch: batch_088
 last_admits: []
-last_goal: null
-last_activity: null
+last_goal: 'Round 88 — signed_money_flow_oscillator new_direction first batch (cockpit
+  hint: 切换 productive direction 全 saturated; 探测 paper-vetted 广发金工 42 signed money-flow
+  oscillator family). 库内 28 admit 全为 second-moment (Corr/Cov/Std/CV cluster F001/F008/F009)
+  或 first-moment magnitude (Mean of |X| F010/F012) 或 range-position (F006/F007/F021/F022/F026)
+  — first-moment signed × Vol 累积 family (Sum / EMA of signed_atom × Vol) 在库内零 admit,
+  是结构性新空间. 本批 6 候选覆盖三条 paper-vetted 子路径 + 关键 ablation: (a) Chaikin Oscillator EMA(AD,3)-EMA(AD,10)
+  signed close-position × Vol money-flow EMA 差 (paper |IC|=1.84%, 多空胜率 102 因子第 2 名);
+  (b) AD cumulative Sum 20d (Chaikin base, 同 atom 不同时间聚合); (c) PVT Sum N=20/60 signed_return
+  × Vol 累积 (paper N=6 |IC|=2.16%, csi1000 daily 改长窗); (d) Chaikin EMA(6)-EMA(20) 长窗
+  ablation; (e) PVT 60d rank-diff salvage (P008 frontier escape 路径预先尝试 — 若 raw PVT
+  落入 vol_20d 吸收, rank-diff + amount fresh RHS 可能 salvage). ASI(20/60) 4-branch IF
+  Wilder swing 在 daily DSL 不可达 (需 4-branch conditional + Max-driven scaling 必须 python_runner),
+  本批不入. 关键 hypothesis: H1 (family 真度) signed money-flow 累积几何不同于 F009 second-moment
+  correlation 与 F008 second-moment covariance, 期望 ≥1 候选 alpha_surv ≥0.40 + max_corr<0.50
+  incremental_ic≥0.010; H2 (Vol-dependent path) Chaikin/AD/PVT 全部依赖 Vol, 测 Vol-dependent
+  first-moment signed 是否被 F001 vol_20d 吸收律覆盖; H3 (vol_20d 吸收律 first-moment 例外) 若 raw
+  PVT/Chaikin/AD 6/6 dominant_style=vol_20d 全 reject → F001 升级为"任何 N-day 聚合 magnitude
+  形态 (含 first-moment signed) 全吞噬", 若 ≥1 first-moment signed alpha_surv >0.5 → F001
+  收紧为"second-moment 专属吞噬律". 全候选严守 P019 Corr-safe (Chaikin/AD/PVT 双端均 ∈ {$close, $open,
+  $high, $low, $volume, $amount}, 不用 Cov/Corr atom 故 cross-field bug 不适用), 避 P016
+  cap-denominator (无 market_cap), 避 P004 cross-product Mul 跨字段塌缩 (本候选 Mul 是 signed_atom
+  × Vol 同 atom-class 价量乘积, 与 b074 dead Mul cross-product 几何不同). Hard targets: ≥1 admit
+  alpha_surv≥0.40 + max_corr<0.50 + incr_ic≥0.010 + ls_t_oos≥2 + sign_consistency=1.0.
+  Fail (6/6 reject) → 升格 F001 lesson 边界 ("first-moment signed 累积也被 vol_20d 吞噬"), 直接
+  trigger consolidation_trigger (rounds_since_consolidation=7, 临近 10 阈值; zero_admit_streak=5).'
+last_activity: '2026-05-03T08:57:12Z'
 created_batch: batch_081
 members: []
 merged_into: null
 ---
-
 # signed_money_flow_oscillator
 
 > [!abstract]+ 方向概要
-> - **状态**　🔵 `exploring` · priority `medium` · rounds = 0 · admits = 0
-> - **最近**　未运行 · seeded from [[../papers/gf_42_technicalindicatoralpha|广发金工 42 — 海量技术指标掘金 Alpha 因子]]
-> - **一句话**　测试 **first-moment signed × Vol 累积/平滑**（Wilder ASI、Chaikin Oscillator、AD、PVT）在 csi1000 daily 上是否独立于库内 F009 pv_corr_times_vol 的 second-moment correlation 簇
+> - **状态**　⚫ `dead` · priority `medium` · rounds = 1 · admits = 0
+> - **最近**　batch_088 0/6 admit + 0/6 reserve — H1/H3 验证完毕, F001 vol_20d 律 first-moment 累积扩展实证
+> - **一句话**　测试 **first-moment signed × Vol 累积/平滑**（Wilder ASI、Chaikin Oscillator、AD、PVT）在 csi1000 daily 上是否独立于库内 F009 pv_corr_times_vol 的 second-moment correlation 簇 — **DISPROVEN**: Chaikin/AD/PVT (Vol-dependent 子路径) 4/4 落入 vol_20d 吸收律 + close-position cluster, 仅 ASI (OHLC-only Vol-independent) 因 daily DSL 不可达未测
 
 ---
 
@@ -127,7 +150,14 @@ lessons F001 / F301 vol_20d 吞噬律的所有验证案例都是 **second-moment
 
 ## Known Failures
 
-（暂无；首批 batch_081 待跑）
+| Batch | Candidate | Pattern | 原因 |
+|---|---|---|---|
+| batch_088 | C001 | `Sub(EMA(AD,3),EMA(AD,10))` Chaikin Oscillator paper 标准窗 | alpha_surv=1.35 (Barra-cleanest) + 9/9 年负 + sign_consistency=1.0 但 incr_ic=-0.007 NEG + max_corr=0.63@F026 (TsRank close-position 60d) — library_reducer hard_block (alpha_surv > 1.0 形式独立 ≠ library 充分条件 候选律 b086/b087/b088 第 3 次实证). paper csi500 weekly +信号 → csi1000 daily 反号 + 反向被库内 close-position cluster (F006/F008/F026) capture. |
+| batch_088 | C002 | `Sum(AD, 20)` AD-Sum-20 Chaikin base atom 累计 | max_corr=0.36 LOW (本批最干净) + alpha_surv=0.466 刚过 0.40 floor 但 mono_oos=-0.10 OOS quintile 结构破坏 + sign_consistency=0.75 + style_r²=0.27 接近 poor + incr_ic=-0.004 NEG — 4/5 borderline fail, 不满足 reserve fire 4 要件 (max_corr<0.30 + style_r² clean + sign_cons=1.0 + incr_ic borderline+). |
+| batch_088 | C003 | `Sum((C-prev_C)/prev_C × Vol, 20)` PVT(20) 短窗 | alpha_surv=0.11 << 0.40 floor (3.6x 缺口) + dom=vol_20d (exposure=7.4) — F001 vol_20d 律 first-moment 扩展实证 (律边界从"second-moment magnitude"扩展到"任何 N-day 累积形式 含 first-moment signed × Vol Sum"). |
+| batch_088 | C004 | `Sum((C-prev_C)/prev_C × Vol, 60)` PVT(60) 长窗 | alpha_surv=0.16 << 0.40 floor + dom=vol_20d + max_corr=0.35@F002 — 长窗未 salvage, F001 律 N=20/60 双窗实证一致. |
+| batch_088 | C005 | `Sub(EMA(AD,6),EMA(AD,20))` Chaikin Oscillator 长窗 | 与 C001 同律 — alpha_surv=1.57 整批最高 + 9/9 年负 + sign_consistency=1.0 但 incr_ic=-0.005 NEG + max_corr=0.61@F008 (upper_shadow_persistence_3d). C001 vs C005 窗口 ablation 同律: Chaikin EMA-差 family 整体 form-independent + library-overlapping. |
+| batch_088 | C006 | `Sub(CsRank(PVT_60),CsRank(Mean(amount,60)))` PVT 60d rank-diff salvage | hard_gate sign_flip catastrophic (train_ic=-0.0099 vs val_ic=+0.0111 翻号) — PVT raw 已被 vol_20d 吸收 (C003/C004 实证), rank-diff salvage 失败. lessons "rank-diff salvage 仅当 numerator 自身 alive" 律一致. |
 
 ---
 
@@ -155,15 +185,15 @@ lessons F001 / F301 vol_20d 吞噬律的所有验证案例都是 **second-moment
 - 🔴 [[vol_shock_signals]] `dead` — ATR / Mass / Ulcer / Hurst 同律 DEAD
 - 🟡 [[amount_volatility_signal]] `saturated` — VSTD / 成交金额方差 family 完整覆盖（paper VSTD(20) |IC|=3.02% 在库内已是 F004/F010 占位）
 - 🟡 [[liquidity_acceleration]] `saturated` — turnover acceleration family 已 reduced
-- 📖 [[../lessons#Structural Constraints]] — F001 / F301 vol_20d 吞噬律边界探针：本方向是 first-moment signed accumulation **从未被独立测试**的边界
-- 📖 [[../lessons#OHLC Family Defaults]] — F005 OHLC algebraic mirror（决定 CCI 是 BIAS reducer 不进首批）
-- 📖 [[../lessons#Forbidden Patterns]] — F300 rate-form failure（PVT/Chaikin 是 cumulative/EMA 形式，**不撞**该律）
+- 📖 [[lessons#Structural Constraints]] — F001 / F301 vol_20d 吞噬律边界探针：本方向是 first-moment signed accumulation **从未被独立测试**的边界
+- 📖 [[lessons#OHLC Family Defaults]] — F005 OHLC algebraic mirror（决定 CCI 是 BIAS reducer 不进首批）
+- 📖 [[lessons#Forbidden Patterns]] — F300 rate-form failure（PVT/Chaikin 是 cumulative/EMA 形式，**不撞**该律）
 
 ---
 
 ## Narrative Log
 
-> [!quote]+ 2026-05-02 · seeded from [[../papers/gf_42_technicalindicatoralpha|广发金工 42]]
+> [!quote]+ 2026-05-02 · seeded from [[papers/gf_42_technicalindicatoralpha|广发金工 42]]
 > Direction created from 102-indicator catalog paper intake. 经过库内 25 admitted 因子的"反向 join"——剩下未被覆盖的 high-|IC| / 高多空胜率指标集中在一个 family：**signed money-flow oscillator**。代表性候选：
 >
 > - ASI |IC|=2.71% 多空胜率 61.09% — Wilder 8-OHLC 摆动累积，**纯 OHLC 不含 Vol**
@@ -179,3 +209,33 @@ lessons F001 / F301 vol_20d 吞噬律的所有验证案例都是 **second-moment
 > **lessons F001 vol_20d 吞噬律的边界探针**: 所有已记录验证都是 second-moment / higher-moment（std/var/skew/kurt/quantile）；本方向 first-moment signed accumulation **从未被独立测试**——结果将决定是否升格 F001 为"包括 first-moment signed accumulation 在内的所有 N-day 聚合都吞噬"或收紧为"second-moment 专属吞噬律"。
 >
 > **Operations**　`status: exploring (new)` · `priority: medium`（paper 是 catalog 性 102 指标横扫，非 single-mechanism；csi1000 上 first-moment signed accumulation 在 vol_20d 边界探针上风险高，不开 high）· `created_batch: batch_081`
+
+> [!failure]+ 2026-05-03 · [[batches/batch_088/judge|batch_088]] — DISPROVEN, 方向翻 dead
+> **batch_088 verdict**: 0 admit / 0 reserve / 6 reject. H1/H3 验证完毕, F001 vol_20d 律 first-moment 累积扩展实证.
+>
+> **关键证据**:
+> - **C001 Chaikin(3,10)** alpha_surv=1.35 (Barra-cleanest) + 9/9 年负 + sign_consistency=1.0 + ls_t=-6.03 强 — **形式独立但 max_corr=0.63@F026 + incr_ic=-0.007 NEG → library_reducer hard_block**. paper |IC|=1.84% csi500 weekly → csi1000 daily ic_oos=-0.036 **反号**, 反向被库内 close-position cluster (F006/F008/F026) capture, 无独立 alpha.
+> - **C005 Chaikin(6,20)** 同律 — alpha_surv=1.57 + max_corr=0.61@F008 + incr_ic=-0.005 NEG. C001 vs C005 窗口 ablation 同律: Chaikin EMA-差 family 整体 form-independent + library-overlapping.
+> - **C002 AD-Sum-20** max_corr=0.36 LOW (整批最干净) + alpha_surv=0.466 刚过 0.40 floor — 但 mono_oos=-0.10 OOS quintile 结构破坏 + sign_consistency=0.75 + style_r²=0.27 poor + incr_ic=-0.004 NEG. **不满足 reserve fire 4 要件** (max_corr<0.30 + style_r² clean + sign_cons=1.0 + incr_ic borderline+).
+> - **C003 PVT(20) / C004 PVT(60)** alpha_surv 0.11 / 0.16 << 0.40 floor + dom=vol_20d → first-moment signed × Vol Sum 直接落入 vol_20d 吸收律. **F001 律 first-moment 扩展实证** — 律边界从 second-moment magnitude 扩展到任何 N-day 累积形式.
+> - **C006 PVT 60d rank-diff salvage** hard_gate sign_flip — PVT raw 已 dead, rank-diff wrap 失败, 与 lessons "rank-diff salvage 仅当 numerator 自身 alive" 律一致.
+>
+> **三 hypothesis 结论**:
+> - **H1 (family 真度)** PARTIAL-DISPROVEN: form-level Barra-residual 独立成立 (alpha_surv 1.35-1.57) 但 cross-section rank 与库内 close-position cluster 同构, 无独立 alpha.
+> - **H2 (Vol-dependent vs Vol-independent 子路径)** 仅 1 边证据: Chaikin/AD/PVT (Vol-dependent) 4/4 dead, ASI (Vol-independent OHLC-only) 因 daily DSL 不可达本批未测.
+> - **H3 (vol_20d 吸收律 first-moment 例外)** DISPROVEN: PVT N=20/60 双窗 alpha_surv 0.11/0.16 << 0.40 floor → first-moment signed × Vol N-day Sum 也被吸收. 律边界扩展到"任何 N-day 累积形式 (含 first-moment signed × Vol)".
+>
+> **Thread 状态**:
+> - T001 ASI: `[◉ DEFERRED → 不再测试]` — Vol-independent 子路径 python_runner 工程成本高 + 单一子路径不足以 sustain direction productive (其他 3 子路径已 dead).
+> - T002 Chaikin/AD: `[✗ DISPROVEN-form-independent-but-library-overlap]`
+> - T003 PVT: `[✗ DISPROVEN-vol_20d-absorbed-N=20-and-60]`
+> - T004 vol-orthogonalized Chaikin salvage: `[✗ DISPROVEN-precondition-not-met]` — Chaikin numerator 自身 OOS 与库重叠, vol-ortho salvage 前提不满足.
+>
+> **方向翻 dead 充分理由**: round 1 0/6 admit + 0/6 reserve + 4/4 子路径 (Chaikin/AD/PVT 长短窗 + rank-diff salvage) DISPROVEN + T004 salvage 前提不满足 + T001 ASI 边界探针风险高且工程成本高且即使 alive 不足以 sustain. 不再投入 batch_089.
+>
+> **方向产出三条 lessons 升格证据 (Phase 5 consolidation 处理)**:
+> 1. **F001 vol_20d 律 first-moment 扩展**: PVT(20)/PVT(60) C003/C004 alpha_surv 0.11/0.16 双窗实证, 律边界从"second-moment magnitude"扩展到"任何 N-day 累积形式 (含 first-moment signed × Vol Sum/EMA-差)".
+> 2. **alpha_surv > 1.0 形式独立 ≠ library 充分条件 候选律第 3 次实证 (b086/b087/b088)**: C001/C005 alpha_surv 1.35/1.57 + incr_ic NEG + max_corr 0.61-0.63. 应升格"alpha_survival > 1.0 必配 incremental_ic > 0 双门槛".
+> 3. **paper transferability 反号 + library overlap 双失败 (Chaikin 是新例)**: csi500 weekly multi-quantile +信号 → csi1000 daily 反号 + 反向被库内 close-position-only capture. lessons "Paper transferability" 段新增 close-position × Vol 反号律.
+>
+> **Operations**　`status: exploring → dead` · `rounds: 0 → 1` · `last_batch: batch_088` · `last_admits: []`

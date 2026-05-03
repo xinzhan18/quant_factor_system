@@ -1,0 +1,143 @@
+batch_id: batch_088
+round: 88
+direction: signed_money_flow_oscillator
+direction_md_ref: vault/directions/signed_money_flow_oscillator.md
+batch_goal: 'Round 88 — signed_money_flow_oscillator new_direction first batch (cockpit
+  hint: 切换 productive direction 全 saturated; 探测 paper-vetted 广发金工 42 signed money-flow
+  oscillator family). 库内 28 admit 全为 second-moment (Corr/Cov/Std/CV cluster F001/F008/F009)
+  或 first-moment magnitude (Mean of |X| F010/F012) 或 range-position (F006/F007/F021/F022/F026)
+  — first-moment signed × Vol 累积 family (Sum / EMA of signed_atom × Vol) 在库内零 admit,
+  是结构性新空间. 本批 6 候选覆盖三条 paper-vetted 子路径 + 关键 ablation: (a) Chaikin Oscillator EMA(AD,3)-EMA(AD,10)
+  signed close-position × Vol money-flow EMA 差 (paper |IC|=1.84%, 多空胜率 102 因子第 2 名);
+  (b) AD cumulative Sum 20d (Chaikin base, 同 atom 不同时间聚合); (c) PVT Sum N=20/60 signed_return
+  × Vol 累积 (paper N=6 |IC|=2.16%, csi1000 daily 改长窗); (d) Chaikin EMA(6)-EMA(20) 长窗
+  ablation; (e) PVT 60d rank-diff salvage (P008 frontier escape 路径预先尝试 — 若 raw PVT
+  落入 vol_20d 吸收, rank-diff + amount fresh RHS 可能 salvage). ASI(20/60) 4-branch IF
+  Wilder swing 在 daily DSL 不可达 (需 4-branch conditional + Max-driven scaling 必须 python_runner),
+  本批不入. 关键 hypothesis: H1 (family 真度) signed money-flow 累积几何不同于 F009 second-moment
+  correlation 与 F008 second-moment covariance, 期望 ≥1 候选 alpha_surv ≥0.40 + max_corr<0.50
+  incremental_ic≥0.010; H2 (Vol-dependent path) Chaikin/AD/PVT 全部依赖 Vol, 测 Vol-dependent
+  first-moment signed 是否被 F001 vol_20d 吸收律覆盖; H3 (vol_20d 吸收律 first-moment 例外) 若 raw
+  PVT/Chaikin/AD 6/6 dominant_style=vol_20d 全 reject → F001 升级为"任何 N-day 聚合 magnitude
+  形态 (含 first-moment signed) 全吞噬", 若 ≥1 first-moment signed alpha_surv >0.5 → F001
+  收紧为"second-moment 专属吞噬律". 全候选严守 P019 Corr-safe (Chaikin/AD/PVT 双端均 ∈ {$close, $open,
+  $high, $low, $volume, $amount}, 不用 Cov/Corr atom 故 cross-field bug 不适用), 避 P016
+  cap-denominator (无 market_cap), 避 P004 cross-product Mul 跨字段塌缩 (本候选 Mul 是 signed_atom
+  × Vol 同 atom-class 价量乘积, 与 b074 dead Mul cross-product 几何不同). Hard targets: ≥1 admit
+  alpha_surv≥0.40 + max_corr<0.50 + incr_ic≥0.010 + ls_t_oos≥2 + sign_consistency=1.0.
+  Fail (6/6 reject) → 升格 F001 lesson 边界 ("first-moment signed 累积也被 vol_20d 吞噬"), 直接
+  trigger consolidation_trigger (rounds_since_consolidation=7, 临近 10 阈值; zero_admit_streak=5).'
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-03T08:30:45Z'
+frozen_at: '2026-05-03T08:30:45Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(EMA(Mul($volume, Div(Sub(Sub(Mul($close, 2), $high), $low), Add(Sub($high,
+    $low), 0.0001))), 3), EMA(Mul($volume, Div(Sub(Sub(Mul($close, 2), $high), $low),
+    Add(Sub($high, $low), 0.0001))), 10))
+  canonical: Sub(EMA(Mul($volume,Div(Sub(Sub(Mul($close,2),$high),$low),Add(0.0001,Sub($high,$low)))),3),EMA(Mul($volume,Div(Sub(Sub(Mul($close,2),$high),$low),Add(0.0001,Sub($high,$low)))),10))
+  rationale: 'T002 main — Chaikin Oscillator EMA(AD,3) − EMA(AD,10). AD = $volume
+    × (2C-H-L)/(H-L) = signed close-position-in-range × volume. close-position 项 (2C-H-L)/(H-L)
+    在 close=H 时 = +1 (强收盘), close=L 时 = -1 (弱收盘), close=midpoint 时 = 0. 乘 $volume
+    后是 signed money flow (volume×close_strength). EMA(.,3)−EMA(.,10) = 短期 - 长期 money-flow
+    EMA = "money flow momentum/divergence". 广发金工 42 paper: csi500 weekly |IC|=1.84%
+    多空胜率 62.12% 102 因子第 2 名. epsilon=0.0001 防 doji (H=L) 灾难. 与库内 28 admit 关键 distinct:
+    (1) F009 overnight_intraday_spread_5d = Mean(Sub(overnight_ret, intraday_ret),5)
+    — 跨段 first-moment 不含 Vol; (2) F008 upper_shadow_persistence_3d = Mean of (H-C)/(H-L)
+    — 单段 close-position 不含 Vol; (3) F018 overnight_sign_freq_amount_rd = Sub(CsRank(Mean(Sign(.),
+    20)), CsRank(Mean($amount,20))) — sign 离散化 + rank-diff 不是 EMA 累积; (4) 本候选独有几何
+    = signed close-position (连续 [-1,+1]) × Vol → 短长 EMA 差. 全库零 EMA-money-flow-EMA-差
+    几何先例. P019 safe: 双端均 OHLCV-only ($close/$high/$low/$volume), 不用 Corr/Cov atom
+    跨字段 bug 不适用. P016 safe: 无 market_cap. P004 safe: Mul 是同 atom-class 价量乘积 (Vol ×
+    signed_close_pos), 不是 cross-product Mul 跨字段塌缩 (b074 dead 形态). 设计假设: 强收盘日(close=H)+
+    高 Vol 短期 EMA > 长期 EMA → 资金净流入加速; 弱收盘日 + 高 Vol 短期 < 长期 → 资金净流出. csi1000 daily 横截面
+    H1 验证 first-moment signed × Vol family 真度.'
+- candidate_id: C002
+  source_type: dsl
+  expression: Sum(Mul($volume, Div(Sub(Sub(Mul($close, 2), $high), $low), Add(Sub($high,
+    $low), 0.0001))), 20)
+  canonical: Sum(Mul($volume,Div(Sub(Sub(Mul($close,2),$high),$low),Add(0.0001,Sub($high,$low)))),20)
+  rationale: 'T002 ablation — AD (Accumulation/Distribution) 20d cumulative Sum. 同
+    C001 Chaikin base atom, 但 Sum 累加 (无 EMA 差). 数学几何: Sum(20d signed_close_pos × Vol)
+    = 20 日累积资金净流入. paper N=6 |IC|=1.2-1.4% 多空胜率 60.58%, 本候选 N=20 测 csi1000 daily 中长窗稳健性.
+    C001 vs C002 关键差异: C001 是"加速度"(EMA 差) C002 是"位置"(累计水平); C001/C002 同 admit → AD
+    base atom 是真信号; 仅 C001 admit / C002 reject → "signed money flow momentum" 是真维度
+    (level 被 vol_20d 吸收 但 derivative 逃了); 仅 C002 admit / C001 reject → AD level 是真信号
+    (EMA 差 over-smoothed); 两者同 reject → AD base atom 假, 走 lessons F001 升格. 与 F010
+    overnight_return_persistence_5d (Mean signed_return,5) 关键 distinct: F010 是 signed_return
+    Mean, 本候选是 signed_close_pos × Vol Sum (multiply 而非 average, 含 Vol). 与 F013 log_amount_weighted_acceptance_20
+    (Mean(Sign×Sign×log(amount), 20)) 关键 distinct: F013 是 sign×sign×log(amount) 全
+    sign 离散化, 本候选连续 close_pos × Vol 不离散. P019/P016/P004 safety 同 C001. 乱射防火墙: 本候选不是
+    Cov/Corr (P019 long-window 真饱和律不适用), 不是 magnitude Std/CV (F001 vol_20d 律不直接适用),
+    是 first-moment signed × Vol Sum 累积全新 atom 类.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sum(Mul(Div(Sub($close, Ref($close, 1)), Ref($close, 1)), $volume),
+    20)
+  canonical: Sum(Mul($volume,Div(Sub($close,Ref($close,1)),Ref($close,1))),20)
+  rationale: 'T003 main — PVT (Price-Volume Trend) 20d cumulative. Inner = (close
+    - prev_close) / prev_close × volume = signed daily return × volume. Sum 20d 累积.
+    广发金工 42 paper N=6 |IC|=2.16% 多空胜率 56.66%, csi1000 daily 改 N=20 中窗. 与 F008 upper_shadow_persistence_3d
+    关键 distinct: F008 单段 (H-C)/(H-L) Mean, 无 Vol, 不含 signed_return; 与 F011 overnight_return_persistence_3d
+    关键 distinct: F011 = Mean of (O - prev_C)/prev_C, 跨段 overnight 不含 Vol; 与 F012 amihud_illiq_20d
+    关键 distinct: F012 = Mean(|Δret|/amount), 是 magnitude / 流动性 比, 本候选是 signed_return
+    × Vol 乘积 Sum 累积. 与 F009 (overnight - intraday spread Mean,5) distinct: 单一 daily_return
+    × Vol 不分段 + Sum 累积 vs Sub(Mean,Mean) average difference. H3 关键测试: signed return
+    × Vol 是 first-moment 累积 (非 magnitude squared / std), 若被 vol_20d 吸收 → F001 升级为"任何
+    N-day 聚合都吞噬"; 若 alpha_surv ≥0.5 → F001 收紧为"second-moment 专属吞噬律". 设计假设: 涨日高量 +
+    跌日低量 stocks 持续 PVT 上升 → cross-section rank 持续上行; 反之 PVT 下降. P019/P016/P004 safety:
+    双端 OHLCV-only, 无 cap, Mul 是同 atom-class signed_return × Vol 价量乘积.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sum(Mul(Div(Sub($close, Ref($close, 1)), Ref($close, 1)), $volume),
+    60)
+  canonical: Sum(Mul($volume,Div(Sub($close,Ref($close,1)),Ref($close,1))),60)
+  rationale: 'T003 窗口对照 — PVT 60d 长窗. 与 C003 同 atom, N=20 → N=60. 关键测试: PVT level
+    累积长度 sweet spot. C003 vs C004 关键差异: C003 短窗 (20d ~ 一个月) C004 长窗 (60d ~ 一季度); 信噪比与时间尺度对照.
+    若 C003 admit / C004 reject → PVT 短窗 momentum 性质强; 若 C004 admit / C003 reject →
+    长期 net signed flow level 是真信号; 两者同 admit → PVT family 整体真度高; 两者同 reject → signed
+    return × Vol 累积假. 60d 是 anchor-period 值 (Qlib 标准长窗常数), 与 F024/F025/F026 admit
+    集 TsRank60 同长度对照. 注意: 60d 长窗 + Sum 累加是"水平变量"(累积 60 日净流入), 与 b079 Cov(.,.,N≥60d)
+    dead 形态关键 distinct (Cov 是去均值协动 vs Sum 是直接累加), Cov/Corr 长窗 vol_20d 真饱和律不直接适用. P019/P016/P004
+    safety 同 C003.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(EMA(Mul($volume, Div(Sub(Sub(Mul($close, 2), $high), $low), Add(Sub($high,
+    $low), 0.0001))), 6), EMA(Mul($volume, Div(Sub(Sub(Mul($close, 2), $high), $low),
+    Add(Sub($high, $low), 0.0001))), 20))
+  canonical: Sub(EMA(Mul($volume,Div(Sub(Sub(Mul($close,2),$high),$low),Add(0.0001,Sub($high,$low)))),6),EMA(Mul($volume,Div(Sub(Sub(Mul($close,2),$high),$low),Add(0.0001,Sub($high,$low)))),20))
+  rationale: 'T002 长窗 ablation — Chaikin Oscillator EMA(AD,6) − EMA(AD,20) 双倍长窗 版本.
+    C001 (3,10) 是 paper 标准窗口, C005 (6,20) 是 csi1000 daily 适配版 (长窗 平滑去除日内噪声). 关键测试:
+    Chaikin 短窗(C001) vs 长窗(C005) 哪个适合 csi1000. C001 vs C005 关键差异: 仅 EMA 窗长不同, 同一 EMA-差几何;
+    C001 admit C005 reject → 短窗 (3,10) momentum 是 sweet spot; C005 admit C001 reject
+    → 长窗 (6,20) 平滑 去噪后真信号现; 两者同 admit + max_corr 之间高 → Chaikin EMA-差 family 整体稳健,
+    后续 batch 089 测窗口曲线 sweet spot 寻找; 两者同 reject → Chaikin EMA-差 family 在 csi1000
+    daily 真饱和. P019/P016/P004 safety 同 C001. 乱射防火墙: EMA 是 built-in Qlib op (whitelist
+    内), 不会触发 custom-op parser bug (P019 LHS bug 仅 CsRank-of-custom-op).'
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Sum(Mul(Div(Sub($close, Ref($close, 1)), Ref($close, 1)),
+    $volume), 60)), CsRank(Mean($amount, 60)))
+  canonical: Sub(CsRank(Sum(Mul($volume,Div(Sub($close,Ref($close,1)),Ref($close,1))),60)),CsRank(Mean($amount,60)))
+  rationale: 'T003 P008 escape salvage — PVT 60d rank-diff vs amount_60 RHS. 若 C003/C004
+    raw PVT 因 vol_20d 吸收 reject → 本候选 rank-diff + fresh RHS 可能 salvage 信号, 给 PVT family
+    一个 P008 frontier escape 试错点. LHS = PVT 60d Sum (C004 same), 外裹 CsRank cross-section
+    时序量纲化, RHS = Mean($amount, 60) cross-section rank. 几何意义: "PVT 累积排名 - 资金水平排名" 横截面,
+    类似 F015/F016/F017/F018 rank-diff 七律的成功几何. 与 F018 overnight_sign_freq_amount_rd_20
+    关键 distinct: F018 sign 离散化 + 20d, 本候选 signed_return×Vol 连续 + 60d. 与 F023 gap_body_magnitude_amount_rd_20
+    关键 distinct: F023 LHS 是 cross-product Mul 跨段 magnitude, 本候选 LHS 是 signed_return
+    × Vol Sum 累积. RHS = Mean($amount,60) 是 dead RHS list (overnight_5/turnover_5/amount_20)
+    外的 60d 长窗 amount level — F002 admitted (Mean(amount,20)) 但 60d level 几何 distinct
+    (60d 累积更长 attention horizon). 注意 P006 library_reducer 风险: 若 max_corr@F018/F023
+    > 0.5 + incr_ic ≤0 → reject (七律). 设计假设: rank-diff + 长窗双重缓冲让 PVT 形式独立性具象化为 alpha
+    独立性. P019/P016/P004 safety: LHS PVT atom OHLCV-only safe, RHS amount_60 single-field
+    不涉 Corr atom.'
