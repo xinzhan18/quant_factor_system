@@ -1,6 +1,6 @@
-# Field × Atom Coverage Audit — 2026-05-03T07:42:13Z
+# Field × Atom Coverage Audit — 2026-05-03T07:00:32Z
 
-**Whitelist size**: 34 fields · **Atom families tracked**: 9 · **Candidates scanned**: 458 across 79 batches
+**Whitelist size**: 34 fields · **Atom families tracked**: 9 · **Candidates scanned**: 452 across 78 batches
 
 ## 1. Untouched fields (zero atom coverage)
 
@@ -64,10 +64,10 @@
 | `$high` | · | · | 12 | · | · | · | · | 9 | 1 | 22 |
 | `$pe_ratio` | 6 | · | 10 | 1 | · | · | · | 3 | 2 | 22 |
 | `$num_trades` | 1 | · | 5 | 1 | · | · | · | 14 | 4 | 25 |
-| `$close` | · | 2 | 10 | 11 | · | · | 3 | 5 | 3 | 34 |
-| `$volume` | · | · | 11 | 2 | · | · | · | 34 | 3 | 50 |
+| `$close` | · | 2 | 7 | 11 | · | · | 2 | 5 | 3 | 30 |
+| `$volume` | · | · | 9 | 2 | · | · | · | 33 | 3 | 47 |
 | `$turnover_rate` | 3 | · | 35 | 10 | · | · | · | 3 | 2 | 53 |
-| `$amount` | · | · | 48 | 14 | 2 | · | · | 37 | 3 | 104 |
+| `$amount` | · | · | 48 | 14 | 2 | · | · | 36 | 3 | 103 |
 
 ## 4. Recommended baseline candidates
 

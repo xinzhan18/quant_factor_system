@@ -1,0 +1,137 @@
+batch_id: batch_087
+round: 87
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: 'Round 87 — overnight_intraday_split continue_direction (cockpit hint:
+  唯一 productive direction, alpha191 saturated). zero_admit_streak=4 (b066/b080
+  + 跨方向 b081-b086). T011 axis ANSWERED-saturated (b080); T012-T016 全 closed;
+  仅 T017 (Corr volume × overnight_gap atom) reserve 火种 (b066 C005 alpha_surv=1.16
+  Barra cleanest 但 ls_t_oos=1.26 不投资). 本批 6 候选探索 P008 escape (TsRank window≥60d
+  on ratio fields = vol_20d-escape) 与 T017 axis 双路径: (a) T017 extension
+  20d→60d Corr 长窗 + RHS axis swap (b066 C005 RHS=Std(volume,60) borderline F002
+  → 改 H-L_60 range RHS); (b) overnight/intraday body ratio TsRank 60d standalone
+  (microstructure-only ratio, P008 escape 候选); (c) overnight signed-flow microstructure
+  rank-diff (volume×ret/amount Inner ratio TsRank 60d × num_trades_60); (d) overnight
+  magnitude TsRank 60d × num_trades_60 fresh RHS (T011 axis 唯一未撞死 RHS);
+  (e) Cov(overnight_gap, intraday_body, 20) microstructure rank-diff × amount_120 fresh
+  RHS (双 OHLCV-derived 操作数, P019 Corr-safe 双端); (f) TsRank long-window ratio
+  with $num_trades flow signal 镜像 — 测 P008 escape 是否 cross-direction 复现.
+  全候选避 F010/F018/F023 anchor cluster (b080 4-anchor cluster), 严守 P019
+  Corr-safe 数据契约 (双端均 ∈ OHLCV+amount+num_trades 集), 避 P016 cap-denominator,
+  避 P004/P021 Mul(overnight, vol_proxy) wrapper 跨字段塌缩. 刻意 skip baseline-first
+  (15 untouched fields 全为 TTM fundamental 字段, 与本 OHLC/microstructure
+  direction 完全不相关). Hard targets: ≥1 admit alpha_surv≥0.30 (rank_diff floor)
+  + max_corr<0.50 + incr_ic≥0.015 (borderline gate) + ls_t≥2 + sign_consistency=1.0.
+  Fail → 触 consolidation_trigger (rounds_since_consolidation=5+1=6 临近 10 阈值,
+  zero_admit_streak=5 强证据 T017/P008 escape 双路径在本方向真饱和).'
+active_threads_referenced:
+- T017
+- T011
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Corr($volume, Sub($open, Ref($close, 1)), 60)), CsRank(Mean(Sub($high, $low), 60)))
+  rationale: 'T017 extension — b066 C005 (Corr($volume, overnight_gap, 20) × Std(volume,60))
+    20d → 60d 长窗 + RHS axis swap. b066 C005 reserve metrics: alpha_surv=1.16 库内首
+    Barra-cleanest + sign_consistency=1.0 + mono=1.0/1.0 完美 + 9/9 年正 但 ls_t_oos=1.26<2
+    + IC decay 0.019→0.009 (52%) + max_corr=0.461@F002. 本候选两点修改: (1) Corr 窗
+    20d→60d 让 Corr 时序 estimator 更稳 (b066 reserve 关键阻碍是 IC 52% decay),
+    长窗降 covariance estimator 噪声; (2) RHS 从 Std(volume,60) borderline F002 换为
+    Mean(H-L,60) range — H/L OHLCV-only Corr-safe 字段, 避 F002 cluster, range_60
+    虽 b080 dead RHS list 但仅指 H/L_60_geo 几何, Mean 形式仍 fresh. Corr 内部 $volume +
+    Sub($open, Ref($close,1)) (overnight_gap_raw, 由 OHLCV 构造) 双端均 OHLCV-only
+    P019 Corr-safe. 几何 distinct: F018 sign-freq aggregation (Sub(Mean,N) Sign-discretized);
+    F023 magnitude product Sub(Mean,(o)*(i),20); F017 overnight × turnover sign rank-diff —
+    本候选 Corr atom 时序 covariance 与三者均不同 atom 类. Adjacency check: 不撞 b075/b079
+    Cov dead family (本候选双端 Corr-safe), 不撞 b066 C005 (改 RHS+长窗), 不撞 P016
+    cap-denominator (无 cap 字段).'
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div(Sub($open, Ref($close, 1)), Add(Abs(Sub($close, $open)), 0.0001)), 60)
+  rationale: 'P008 escape standalone — overnight gap / intraday body ratio TsRank 60d.
+    Numerator = (O - prev_C) overnight gap raw; Denominator = |C-O| intraday body abs +
+    epsilon (防零分母). 这是 dim-less microstructure-only ratio (overnight magnitude /
+    intraday magnitude 比值), 满足 P008 escape 条件 (ratio field + TsRank≥60d + 两端
+    OHLCV-only). 与库内最近相关 admits: F010 overnight persistence 5d (Mean of ratio
+    形式不同), F009 overnight-intraday spread (Sub 而非 Div), F022/F023 (close-position
+    / magnitude product 不同 atom). 几何 distinct from F024 (num_trades/volume) +
+    F025 (shadow asymmetry midpoint) — 本候选 numerator/denominator 跨段 (overnight vs
+    intraday) 而非同段微观 ratio. 设计假设: stocks where overnight magnitude consistently
+    > intraday magnitude (机构主导 overnight) vs reverse (散户主导 intraday) cross-section
+    rank 在 60d window 持续可识别. 注意 epsilon 0.0001 防 doji body=0 灾难. Adjacency
+    check: 不撞 T011 magnitude product (Mul vs Div 几何不同), 不撞 T012 close-position
+    (单段 OHLC 内部 vs 跨段 ratio); P008 escape frontier 在 overnight family 首次
+    standalone 探索.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Rank(Div(Mul($volume, Sub($close, Ref($close, 1))), Add($amount, 0.0001)), 60)), CsRank(Mean($num_trades, 60)))
+  rationale: 'T017 cross-axis with Rank rolling escape — overnight signed-flow density
+    rank-diff. LHS inner = volume × daily_return / amount = signed flow density (买卖
+    资金净流入方向 + magnitude 综合, OHLCV-only Corr-safe). Rank 60d wrap = TsRank 同义
+    (Qlib built-in rolling rank, class name "Rank"; 用 Rank 而非 TsRank 是工艺规避
+    "CsRank(custom_op)" Qlib parser 类名映射 bug — TsRankOp class 名让 parser
+    在 cross-section cache rebuild 时 NameError; Rank 是 built-in 类名 "Rank" 无 Op
+    后缀). 实质等同 P008 escape (rolling rank wrap 时序量纲化). RHS = Mean(num_trades,60)
+    与 dead RHS list (overnight_5/turnover_5/amount_20/body_ratio_20/price_vol_20/
+    circ_mktcap_60/H_L_60) 无重叠; num_trades 是新 microstructure dimension. 几何
+    distinct from F018 sign-freq (本候选保留 daily return magnitude 不离散化),
+    F023 magnitude product (本候选用 volume×return 价量 cross 而非 overnight×intraday),
+    F015/F016 amihud rank-diff (本候选 inner ratio 是 signed flow 而非 abs return/amount).
+    设计假设: signed-flow 60d rolling rank 时序量纲化逃 vol_20d (P008 frontier-equivalent),
+    配 num_trades fresh RHS 形成 rank-diff 几何独立轴. Adjacency check: 不撞 F012 amihud
+    (本候选 numerator 保留方向, denominator 同 amount), 不撞 b074 C006 (cross-product
+    Mul wrapper 不存在, 本候选是 ratio + rank-diff 几何), 不撞 P016 (无 cap 字段).'
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Rank(Mean(Abs(Div(Sub($open, Ref($close, 1)), Ref($close, 1))), 20), 60)), CsRank(Mean($num_trades, 60)))
+  rationale: 'T011 axis fresh RHS — overnight magnitude Rank-60 long-window rank-diff
+    × num_trades_60. LHS = |overnight_ret| 20d Mean magnitude → Rank 60d (P008 escape
+    via Qlib built-in Rank op; 实质同 TsRank 60d, 选 Rank 规避 CsRank-of-custom-op
+    parser bug). 关键差异 vs F010 (overnight Mean,5): (1) 取绝对值变 magnitude 不携
+    方向; (2) Mean→Rank 60d 时序量纲化逃 vol_20d cross-section basis; (3) 长窗
+    (20d→60d wrap) 让 magnitude 平滑. RHS = Mean(num_trades,60) 在 dead RHS list
+    之外 + 与 LHS 几何独立 (institutional attention measure vs overnight magnitude).
+    T011 axis 6 fresh atom (b080) 全失败, 本候选与 b080 全部 6 候选关键 distinct:
+    (a) b080 用 magnitude product (Mul) 本候选用 rank-diff (Sub); (b) b080 LHS Mean
+    没有 Rank wrap 本候选有 P008 escape; (c) b080 RHS 多用 cap-related (peg/dividend/pcf)
+    本候选用 num_trades. Adjacency check: 不撞 F010 (单一 raw Mean), 不撞 F018 (sign
+    离散化 vs magnitude), 不撞 F023 (magnitude product 跨段). P008 escape 第二次
+    cross-direction 验证.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Cov(Sub($open, Ref($close, 1)), Sub($close, $open), 20)), CsRank(Mean($amount, 120)))
+  rationale: 'overnight × intraday Cov microstructure-only rank-diff — 双端 OHLCV-only
+    Corr-safe Cov atom. Cov 内: A = overnight_gap_raw (O - prev_C) + B = intraday_body_raw
+    (C - O), 20d window. 与 b075/b079 dead Cov family 关键 distinct: (a) b075
+    Cov 涉及 cross-field unsafe (turnover/cap), 本候选双端 OHLCV-only P019 Corr-safe;
+    (b) b079 Cov 长窗 60-120d, 本候选短窗 20d 避 long-window noise-bound; (c) b075/b079
+    RHS 多 cap-denominator, 本候选 RHS = Mean($amount, 120) 长窗 amount level 与 dead
+    RHS list (Mean(amount,20/60)) distinct. 几何意义: overnight 与 intraday 的 within-name
+    时序 covariance 度量"隔夜信号 vs 日内信号"是否同步. Cov(o,i) 跨段 covariance 与
+    F009 spread 几何 distinct (Sub(Mean,Mean) vs Cov(.,.,N)). Cov(o,i) 对照 F023
+    Mean((o)*(i), 20): F023 是 cross-section (o)*(i) 直乘 Mean (积的 Mean), C005 是
+    within-name Cov (Mean of (o-mean(o))*(i-mean(i))) — 数学完全不同 atom (积均值 vs
+    协方差). Adjacency check: 不撞 b066 C005 (Corr atom 用 $volume vs overnight, 本候选
+    用 overnight vs intraday), 不撞 P019 (双端 Corr-safe), 不撞 P004/P016 (无 vol/cap).'
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Mul($num_trades, Abs(Sub($close, Ref($close, 1)))), Add($amount, 0.0001)), 60)
+  rationale: 'P008 escape 镜像测试 — flow-imbalance per trade TsRank 60d. Inner ratio
+    = num_trades × |daily_return| / amount = average trade size 反向 (smaller average
+    trade = retail-driven price impact, larger = institutional block). microstructure-only
+    OHLCV+num_trades+amount 三端 P019 Corr-safe. TsRank 60d 时序量纲化 P008 escape.
+    与 F012 amihud (|Δclose|/amount) 关键 distinct: F012 用 |Δclose|/amount 是 price
+    impact per dollar volume, 本候选用 num_trades × |Δclose| / amount = trade frequency
+    × impact / dollar = retail dispersion measure. 与 F024 trade_density (num_trades/volume
+    TsRank 60d) 关键 distinct: F024 是 average trade share size, 本候选添加 |Δclose|
+    weight (price-impact weighted trade frequency). 设计假设: 高 num_trades × |Δret| /
+    amount 表征"散户高频小额" pattern, 60d TsRank 让"该股是否长期处于 retail-dominated regime"
+    cross-section 可识别 — 与 F024 institutional-trade-share frontier 互补轴.
+    Adjacency check: 不撞 F024 (本候选 numerator 多了 |Δclose| price-impact weight),
+    不撞 F012 (本候选有 num_trades 因子), 不撞 P016 (无 cap denominator). P008 escape
+    跨 direction 复现验证 (本方向 attention/flow proxy axis 之一).'
