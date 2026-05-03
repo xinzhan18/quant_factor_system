@@ -1,10 +1,10 @@
 ---
-generated_at: 2026-05-03T08:58:02Z
+generated_at: 2026-05-03T11:53:50Z
 round: 89
 total_active_directions: 21
 total_factors_admitted: 28
 last_batch: batch_088
-last_consolidation_round: null
+last_consolidation_round: 89
 ---
 
 # 🗺️ Factor Research Index
@@ -68,5 +68,5 @@ last_consolidation_round: null
 > [!abstract]- 系统状态
 > - Round: **89** · Admitted: **28** · Active directions: **21**
 > - Last batch: **batch_088**
-> - Last consolidation: **—**
+> - Last consolidation: **round 89**
 > - 格式 audit：运行 `research audit index` 检查漂移

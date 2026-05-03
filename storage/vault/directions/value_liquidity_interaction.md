@@ -66,111 +66,59 @@ merged_into: null
 ## Hypothesis
 
 > [!note]+ Hypothesis (rank-order 层已部分验证 · PnL 层未兑现)
-> 纯流动性-波动率派生量全部撞 `vol_20d` 天花板 ([[amount_volatility_signal]] / [[turnover_structural_signal]] 教训)。脱困出路：引入**基本面风格维度** ($pe/$pb/$ps/$market_cap/$circ_market_cap 对应 ep_ratio / book_to_price / log_circ_cap Barra style)，与流动性特征交互。
+> 纯流动性-波动率派生量全部撞 `vol_20d` 天花板。脱困出路：引入**基本面风格维度** ($pe/$pb/$ps + Barra ep/btop/log_circ_cap)，与流动性特征交互。
 >
-> **三条经济学线索**：
-> 1. **价值陷阱 vs 价值实现**：低 PE/PB × 高换手 = rerating；低 PE/PB × 低换手 = 基本面恶化已知
-> 2. **小盘流动性溢价**：small_cap × high_liquidity 多 / small_cap × low_liquidity 空
-> 3. **基本面-技术面脱钩**：PE 变化快 + amount 变化慢 = 潜在价值发现
+> **三条经济学线索**：(1) 价值陷阱 vs 价值实现：低 PE/PB × 高换手 = rerating；(2) 小盘流动性溢价；(3) 基本面-技术面脱钩：PE 变化快 + amount 变化慢 = 价值发现
 >
-> **结构性约束**：
-> - 候选必须含 ≥1 基本面字段；避免纯流动性派生量
-> - CP04 rubric (2026-04-19 放宽)：alpha_survival<0.30 poor / 0.30-0.50 borderline / >0.50 clean
-> - Admit 门槛：`max_corr@F001 < 0.30 且 incremental_ic > 0.010`（Barra 脏但库独立即可）
+> **结构性约束**：候选必须含 ≥1 基本面字段；CP04 rubric (放宽)：alpha_survival<0.30 poor / 0.30-0.50 borderline / >0.50 clean；Admit 门槛 `max_corr@F001 < 0.30 且 incremental_ic > 0.010`。
 
-> [!warning]+ ⚠️ 来自 distillation 的方向级硬约束 (consolidation 2026-04-25)
-> 本方向 saturated 状态由 5 条独立 finding 跨家族证实——任何 reopen 必须先满足以下条件：
-> 1. **F002 anchor cluster 律**：F002 (Div($pb,Mean($amount,20))) 是本方向结构性 anchor，**任何含 amount/turnover 分母**的几何排列都被 ±0.4–0.7 cluster 锁死（b052 C002/C004/C005 三例 max_corr 0.40–0.47 已确认）。新候选必须**完全脱离 amount/turnover 分母**。
-> 2. **Higher-moment raw fundamental 死区** (F003/F201)：`Std/Var/cumsum($pe/$pb/$ps_ratio, N≥20)` 在 train→validation regime 系统性 sign_flip。已 5 次 retro-confirm（b052 C001/C003 + b054 C002/C003 + b053 C001 borderline）。**禁止** raw fundamental 二阶矩 LHS（建议升格为 Phase 1 generator pre-block）。
-> 3. **Compound moment LHS over-fit 死区**：嵌套 smooth-then-std (b052 C006 ls_t_is=12.18 → ls_t_oos=-0.13 戏剧崩塌) 与单层 higher-moment (F019/F020) 行为完全相反——单层是 alpha 源头，嵌套是 over-fit 源头。
-> 4. **Barra-clean ≠ library-clean** (F007)：CP04 alpha_survival 高 (>0.7) 不蕴含 CP05 库独立。b052 C004 alpha_surv=0.96 整批最干净仍被 F002 anchor cluster reject——admit 必须 alpha_surv > 0.5 **且** max_corr@library < 0.30 双高。
-> 5. **Python residual + rolling coverage ≈ 0.71 系统性边界** (F008)：本方向 b034 5/5 全部死于 coverage 0.706–0.712 < 0.80 hard_gate；信号 magnitude 健康但 infrastructure-blocked。下次走 residual 路径必须先 (a) cross-sectional 算子代替 rolling / (b) loader 端预填充 NaN / (c) Phase 1 freeze validate REQUIRED_FIELDS。
-> 6. **Rank-diff geometry 不是万能** (F305)：6 admit 跨 5 family 后在本方向中断。reopen 必须先有"全新非-cluster 几何"或工具链突破。
+> [!warning]+ ⚠️ 方向级硬约束 (consolidation 2026-04-25 + 2026-05-03 regime/alpha_survival 律)
+> Saturated 状态由 8 条独立 finding 跨家族证实——任何 reopen 必须先满足以下：
+> 1. **F002 anchor cluster 律**：F002 (Div($pb,Mean($amount,20))) 是结构性 anchor，**任何含 amount/turnover 分母**的几何排列被 ±0.4–0.7 cluster 锁死（b052 C002/C004/C005 三例 max_corr 0.40–0.47）。新候选必须**完全脱离 amount/turnover 分母**。
+> 2. **Higher-moment raw fundamental 死区** (F003/F201)：`Std/Var/cumsum($pe/$pb/$ps_ratio, N≥20)` 跨 regime 系统性 sign_flip，5 次 retro-confirm（b052 C001/C003 + b054 C002/C003 + b053 C001 borderline）。**禁止** raw fundamental 二阶矩 LHS。
+> 3. **Compound moment LHS over-fit 死区**：嵌套 smooth-then-std (b052 C006 ls_t_is=12.18 → ls_t_oos=-0.13) 与单层 higher-moment (F019/F020) 行为相反——单层是 alpha 源头，嵌套是 over-fit 源头。
+> 4. **Barra-clean ≠ library-clean** (F007)：CP04 alpha_survival 高不蕴含 CP05 库独立。b052 C004 alpha_surv=0.96 仍被 F002 cluster reject——admit 必须 alpha_surv > 0.5 **且** max_corr@library < 0.30。
+> 5. **Python residual coverage ≈ 0.71 边界** (F008)：b034 5/5 全部死于 coverage 0.706–0.712 < 0.80。residual 路径需先 (a) cross-sectional 算子代替 rolling / (b) loader 端预填充 NaN / (c) Phase 1 freeze validate REQUIRED_FIELDS。
+> 6. **Rank-diff geometry 不是万能** (F305)：6 admit 跨 5 family 后在本方向中断。reopen 需"全新非-cluster 几何"或工具链突破。
+> 7. **2022-2023 regime sign-flip 律**：本方向 raw fundamental 二阶矩 + value×liq joint vol 在 train→validation 边界系统性翻号，是 F003/F201 升格的核心证据。任何跨 regime 的 fundamental higher-moment LHS 须先做 regime-stratified IC validate。
+> 8. **Alpha_survival 单条件不足律**：高 alpha_survival 单独不构成 admit 充分条件——必须与 max_corr@library<0.30 同时成立（b052 C004 alpha_surv=0.96 + cluster reject = 教科书反例）。CP4 与 CP5 解耦验证。
 
 ---
 
 ## Threads
 
-### T001: Value × Liquidity 交互 [✗ DISPROVEN batch_034]
+### T001+T002+T007: Value × Liquidity 交互几何全空间 [✗ DISPROVEN batch_034/batch_052]
 
-> [!failure]+ Thread 结论
-> **Question**: PE/PB 分位 × turnover 水平的交互是否产生独立于流动性因子的价值 alpha？
-> **Evidence trail**:
-> - [[batches/batch_005/candidates/C001|C001_b5]] Mul($pe, Mean(tr,20)) alpha_surv=0.26 dom=vol_20d → reject
-> - [[batches/batch_005/candidates/C005|C005_b5]] Div($pb, Mean(amount,20)) **IC=+0.032 mono=+1.0 cum_dd=-2.17(全库最浅)** alpha_surv=0.30 → reject (positive edge 真实但被 vol_20d 吞 70%)
-> - [[batches/batch_006/candidates/C003|C003_b6]] Div($pb, Mean(tr,20)) 诊断：分母换 tr 未改善 (0.30→0.28) → reserve
-> - [[batches/batch_007/candidates/C003|C003_b7]] Sub(CsRank($pb), CsRank(Mean(tr,20))) **alpha_surv=0.71 (2.5× 改善)** 但 raw IC 0.032→0.011 (1/3 削弱) ls_t=0.33 → reserve
-> - [[batches/batch_034/candidates/C001|C001_b34]] turnover-EP residual probe coverage=0.706 + sign_flip + decay=-4.141 → reject
-> - [[batches/batch_034/candidates/C002|C002_b34]] deep residual probe 再加 `str_1m` 控制后 coverage=0.706 + sign_flip + decay=-7.403 → reject
+> [!failure]+ Thread 合并结论 (Mul/Div/rank-diff/cross-funda 四路径合一)
+> **Question**: PE/PB × turnover/amount 在 Mul / Div / Sub-rank / cross-funda rank-diff 任一几何下能否产生独立 alpha？
+> **Evidence trail (合并)**:
+> - **Mul/Div 路径** [b005-b007]: C001_b5/C002_b5/C005_b5/C003_b6/C003_b7 — 全部 alpha_surv 0.22–0.30 + dom=vol_20d/turnover_20d；rank-diff 包装 (C003_b7) alpha_surv 0.71 但 raw IC 削弱 1/3 + ls_t=0.33
+> - **Cross-funda rank-diff** [b009]: C002_b9 level rank-diff mono_sign_flip；C003_b9 9年全正 incr_ic=+0.019 ls_t=0.47；C007_b9 ls_t=-2.43 mono=-1.0 但 vol_20d=18.8 + incr_ic=-0.035
+> - **Python residual 路径** [b034]: C001/C002/C003 全部 coverage=0.706–0.712 < 0.80 + sign_flip + decay 负值
+> - **Rank-diff geometry** [b052]: C001/C003 hard_gate sign_flip；C002/C004/C005 max_corr 0.40–0.47 @F002 cluster；C006 ls_t_is=12.18→ls_t_oos=-0.13 compound moment 崩塌
 >
-> **Disproven**: 乘法/除法/秩差三条 DSL 路径都已封闭，而 batch_034 进一步证明连 Python residual 也救不回 T001。C001/C002 一旦剥掉 `vol_20d/turnover_20d/str_1m` 载体，只剩 coverage 不足且符号翻转的弱噪声，说明这条交互 edge 并不会以独立残差信号的形式存活。
+> **Disproven**: 四路径独立失败，机制可归并为：(a) 量纲主导方吞噬 (Mul) / (b) F002 anchor cluster (Div with amount/turnover) / (c) coverage 硬闸 (residual) / (d) regime sign-flip on raw funda 二阶矩 (rank-diff)。已升格 F305 "rank-diff 不是万能" + F002 anchor cluster 律。
 
-### T002: Value × Liquidity rank-diff geometry [✗ DISPROVEN batch_052]
+### T003+T006: PE/PB/PS 自归一化速率 [○ ANSWERED rank-order / ✗ PnL 层关闭]
 
-> [!failure]+ Thread 结论
-> **Question**: rank-diff geometry (b049/b050/b051 在 microstructure/overnight/OHLC/gap 4 family 6 admit) 能否在 value × liquidity family 第 7 次跨家族兑现？
-> **Evidence trail**:
-> - [[batches/batch_052/candidates/C001|C001_b52]] Std($pe,20) × Mean(Std(close,5),60) → hard_gate sign_flip + mono_sign_flip
-> - [[batches/batch_052/candidates/C002|C002_b52]] Mean(PE/turnover,20) × body_ratio_20 → ic_oos=0.012 ls_t=0.05 alpha_surv=0.46 max_corr=0.40@F020 → reject (三 borderline)
-> - [[batches/batch_052/candidates/C003|C003_b52]] Std(PB×turnover,60) × |return|_60 → hard_gate sign_flip
-> - [[batches/batch_052/candidates/C004|C004_b52]] Std(turnover,20) × Mean(PB,60) → ic_oos=-0.019 ls_t=-0.91 **alpha_surv=0.96(整批最干净!)** max_corr=-0.45@F002 → reject (CP4 干净但 CP3 弱 + CP5 cluster)
-> - [[batches/batch_052/candidates/C005|C005_b52]] Mean(PS/amount,60) × body_ratio_60 → alpha_surv=0.12 严重 Barra 吞噬 + max_corr=0.47@F002 → reject
-> - [[batches/batch_052/candidates/C006|C006_b52]] Std(Mean(PB,5),20) × Mean(Std(turnover,5),20) → hard_gate ic_oos=0.0077<0.008 + ls_t_is=12.18 → ls_t_oos=-0.13 崩塌
+> [!success]+ Thread 合并结论 (PE/PB/PS rate 三点通用性 + composite + residual)
+> **Question**: `Div(Delta(X,n), X)` 在 PE/PB/PS 上是否普遍跳出 vol_20d 天花板？合成与 residual 是否兑现 PnL？
+> **Evidence trail (合并)**:
+> - **三点通用性** [b005-b006]: C004_b5 PE rate alpha_surv=0.92 dom=str_1m / C001_b6 PB rate 0.79 / C002_b6 PS rate 0.72 — 全 reserve, ls_t -1.2 ~ -1.5
+> - **合成** [b007]: C001_b7 3-funda 等权 alpha_surv=0.86 ls_t=-1.27；C004_b7 60d-norm alpha_surv=0.86；C005_b7 PE_rate/turnover **ls_t=-2.92 首破 2** 但 alpha_surv=0.097 极端悖论
+> - **Self-norm rate × turnover** [b009]: C001/C004/C006 三例 Div(rate, rate_of_change) sign_flip + oos_decay collapse (-16.9 / -32.5)
+> - **Residual** [b034]: C004 PE residual baseline alpha_surv=1.09 / C005 composite alpha_surv=1.20，但 coverage=0.712 全 reject
 >
-> **Disproven**: rank-diff 范式连胜 6 跨 5 family (microstructure/overnight×2/OHLC/gap) 在 value × liquidity 中断。三条独立失败机制 — 不是 RHS 选择问题（已避开所有 dead RHS endpoints + 引入新 RHS basis），是 LHS 端基本面字段在 rank-diff 几何中固有的 regime-sensitivity + F002 cluster anchor 锁死。**结论：rank-diff geometry 不是万能钥匙——saturated 方向的 anchor factor (本方向 F002) 会消化新候选的库余量**（已升格 F305）。
-
-### T003: PE 变化率 vs amount 变化率脱钩 [✗ DISPROVEN batch_034]
-
-> [!failure]+ Thread 结论
-> **Question**: 基本面更新速率 vs 技术面反应速率的差异是否携带价值发现 alpha？
-> **Evidence trail**:
-> - [[batches/batch_005/candidates/C004|C004_b5]] Div(Delta($pe,20), $pe) **alpha_surv=0.92 dom=str_1m (方向首次突破天花板)** ls_t=-1.22 → reserve
-> - [[batches/batch_006/candidates/C005|C005_b6]] Mul(PE_rate, Mean(tr,20)) alpha_surv=0.92→**0.29 崩塌** → reject (rate×level 乘法摧毁 rate 独立性)
-> - [[batches/batch_007/candidates/C004|C004_b7]] Div(Delta($pe,20), Mean($pe,60)) alpha_surv=0.86 ls_t=-1.21 → reserve (60d-norm 边际)
-> - [[batches/batch_007/candidates/C005|C005_b7]] Div(PE_rate, turnover_rate) **ls_t=-2.92 首破 2** ICIR=-0.284 mono=-0.9 9年全负 alpha_surv=**0.097 极端悖论** → reject
-> - [[batches/batch_034/candidates/C004|C004_b34]] PE residual baseline `ic_oos=-0.0209` + `alpha_surv=1.09`，但 coverage=0.712 → reject
->
-> **Disproven**: T003 已经不只是"DSL 封闭"。batch_034 显示即便做 signal-level residualization，PE 自归一化 rate 仍旧无法越过 `coverage` 硬闸。也就是说，这条路径的瓶颈不再是 Barra 风格，而是当前日频数据根本给不出足够可执行的 residual support（已升格 F008）。
-
-### T006: Fundamental 自归一化速率 [✓ ANSWERED batch_006]
-
-> [!success]+ Thread 结论
-> **Question**: 基本面字段 `Div(Delta(X,n), X)` 的自归一化变化率是否普遍跳出流动性风格天花板？
-> **Evidence trail**:
-> - [[batches/batch_005/candidates/C004|C004_b5]] PE rate alpha_surv=**0.92** dom=str_1m ls_t=-1.22 → reserve
-> - [[batches/batch_006/candidates/C001|C001_b6]] PB rate alpha_surv=**0.79** dom=str_1m ls_t=-1.49 → reserve
-> - [[batches/batch_006/candidates/C002|C002_b6]] PS rate alpha_surv=**0.72** dom=str_1m ls_t=-1.47 → reserve
-> - [[batches/batch_007/candidates/C001|C001_b7]] 3-funda 等权合成 alpha_surv=**0.86** ls_t=-1.27 → reserve
-> - [[batches/batch_034/candidates/C005|C005_b34]] residual composite `alpha_surv=1.20` + `barra_residual_ic=-0.0236`，但 coverage=0.712 → reject
->
-> **Answer**: **PE/PB/PS 自归一化速率三点通用性确立**——「基本面字段自归一化变化率跳出 vol_20d 天花板」在 rank-order 层是**跨 valuation 指标普适机制**，不是 PE 孤证。但 ls_t 全部 -1.2~-1.5 <2，L/S PnL 层未兑现。DSL 等权合成不产生信噪比增益（合成等权 ≠ 合成加权）。
-> **Next**: 无。batch_034 已证明连 residual composite 也被 coverage 上限卡死，线程知识结论充足但工程出口关闭。
-
-### T007: 跨基本面 Rank-Diff [✗ DISPROVEN batch_034]
-
-> [!failure]+ Thread 结论
-> **Question**: 不同基本面字段 ($pe/$pb/$ps) 之间的 rank 差异是否携带独立于 Barra 的价值发现信号？
-> **Evidence trail**:
-> - [[batches/batch_009/candidates/C002|C002_b9]] Sub(CsRank($pe), CsRank($pb)) mono_sign_flip → reject (level rank-diff 非对称 shift)
-> - [[batches/batch_009/candidates/C003|C003_b9]] Sub(CsRank(PE_rate), CsRank(PB_rate)) 9年全正 cum_dd=-1.54 **incr_ic=+0.019 (库增值真实)** ls_t=0.47 → reserve
-> - [[batches/batch_009/candidates/C007|C007_b9]] Sub(CsRank(turnover), CsRank(PE)) **ls_t=-2.43 mono=-1.0 (方向 PnL 最强)** vol_20d=18.8 incr_ic=-0.035 → reserve
-> - [[batches/batch_034/candidates/C003|C003_b34]] cross-funda residual probe max_corr=0.027 仍极低，但 coverage=0.712 + ic_oos=-0.0069 → reject
->
-> **Disproven**: T007 最后的希望是把 C003/C007 这组互补悖论放到 Python residual 环境里重验。batch_034 证明即便保留极低库相关，跨基本面 rank-diff 也只能留下过弱、低覆盖的 residual shadow，无法兑现为可 admit alpha。
+> **Answer (rank-order)**：PE/PB/PS 自归一化速率跨 valuation 普适机制确立，dom=str_1m 一致。
+> **Closed (PnL)**：ls_t 全 -1.2~-1.5 < 2；DSL 等权合成不产生信噪比增益；residual composite 被 coverage 0.71 卡死。已升格 F008 (coverage 边界) + lessons.md PE_rate 死区。
 
 ### T004: PB × 波动率交互 [✗ DISPROVEN batch_005]
 
-> [!failure]+ Thread 结论
-> **Question**: 低 PB × 低波动率 = 稳定的便宜（价值）vs 低 PB × 高波动率 = 不稳定的便宜（困境）？
-> **Evidence trail**: [[batches/batch_005/candidates/C003|C003_b5]] Mul($pb, Std($close,20)) alpha_surv=**0.083 (史上最差)** dom=vol_20d → reject
-> **Disproven**: `Mul(fundamental_ratio, Std(price))` 是波动率 proxy 教科书样本——未归一化 Std 量纲主导，Barra vol_20d 吞 92% IC。
+> [!failure]+ `Mul($pb, Std($close,20))` alpha_surv=0.083 (史上最差) + dom=vol_20d。`Mul(fundamental, Std(price))` 是教科书波动率 proxy——未归一化 Std 量纲主导，Barra vol_20d 吞 92% IC。
 
 ### T005: EP × momentum 交互 [✗ DISPROVEN batch_005]
 
-> [!failure]+ Thread 结论
-> **Question**: 高 E/P × 正动量 = 确认的便宜？
-> **Evidence trail**: [[batches/batch_005/candidates/C002|C002_b5]] Mul(Div(1,$pe), Mean(tr,20)) alpha_surv=0.22 dom=turnover_20d → reject
-> **Disproven**: EP×turnover 乘法撞 turnover_20d 簇；"便宜+热闹"在 A 股语境下实测负 alpha 与 hypothesis 反向——更接近散户拥挤。
+> [!failure]+ `Mul(Div(1,$pe), Mean(tr,20))` alpha_surv=0.22 dom=turnover_20d。"便宜+热闹" 在 A 股语境下与 hypothesis 反向——更接近散户拥挤而非价值实现。
 
 ---
 
@@ -178,118 +126,64 @@ merged_into: null
 
 | Candidate | Expression | Reject Reason |
 |---|---|---|
-| [[batches/batch_005/candidates/C001\|C001_b5]] | Mul($pe, Mean(tr,20)) | alpha_surv=0.26 + dom=vol_20d；PE 乘法被量纲吞 |
-| [[batches/batch_005/candidates/C002\|C002_b5]] | Mul(1/$pe, Mean(tr,20)) | alpha_surv=0.22 + dom=turnover_20d；EP×turnover 反向 hypothesis |
-| [[batches/batch_005/candidates/C003\|C003_b5]] | Mul($pb, Std($close,20)) | alpha_surv=0.083 (史上最差)；未归一化 Std 波动率 proxy |
-| [[batches/batch_005/candidates/C005\|C005_b5]] | Div($pb, Mean($amount,20)) | IC=+0.032 mono=+1.0 但 alpha_surv=0.30 + dom=vol_20d；$amount 分母退化 |
-| [[batches/batch_006/candidates/C004\|C004_b6]] | Div($pe, Mean(tr,20)) | **alpha_surv=0.0009 极端记录**；"低 style_r² ≠ barra-clean" 标本 |
-| [[batches/batch_006/candidates/C005\|C005_b6]] | Mul(PE_rate, Mean(tr,20)) | rate×level 乘法摧毁 rate 独立性；alpha_surv 0.92→0.29 崩塌 |
-| [[batches/batch_007/candidates/C002\|C002_b7]] | Sub(CsRank(PE_rate), CsRank(Mean(tr,20))) | 非对称 rank-diff hard_gate sign_flip + oos_decay=-5.95 |
-| [[batches/batch_007/candidates/C005\|C005_b7]] | Div(PE_rate, turnover_rate) | ls_t=-2.92 首破 2 但 alpha_surv=0.097；静态正交 ≠ 动态正交悖论 |
-| [[batches/batch_009/candidates/C001\|C001_b9]] | PE_rate / Mean(PE_rate, 60) | sign_flip + ic_oos_too_low；self-norm 放大 regime 漂移 |
-| [[batches/batch_009/candidates/C002\|C002_b9]] | Sub(CsRank($pe), CsRank($pb)) | mono_sign_flip IS=-0.60 OOS=0.90；level rank-diff 非对称 shift |
-| [[batches/batch_009/candidates/C004\|C004_b9]] | PE_rate / turnover_rate_of_change | sign_flip + oos_decay=-16.9；ratio 放大 sign 不稳 |
-| [[batches/batch_009/candidates/C005\|C005_b9]] | (PE_rate + PB_rate) / 2 | dom=str_1m 首次 alpha_surv=0.883 但 incr_ic=-0.033 库 reducer |
-| [[batches/batch_009/candidates/C006\|C006_b9]] | PB_rate / turnover_rate_of_change | sign_flip + oos_decay=-32.5；ratio 放大 regime 崩溃 |
-| [[batches/batch_034/candidates/C001\|C001_b34]] | residualized turnover rank + EP rank | coverage=0.706 + sign_flip + decay=-4.141；T001 residual 失效 |
-| [[batches/batch_034/candidates/C002\|C002_b34]] | deep residualized turnover rank + EP rank | coverage=0.706 + sign_flip + decay=-7.403；加 `str_1m` 控制后更差 |
-| [[batches/batch_034/candidates/C003\|C003_b34]] | residualized PE_rate rank - PB_rate rank | coverage=0.712 + ic_oos=-0.0069；库干净但强度过弱 |
-| [[batches/batch_034/candidates/C004\|C004_b34]] | residualized PE_rate baseline | `alpha_surv=1.09` 但 coverage=0.712；真实残差无可执行覆盖 |
-| [[batches/batch_034/candidates/C005\|C005_b34]] | residualized funda-rate composite | `alpha_surv=1.20` 但 coverage=0.712；合成 residual 仍卡硬闸 |
-| [[batches/batch_052/candidates/C001\|C001_b52]] | Sub(CsRank(Std($pe,20)), CsRank(...)) | hard_gate sign_flip + mono_sign_flip；PE level Std 跨 regime 翻号 (F003/F201) |
-| [[batches/batch_052/candidates/C002\|C002_b52]] | Sub(CsRank(Mean(PE/turnover,20)), CsRank(body_ratio_20)) | ls_t=0.05 + max_corr=0.40@F020；body_ratio_20 RHS 第二次复用退化为共振 |
-| [[batches/batch_052/candidates/C003\|C003_b52]] | Sub(CsRank(Std(PB×turnover,60)), CsRank(\|return\|_60)) | hard_gate sign_flip；joint vol of value×liq product 同样 regime-sensitive (F003) |
-| [[batches/batch_052/candidates/C004\|C004_b52]] | Sub(CsRank(Std(turnover,20)), CsRank(Mean(PB,60))) | **alpha_surv=0.96(整批最干净)** + max_corr=-0.45@F002；F002 anchor cluster reject (F002/F007) |
-| [[batches/batch_052/candidates/C005\|C005_b52]] | Sub(CsRank(Mean(PS/amount,60)), CsRank(body_ratio_60)) | alpha_surv=0.12 严重 Barra 吞噬 + amount-family 全 cluster |
-| [[batches/batch_052/candidates/C006\|C006_b52]] | Sub(CsRank(Std(Mean(PB,5),20)), CsRank(Mean(Std(turnover,5),20))) | hard_gate ic_oos_too_low + IS=+12.18 → OOS=-0.13；compound moment LHS over-fit |
+| [[batches/batch_005/candidates/C001\|C001_b5]] | Mul($pe, Mean(tr,20)) | alpha_surv=0.26 + dom=vol_20d |
+| [[batches/batch_005/candidates/C002\|C002_b5]] | Mul(1/$pe, Mean(tr,20)) | alpha_surv=0.22；EP×turnover 反向 hypothesis |
+| [[batches/batch_005/candidates/C003\|C003_b5]] | Mul($pb, Std($close,20)) | alpha_surv=0.083 (史上最差) |
+| [[batches/batch_005/candidates/C005\|C005_b5]] | Div($pb, Mean($amount,20)) | IC=+0.032 mono=+1.0 但 alpha_surv=0.30 dom=vol_20d |
+| [[batches/batch_006/candidates/C004\|C004_b6]] | Div($pe, Mean(tr,20)) | alpha_surv=0.0009 极端记录 (低 style_r² ≠ barra-clean) |
+| [[batches/batch_006/candidates/C005\|C005_b6]] | Mul(PE_rate, Mean(tr,20)) | rate×level 摧毁 rate 独立性；alpha_surv 0.92→0.29 |
+| [[batches/batch_007/candidates/C002\|C002_b7]] | Sub(CsRank(PE_rate), CsRank(Mean(tr,20))) | sign_flip + oos_decay=-5.95 |
+| [[batches/batch_007/candidates/C005\|C005_b7]] | Div(PE_rate, turnover_rate) | ls_t=-2.92 但 alpha_surv=0.097 静态≠动态正交悖论 |
+| [[batches/batch_009/candidates/C001\|C001_b9]] | PE_rate / Mean(PE_rate,60) | sign_flip；self-norm 放大 regime 漂移 |
+| [[batches/batch_009/candidates/C002\|C002_b9]] | Sub(CsRank($pe), CsRank($pb)) | mono_sign_flip IS=-0.60 OOS=0.90 |
+| [[batches/batch_009/candidates/C004\|C004_b9]] | PE_rate / turnover_rate_of_change | sign_flip + oos_decay=-16.9 |
+| [[batches/batch_009/candidates/C005\|C005_b9]] | (PE_rate + PB_rate)/2 | dom=str_1m alpha_surv=0.883 但 incr_ic=-0.033 库 reducer |
+| [[batches/batch_009/candidates/C006\|C006_b9]] | PB_rate / turnover_rate_of_change | sign_flip + oos_decay=-32.5 |
+| [[batches/batch_034/candidates/C001-C005\|b34_all]] | residual probes (turnover-EP / PE / cross-funda / composite) | 5/5 coverage=0.706-0.712 < 0.80 + sign_flip + 负 decay |
+| [[batches/batch_052/candidates/C001\|C001_b52]] | Sub(CsRank(Std($pe,20)), ...) | hard_gate sign_flip；PE level Std 跨 regime 翻号 |
+| [[batches/batch_052/candidates/C002\|C002_b52]] | Sub(CsRank(Mean(PE/turnover,20)), CsRank(body_ratio_20)) | ls_t=0.05 + max_corr=0.40@F020 |
+| [[batches/batch_052/candidates/C003\|C003_b52]] | Sub(CsRank(Std(PB×turnover,60)), CsRank(\|return\|_60)) | hard_gate sign_flip；joint vol regime-sensitive |
+| [[batches/batch_052/candidates/C004\|C004_b52]] | Sub(CsRank(Std(turnover,20)), CsRank(Mean(PB,60))) | alpha_surv=0.96 (整批最干净) + max_corr=-0.45@F002 cluster |
+| [[batches/batch_052/candidates/C005\|C005_b52]] | Sub(CsRank(Mean(PS/amount,60)), CsRank(body_ratio_60)) | alpha_surv=0.12 + amount cluster |
+| [[batches/batch_052/candidates/C006\|C006_b52]] | Sub(CsRank(Std(Mean(PB,5),20)), CsRank(Mean(Std(turnover,5),20))) | IS=+12.18 → OOS=-0.13；compound moment over-fit |
 
 **失败模式系统化**：
-- `Mul(A, B)` 交互 → 量纲主导方吞噬 (5 次证伪)
-- `Div(A, $amount)` → size×vol 毛代理 + F002 anchor cluster
-- `Div(rate, rate_of_change)` → self-normalization 放大 regime 漂移 (3 次 sign_flip)
+- `Mul(A, B)` → 量纲主导方吞噬 (5 次证伪)
+- `Div(A, $amount/turnover)` → F002 anchor cluster
+- `Div(rate, rate_of_change)` → self-norm 放大 regime 漂移 (3 次 sign_flip)
 - `Sub(CsRank(level_A), CsRank(level_B))` → 非对称 shift
-- `Std/Var($pe/$pb/$ps_ratio, N≥20)` → regime sign_flip (F003/F201 已升格 lessons.md 候选)
-- 嵌套 compound moment (smooth-then-std) → IS over-fit (b052 C006)
-- **有效结构**：`Div(Delta(X), X)` 自归一化 / `Sub(CsRank(rate_A), CsRank(rate_B))` 对称 rank-diff（rank-order 层 only，PnL 未兑现）
+- `Std/Var($pe/$pb/$ps_ratio, N≥20)` → regime sign_flip (F003/F201)
+- 嵌套 compound moment (smooth-then-std) → IS over-fit
+- **有效结构**：`Div(Delta(X), X)` 自归一化 (rank-order 层 only，PnL 未兑现)
 
 ---
 
 ## Related
 
-- 🟢 [[amount_volatility_signal]] `productive` — vol_20d 天花板教训来源，F001 admitted
-- 🟡 [[turnover_structural_signal]] `saturated` — "field 换方向 ≠ 维度切换" 教训
-- 🔴 [[fundamental_momentum]] `dead` — PE/PB/PS 纯变化率全败，印证 rank-diff 路径更优
-- 🟡 [[barra_residual_alpha]] `saturated` — 本方向 DSL 已触顶，Python residual 路径交集（共享 coverage 0.71 边界 / F008）
-- 🟡 [[intraday_price_formation]] `saturated` — rank-diff 跨家族失败姊妹方向，共享 anchor cluster 律 (F002/F305)
-- [[lessons#Structural Constraints]] — 市值代理红线 / 向量化约束 / rank-diff 7 律 / regime sign-flip pre-block
+- 🟢 [[amount_volatility_signal]] `productive` — vol_20d 天花板教训来源
+- 🟡 [[turnover_structural_signal]] `saturated` — "field 换方向 ≠ 维度切换"
+- 🔴 [[fundamental_momentum]] `dead` — PE/PB/PS 纯变化率全败
+- 🟡 [[barra_residual_alpha]] `saturated` — coverage 0.71 边界共享 (F008)
+- 🟡 [[intraday_price_formation]] `saturated` — anchor cluster 律姊妹方向 (F002/F305)
+- [[lessons#Structural Constraints]] — 市值代理 / rank-diff 7 律 / regime sign-flip pre-block / alpha_survival 单条件不足律
 
 ---
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_052/judge|batch_052]]
-> admit=0 · reserve=0 · reject=6。方向第 8 轮探索，T002 rank-diff × value × liquidity 完整投放后宣告 DISPROVEN。三条独立机制揭示：
-> - **基本面 second-order moment 跨 regime sign_flip** (C001 PE Std + C003 PB×turnover joint vol 双例)：raw 基本面字段 (PE/PB/PS) 的 higher-moment (Std/Var/joint-vol) 在 rank-diff 几何中天然 regime-sensitive，区别于 PE_rate (lessons.md 已 promote) 死区，是更基础的 raw level second-order 死区（→ 升格 F003/F201）
-> - **value × liquidity ratio 必 cluster F002 anchor** (C002/C004/C005 三例 max_corr 0.40-0.47)：F002 在本方向是结构性 anchor，任何含 amount/turnover 分母的几何排列都被锁死。"RHS 共振饱和律" 在 saturated 方向进阶为 "factor-anchored cluster"（→ 升格 F002/F305）
-> - **compound moment LHS over-fit** (C006 ls_t_is=12.18 → ls_t_oos=-0.13 戏剧崩塌)：嵌套 smooth-then-std 与单层 higher-moment (b051 admit C002 单层 Std(gap_ret) 行为完全相反) — 单层是 alpha 源头，嵌套是 over-fit 源头
+> [!quote]+ 2026-04-25 · [[batches/batch_052/judge|batch_052]] (rank-diff 终曲)
+> admit=0 · reject=6。T002 rank-diff × value × liquidity 完整投放后 DISPROVEN。三条独立机制：
+> - **基本面 second-order moment 跨 regime sign_flip** (C001 PE Std + C003 PB×turnover joint vol)：raw 基本面字段 higher-moment 在 rank-diff 几何中天然 regime-sensitive (→ F003/F201)
+> - **value × liquidity ratio 必 cluster F002** (C002/C004/C005 max_corr 0.40-0.47)：anchor 律 (→ F002/F305)
+> - **compound moment LHS over-fit** (C006 ls_t_is=12.18 → ls_t_oos=-0.13)：嵌套 smooth-then-std 与单层行为相反
 >
-> **CP4 alpha-survival 整批分布最完整**：C005=0.12 严重吞噬 / C002=0.46 borderline / C004=0.96 整批最干净。C004 干净但 cluster F002 reject，第二次复现 b051 升格律 "Barra-clean ≠ library-clean"（→ 升格 F007）。
->
-> **方向决策**：维持 saturated（不退 dead——本批 3 条新结构教训知识价值已交付）。下次再开本方向需 (a) 完全脱离 amount/turnover 分母的新几何 / (b) Python residual 路径有新工具 / (c) 跨家族 rank-diff 在新 family 兑现后回流。**rank-diff geometry 7 跨家族泛化在 value × liquidity 中断——证明范式不是万能**。
+> **CP4 alpha-survival 分布**：C005=0.12 / C002=0.46 / C004=0.96。C004 最干净仍 cluster reject——第二次复现 "Barra-clean ≠ library-clean" + alpha_survival 单条件不足律 (→ F007)。**rank-diff geometry 7 跨家族泛化在 value × liquidity 中断**。维持 saturated。
 
-> [!quote]+ 2026-04-23 · [[batches/batch_034/judge|batch_034]]
-> admit=0 · reserve=0 · reject=5。方向唯一保留的 Python Barra residual 逃生口完成后仍然零 admit，方向正式转 `saturated`。
-> - **5/5 全部死于 coverage < 0.80**，区间仅 0.7055-0.712，说明真正的工程上限已经从"Barra 吞噬"切换为"residual signal 可用性不足"（→ 升格 F008）
-> - **T001 彻底关闭**：C001/C002 额外出现 sign_flip + 负 decay，证明 turnover-PE rank-diff 离开原始 style 载体后不再稳定
-> - **T003/T006 残差真实但不可执行**：C004/C005 的 `alpha_surv` 分别为 1.09 / 1.20，`barra_residual_ic` 也接近 raw IC，但依然被 coverage 硬闸阻断
-> - **T007 悖论终结**：C003 继续保留极低库相关，却没能把 batch_009 的"库干净但 PnL 弱"提升为可 admit alpha
->
-> **方向决策**：Python residual 已验证完，后续继续在本方向加 batch 只会重复制造 residual shadow reject。下一步转去新方向。
+> [!quote]+ 2026-04-23 · [[batches/batch_034/judge|batch_034]] (Python residual 终曲)
+> admit=0 · reject=5。Barra residual 逃生口完成后零 admit。**5/5 全部死于 coverage 0.706-0.712 < 0.80** (→ F008)。T001 彻底关闭；T003/T006 残差 alpha_surv 1.09/1.20 真实但 coverage 阻断；T007 cross-funda residual max_corr=0.027 库干净但 PnL 弱。Python residual 路径在本方向工程上限确认，方向转 saturated。
 
-> [!quote]+ 2026-04-19 · [[batches/batch_009/judge|batch_009]]
-> admit=0 · reserve=2 (C003, C007) · reject=5。方向第 5 批零 admit。
-> - **Self-norm rate × turnover 结构全灭** (C001/C004/C006 三个 Div(rate, rate_of_change) sign_flip + oos_decay collapse)
-> - **C005 dom=str_1m breakthrough**：方向 22 候选历史首次 dominant_style=str_1m (alpha_surv=0.883) 但 incr_ic=-0.033 库 reducer → reject
-> - **C007 ls_t=-2.43 方向 PnL 最强**，mono=-1.0 完美，但 vol_20d=18.8 暴露 + incr_ic=-0.035 库冲突
-> - **C003 cum_dd=-1.54 方向最浅**，incr_ic=+0.019 库增值真实，但 ls_t=0.47
-> - 新开 T007（跨基本面 rank-diff）：C003/C007 互补悖论
->
-> **下轮唯一出口**：Python Barra residual。若残差版仍零 admit → 方向转 `saturated`，开第 4 方向。
+> [!quote]- 2026-04-19 · b005-b009 早期演化 (DSL 6 路径触顶 → Python residual 触发)
+> b005-b007: 乘法/除法/合成/秩差/分母工程/两 rate 除法 6 种 DSL 结构全部触 vol_20d/turnover_20d 天花板。亮点：**C004_b5 PE rate** alpha_surv=0.92 dom=str_1m 方向首次双中 hypothesis；**C005_b7 PE_rate/turnover** ls_t=-2.92 首破 2 但 alpha_surv=0.097 静态≠动态正交悖论；rank-diff 定量权衡 alpha_surv 0.28→0.71 (2.5×) 但 raw IC 削弱 1/3。b009: self-norm rate × turnover 全灭 (sign_flip + oos_decay collapse)；C005 dom=str_1m 历史首次但 incr_ic=-0.033。R8 Python 逃生口触发条件完成 → b034。
 
-> [!quote]- 2026-04-19 · [[batches/batch_007/judge|batch_007]]
-> admit=0 · reserve=3 · reject=2。三项里程碑发现：
-> 1. **C005 首个 ls_t>2**：Div(PE_rate, turnover_rate) ls_t=-2.92 + ICIR=-0.284 + 9 年全负零翻转（方向 15 候选首次跨 PnL 显著阈值）
-> 2. **"静态正交 ≠ 动态正交" 悖论确立**：style_r²=0.016 极低 + alpha_survival=0.097 极低共存
-> 3. **Rank-diff 定量权衡**：alpha_survival 0.28→0.71 (2.5×) 但 raw IC 0.032→0.011 (1/3)
->
-> **方向决策**：DSL 空间完全探尽（乘法/除法/合成/秩差/分母工程/两 rate 除法 6 种结构全部触天花板）。R8 Python 逃生口触发条件完成。
->
-> **元洞察入 lessons.md 候选**：
-> - DSL 空间对 vol_20d 天花板的物理极限
-> - "静态正交 ≠ 动态正交" 悖论 — style_r² 不是 Barra-clean 硬判据
-> - Barra 吞噬与 raw IC 定量 trade-off (1:2.5)
-
-> [!quote]- 2026-04-19 · [[batches/batch_006/judge|batch_006]]
-> admit=0 · reserve=3 · reject=2。三项核心发现：
-> 1. **T006 三点通用性确立**（最重要）：PE/PB/PS 自归一化速率在 rank-order 层形态高度一致 (alpha_surv 0.92/0.79/0.72、dom=str_1m)——跨 valuation 普适机制
-> 2. **T001 "分母去市值"路径证伪**：C003 诊断 (amount→turnover) 未改善 Barra ceiling (0.30→0.28)
-> 3. **C004 极端悖论**：style_r²=0.08 clean + alpha_survival=0.0009 共存——低 style_r² ≠ barra-clean
->
-> rank-order 层突破已成，PnL 层需合成 + 正交化工程步骤。
-
-> [!quote]- 2026-04-19 · [[batches/batch_005/judge|batch_005]]
-> admit=0 · reserve=1 (C004 PE rate) · reject=4。两项结构性正面发现：
-> 1. **C004 突破 Barra 天花板**：Div(Delta($pe,20), $pe) alpha_survival=0.92 + dominant_style=str_1m，方向首次双中 hypothesis 目标
-> 2. **C005 positive IC 孤证**：Div($pb, Mean($amount,20)) IC_OOS=+0.032 / mono_oos=+1.0 / cum_dd=-2.17 (全库最浅) / 9 年全正，70% IC 被 vol_20d 吞
->
-> **四候选失败模式系统化**：
-> - Mul(A,B) = 量纲主导方吞噬
-> - Div(A, $amount) = size×vol 毛代理
-> - **有效出路**：Div(Delta(X), X) 自归一化 / 分母去市值 (turnover_rate 替代 amount)
->
-> **跨方向元教训**（累计 4 batches / 3 directions / 28 候选 / 1 admit）：
-> - Barra 天花板物理出口仍是 Python Barra residual
-> - 乘法交互 ≠ 维度交互；必用自归一化或秩差结构
-> - "方向首批 hypothesis 证伪率"是方向级最高效信号
-</content>
-</invoke>
+> [!quote]- 跨方向元教训累计 (4 batches / 3 directions / 28 候选 / 1 admit)
+> Barra 天花板物理出口仍是 Python Barra residual；乘法交互 ≠ 维度交互，必用自归一化或秩差结构；"方向首批 hypothesis 证伪率"是方向级最高效信号；"静态正交 ≠ 动态正交" 悖论 — style_r² 不是 Barra-clean 硬判据；Barra 吞噬与 raw IC 定量 trade-off (1:2.5)。
