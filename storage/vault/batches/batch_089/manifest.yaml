@@ -1,0 +1,120 @@
+batch_id: batch_089
+round: 89
+direction: idiosyncratic_momentum_residual
+direction_md_ref: vault/directions/idiosyncratic_momentum_residual.md
+batch_goal: 'Round 89 NEW direction first batch (orchestrator-suggested cov_ratio_long_window
+  已 archived
+
+  + tsrank_timeseries_ratio saturated, pivot to paper-backed Haitong-37 IMom direction).
+
+  Path-integral 维度补全 over admitted F004 单日 Barra 残差: test whether N-day cumulative
+
+  Barra residual return carries incremental alpha vs F004 point-estimate. Six candidates
+
+  cover (a) T001 window ablation 60d/120d/250d raw cumulative, (b) T002 vol-normalized
+
+  Sum/Std at 120d (paper strict definition), (c) T003 rank-diff path-integral vs raw
+
+  cumulative return at 120d (突破 T014 rank-diff×residual paradigm 4 律 attempt with
+
+  path-integral LHS), (d) T004 low-IVOL gated cumulative at 60d (vol_20d residual
+  leak
+
+  test). Hard targets: ≥1 admit with incr_ic@F004>0.015 + max_corr<0.50 + alpha_surv≥0.40
+
+  + ic_by_year sign-stable. T005 横向监控 coverage; if 5/6<0.65 → coverage rerun proposal,
+
+  not direction-dead. Baseline-first 例外: 15 untouched TTM fundamental fields completely
+
+  orthogonal to Barra-residualized return path-integral mechanism — explicitly skip.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-04T16:15:31Z'
+frozen_at: '2026-05-04T16:15:31Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_089/python_candidates/C001.py
+  rationale: 'T001 short window (60d). Path-integral Sum(ε, 60) — cumulative Barra
+    residual
+
+    return over 60d. Tests whether short-horizon residual cumulation carries
+
+    independent alpha over F004 single-day residual rank. Uses past-return-based
+
+    residualization (b054 idiom, no shift(-k)).
+
+    '
+- candidate_id: C002
+  source_type: python
+  path: storage/vault/batches/batch_089/python_candidates/C002.py
+  rationale: 'T001 medium window (120d). Window ablation companion to C001. If C002>>C001
+
+    → medium-horizon residual stronger; if reverse → short dominant. Window
+
+    sensitivity result feeds T001 closure decision.
+
+    '
+- candidate_id: C003
+  source_type: python
+  path: storage/vault/batches/batch_089/python_candidates/C003.py
+  rationale: 'T001 long window (250d, ~12m). Paper Haitong-37 IMom horizon equivalent.
+    NaN
+
+    propagation risk highest. If reject + C001/C002 admit → daily-bar IMom alpha
+
+    lives in 60-120d not paper 12m horizon.
+
+    '
+- candidate_id: C004
+  source_type: python
+  path: storage/vault/batches/batch_089/python_candidates/C004.py
+  rationale: 'T002 vol-normalized 120d Sum/Std. Strict paper IMom = N-month residual
+
+    cumulative / Std. Tests whether risk-adjustment is the structural piece
+
+    driving paper IR=2.04. Compared head-to-head vs C002 raw Sum 120d — if
+
+    C004>>C002 → vol-normalization is essential; if equal → raw cumulation
+
+    sufficient.
+
+    '
+- candidate_id: C005
+  source_type: python
+  path: storage/vault/batches/batch_089/python_candidates/C005.py
+  rationale: 'T003 rank-diff CsRank(Sum(ε,120)) - CsRank(Sum(raw_ret,120)). Tests
+    whether
+
+    rank-diff × residual paradigm survives with path-integral LHS (vs T014
+
+    disprove which used point-statistic LHS like |res|_std / EMA(res) /
+
+    autocorr / SNR). Mechanism: stocks with cum_residual rank > cum_raw_return
+
+    rank are alpha-overweight relative to style-explained component.
+
+    '
+- candidate_id: C006
+  source_type: python
+  path: storage/vault/batches/batch_089/python_candidates/C006.py
+  rationale: 'T004 low-IVOL gated Sum(ε,60). Multiplies cum-residual by indicator
+
+    [RealizedVol(ret,60) < cross_sectional_median]. Probes whether path
+
+    memory re-accumulates vol_20d exposure post Barra residualization (P004
+
+    law). If alpha_surv≥0.40 + dom_style ≠ vol_20d → IVOL gating真有效;
+
+    if dom_style=vol_20d → path memory leaks vol back, important升格 lesson.
+
+    '
