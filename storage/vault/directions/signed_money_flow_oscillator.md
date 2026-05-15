@@ -106,7 +106,10 @@ lessons F001 / F301 vol_20d 吞噬律的所有验证案例都是 **second-moment
 
 ## Threads
 
-### T001: ASI (Wilder accumulated swing index) — 8-OHLC 摆动累积是否独立 [◉ ACTIVE]
+> [!failure]+ **Round 91 consolidation outcome — 全方向 dead, 元教训升格 P004-deep**
+> b088 6/6 reject + 4 子假设 H1/H2/H3 全证伪 + Chaikin(3,10)/Chaikin(6,20)/AD/PVT(20)/PVT(60)/PVT-60-rank-diff 4/4 子路径 dead. **H3 vol_20d 律 first-moment 例外假设 DISPROVEN** — PVT(20)/PVT(60) alpha_surv=0.11/0.16 << 0.40 floor, dom=vol_20d 直接吸收, F001 vol_20d 律边界扩展实证. **alpha_surv > 1.0 单边形式独立 ≠ library 充分条件** (C001/C005 alpha_surv=1.35/1.57 但 incr_ic=-0.007/-0.005 NEG + max_corr=0.61-0.63@F026/F008 cluster). 三方向 (本方向 + idiosyncratic_momentum_residual + price_conditional_amplitude) 共享同一深层失败律 P004-deep (path-integral / N-day 累积形式 path-memory β-shift 重涌 vol_20d basis), 已 round 91 升格至 `lessons.md#vol_20d 结构性吸收律` 段. 元教训详见 [[_consolidation/findings/hypothesis_promoter/020]] + [[_consolidation/findings/pattern_analyst/028]] + [[lessons#vol_20d 结构性吸收律]]. **方向无残余探索价值, 建议下次 consolidation dead → archived**. ASI Wilder swing python_runner 路径已无价值 (H2 全证伪 + P004-deep 律覆盖 N-day 累积形式).
+
+### T001: ASI (Wilder accumulated swing index) — 8-OHLC 摆动累积是否独立 [✗ DEFERRED-irrelevant-after-P004-deep]
 
 > [!note]+ Thread 当前
 > **Question**: ASI 的 4-branch IF + Max-driven scaling（不含 Vol 但含 prev_O / prev_L）是否在 csi1000 daily cross-section 上携带库内 25 admitted 之外的独立 alpha？关键审计：style_r²、dominant_style、与 F021/F022 range_compression 系列的 max_corr。
@@ -116,7 +119,7 @@ lessons F001 / F301 vol_20d 吞噬律的所有验证案例都是 **second-moment
 >
 > **Next probes**: baseline 通过则 batch_082 测窗口曲线 10/40 ablation；不通过则验证是否 100% 重演 range_structure 同律（dominant_style=vol_20d + alpha_surv<0.4）。
 
-### T002: Chaikin Oscillator + AD (signed close-pos × Vol → 累积/EMA 差) — 是否独立于 F009 second-moment correlation [◉ ACTIVE]
+### T002: Chaikin Oscillator + AD (signed close-pos × Vol → 累积/EMA 差) — 是否独立于 F009 second-moment correlation [✗ DISPROVEN batch_088]
 
 > [!note]+ Thread 当前
 > **Question**: `Vol * (2C - H - L) / (H - L)` 这种 signed close-position-in-range × volume 的 first-moment 累积形式是否与 F009 pv_corr 的 second-moment correlation 形式 cross-section 独立？EMA-差（Chaikin）vs 纯累加（AD）哪个更稳？
@@ -126,7 +129,7 @@ lessons F001 / F301 vol_20d 吞噬律的所有验证案例都是 **second-moment
 >
 > **Next probes**: 若 Chaikin admit 而 AD reject → momentum-of-money-flow 维度是真信号；若两者同 reserve → first-moment signed × Vol family 真度成立；若两者同 reject → first-moment 累积也被 vol_20d 吞噬（升格 F001 边界 lesson）。
 
-### T003: PVT (signed return × Vol cumulative) — 是否独立于 F008 ret_vol_cov [◉ ACTIVE]
+### T003: PVT (signed return × Vol cumulative) — 是否独立于 F008 ret_vol_cov [✗ DISPROVEN batch_088]
 
 > [!note]+ Thread 当前
 > **Question**: `Sum((C - Ref(C,1))/Ref(C,1) * Vol, N)` 这种 daily-return × Vol 的 N 日累积是否与 F008 Cov(returns, Vol, 20) 的去均值乘积均值 cross-section 独立？6 日 vs 12 日窗口哪个更优？

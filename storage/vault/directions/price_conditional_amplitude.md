@@ -116,6 +116,9 @@ paper 在 csi500 月频报 IC=-0.051 / ICIR=-2.39 / 多空年化 17%。本地化
 
 ## Threads
 
+> [!failure]+ **Round 91 consolidation outcome — 全方向 dead, 元教训升格 P004-deep**
+> b090 6/6 reject + T001/T002/T003/T005 4 条主线全证伪. rank-conditional aggregation 工艺 (按 close-rank quantile 切分聚合 amp/turnover numerator) 在 csi1000 daily 上**整体被 vol_20d cluster 覆盖** (4 路径 paper-original / DSL-soft / P008-stack / RHS-swap 一致失败, 残差吞噬 63-75%, 6/6 dom=vol_20d). 与 signed_money_flow_oscillator + idiosyncratic_momentum_residual 共享同一 **P004-deep 律** (path-integral / N-day 累积形式失败), round 91 升格至 `lessons.md#vol_20d 结构性吸收律` 段. **本方向无残余探索价值, 建议下次 consolidation dead → archived**. 元教训详见 [[_consolidation/findings/pattern_analyst/028]] + [[_consolidation/findings/hypothesis_promoter/020]] + [[lessons#vol_20d 结构性吸收律]].
+
 ### T001 — 原始 V_high(0.25) − V_low(0.25) Python wrapper [✗ DISPROVEN batch_090]
 
 > [!failure]+ Thread 结论

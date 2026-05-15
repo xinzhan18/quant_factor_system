@@ -1,7 +1,7 @@
 ---
-version: 8
-last_consolidated_at: 2026-05-03T00:00:00Z
-source: Phase 5 consolidation round 75 — promoted from pattern_analyst/022-026 + library_gap/015-018 + calibration/009-011 + hypothesis_promoter/014-019. New升格: alpha_surv>1.0 + ic_by_year 翻号 paradox guard; Cov ≈ Mean(X*Y) DSL 等价定理; F001 first-moment 累积扩展律; P008 完整三条件 (TsRank≥60d + ratio + microstructure-only); paper transferability 三件套 (csi300→csi1000 衰减 / underlying drift / 同号校验); anchor cluster sufficient basis lock (admit-anchor pre-check 强制); P028 zero-mean rank-form anchor; directional signed magnitude 优先级; first-batch-dead 三要件 codify; rank-diff salvage 限定 (raw level 不得救 saturated); reserve revival pool 退潮; 2022-2023 regime 单独 split as ground-truth.
+version: 9
+last_consolidated_at: 2026-05-16T00:00:00Z
+source: Phase 5 consolidation round 91 — promoted from pattern_analyst/027-031 + library_gap/019-021 + calibration/012-013 + hypothesis_promoter/020-022. New升格: alpha_surv > 1.0 单边形式独立 ≠ library 充分条件 (5 batch 跨 5 方向实证, P030 hard rule); P004-deep path-integral / N-day 累积形式结构性失败 (path-memory β-shift, signed_money_flow_oscillator + idiosyncratic_momentum_residual + price_conditional_amplitude 三方向 dead); Paper transferability 4 层独立失效律 (从 round 73 2 层扩展, 4 papers × 4 方向证据); Cov ≈ Mean(X*Y) DSL 等价定理升格为 P028 hard rule (b087 实证 corr=0.927); P031 P008 完整 3 条件 (daily ratio + TsRank≥60d + 脱 F025/F026 cluster); 5 candidates 进 reserve 复活池 (b076/C005 + b072/C006 + b080/C006 + b087/C001 + b082/C002). 历史: round 75 alpha_surv paradox guard, Cov 等价定理, F001 累积扩展, P008 完整三条件, paper transferability 三件套, anchor cluster basis lock, P028 zero-mean rank-form, directional signed magnitude 优先级, first-batch-dead 三要件, rank-diff salvage 限定.
 ---
 
 # Research Lessons
@@ -70,6 +70,7 @@ source: Phase 5 consolidation round 75 — promoted from pattern_analyst/022-026
   - **P027 rhs_change 必须跨 family**：同 microstructure liquidity family 内换 RHS 不破共线性
   - **P028 rank-form zero-mean anchor (library_gap/016 升格)**：rank-form atom (TsRank/CsRank) 的 cross-section mean 恒等于常数，与 zero-mean baseline 在 Sub 下 anchor —— `Sub(CsRank(X), const)` 与 `CsRank(X)` rank 完全等价，generator 必须 dedup 同源 rank atom 减常数变体
   - **P029 Library saturation 单调累积**：reserve 推迟复活无收益；不存在"等阈值变松了再复活"的免费午餐
+  - **P030 Cov ≈ Mean(X*Y, N) 等价律 (hypothesis_promoter/022 升格, round 91)**：csi1000 daily 个股 return / overnight gap / intraday body 等序列 cross-section 期望接近 0 (zero-mean stationary), 让 `Cov(X,Y,N) = E[XY] - E[X]E[Y] ≈ E[XY] = Mean(X*Y, N)` (二阶项消失). 实测 b087 C005 `Cov(o,i,20)` 与 F023 `Mean(Mul(o,i),20)` cross-section corr=**0.927** (>0.9 hard_gate fail). Phase 1 generator AST 自检第 N+1 条: candidate 含 `Cov(return_A, return_B, N)` + 库内已 admit 含 `Mean(A*B, M∈[N/2, 2N])` → 必然 cross-section near_dup, design-time reject 不进 Phase 2.
   - **仅生还路径 4 条**：(a) **Python residualize**（cross-section OLS residual against blocking factor，DSL 不可表达）；(b) **跨 family rhs_change**（microstructure → fundamental basis 或 temporal basis）；(c) **structural transform**（Mean→Std/Skew 量纲层升级）；(d) **跨 direction 机制复现**（P008 escape 在新 direction 复测，不是对原候选 revival）
 
 ## Structural Constraints
@@ -96,6 +97,8 @@ csi1000 daily-bar cross-section 几何被 Barra `vol_20d` 占据 2nd-moment 空�
 **逃离路径仅五条**：(a) Python Barra residual orthogonalize（受 coverage<0.80 + Linear OLS 不破非线性吸收双重限制）；(b) 非 daily-bar 数据（minute/tick）；(c) 非 magnitude 几何 —— sign 聚合 / rank-diff cross-family / 严格 mono_is≥0.6 + scale-free RHS 的 higher-moment 单层；(d) overnight 段独立分解；(e) **P008 完整三条件**（见 Path Selection）。
 
 **证据链**：≥12 方向独立确认 —— return_distribution_signals / vol_shock_signals / amount_volatility_signal / stochastic_position / range_structure / quantile_shape_signals / intraday_price_formation / turnover_structural_signal / vwap_proxy_signals / fundamental_quality_carry / python_ttm_residual_quality / institutional_flow_proxy / cov_microstructure_valuation / cov_ratio_long_window。
+
+**P004-deep — path-integral / N-day 累积形式结构性失败 (pattern_analyst/028 + hypothesis_promoter/020 升格, round 91)**: Barra cross-sectional residualization 是 **single-step 线性算子** — 对 single-day ε admit-able (F004 alpha_surv=1.41 反例); 但**任何 N-day path-integral / 累积 / EMA-差 / rank-diff / IVOL-gated 累积形式默认 reject**. 跨 3 batch 跨 3 方向 13 候选实证: (i) signed_money_flow_oscillator b088 PVT(20)/(60) alpha_surv=0.11/0.16 dom=vol_20d; (ii) idiosyncratic_momentum_residual b089 60d/120d/250d cumulative residual alpha_surv 单调衰减 0.42→0.37→0.36, dom=vol_20d exposure 19.6-23.2; (iii) price_conditional_amplitude b090 6/6 rank-conditional aggregation dom=vol_20d 残差吞噬 63-75% (4 路径 paper-original / DSL-soft / P008-stack / RHS-swap 一致失败). **机理**: path-integral `Σ(ε_t-i)` 让内层 β(t-i) 不是 t 时刻常数, **path-memory β-shift 让累积形式 vol_20d basis 暴露重新涌现** — 比已知 "non-linear absorption (Linear OLS Polynomial 不破)" 更深一层. **实操律**: 若需 isolate residual alpha, (a) stay at single-step (F004 模式), 不做 multi-day LHS aggregation; (b) 用 multi-day evaluation horizon 替代 multi-day LHS aggregation; (c) Phase 1 hard precheck: 顶层算子 `Sum(residual_X, N)` / `Mean(Cumulative_signed_flow, N)` / `Sum(signed_return × Vol, N)` (N>1) 自动 reject. **三方向已 dead**: signed_money_flow_oscillator / idiosyncratic_momentum_residual / price_conditional_amplitude. paper Haitong-37 IMom + 广发金工-42 Chaikin/AD/PVT + paper rank-conditional aggregation 三族同律失败.
 
 ### Geometric absorbing-factor 律（admit-anchor cluster lock）
 
@@ -170,6 +173,8 @@ A 股 daily-bar OHLC 两个**结构性共动约束**：
 
 **Directional signed magnitude 优先级 (library_gap/017 升格)**：signed magnitude (sign × magnitude) 与 unsigned magnitude 在 csi1000 cross-section 上是不同几何——unsigned 落入 vol_20d 吸收簇；signed 形式 (F018 `Mean(Sign(overnight),N) × amount`) 是仅有的 sign-aggregation admit 通道。设计候选时优先尝试 directional signed 形式 over unsigned magnitude，前提是 underlying field 含 persistent drift（见 Paper Transferability）。
 
+**P030 alpha_survival > 1.0 单边形式独立 ≠ library 充分条件 (pattern_analyst/027 + calibration/012 + hypothesis_promoter/020 升格, round 91)**：跨 5 batch (b086-b090) × 5 方向 × 7+ candidates 独立复现同一悖论 — **Barra-residual IC ≥ raw IC (alpha_surv 1.05-1.59) + max_corr<0.30 LOW + sign_consistency=1.0 三立完美 form 独立, 但 incr_ic NEG (-0.005 ~ -0.023)**. 机理: alpha_surv 衡量 vs Barra 9-style basis 残差强度, 不衡量 vs admitted library 残差强度. 库内 close-position cluster (F006-F008-F026) + multi_ma_reversion (F027) + amount_cv (F001) 都是 non-Barra 几何 — **Barra-clean 与 library-clean 是两个独立 gate**. 实操律: `alpha_surv > 1.0` 必须配 (a) `incr_ic ≥ +0.005` + (b) `max_corr < 0.40` + (c) `ls_t ≥ 1.5` 至少 2/3 才可 reserve, 仅满足 alpha_surv 单项不足以 fire → 默认 reject. Phase 3 judge.md 跨候选反思段必须新增 "alpha_surv > 1.0 candidates 三项检查" 自检条目.
+
 ## Forbidden Patterns
 
 generator 层 / Phase 1 freeze 应 pre-block 的设计反模式。
@@ -235,6 +240,15 @@ generator 层 / Phase 1 freeze 应 pre-block 的设计反模式。
 
 **paper-driven candidate freeze 前必须 explicit 标注** `expected_decay_factor ≥ 5x for csi1000 transfer`。
 
+**Paper transferability 4 层独立失效律 (pattern_analyst/029 + hypothesis_promoter/021 升格, round 91 — 从原 3 件套扩展)**: paper monthly/weekly + 大盘 (csi300/csi500/SPX) → csi1000 daily 默认 4 层独立失效, **任一 1 条立则 paper 信号默认低优先级 / 进 round 1 前需 LLM 额外 risk-review**:
+
+1. **方向反号**: paper momentum 在 csi1000 daily 上反向有效 mean-reversion (海通-37 IMom b089 6/6 reject + 广发金工-42 Chaikin-AD b086 C001 9/9 negative + b088 全 9/9 negative + price_conditional_amplitude b090 paper raw V_high-V_low ic_oos=-0.053 反号)
+2. **frequency mismatch**: paper monthly Barra residualization 跨月累加, csi1000 daily cross-day path memory β-shift 让累积失效 (b089 C004 vol-normalized 120d paper strict alpha_surv=0.332 vs raw 0.373 反而恶化, Std(120) 共线于 vol_20d basis)
+3. **universe weakness**: paper 自承大盘 IC 在中证 800 外 (csi1000) 衰减 2.4x (海通-37 自报沪深 300 IC=4.56% → 中证 800 外 1.67%)
+4. **library overlap**: csi1000 admitted 27 因子的 non-Barra 几何 (F006-F008-F026 close-position cluster / F027 multi_ma_reversion / F001 amount_cv) 已 capture paper signal 同质 alpha — paper alpha_surv 即使 ≥1.0 也是 Barra-clean 但 library-redundant (b086 C001/C005 + b088 C001/C005 实证)
+
+**实操律**: `/factor-paper` workflow 必须在 frontmatter 写 `transferability_risk: {layer1_reverse_sign, layer2_freq_mismatch, layer3_universe_weak, layer4_lib_overlap}` 4 项 yes/no. 任 1 yes 进 round 1 前需额外 risk-review.
+
 ## Direction Lifecycle
 
 方向状态机：`exploring → productive ↔ saturated → dead → archived`。
@@ -243,6 +257,7 @@ generator 层 / Phase 1 freeze 应 pre-block 的设计反模式。
 - **Saturated 双层证据律**：方向标 saturated 必须 (a) 信号设计层证据（≥2 路径 cluster / ≥3 candidate 几何不变量）+ (b) 数据契约层证据（Python residual coverage 实测 < 0.80 **或** Python 工具链未实现）。**(a)+(b) 同立** 才允许 saturated
 - **`archived` 状态**：触发 = 元教训已升格至 lessons.md + 方向 dead/saturated ≥30 天 + 无活跃 active thread。行为 = 方向 md 保留但 INDEX 不再列出，Phase 1 不再考虑。复活仅当 lessons.md 升格条目本身被推翻
 - **当前批量 archive 状态 (round 75)**：return_distribution_signals / vol_shock_signals / quantile_shape_signals / trend_quality_gated / log_value_liquidity / pv_covariance / asymmetric_momentum / fundamental_momentum / return_momentum_acceleration / fundamental_quality_carry / cov_microstructure_valuation / cov_ratio_long_window / stochastic_position / tsrank_candlestick_ratio (saturated)
+- **新增 dead (round 91, hypothesis_promoter/020 升格)**: signed_money_flow_oscillator (b088 4/4 子路径 Chaikin/AD/PVT 全证伪) / idiosyncratic_momentum_residual (b089 4/4 子假设 path-integral/vol-normalize/rank-diff/IVOL-gating 全证伪) / price_conditional_amplitude (b090 4 路径 paper-original/DSL-soft/P008-stack/RHS-swap 全证伪). 三方向元教训已升格 P004-deep, 建议 dead → archived (本 round 留 dead 一轮, 下次 consolidation 检查后转 archived)
 
 ## Metric Semantics
 
@@ -330,6 +345,7 @@ thresholds:
 - **2026-05-02 round 73**：无阈值调整。5 lesson 升格（alpha_surv + ic_by_year / Linear OLS 不破非线性 / TsRank≥60d ratio escape / csi1000 daily fundamental 真饱和 / Composition Selection book yield）
 - **2026-05-02 round 74**：新增 hard_gate candidate `corr_cov_field_safety`。9 lesson 升格（Qlib binary 数据契约 / Cap-denominator vol_20d / Reserve revival 4 路径 / Geometric absorbing-factor / Cross-product Mul 塌缩 / In-batch denominator P024 / Cov/Corr 长窗 saturation / P008 软判定 / Forward horizon h>1d 零兑现）
 - **2026-05-03 round 75**：无阈值调整。本轮升格新 lesson：(a) Operator Registry 加 "Cov ≈ Mean(X·Y) DSL 等价定理"；(b) Path Selection 加 "P008 完整三条件" + "P028 rank-form zero-mean anchor"；(c) Structural Constraints 加 "F001 first-moment 累积扩展 anchor" + "Anchor cluster sufficient basis lock 强制 pre-check" + "Directional signed magnitude 优先级"；(d) Rank-Diff 段加 "Rank-diff salvage 限定不救 saturated"；(e) Paper Transferability 重组为三件套；(f) Direction Lifecycle 首批反向证伪三要件 codify；(g) Data Facts 加 "2022-2023 regime ground-truth"
+- **2026-05-16 round 91**：无阈值数字调整 (config.yaml 阈值维持不变, hard rule 升格在 lessons 里). 本轮升格新 lesson：(a) Rank-order ≠ Tradable Alpha 段加 **P030 alpha_surv > 1.0 单边形式独立 ≠ library 充分条件** (5 batch × 5 方向实证, alpha_surv 必须配 incr_ic / max_corr / ls_t 三项至少 2/3); (b) vol_20d 结构性吸收律段加 **P004-deep path-integral / N-day 累积形式结构性失败** (path-memory β-shift, 3 方向 dead: signed_money_flow_oscillator / idiosyncratic_momentum_residual / price_conditional_amplitude); (c) Paper Transferability 从 3 件套扩展为 **4 层独立失效律** (新增 frequency mismatch + library overlap 层); (d) Path Selection 加 **P030 Cov ≈ Mean(X*Y) 等价律** (b087 实证 corr=0.927); (e) reserve revival 池新增 5 候选 (b076/C005 + b072/C006 + b080/C006 + b087/C001 + b082/C002, 各自附 revival_path). 触发条件: rounds_since_consolidation 实际 ≥10 (round 82→91) + active_directions=20 + zero-admit streak=5 (b086-b090).
 
 ## Promising Unexplored
 

@@ -111,6 +111,9 @@ status_change_reason: b089 6/6 reject 首批反向证伪 — H1/H2/H3/H4 四子�
 
 ## Threads
 
+> [!failure]+ **Round 91 consolidation outcome — 全方向 dead, 元教训升格 P004-deep**
+> b089 6/6 reject + T001/T002/T003/T004 4/4 子假设全证伪 + Barra residualization 是 single-step 线性算子律实证. **P004-deep 升格至 lessons**: Barra cross-sectional residualization 对 single-day ε admit-able (F004 反例 alpha_surv=1.41), 但 N-day path-integral / cumulative residual / vol-normalize / rank-diff / IVOL-gating 累积形式默认 reject (path-memory β-shift 重涌 vol_20d basis). 海通-37 paper transferability 4 层独立失效律 (从 round 73 3 件套扩展) 同样升格. **本方向无残余探索价值, 建议下次 consolidation dead → archived**. 元教训详见 [[_consolidation/findings/pattern_analyst/028]] + [[_consolidation/findings/hypothesis_promoter/020]] + [[_consolidation/findings/hypothesis_promoter/021]] + [[lessons#vol_20d 结构性吸收律]] + [[lessons#Paper Transferability]].
+
 ### T001 · Cumulative residual return raw form [✗ DISPROVEN batch_089]
 
 > [!failure]+ Thread 结论
