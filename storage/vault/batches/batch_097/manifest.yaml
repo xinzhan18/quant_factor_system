@@ -1,0 +1,155 @@
+batch_id: batch_097
+round: 97
+direction: conditional_operator_truncation
+direction_md_ref: vault/directions/conditional_operator_truncation.md
+batch_goal: "Round 97 — structural gap exploration: conditional operator family (Gt\
+  \ / Lt / If)\nunder-utilized in library (28 admit: 1 conditional F028 + 27 linear-arithmetic).\n\
+  6 候选覆盖 6 子族 (T001 上影主导日占比, T002 gap-up 事件率, T003 high-turnover-rank\nconditional\
+  \ flow, T004 上涨日占比, T005 低振幅日占比, T006 PV-corr-gated momentum) —\n全部使用 Gt/Lt 把信号离散化为\
+  \ {0,1} 事件 + Mean aggregate 成 Bernoulli rate,\n或用 If 做 conditional observation。\n\
+  \nQlib op note: Qlib runtime 提供 Gt/Lt (返回 bool) 与 Greater/Less (返回 element-wise\n\
+  max/min) 是不同语义算子; 本批用 Gt/Lt 做 boolean event count, 用 If(cond, left, right)\n做 conditional\
+  \ select (Qlib 用 If 而非 IfElse 名).\n\n**核心 hypothesis**: conditional truncation 在\
+  \ cross-section 上产生 geometric distinct\nordering — 与 27 个线性算术 admit max_corr 应 <\
+  \ 0.40, 同时离散事件率 aggregate 不构成\npath-integral path-memory (因二值化丢弃了连续 ε 信号).\n\n**Self-check\
+  \ 5 hard rule (round 73 + round 91 升格)**:\n- **P030** (alpha_surv>1.0 单边 ≠ admit\
+  \ 充分): 全 6 候选 multi-CP rationale, 不依赖\n  alpha_surv 单边; 即使 truncation 几何独特, admit\
+  \ 仍需 incr_ic + max_corr + ls_t 至少 2/3\n- **P004-deep path-integral borderline**\
+  \ (round 91 升格): T002/T004/T005 是 Sum/Mean of\n  `Greater(.,.)` 或 `IfElse(.,1,0)`\
+  \ 离散事件 — 在二值化 truncate 后, path-memory β-shift\n  机制理论上消失 (path-integral 危险源是 `Σ(ε_t-i)`\
+  \ 内层连续 ε, 二值化把它降到 {0,1}\n  离散概率, 等价于 Bernoulli rate). **borderline 标注**: 本批显式 case-by-case\
+  \ 进入,\n  Phase 3 judge 若发现 vol_20d_exp > 15 或 alpha_surv < 0.4 触发 P004-deep 类失败模式,\n\
+  \  则该子族证伪\n- **F028 anchor precheck**: F028 = `Div(Sum(Lt × Greater, 12), ...)`\
+  \ 是 DMI 双计数比值;\n  本批 6 候选无 Lt×Greater 双 condition 复合 (T001-T005 单 Greater/Lt, T006\
+  \ IfElse 选择);\n  几何 distinct 概率高, 但 Phase 2 必跑 max_corr_F028 实测\n- **Reciprocal\
+  \ monotonic-invariant**: `Greater(x, 0)` ≠ `Less(-x, 0)` 同 cross-section\n  rank\
+  \ (sign-flip 但 cross-section 上 truncate 方向同, 不等价); 本批避免 Greater/Less\n  互补对偶 (无\
+  \ `Greater(x,c) + Less(x,c)` 配对覆盖全空间)\n- **Cross-section OLS sign-flip / Cov-equiv\
+  \ (P028)**: 无 Cov atom; 无 cross-section\n  OLS residualize (DSL only)\n\n**Anchor\
+  \ avoidance**:\n- F028 (DMI down-ratio): 双 condition 复合 (Lt × Greater), 本批 6 候选无此结构\
+  \ → distinct\n- F021 (upper_shadow_disp_range_compress_rd): T001 上影占比走 truncation+aggregate\
+  \ 路径,\n  与 F021 走 dispersion+rank-diff 路径几何不同 (truncation 是离散二值, dispersion 是连续\
+  \ Std)\n- F012 (Amihud 反转簇): T002/T004 是 cross-day return 事件率, 与 Amihud `Mean(|ret|/$amount)`\n\
+  \  level 信号不同 (truncate 后 magnitude 信息丢失, 只剩计数)\n- F019/F020 (gap-related rank-diff):\
+  \ T002 gap event rate 走 truncation+Mean 路径, 与 F020\n  `gap_vol_body_ratio_rank_diff_20`\
+  \ 走 ratio+rank-diff 几何不同\n\n**Baseline-first 守则 explicit skip**: 15 untouched TTM\
+  \ fields 与 conditional truncation\n几何 (cross-day return event / shadow ratio threshold\
+  \ / turnover-rank gating) 完全不相关 —\nconditional truncation 依赖 daily price/volume\
+  \ 频率离散事件, TTM 财务字段是季度更新无法支撑\ndaily event counting. 显式 skip baseline-first, 本批纯 OHLCV/microstructure\
+  \ structural 探索.\n\n**avoid-this-batch rank-diff axis**: 8 batches 累积零 admit 进入\
+  \ dead-spiral, 本批显式不\n用 Sub(TsRank, TsRank) 形式; conditional operator 是正交几何。\n\n\
+  Target: ≥1 admit (ls_t ≥ 3.0 + max_corr < 0.40 + alpha_surv ≥ 0.5) OR ≥2 子族 validated\n\
+  (P004-deep 离散事件 aggregate 不触发 vol_20d 吸收, alpha_surv ≥ 0.5 + ls_t > 2.0).\nCalibration\
+  \ trigger 已 true from b095/b096; 本批是首个结构性新方向探索, 若 0 admit 不加深\ndead-spiral 因子, 而是检验\
+  \ conditional family 路径可行性。"
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-15T23:34:06Z'
+frozen_at: '2026-05-15T23:34:06Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Gt(Div(Sub($high,$close),Sub($high,$low)),0.5),20)
+  canonical: Mean(Gt(Div(Sub($high,$close),Sub($high,$low)),0.5),20)
+  rationale: "T001 上影占比 truncation. 上影长度 = $high-$close, 当日 range = $high-$low,\n\
+    上影占比 = (H-C)/(H-L). Gt(.,0.5) 返回 bool: 大于 0.5 时为 1 (上影主导日)\n否则 0. 20d Mean = \"\
+    上影主导日\"占比 (Bernoulli rate).\nexpected_sign: negative (上影主导 = 抛压 = 反转).\n\nSelf-check:\n\
+    \  - P030: multi-CP rationale (incr_ic + max_corr + ls_t)\n  - P004-deep BORDERLINE:\
+    \ Mean of Gt(.) 是离散 {0,1} 事件率 Bernoulli aggregate,\n    二值化丢 path-memory β-shift\
+    \ (path-integral 危险源是连续 ε 累积, 此处事件计数\n    离散无 β coefficient 传递)\n  - F028 anchor:\
+    \ F028 是 Lt×Greater 双 condition 比值, 本候选单 Gt + Mean rate,\n    几何 distinct\n  -\
+    \ F021 (shadow_disp): F021 是 Std/dispersion 连续, 本候选是 truncate+rate 离散,\n    几何不同\n\
+    \  - reciprocal duplicate: Gt(x,0.5) ≠ Lt(x,0.5) cross-section 不等价\n    (Lt 是\
+    \ lower-shadow 主导日是独立子族, 本批不覆盖)\n"
+  expected_sign: negative
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Gt(Div($open,Ref($close,1)),1.005),60)
+  canonical: Mean(Gt(Div($open,Ref($close,1)),1.005),60)
+  rationale: "T002 gap-up 事件率. $open/Ref($close,1) > 1.005 即 overnight gap-up > 0.5%\n\
+    为 1 否则 0. 60d Mean = \"强 gap-up 事件率\" Bernoulli rate.\nexpected_sign: negative\
+    \ (频繁强 gap-up = 过度乐观 / disposition effect 反转).\n\nSelf-check:\n  - P030: multi-CP\
+    \ rationale\n  - P004-deep BORDERLINE: gap event rate, 二值化离散; gap 是 cross-day\
+    \ 单步差分\n    非累积, aggregate 是 Bernoulli rate 无 path-memory β-shift\n  - F028 anchor:\
+    \ 单 Gt threshold, F028 双 condition, distinct\n  - F018 (overnight_sign_freq_amount_rank_diff_20):\
+    \ F018 是 sign-freq × amount\n    rank-diff 走 rank-diff 路径; 本候选是 gap-up rate 单字段走\
+    \ truncation 路径\n  - F020 (gap_vol_body_ratio_rank_diff): rank-diff form, 几何不同\n\
+    \  - reciprocal duplicate: Gt(x,1.005) ≠ Lt(x,0.995); gap-down 是独立子族 (本批不覆盖)\n"
+  expected_sign: negative
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Mul(Gt(TsRank($turnover_rate,60),0.8),$turnover_rate),20)
+  canonical: Mean(Mul($turnover_rate,Gt(TsRank($turnover_rate,60),0.8)),20)
+  rationale: "T003 high-turnover-rank conditional flow. Gt(TsRank,0.8) 选出 TsRank 前\
+    \ 20% 的天,\n乘以 raw turnover (mask 应用), 否则归零. 20d Mean = \"高 rank 期间的 turnover 强度\n\
+    平均\". expected_sign: negative (high turnover rank 期间的高 turnover = 极致 crowding\
+    \ =\n反转, 区别于 raw turnover mean 因为加了 rank-gated 选择).\n\nSelf-check:\n  - P030:\
+    \ multi-CP rationale\n  - P004-deep BORDERLINE: Mean of (mask × raw turnover);\
+    \ mask 离散 {0,1} 但 raw\n    turnover 是连续 — 这是 partial-truncation, 不是 full discretization.\
+    \ **风险更高**:\n    高 rank 内的 turnover magnitude 信息保留, 可能撞 F012 amihud/F015 amihud_cv_rank_diff\n\
+    \    cluster (max_corr 风险 > C001/C002). Phase 2 precheck F012/F015 max_corr 优先\n\
+    \  - F028 anchor: F028 用 Greater(|ΔH|,|ΔL|) 是绝对差比较, 本候选用 Gt(TsRank, 0.8)\n   \
+    \ 是 rank 阈值, distinct\n  - F024 (trade_density_tsrank_60): F024 是单 TsRank ratio,\
+    \ 本候选是 TsRank 触发的\n    mask × raw — 几何不同 (F024 用 rank value, 本候选用 rank threshold\
+    \ gate)\n  - reciprocal duplicate: Gt(TsRank,0.8) ≠ Lt(TsRank,0.2) (low-rank gating\
+    \ 是独立子族)\n"
+  expected_sign: negative
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Gt(Div($close,Ref($close,1)),1.0),20)
+  canonical: Mean(Gt(Div($close,Ref($close,1)),1.0),20)
+  rationale: "T004 上涨日占比. close/prev_close > 1 即 1 日 return > 0 为 1 否则 0.\n20d Mean\
+    \ = 上涨日占比 (win rate Bernoulli aggregate).\nexpected_sign: negative (高 win rate\
+    \ = 过度乐观/连涨 = 反转, 类 short-term reversal).\n\nSelf-check:\n  - P030: multi-CP rationale\n\
+    \  - P004-deep BORDERLINE 关键: Sum/20 of {0,1} 是离散概率 (Bernoulli rate), 而非\n   \
+    \ 连续 path-integral. **理论上 path-memory β-shift 不存在** 因为二值化把每天 ε 降到\n    {0,1},\
+    \ t-i 时刻的 β coefficient 在 sign 函数下被丢弃 (只剩 +/− 0 信息).\n    Phase 3 必检验 vol_20d_exp\
+    \ — 若 >15 触发 P004-deep 类失败模式则证伪\n  - F028 anchor: 单 Gt on return, F028 用 Lt×Greater\
+    \ 双 condition, distinct\n  - F001 amount_cv 反转簇: F001 是 amount CV (连续 std/mean),\
+    \ 本候选是 return sign\n    rate (离散计数), 几何不同\n  - reciprocal duplicate: Gt(ratio,1.0)\
+    \ ≠ Lt(ratio,1.0); 下跌日占比是独立子族\n  - 1日 return 是基本 building block; close-position\
+    \ cluster (F006-F008-F026) 用\n    (C-L)/(H-L) intraday position; 本候选用 cross-day\
+    \ 涨跌方向, 几何不同\n"
+  expected_sign: negative
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Lt(Div(Sub($high,$low),$close),0.03),60)
+  canonical: Mean(Lt(Div(Sub($high,$low),$close),0.03),60)
+  rationale: "T005 低振幅日占比. (H-L)/$close = 日内相对振幅; < 0.03 (3%) 为 1 否则 0.\n60d Mean\
+    \ = \"低振幅日占比\" = \"压缩期 regime indicator\".\nexpected_sign: positive (高占比 = 压缩期\
+    \ = 后续 breakout 偏 long).\n\nSelf-check:\n  - P030: multi-CP rationale\n  - P004-deep\
+    \ BORDERLINE: 离散事件率, 二值化丢 magnitude 信息; vol_20d basis 是\n    continuous std, 本候选是\
+    \ discrete amplitude threshold rate — 几何应 distinct\n    (Phase 2 实测 vol_20d_exp\
+    \ 验证)\n  - F028 anchor: distinct (F028 是趋势计数, 本候选是振幅 regime 计数)\n  - F022 (range_compression_60):\
+    \ F022 是 compression measure 走 dispersion 路径,\n    本候选走 truncation 路径. **max_corr\
+    \ 高风险** — Phase 2 优先 precheck max_corr_F022\n  - reciprocal duplicate: Lt(x,0.03)\
+    \ ≠ Gt(x,0.03); 高振幅日占比是独立子族\n"
+  expected_sign: positive
+- candidate_id: C006
+  source_type: dsl
+  expression: If(Gt(Corr($close,$volume,10),0),Sub(Div($close,Ref($close,20)),1),0)
+  canonical: If(Gt(Corr($close,$volume,10),0),Sub(Div($close,Ref($close,20)),1),0)
+  rationale: "T006 conditional momentum (PV-corr gated). 仅在过去 10d $close-$volume Corr\
+    \ > 0 时\n取 20d momentum (close/Ref(close,20)-1) 否则归零. 这是 mask × admit-factor 类型\
+    \ —\n把 F009-style PV-corr 当 gate, 把 20d momentum 当 signal.\nexpected_sign: negative\
+    \ (PV 正相关期 = 量价齐升 = 过热 → 后续 20d momentum 反转).\n\nSelf-check:\n  - P030: multi-CP\
+    \ rationale\n  - P004-deep BORDERLINE: If(cond, momentum, 0) — momentum 本身是 single-step\n\
+    \    ratio (20d return) NOT cumulative; gate 是离散二值. 关键差别: 这不是\n    aggregate of\
+    \ {0,1} events, 而是 raw momentum * {0,1} gate — 等价于 conditional\n    observation.\
+    \ Phase 3 需检验 vol_20d_exp\n  - F028 anchor: F028 用 H+L vs prev H+L 趋势计数, 本候选用\
+    \ PV corr gate, distinct\n  - F009 (pv_corr_times_vol): F009 是 PV-corr × vol product\
+    \ (corr 作连续因子);\n    本候选是 PV-corr 触发的 momentum gate (corr sign 作 gate) — 几何不同.\n\
+    \    **max_corr 风险** — Phase 2 precheck F009 max_corr\n  - reciprocal duplicate:\
+    \ If(Gt(corr,0),mom,0) ≠ If(Lt(corr,0),mom,0)\n    (negative-corr-gated momentum\
+    \ 是独立子族, 本批不覆盖)\n"
+  expected_sign: negative
