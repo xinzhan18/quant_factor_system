@@ -1,0 +1,257 @@
+batch_id: batch_093
+round: 93
+direction: overnight_intraday_split
+direction_md_ref: vault/directions/overnight_intraday_split.md
+batch_goal: "Round 93 — overnight_intraday_split reserve_revival_pool_4 (horizon-switch\n\
+  mechanism, calibration finding/013). direction status=saturated (b087 closed),\n\
+  zero_admit_streak=6 (b088/b089/b090/b091/b092 + b087). Target = T017 (Corr\n$volume\
+  \ × overnight_gap, 60) reserve 火种 — b087 C001 在 1d horizon\nic_oos=0.032 ls_t=1.77\
+  \ mono=1.00 9/9 年正, 但 3 borderline 联立\n(alpha_surv=0.20<0.30 floor + max_corr=0.45@F019\
+  \ + incr_ic=0.011 缺 0.015\n~25%); horizon ladder 1d→20d ic 0.032→0.073 显著放大。\n\n\
+  **关键约束 — Python CLI 不支持 --horizon override**: `research execute` 仅\n接受 batch_id\
+  \ (no horizon override flag)。Multi-horizon IC [1,3,5,10,20] 在\n默认 result.yaml 中已计算并落盘\
+  \ (vectorized_ic.compute_multi_horizon_ic),\n但 admit 判决 evaluation 锚定 primary_horizon=1d\
+  \ (config.yaml)。本批降级为\n1d horizon 评估 + 用 result.yaml.metrics.ic_decay 做 horizon-switch\
+  \ 机制\n的诊断, 不改 admit gate。summary key_finding 明确标注 \"horizon mechanism\nuntested\
+  \ (CLI 不支持), 1d eval 仍 borderline → pool #4 路径 inconclusive,\nnext batch 切回 expression-rewrite\
+  \ revival 或 anchor-retirement 路径\"。\n\n6 候选覆盖 T017 axis horizon-revival 变种 (DSL\
+  \ only, P019 Corr-safe, 双端\n∈ OHLCV+amount+num_trades+turnover_rate 集):\n- C001\
+  \ (replay): b087 C001 baseline 重计算 — Corr($volume, gap, 60) × Mean(H-L, 60),\n \
+  \ target_h=20d (诊断 horizon decay shape, 期望复现 b087 result + 验证 multi-horizon\n  自动产出);\n\
+  - C002 (short-Corr-window): Corr 窗 60→20d + RHS 维持 Mean(H-L,60),\n  target_h=5d\
+  \ (短窗 estimator 是否在中 horizon 更稳);\n- C003 (turnover LHS): Corr($turnover_rate, gap,\
+  \ 60) × Mean(H-L,60),\n  target_h=5d (turnover 替 volume — F002 cluster 同源风险, 但 turnover\
+  \ 在\n  T017 axis 未试);\n- C004 (rank-diff cross-window — known dead T006 anti-pattern):\
+  \ Sub(\n  CsRank(Corr_60), CsRank(Corr_20)) 同字段跨窗口, target_h=5d (T006 已\n  DISPROVEN\
+  \ aggregation form, 但 Corr atom 未试 — 显式 anti-recap diagnostic,\n  expected sign_consistency<1.0\
+  \ 或 mono flip, 不作 admit 候选);\n- C005 (num_trades LHS): Corr($num_trades, gap, 60)\
+  \ × Mean(H-L,60),\n  target_h=10d (num_trades flow basis 完全脱 volume/turnover — F002\
+  \ escape\n  最可能路径);\n- C006 (amount LHS): Corr($amount, gap, 60) × Mean(H-L,60),\n\
+  \  target_h=10d (amount = price × volume 1st moment, 是否 vol_20d-locked\n  cluster\
+  \ 真退出).\n\n全候选自检通过 round 91-93 累积 hard rule:\n- **P030** (alpha_surv>1.0 unilateral\
+  \ ≠ admit 充分): T017 b087 alpha_surv=0.20\n  已 fail floor, 本批不依赖 alpha_surv 单边; multi-CP\
+  \ rationale 强制\n  (incr_ic + sign_consistency + max_corr + ls_t 四线齐备才 admit);\n\
+  - **P004-deep** (N-day path-integral 累积 default reject): Corr(X,Y,N) 是\n  rolling\
+  \ pearson estimator, 非 cumulative integral; Mean(H-L,N) 是 rolling\n  mean (1st-order),\
+  \ 非 path-integral; 全候选 pass;\n- **F024 anchor basin ≥90d** (round 92 升格): C002 用\
+  \ Corr 窗 20d 远低于\n  F024 60d basin (F024 是 TsRank-60 trade_density ratio, 不直接 Corr-cluster);\n\
+  \  本批 LHS Corr atom 与 F024 TsRank atom 几何 distinct;\n- **Reciprocal monotonic-invariant\
+  \ duplicates** (round 92 升格): 全候选\n  Corr/Mean 非 Div 形式, 无 reciprocal 镜像问题;\n- **Python\
+  \ residualize close-position cluster first 实证失败** (round 93\n  新发现): 本批不走 Python\
+  \ residualize 路径 (F002/F019 cluster 已被验证\n  不能 residualize 出 cluster), 改 horizon-switch\
+  \ 路径;\n- **rank-diff axis atom-class 依赖律** (round 93 finding): T017 family LHS\n\
+  \  是 Corr atom (非 close-position cluster), 期望 num_trades/amount 域可能\n  escape (与\
+  \ round 93 close-position 域 fail 形成对照).\n\nAnti-recapitulation:\n- 不重试 b087 C002\
+  \ (P008 escape standalone — 已 reject, 撞 F003 0.828);\n- 不重试 b087 C003 (signed-flow\
+  \ Rank-60 — 已 reject, 共 amount denominator\n  撞 F012 0.586 cluster);\n- 不重试 b087\
+  \ C004 (|overnight| Rank-60 — 已 reject, sign_flip + decay=-14.78);\n- 不重试 b087 C005\
+  \ (Cov(o,i,20) × amount_120 — 已 reject, 0.927 near_dup F023);\n- 不重试 b087 C006 (num_trades×|Δret|/amount\
+  \ TsRank-60 — 已 reject, sign_flip);\n- C001 是 b087 C001 显式重计算 (验证 horizon ladder\
+  \ 可复现, 非 anti-recap);\n- C004 是 T006 同字段跨窗口 anti-pattern 在 Corr atom 上的显式 diagnostic\n\
+  \  (rationale 中明确不期望 admit, 仅诊断 atom-class 是否改变 T006 律).\n\nHard targets:\n- C005\
+  \ 或 C006 ≥1 admit (incr_ic≥0.015 + max_corr<0.40 + alpha_surv≥0.30\n  + ls_t≥2 +\
+  \ sign_consistency=1.0) → 验证 num_trades/amount 域 escape T017\n  F019 cluster + pool\
+  \ #4 horizon mechanism 间接验证 (1d eval 已显著)\n- 若 6/6 全 reject → pool #4 mechanism\
+  \ inconclusive (1d eval 不显著 ≠\n  horizon-switch 机制 fail, 只是 CLI 不支持直接验证); summary\
+  \ 必须标注\n  next batch 切回 expression-rewrite 或 anchor-retirement 路径\n- calibration_trigger\
+  \ 候选: zero_admit_streak=6 + 2 reserve revival 连续失败\n  (pool #1, pool #2) → 本批若再\
+  \ 0/6 reject, 极可能触 calibration (累计\n  reserve 积压 + 真实\"信号都不够好\" vs \"阈值错杀\"诊断需求)"
+active_threads_referenced:
+- T017
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-15T20:55:02Z'
+frozen_at: '2026-05-15T20:55:02Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(CsRank(Corr($volume, Sub($open, Ref($close, 1)), 60)), CsRank(Mean(Sub($high,
+    $low), 60)))
+  canonical: Sub(CsRank(Corr($volume,Sub($open,Ref($close,1)),60)),CsRank(Mean(Sub($high,$low),60)))
+  rationale: "T017 b087/C001 baseline replay (horizon ladder 验证锚) — Corr-60 长窗\n×\
+    \ range-60 RHS. b087 实测 ic_oos=0.032, ls_t=1.77, mono_oos=1.00, 9/9\n年正, IS=0.014→OOS=0.032\
+    \ anti-decay, horizon ladder 1d→20d 0.032→0.073\n(3.5x growth). 本批重计算的核心目的:\n\
+    (1) 验证 result.yaml.metrics.ic_decay 自动产出 multi-horizon IC ladder\n    (1/3/5/10/20d),\
+    \ 确认 pool #4 mechanism 在现有 CLI 下可观察但不可\n    直接用作 admit gate;\n(2) 重测 alpha_surv=0.20\
+    \ + max_corr=0.45 + incr_ic=0.011 三 borderline\n    是否 stable (若有抖动可能改判);\n(3)\
+    \ target_horizon=20d 标注仅作 diagnostic, admit gate 仍 1d。\nP019 Corr-safe ✓ (LHS\
+    \ Corr 双端 OHLCV, RHS Mean H-L OHLCV)。\nP030 ✓ (不依赖 alpha_surv 单边, multi-CP rationale\
+    \ 完整)。\nAnchor risk: max_corr=0.45@F019 已知 borderline, 非 anti-recap (是 reserve\n\
+    显式 revival 测试)。\ntarget_horizon: 20d (diagnostic only, admit eval=1d).\n"
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(CsRank(Corr($volume, Sub($open, Ref($close, 1)), 20)), CsRank(Mean(Sub($high,
+    $low), 60)))
+  canonical: Sub(CsRank(Corr($volume,Sub($open,Ref($close,1)),20)),CsRank(Mean(Sub($high,$low),60)))
+  rationale: 'T017 short-Corr-window variant — Corr 窗 60→20d, RHS 保持 60d。
+
+    b066/C005 (Corr-20 + Std(volume,60) RHS) reserve alpha_surv=1.16 但
+
+    ls_t=1.26<2 IS→OOS 52% decay; b087/C001 (Corr-60 + Mean(H-L,60) RHS)
+
+    ls_t=1.77 但 alpha_surv=0.20 — 两端 trade-off。
+
+    本候选 Corr-20 + Mean(H-L,60) 是 b066 短 Corr 窗 + b087 fresh RHS 的
+
+    cross-combination, 不与任一已测候选完全相同。
+
+    Hypothesis: 短 Corr 窗在中 horizon (5d) 更稳 (Corr 短窗噪声大但 5d
+
+    forward return 滤掉日内噪声; Corr 长窗稳但 1d 评估 alpha_surv 撞
+
+    vol_20d basis)。
+
+    target_horizon: 5d (diagnostic, admit eval=1d).
+
+    P019 Corr-safe ✓. P030 ✓. F024 anchor basin (≥90d) 远离 (本候选 20d/60d
+
+    Corr/Mean 形式, 非 TsRank-60 ratio family)。Anti-dup: 与 b066 C005
+
+    表达式不同 (RHS Std(vol,60) → Mean(H-L,60), Corr 窗 LHS 20d 相同)。
+
+    '
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(CsRank(Corr(Div($volume, Mean($volume, 20)), Sub($open, Ref($close,
+    1)), 60)), CsRank(Mean(Sub($high, $low), 60)))
+  canonical: Sub(CsRank(Corr(Div($volume,Mean($volume,20)),Sub($open,Ref($close,1)),60)),CsRank(Mean(Sub($high,$low),60)))
+  rationale: 'T017 LHS swap raw volume → normalized volume (volume / 20d mean) — Corr-safe
+    size-normalized volume avoids Qlib turnover_rate shape mismatch bug (round 93 finding).
+    Normalized volume removes within-name level trend, isolating high-frequency volume
+    fluctuations that may co-vary with overnight gap timing.
+
+    Hypothesis: normalized volume CV pattern vs overnight gap captures
+    "intra-window relative volume surge × gap alignment" signal — distinct from raw
+    volume (b066/b087) which carries vol_20d basis directly. Within-name normalization
+    is a P008-escape proxy without changing field family.
+
+    Risk: normalized volume still derives from $volume, may inherit F002 ($volume Std)
+    cluster. But ratio form is dim-less and within-name detrended → potential escape.
+
+    target_horizon: 5d (diagnostic, admit eval=1d).
+    P019 Corr-safe ✓ (LHS Corr 双端 OHLCV-only)。P030 ✓ (multi-CP rationale)。
+    Anti-recap: 不与 b066 C005 (raw volume × Std(vol,60) RHS) 或 b087 C001 (raw volume
+    × Mean(H-L,60) RHS) 同 LHS — Div($volume, Mean($volume,20)) 是 fresh LHS form。
+    替代原 $turnover_rate LHS (Qlib Corr shape bug, round 93 lesson — turnover_rate
+    field 在 Corr 内部 trigger shape (2674,) (2728,) broadcast error)。
+
+    '
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(CsRank(Corr($volume, Sub($open, Ref($close, 1)), 60)), CsRank(Corr($volume,
+    Sub($open, Ref($close, 1)), 20)))
+  canonical: Sub(CsRank(Corr($volume,Sub($open,Ref($close,1)),60)),CsRank(Corr($volume,Sub($open,Ref($close,1)),20)))
+  rationale: 'T017 rank-diff cross-window diagnostic (anti-pattern probe, NOT admit
+
+    candidate)。T006 (overnight horizon-diff rank, b048) 已 DISPROVEN 同字段
+
+    跨窗口抵消律, 升格 rank-diff hard rule 第 3 条 (不能同字段跨窗口)。
+
+    本候选显式违反第 3 条 — 但在 Corr atom 而非 aggregation atom 上首次
+
+    测试。Rationale: rank-diff 抵消律的几何机制是"同字段长短窗 aggregation
+
+    值 cross-section ordering 高度相关 → CsRank Sub 抵消"。Corr atom 输出
+
+    [-1,1] bounded, 长短窗 Corr 值并非单调相关 (短窗 Corr 噪声大可能改序),
+
+    理论上 atom-class 改变可能松动 T006 律。
+
+    Expected outcome (Phase 3 验证): 若 admit 或 borderline reserve → T006
+
+    律仅在 aggregation atom 成立, Corr atom 例外 (升格 lesson "T006 律
+
+    atom-class 依赖性")。若 hard_gate reject (sign_flip / decay catastrophic
+
+    / max_corr 撞 F002) → T006 律跨 atom 普适。
+
+    target_horizon: 5d (diagnostic).
+
+    P019 Corr-safe ✓. P030 ✓ (本身就期望非 admit, 不依赖 alpha_surv)。
+
+    明确标注: 本候选 NOT admit candidate, 仅 diagnostic 用; Phase 3 judge
+
+    应以 atom-class diagnostic 结论为主输出。
+
+    '
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(CsRank(Corr($num_trades, Sub($open, Ref($close, 1)), 60)), CsRank(Mean(Sub($high,
+    $low), 60)))
+  canonical: Sub(CsRank(Corr($num_trades,Sub($open,Ref($close,1)),60)),CsRank(Mean(Sub($high,$low),60)))
+  rationale: 'T017 LHS swap volume→num_trades — flow basis 完全脱 volume/turnover 域
+
+    (num_trades = 单日成交笔数 = order arrival proxy, 与 volume/amount 不同
+
+    微观结构)。round 93 finding "rank-diff axis atom-class 依赖律" 暗示
+
+    num_trades 域可能 escape close-position cluster fail — 本候选是 T017
+
+    axis 上对此 finding 的首次实证。
+
+    Hypothesis: num_trades 与 overnight gap 的 60d 时序 Corr 捕捉 "隔夜
+
+    消息后 order density 与 gap 方向的协变" — 与 volume/turnover Corr 几何
+
+    正交 (订单到达频率 vs 成交体量)。F024 trade_density_tsrank_60 已 admit
+
+    (Grade A, ic=0.045 icir=0.70), 验证 num_trades 字段 alpha 独立性。
+
+    target_horizon: 10d (中长 horizon, num_trades 微观结构信号衰减预期慢)。
+
+    P019 Corr-safe ✓ (num_trades ∈ microstructure whitelist)。P030 ✓.
+
+    Anti-dup: F024 是 TsRank atom, 本候选是 Corr atom, 几何完全不同
+
+    (cross-section rank-in-window vs within-name time-series correlation)。
+
+    Adjacent scan: tsrank_timeseries_ratio (F024 direction, productive) —
+
+    仅 1 admit F024, atom 不同。F012 amihud_illiq_20d (microstructure_illiquidity)
+
+    = $amount-based, 与 num_trades 几何不同。
+
+    关键期望: C005 是本批 admit 最可能候选 (脱 F002/F019 cluster 几何路径)。
+
+    '
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(CsRank(Corr($amount, Sub($open, Ref($close, 1)), 60)), CsRank(Mean(Sub($high,
+    $low), 60)))
+  canonical: Sub(CsRank(Corr($amount,Sub($open,Ref($close,1)),60)),CsRank(Mean(Sub($high,$low),60)))
+  rationale: 'T017 LHS swap volume→amount — amount = price × volume 1st moment, 与
+
+    volume/turnover 完全不同维度 (CNY 单位 vs 股数)。
+
+    Hypothesis: 大资金 (amount) 与 overnight gap 的 60d 时序 Corr 捕捉
+
+    "机构资金跟随隔夜消息的稳定性" — 信号几何与 volume Corr 不同 (volume
+
+    捕捉散户+机构混合, amount 偏机构权重)。
+
+    Risk: amount 与 volume cross-sectional corr 通常 >0.8 (受 price 调制),
+
+    Corr 60d atom 后可能 inherit F002 ($volume vol cluster) 或 F012
+
+    (amihud=|ret|/amount cluster) 几何。本候选 expected_risk = max_corr
+
+    可能撞 F012/F019 borderline。
+
+    target_horizon: 10d (与 C005 同 horizon, 对照 amount vs num_trades 哪
+
+    个 flow basis escape)。
+
+    P019 Corr-safe ✓. P030 ✓. Anti-dup: F012 是 amihud aggregation atom,
+
+    本候选 Corr atom, 几何不同。F023 gap_body_magnitude_amount_rd_20 是
+
+    magnitude product (Sub-Mean), 与 Corr atom 几何不同。
+
+    Adjacent scan: microstructure_illiquidity (F012/F015/F016) — 全 cv/
+
+    illiq aggregation atom, 与本候选 Corr atom 不重叠。
+
+    '
