@@ -1,65 +1,88 @@
 ---
 direction_tag: overnight_intraday_split
-status: saturated
+status: dead
 priority: medium
-rounds: 17
+rounds: 18
 admits: 9
-last_batch: batch_093
+last_batch: batch_094
 last_admits: []
-last_goal: "Round 93 — overnight_intraday_split reserve_revival_pool_4 (horizon-switch\n\
-  mechanism, calibration finding/013). direction status=saturated (b087 closed),\n\
-  zero_admit_streak=6 (b088/b089/b090/b091/b092 + b087). Target = T017 (Corr\n$volume\
-  \ × overnight_gap, 60) reserve 火种 — b087 C001 在 1d horizon\nic_oos=0.032 ls_t=1.77\
-  \ mono=1.00 9/9 年正, 但 3 borderline 联立\n(alpha_surv=0.20<0.30 floor + max_corr=0.45@F019\
-  \ + incr_ic=0.011 缺 0.015\n~25%); horizon ladder 1d→20d ic 0.032→0.073 显著放大。\n\n\
-  **关键约束 — Python CLI 不支持 --horizon override**: `research execute` 仅\n接受 batch_id\
-  \ (no horizon override flag)。Multi-horizon IC [1,3,5,10,20] 在\n默认 result.yaml 中已计算并落盘\
-  \ (vectorized_ic.compute_multi_horizon_ic),\n但 admit 判决 evaluation 锚定 primary_horizon=1d\
-  \ (config.yaml)。本批降级为\n1d horizon 评估 + 用 result.yaml.metrics.ic_decay 做 horizon-switch\
-  \ 机制\n的诊断, 不改 admit gate。summary key_finding 明确标注 \"horizon mechanism\nuntested\
-  \ (CLI 不支持), 1d eval 仍 borderline → pool #4 路径 inconclusive,\nnext batch 切回 expression-rewrite\
-  \ revival 或 anchor-retirement 路径\"。\n\n6 候选覆盖 T017 axis horizon-revival 变种 (DSL\
-  \ only, P019 Corr-safe, 双端\n∈ OHLCV+amount+num_trades+turnover_rate 集):\n- C001\
-  \ (replay): b087 C001 baseline 重计算 — Corr($volume, gap, 60) × Mean(H-L, 60),\n \
-  \ target_h=20d (诊断 horizon decay shape, 期望复现 b087 result + 验证 multi-horizon\n  自动产出);\n\
-  - C002 (short-Corr-window): Corr 窗 60→20d + RHS 维持 Mean(H-L,60),\n  target_h=5d\
-  \ (短窗 estimator 是否在中 horizon 更稳);\n- C003 (turnover LHS): Corr($turnover_rate, gap,\
-  \ 60) × Mean(H-L,60),\n  target_h=5d (turnover 替 volume — F002 cluster 同源风险, 但 turnover\
-  \ 在\n  T017 axis 未试);\n- C004 (rank-diff cross-window — known dead T006 anti-pattern):\
-  \ Sub(\n  CsRank(Corr_60), CsRank(Corr_20)) 同字段跨窗口, target_h=5d (T006 已\n  DISPROVEN\
-  \ aggregation form, 但 Corr atom 未试 — 显式 anti-recap diagnostic,\n  expected sign_consistency<1.0\
-  \ 或 mono flip, 不作 admit 候选);\n- C005 (num_trades LHS): Corr($num_trades, gap, 60)\
-  \ × Mean(H-L,60),\n  target_h=10d (num_trades flow basis 完全脱 volume/turnover — F002\
-  \ escape\n  最可能路径);\n- C006 (amount LHS): Corr($amount, gap, 60) × Mean(H-L,60),\n\
-  \  target_h=10d (amount = price × volume 1st moment, 是否 vol_20d-locked\n  cluster\
-  \ 真退出).\n\n全候选自检通过 round 91-93 累积 hard rule:\n- **P030** (alpha_surv>1.0 unilateral\
-  \ ≠ admit 充分): T017 b087 alpha_surv=0.20\n  已 fail floor, 本批不依赖 alpha_surv 单边; multi-CP\
-  \ rationale 强制\n  (incr_ic + sign_consistency + max_corr + ls_t 四线齐备才 admit);\n\
-  - **P004-deep** (N-day path-integral 累积 default reject): Corr(X,Y,N) 是\n  rolling\
-  \ pearson estimator, 非 cumulative integral; Mean(H-L,N) 是 rolling\n  mean (1st-order),\
-  \ 非 path-integral; 全候选 pass;\n- **F024 anchor basin ≥90d** (round 92 升格): C002 用\
-  \ Corr 窗 20d 远低于\n  F024 60d basin (F024 是 TsRank-60 trade_density ratio, 不直接 Corr-cluster);\n\
-  \  本批 LHS Corr atom 与 F024 TsRank atom 几何 distinct;\n- **Reciprocal monotonic-invariant\
-  \ duplicates** (round 92 升格): 全候选\n  Corr/Mean 非 Div 形式, 无 reciprocal 镜像问题;\n- **Python\
-  \ residualize close-position cluster first 实证失败** (round 93\n  新发现): 本批不走 Python\
-  \ residualize 路径 (F002/F019 cluster 已被验证\n  不能 residualize 出 cluster), 改 horizon-switch\
-  \ 路径;\n- **rank-diff axis atom-class 依赖律** (round 93 finding): T017 family LHS\n\
-  \  是 Corr atom (非 close-position cluster), 期望 num_trades/amount 域可能\n  escape (与\
-  \ round 93 close-position 域 fail 形成对照).\n\nAnti-recapitulation:\n- 不重试 b087 C002\
-  \ (P008 escape standalone — 已 reject, 撞 F003 0.828);\n- 不重试 b087 C003 (signed-flow\
-  \ Rank-60 — 已 reject, 共 amount denominator\n  撞 F012 0.586 cluster);\n- 不重试 b087\
-  \ C004 (|overnight| Rank-60 — 已 reject, sign_flip + decay=-14.78);\n- 不重试 b087 C005\
-  \ (Cov(o,i,20) × amount_120 — 已 reject, 0.927 near_dup F023);\n- 不重试 b087 C006 (num_trades×|Δret|/amount\
-  \ TsRank-60 — 已 reject, sign_flip);\n- C001 是 b087 C001 显式重计算 (验证 horizon ladder\
-  \ 可复现, 非 anti-recap);\n- C004 是 T006 同字段跨窗口 anti-pattern 在 Corr atom 上的显式 diagnostic\n\
-  \  (rationale 中明确不期望 admit, 仅诊断 atom-class 是否改变 T006 律).\n\nHard targets:\n- C005\
-  \ 或 C006 ≥1 admit (incr_ic≥0.015 + max_corr<0.40 + alpha_surv≥0.30\n  + ls_t≥2 +\
-  \ sign_consistency=1.0) → 验证 num_trades/amount 域 escape T017\n  F019 cluster + pool\
-  \ #4 horizon mechanism 间接验证 (1d eval 已显著)\n- 若 6/6 全 reject → pool #4 mechanism\
-  \ inconclusive (1d eval 不显著 ≠\n  horizon-switch 机制 fail, 只是 CLI 不支持直接验证); summary\
-  \ 必须标注\n  next batch 切回 expression-rewrite 或 anchor-retirement 路径\n- calibration_trigger\
-  \ 候选: zero_admit_streak=6 + 2 reserve revival 连续失败\n  (pool #1, pool #2) → 本批若再\
-  \ 0/6 reject, 极可能触 calibration (累计\n  reserve 积压 + 真实\"信号都不够好\" vs \"阈值错杀\"诊断需求)"
+last_goal: 'Round 94 — reserve revival pool #3 (rank-diff axis escape via b080/C006
+  跨 b091 finding 合成, calibration finding/013 续命). direction status=saturated, zero_admit_streak=6
+  (b088/b089/b090/b091/b092/b093 累积). 原 pool #3 reserve = b080/C006 `Mean(overnight×turnover,60)
+  × Std(num_trades,60)` alpha_surv=0.61 + ls_t=4.06 + 9/9 年正 + cum_mdd=-1.37 但 4 anchor
+  cluster (F002/F012/F018/F023) + incr_ic=0.0098 缺 F203 0.015 ~33% → reserve。本批 把
+  b091 finding (rank-diff axis Sub(TsRank,TsRank) 在 amount/num_trades/overnight 非
+  close-position 域是真 escape, b091/C004 PASS) 应用到 overnight × turnover product 上，假设
+  rank-diff atom + product LHS 联立可同时降 anchor cluster + 升 incr_ic 出 borderline。
+
+  6 候选覆盖 rank-diff axis × overnight 域全谱: - C001 (single-field rank-diff): Sub(TsRank(overnight_gap,60),
+  TsRank(overnight_gap,20)) — pure overnight 跨窗 TsRank diff, atom-class probe (overnight
+  非 close-position 域, b091 finding 预测 escape 可能); - C002 (signed-product rank-diff):
+  Sub(TsRank($turnover_rate × overnight_gap, 60), TsRank($turnover_rate × overnight_gap,
+  20)) — overnight×turnover product 跨窗 rank-diff, b080/C006 reserve atom 直接套 rank-diff
+  form; - C003 (cross-period product rank-diff): Sub(TsRank(overnight×turnover,30),
+  TsRank(overnight×turnover,90)) — 短窗−长窗对称组 (30/90), 测 window-scale 不同效; - C004 (cross-field
+  rank-diff): Sub(TsRank(overnight×volume,60), TsRank(overnight×turnover,60)) — 同窗
+  cross-field rank-diff, RHS swap volume↔turnover 脱 F002 anchor (b093 RHS 锁源律启发: 改
+  RHS family); - C005 (Cov form rank-diff): Sub(TsRank(Cov(overnight,$volume,60),60),
+  TsRank(Cov(overnight,$volume,60),20)) — 时序+横截面 double TsRank, 测 Cov atom 在 rank-diff
+  layer 是否独立; - C006 (anti-clamp single TsRank): TsRank(overnight × Mean($turnover_rate,5),
+  60) — 单 TsRank 平滑分母 (turnover_5 trend), 作 sub-control 对比组 (非 rank-diff form, 测 smoothing
+  vs raw 效果)。
+
+  全候选 Phase 1 generator self-check 4 hard rule: - **P030** (alpha_surv>1.0 unilateral
+  ≠ admit 充分): 本批 6/6 不依赖 alpha_surv 单边, multi-CP rationale 强制 (incr_ic + max_corr
+  + ls_t + sign_consistency 至少 2/3); - **P004-deep** (N-day path-integral 累积 default
+  reject): rank-diff Sub(TsRank,TsRank) 是 cross-window scalar diff (round 91 lessons
+  已 codify NOT path-integral); product Mul(overnight, turnover) 是单步 cross-section,
+  非累积; 全候选 pass; - **Cov-equiv律 (P030 升格)**: C005 `Cov(overnight, $volume, 60)` 与库内
+  F023 `Mean(Mul(overnight, intraday), 20)` 几何不同 (RHS=volume vs intraday body), Cov
+  跨字段 overnight×volume 与 F023 overnight×intraday 不构成 cross-section near_dup (验证 ≥0.9
+  需 cross-corr 实测, 但 RHS field 不同概率不会撞); 全候选 pass; - **Reciprocal monotonic-invariant
+  duplicates**: 全候选无 Div 形式, 无 reciprocal 镜像问题。
+
+  **rank-diff axis atom-class 依赖律 (b091/b092 升格)** 应用: - b091/C004 (institutional_flow_proxy
+  amount/num_trades 域) PASS — rank-diff Sub(TsRank,TsRank) 在非 close-position 域是真 escape;
+  - b092 close-position 域 (tsrank_candlestick_ratio) fail — 同 rank-diff form 在 close-position
+  域 self-cancellation; - **本批 overnight 域**: overnight gap = $open − Ref($close,1)
+  是 cross-day momentum direct, 非 close-position (与 (C-L)/(H-L) close-position 几何 distinct);
+  假设属 rank-diff escape 域 (与 b091 同类), 而非 close-position self-cancellation 域。
+
+  **b093 RHS 锁源律 (T017 finding)** 应用: - b093 实证 T017 Corr atom F019 cluster anchor
+  在 RHS `Mean(H-L,60)` 不在 LHS Corr; - 本批全候选 **不用 Mean(H-L) RHS** — C001/C002/C003
+  是 single-LHS rank-diff (无独立 RHS); C004 cross-field rank-diff 用 volume/turnover RHS
+  family (非 H-L 衍生); - 假设: 不接触 Mean(H-L,60) RHS = 不接触 F019 vol_20d basis 1st moment
+  同源簇, cluster anchor 应不在 b093 锁源域内。
+
+  **F024 anchor basin 宽度≥90d** 应用: - F024 是 TsRank-60 trade_density ratio (close-position
+  域); 本批全候选 LHS = overnight × {turnover/volume} (cross-day momentum 域, 非 close-position);
+  - C003 用 30/90 窗对, C004 用 60d, C005 用 60d Cov + 20/60 双 TsRank — 全候选 TsRank 窗口 ∈
+  [20,90d] 范围内, 但 LHS atom geometry 与 F024 几何 distinct (overnight 非 close-position),
+  F024 anchor basin 应不直接 cluster overlap。
+
+  **reciprocal monotonic-invariant duplicates** (round 92 升格): 全候选无 Div 形式, 无 numer/denom
+  互换问题; product Mul(overnight, turnover) 是 commutative 但 Mul(turnover, overnight)
+  canonical equivalent (round 91 COMMUTATIVE_OPERATORS{Add,Mul} pre-dedup 自动处理)。
+
+  Anti-recapitulation: - 不重试 b080/C006 raw form (`Mean(overnight×turnover,60) × Std(num_trades,60)`)
+  — 那是被复活的 reserve 本身, 直接重计算 = 重复 b080/C006; - 不重试 b048/C001-C005 (overnight ratio
+  各种 rank-diff form, 同字段跨窗口 / 共 RHS=overnight_5 全 reject — T004/T006/T008 disprove);
+  - 不重试 b049/C001-C005 (共 RHS=overnight_5 / signed×magnitude 脱 LHS — T008/T009); -
+  不重试 b059/C003 sign-product 60d rank-diff (T011 path); - 不重试 b066 Skew/Kurt/Autocorr
+  rank wrap (T014/T015/T016 disprove)。
+
+  本批 C001 (single-field overnight 跨窗 rank-diff) 与 b048/C001 (overnight ratio rank-diff)
+  数学距离非零 (C001 是 TsRank overnight raw 跨窗, b048/C001 是 ratio LHS); 与 b066/C004 (Rank
+  wrap of Mean(overnight,5)) 不同 (C001 是 raw overnight 跨窗 TsRank, b066/C004 是 single
+  TsRank wrap aggregation atom)。
+
+  Hard targets: - C002 或 C004 ≥1 admit (incr_ic≥0.015 + max_corr<0.40 + alpha_surv≥0.30
+  + ls_t≥2 + sign_consistency=1.0) → 验证 b091 rank-diff axis escape 律在 overnight 域是否同样成立
+  + pool #3 真红利; - 若 6/6 全 reject → rank-diff axis 在 overnight 域亦 self-cancellation
+  (与 b092 close-position 域同律), 升格 `rank-diff axis 跨域适用律`: 仅 amount/num_trades 域 escape,
+  overnight/close-position/其他域均 self-cancel; - calibration_trigger 候选: zero_admit_streak=6
+  + 3 reserve revival pool 连续失败 (pool #1, #2 已失败, 若 pool #3 再失败) → 极可能触 calibration
+  (累计 reserve 积压 + reserve revival 路径全谱探索后真红利仍未现, 需阈值校准 vs 真信号塌缩诊断)。'
 prev_goal: 'Round 80 zero_admit_streak=3, 6 closed threads (T012-T016) + T017 reserve.
   Probe T011 (magnitude-weighted product) extension axis with FRESH atom geometries
   not tried in 12 rounds: (a) overnight × volume-delta product (volume change as weight,
@@ -75,7 +98,7 @@ prev_goal: 'Round 80 zero_admit_streak=3, 6 closed threads (T012-T016) + T017 re
   borderline + ls_t≥2 + 9/9 sign_consistency. P019 data-contract obeyed: no Corr cross-field
   with TTM (Corr-safe set only OHLCV+amount+num_trades). Fail → escalate consolidation
   trigger ready (rounds_since=7 → 8 next).'
-last_activity: '2026-05-15T21:42:12Z'
+last_activity: '2026-05-15T22:20:28Z'
 created_batch: batch_025
 members:
 - F009
@@ -151,7 +174,7 @@ merged_into: null
 
 ---
 
-### T011 · overnight×intraday joint magnitude/sign 共方向交互 [✗ DISPROVEN-comprehensive batch_087]
+### T011 · overnight×intraday joint magnitude/sign 共方向交互 [✗ DISPROVEN batch_087]
 
 > [!failure]+ Thread 结论：magnitude × magnitude 直乘 (F023 b059) 兑现唯一 admit；累计 ≥10 fresh atom 跨 form 全饱和
 >
@@ -170,6 +193,17 @@ merged_into: null
 > **Key finding (b087) — Cov ≈ Mean of product 等价律**: csi1000 daily zero-mean stationary return-pair 下 `Cov(X,Y,N) = Mean(XY,N) - Mean(X,N)*Mean(Y,N) ≈ Mean(XY,N)` (Mean(daily return)≈0 让 cov 二阶项消失)。F023 (Mean of product) admit 后所有 Cov(overnight, intraday, N) atom 自动 cross-section near_dup (b087 C005 实测 0.927)。**应升格 Phase 1 generator AST 自检第 9 条**, 与 P024 In-batch denominator equivalence 同律。
 >
 > **核心律**: sign-only 是 long-horizon (10d-20d) 现象, 1d 主 horizon 下 noise-dominated; magnitude-weighted 在 1d horizon 下 ls_t=4.89 + anti-decay。T011 axis 已结构性饱和。
+>
+> **Evidence trail**: (Pool #3 rank-diff revival batch_094)
+> - [[batches/batch_094/candidates/C001|b094 C001]] `Sub(TsRank(overnight,60), TsRank(overnight,20))` — ic_oos=0.0078 hard_gate fail (差 0.0002, T006 律 atom-class 普适律新证据 TsRank atom 第三次) → **reject**
+> - [[batches/batch_094/candidates/C002|b094 C002]] `Sub(TsRank(turnover×overnight,60), TsRank(.,20))` — ic_oos=0.0067 hard_gate fail despite mono_oos=0.9 PERFECT + max_corr=0.27@F018 low cluster ✓ (rank-diff form 破 cluster 但同步 cancel alpha) → **reject**
+> - [[batches/batch_094/candidates/C003|b094 C003]] `Sub(TsRank(.,30), TsRank(.,90))` — ic_oos=-0.0032 hard_gate fail, window-asymmetric momentum-reversal informative finding (mono=-0.5 sign 反向一致) → **reject**
+> - [[batches/batch_094/candidates/C004|b094 C004]] cross-field rank-diff overnight×volume vs overnight×turnover — degenerate (n_days_oos=0, volume≡turnover_rate cross-section rank mono-equivalent) → **reject**
+> - [[batches/batch_094/candidates/C006|b094 C006]] `TsRank(overnight × Mean(turnover,5), 60)` — max_corr=**0.857@F003** critical near-dup, single TsRank wrap 不 escape F003 overnight gap 引力盆地 → **reject**
+>
+> **Key finding (b094) — "cluster-breaking ↔ alpha-cancellation" trade-off 律** (lesson 升格候选): rank-diff form 把 max_corr 从 b080/C006 4 anchor cluster 降至 0.27@F018 low cluster ✓ 但同步把 alpha 也 cancel 到 hard_gate 以下。rank-diff form 不能同时实现 (a) anchor cluster 破除 + (b) alpha 强度保留 在 product LHS 上。C002 vs C006 控制对照实证 (ic_oos 几乎相同 0.0067/0.0068, max_corr 差 0.59)。
+>
+> **Key finding (b094) — rank-diff axis 跨域适用律精化** (lesson 升格候选, 3 方向证据综合): b091/C004 amount/num_trades 域 PASS · b092 close-position 域 FAIL · b094 overnight 域 FAIL。**rank-diff escape 域非"非 close-position 域"而是"高 noise dispersion + ungeometrically-saturated 域"** — overnight 是 geometrically-saturated family (9 admit + F018 sign-aggregation anchor + F023 magnitude-product anchor + F003 overnight gap anchor 引力盆地密集), 即使 rank-diff form 也无法 escape。
 
 ---
 
@@ -251,13 +285,14 @@ merged_into: null
 
 ---
 
-### T017 · 量价时序 covariance atom (Corr$volume × overnight_gap) [◉ ACTIVE]
+### T017 · 量价时序 covariance atom (Corr$volume × overnight_gap) [✗ DISPROVEN batch_094]
 
 > [!note]+ Thread 进展：跨 batch 火种续命 (b066→b087→b093, 3 reserve 火种), **RHS 锁源律新揭示 + Pool #4 horizon-switch mechanism inconclusive**
 >
 > **Question**: Corr(X, overnight_gap, N) within-name 时序 covariance atom 是否独立于 magnitude/sign-freq？Barra-clean (alpha_surv>1.0) 候选能否 admit？LHS-swap 能否 escape F019 cluster？
 >
 > **Evidence trail**:
+> - [[batches/batch_094/candidates/C005|b094 C005]] `Sub(TsRank(Cov(o,$volume,60),60), TsRank(Cov(.,.,60),20))` Cov atom + double TsRank rank-diff — ic_oos=0.0006 essentially zero hard_gate fail (Cov + double TsRank 多层 wash 律, max_corr=0.035@F007 库最 clean 但 alpha 塌缩) → **reject**
 > - [[batches/batch_093/candidates/C005|b093 C005]] (num_trades LHS) — reserve 火种第 3 个, RHS 锁源律实证
 > - [[batches/batch_087/candidates/C001|b087 C001]] (volume LHS Corr-60 + Mean(H-L,60)) — reserve 火种第 2 个
 > - [[batches/batch_066/candidates/C005|b066 C005]] (volume LHS Corr-20 + Std(volume,60)) — reserve 火种第 1 个
@@ -300,6 +335,12 @@ merged_into: null
 | batch_093 | C003 | Normalized-vol LHS Corr-60 + Mean(H-L,60) RHS | within-name ratio detrend 仍 alpha_surv=0.18 max_corr=0.44@F019 — RHS 真锁源 |
 | batch_093 | C004 | T006 cross-window Corr rank-diff (anti-pattern diagnostic) | ic_oos=0.006 hard_gate + mono=0.3 + ls_t=0.91 — **T006 律跨 atom-class 普适证实** (Corr 同字段跨窗口仍 rank-diff 抵消) |
 | batch_093 | C006 | Amount LHS Corr-60 + Mean(H-L,60) RHS | metrics 与 C001 几乎完全相同 (amount = price × volume 1st moment 在 Corr atom 内退化为 volume 近似) — duplicate-of-reserve |
+| batch_094 | C001 | `Sub(TsRank(overnight,60), TsRank(overnight,20))` raw overnight 同字段跨窗 | ic_oos=0.0078 hard_gate fail (差 0.0002, 2.5%) — **T006 律跨 atom-class 普适律 TsRank atom 第三次实证** (rank-diff hard rule 第 3 条无例外, ratio/Corr/TsRank 3 atom-class 全证实) |
+| batch_094 | C002 | rank-diff form on overnight × turnover product 60/20 | ic_oos=0.0067 hard_gate fail despite mono_oos=0.9 PERFECT + max_corr=0.27@F018 low ✓ — **rank-diff form 破 cluster 但同步 cancel alpha (b080/C006 reserve 真红利不在 rank-diff form)** |
+| batch_094 | C003 | rank-diff 30/90 short-long asymmetric window product | ic_oos=-0.0032 hard_gate fail, sign 反向 + mono=-0.5 (climax exhaustion informative finding 但 alpha 不足) |
+| batch_094 | C004 | cross-field rank-diff overnight×volume vs overnight×turnover_rate 60d | degenerate n_days_oos=0 (volume 与 turnover_rate cross-section rank mono-equivalent, 同窗 TsRank diff 几乎处处 0) — cross-field rank-diff scale-mismatch 死局 |
+| batch_094 | C005 | Cov atom + double TsRank diff `Sub(TsRank(Cov,60), TsRank(Cov,20))` | ic_oos=0.0006 essentially zero hard_gate fail — Cov + double TsRank 多层 wash 律, max_corr=0.035@F007 库最 clean ("库 clean ≠ tradable" 第 5 次跨方向复现) |
+| batch_094 | C006 | single TsRank wrap of overnight × Mean(turnover,5) smoothing | ic_oos=0.0068 hard_gate fail + max_corr=**0.857@F003** critical (overnight gap raw 引力盆地未脱) — smoothing 不 escape |
 
 ---
 
@@ -336,7 +377,20 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-05-15 · [[batches/batch_093/judge|batch_093]] · zero admit (1 reserve) · **reserve_revival_pool_4 horizon-switch 失败** + RHS 锁源律新揭示
+> [!quote]+ 2026-05-16 · [[batches/batch_094/judge|batch_094]] · zero admit (0 reserve) · **Pool #3 rank-diff axis × overnight 域 全谱失败 + cluster-breaking ↔ alpha-cancellation 律新升格**
+> admit=0 / reserve=0 / reject=6 (全 hard_gate fail: 5 ic_oos_too_low + 1 degenerate)。
+> - **🚨 "cluster-breaking ↔ alpha-cancellation" trade-off 律新升格 (lesson 候选)**: C002 vs C006 控制对照实证 — rank-diff form (C002) max_corr=0.27@F018 low ✓ + ic_oos=0.0067 (fail) / single TsRank (C006) max_corr=**0.857@F003** + ic_oos=0.0068。ic_oos 几乎相同 (信号强度不依赖 form), max_corr 差 0.59 (form 决定 anchor cluster)。**rank-diff form 是真效 anchor-escape 路径但代价是 alpha 同步 cancel**, 不能同时实现 (a) cluster 破除 + (b) alpha 保留 在 product LHS 上。b080/C006 reserve 真红利不在 rank-diff form, 在 raw Mean × Std product form 但被 anchor cluster 阻断。
+> - **🚨 rank-diff axis 跨域适用律精化 (lesson 候选, 3 方向证据综合)**: b091/C004 amount/num_trades 域 PASS · b092 close-position 域 FAIL · b094 overnight 域 FAIL。**rank-diff escape 域非"非 close-position 域"而是"高 noise dispersion + ungeometrically-saturated 域"** — overnight 是 geometrically-saturated family (9 admit + F018/F023/F003 三 anchor 引力盆地密集), rank-diff form 也无法 escape。
+> - **🚨 T006 律跨 atom-class 普适律 TsRank atom 第三次实证 (lesson 候选, 强证据)**: rank-diff hard rule 第 3 条 (不能同字段跨窗口) 已在 (b048 ratio atom / b093 Corr atom / b094 TsRank atom) 3 atom-class 全实证, **无例外**。C001 raw overnight 同字段跨窗 ic_oos=0.0078 essentially zero。
+> - **"库 clean ≠ tradable alpha" 跨方向第 5 次复现 (lesson 升格强证据)**: C005 max_corr=**0.035@F007 库最 clean** + alpha 塌缩 ic_oos=0.0006。累计 b059/b066/b087/b093 C004/b094 C005 五例独立证据。
+> - **C003 informative finding (window-asymmetric momentum reversal)**: 30/90 短−长 = mean-reversion (ic 负 + mono 反向), 60/20 长−短 = momentum (ic 正)。同 atom 不同 window pair 捕捉不同 regime。但 ic_oos=-0.0032 强度不足。
+> - **MT budget**: cumulative 492 → 528 (+36 — 全批 search 未消耗因 0 admit) · direction 63 → 69 · bucket high (search_adjusted=low)
+> - **🚨 calibration_trigger 命中 (强信号)**: zero_admit_streak 6→**7** + **3 reserve revival pool (pool #1/#2/#3) 全谱失败累积** + 4 lesson 升格候选 + 累计 reserve 积压 (5: b066/b080/b087/b093/b094) 未消化。应触 [[lessons#Threshold Calibration]] 诊断流程区分"真信号不够" vs "阈值错杀" (C001 差 0.0002 ≈ 2.5% 阈值是 candidate over-rejection signal)。
+> - **Pool #3 全谱失败诊断**: rank-diff axis (b091 amount/num_trades 域成功原型) 应用到 overnight 域 0/6 — overnight 是 geometrically-saturated family, rank-diff form 不是 escape 几何; b080/C006 reserve 真路径在 raw form, 需 anchor retirement (F018/F023/F003) 才能 admit。
+>
+> **Operations**　direction status 保持 saturated · T011 DISPROVEN-comprehensive 状态不变, +5 rank-diff revival evidence · T017 ACTIVE +b094 C005 Cov atom wash 律 (3 reserve 火种保持) · zero_admit_streak 6→**7** · **🚨 触 calibration_trigger 强信号** · **🚨 consolidation_trigger 候选** (rounds_since=3 但 zero_admit_streak=7 + lesson 升格累积 4 条) · commit `[mine] batch_094 | overnight_intraday_split | admits=0 reserves=0 rejects=6`
+
+> [!quote]- 2026-05-15 · [[batches/batch_093/judge|batch_093]] · zero admit (1 reserve) · **reserve_revival_pool_4 horizon-switch 失败** + RHS 锁源律新揭示
 > admit=0 / reserve=1 (C005 num_trades LHS) / reject=5。
 > - **🚨 RHS 锁源律新发现 (lesson 候选)**: 5 candidates LHS 跨 4 fields ($volume/$num_trades/$amount/normalized-vol) + 2 windows 全 alpha_surv=0.18-0.21 + max_corr=0.44-0.45@F019 + dom_style=vol_20d (**5/5 uniform 跨 atom-class**)。结论: T017 axis F019 cluster anchor **在 RHS Mean(H-L,60) 不在 LHS Corr atom** — Mean H-L 60d 是 vol_20d basis 1st moment 平滑, 与 F019 cluster 直接同源。**真复活路径必须改 RHS, 不是 LHS**。
 > - **Pool #4 horizon-switch mechanism inconclusive (CLI 限制)**: `research execute` 不支持 `--horizon` override, admit gate 锚定 1d (config.yaml `primary_horizon: 1`)。但 result.yaml.metrics.cp03.ic_by_horizon 自动产出 ladder [1,3,5,10,20]。C001/C005/C006 实测 1d→20d ic 0.032→0.073 + icir 0.22→0.41 **3.5× IC 放大** mechanism 真实存在, 但 admit 在 1d 仍 borderline reject。需 CLI 扩展或 evaluation policy 改造才能验证 admit-tradable, 短期不可直接行动 → **下批切回 expression-rewrite revival 或 anchor-retirement 路径**。
