@@ -1,70 +1,51 @@
 ---
 direction_tag: rank_diff_liquidity_microstructure
-status: exploring
+status: saturated
 priority: high
-rounds: 1
+rounds: 2
 admits: 0
-last_batch: batch_095
+last_batch: batch_096
 last_admits: []
-last_goal: 'Round 95 — fork from institutional_flow_proxy T001 rank-diff axis after
-  b091/C004 first PASS
-
-  (max_corr=0.18 + alpha_surv=0.862 + incr_ic=+0.008 全 PASS, ls_t=-2.20 weak). 6 candidates
-
-  沿 5 sub-axis 推 rank-diff geometric space on amount/num_trades family:
-
-  C001 (T001) RHS window 短端伸缩 Sub(TsRank60, TsRank10) — 测信号放大;
-
-  C002 (T001) 长窗 3:1 ratio Sub(TsRank90, TsRank30) — 测尺度等比扩展稳态;
-
-  C003 (T002) 跨字段 same window rank-diff Sub(TsRank(amount/num_trades,60), TsRank(amount/volume,60))
-  — 测跨 RHS field 脱单 atom 自相关;
-
-  C004 (T003) raw amount baseline rank-diff Sub(TsRank(amount,60), TsRank(amount,20))
-  — 测 raw atom 是否仍 escape;
-
-  C005 (T004) HP-2nd-order 3-term Sub(Add(TsRank60, TsRank10), Mul(2, TsRank20)) —
-  测 acceleration form;
-
-  C006 (T005) CsRank-wrap base form CsRank(Sub(TsRank60, TsRank20)) — 测 cross-section
-  orthogonalization.
-
-  Self-check 5 hard rule 全 PASS: P030 (无候选单边依赖 alpha_surv>1.0, 全候选 multi-CP rationale);
-
-  P004-deep (C005 是 3 single TsRank 复合非 cumsum/path-integral, 每 term 都是 single-step
-  TsRank wrapper);
-
-  P028 Cov-equiv (无 Cov atom, 全候选基于 TsRank);
-
-  reciprocal duplicate (PRE-FILTER: TsRank(1/x,N)=N+1-TsRank(x,N) → Sub(TsRank(1/x,60),
-  TsRank(1/x,20))
-
-  = -Sub(TsRank(x,60), TsRank(x,20)) monotonic sign-flip duplicate of b091/C004 →
-  排除 num_trades/amount form
-
-  + 排除 TsRank(volume/num_trades) 系列 = F024 sign-flip dup);
-
-  rank-diff domain (amount/num_trades 是 b091 实证 PASS 域, 非 close-position self-cancel
-  域 [b092 dead]
-
-  非 overnight alpha-cancel 域 [b094 dead]).
-
-  Baseline-first 守则 explicit skip: 15 TTM untouched fields 与本 direction (microstructure
-  rank-diff geometry)
-
-  完全不相关 — TTM/fundamental 字段不在本批 hypothesis scope 内. 本批 全 OHLCV/microstructure 字段
-
-  ($amount/$num_trades/$volume).
-
-  Precheck F012 (Amihud, $amount/$num_trades cluster anchor) + F024 (TsRank(num_trades/volume,60))
-  +
-
-  F015/F016 (CsRank-diff cluster) max_corr thresholds mandatory in Phase 2.
-
-  Target: 至少 1 admit 或 ≥1 reserve 加 b091/C004 reserve pool. zero_admit_streak=7 上下文,
-
-  本批是 streak 关键反击 (sub-axis 多样性 + b091 finding 直接 leverage).'
-last_activity: '2026-05-15T22:55:26Z'
+last_goal: "Round 96 — rank-diff axis ls_t boost without Python residualize (daily_python\n\
+  registry confirmed NO residualize template; degrading to DSL-only revival paths).\n\
+  4 reserves (b091/C004 + b095/C001/C002/C006) cluster ls_t∈[-2.03,-2.60] < 3.0\n\
+  admit floor — 6 DSL-only candidates explore 3 boost mechanisms:\n\nT005 EXTENSION\
+  \ (4 candidates): Smoothing geometry sweep on b091/C004 base form.\nC001 10d Mean\
+  \ wrap (extends b095/C006 5d Mean), C002 7d EMA wrap (decay-weighted\nsmoothing,\
+  \ distinct from flat Mean), C005 Slope(rank-diff, 10) (trend-of-rank-diff\nacceleration\
+  \ — geometric novelty: turns level→derivative signal), C006 60/40\nsub-axis (1.5:1\
+  \ ratio, fills gap between disproven 3:1 long and tested 60/20).\n\nT006 NEW THREAD\
+  \ (2 candidates): LHS field swap to scope-extend rank-diff axis.\nC003 Sub(TsRank($turnover_rate,60),TsRank($turnover_rate,20))\
+  \ — dim-less rate\nfield (NOT raw size-coupled atom; T003 disproven only for size-coupled\
+  \ raw\n$amount). C004 Sub(TsRank(amount/num_trades,120),TsRank(amount/num_trades,60))\n\
+  — longer total window 2:1 ratio (untested sub-axis, distinct from 60/20 3:1\nand\
+  \ 90/30 3:1).\n\nSelf-check 5 hard rules (round 73 + round 91 升格):\n- P030 alpha_surv>1.0\
+  \ paradox: no single-form dependence; all candidates have\n  multi-CP rationale\
+  \ targeting ls_t boost not alpha_surv inflation\n- P004-deep path-integral: Mean/EMA/Slope\
+  \ are single-step wrappers on existing\n  rank-diff series (NOT cumsum/path-integral;\
+  \ rank-diff input is already 60d\n  historical, smoothing/slope wraps don't add\
+  \ memory layer)\n- P028 Cov-equiv: NO Cov atom; all rank-diff via TsRank\n- Reciprocal\
+  \ duplicate: TsRank(1/x,N)=N+1-TsRank(x,N) — C003 turnover_rate\n  direction explicitly\
+  \ NOT inverse-form of any admitted; C004 amount/num_trades\n  forward direction\
+  \ (NOT 1/x)\n- Cross-section OLS sign-flip: N/A (no Python residualize in this batch\
+  \ by\n  degradation; sign_consistency check is judge-time on raw output)\n- Reciprocal\
+  \ duplicate of C006 b095 (Mean-then-Sub identity): C005 NOT linear\n  Mean-on-each-leg\
+  \ (which would be identity); C005 is Slope wrap which is\n  non-linear in rank-diff\
+  \ output — distinct geometry confirmed\n\nAnchor avoidance per b095:\n- F024 anchor\
+  \ (TsRank($num_trades/$volume,60)): all candidates use LHS that's\n  NOT $num_trades/$volume\
+  \ (C001-C002-C005-C006 use $amount/$num_trades; C003\n  uses $turnover_rate; C004\
+  \ uses $amount/$num_trades) → no anchor collision\n- F012 anchor (Amihud=Mean(Abs(ret)/amount,20)):\
+  \ all candidates avoid Amihud\n  structure; rank-diff axis is fundamentally different\
+  \ geometry from Amihud\n  level\n- F015/F016 (CsRank-diff cluster): all candidates\
+  \ use TsRank not CsRank → time\n  domain not cross-section domain\n\nBaseline-first\
+  \ 守则 explicit skip: 15 TTM-untouched fields are fundamentally\nunrelated to microstructure\
+  \ rank-diff geometry of this direction — TTM fields\nout of hypothesis scope. All\
+  \ candidates use OHLCV/microstructure fields only.\n\nTarget: ≥1 admit (ls_t ≥ 3.0)\
+  \ OR ≥1 boost-mechanism validated (alpha_surv ≥\n0.5 + ls_t > -2.0 marking T005/T006\
+  \ productive). zero_admit_streak=8 context;\ncalibration_trigger already true from\
+  \ b095 — this batch is final attempt before\norchestrator may dispatch calibration\
+  \ flow."
+last_activity: '2026-05-15T23:25:50Z'
 created_batch: batch_095
 members: []
 retired_members: []
@@ -132,14 +113,18 @@ T001 RHS window 伸缩 + T002 跨字段 RHS 是本批主推；T003 raw atom 作 
 ### T001: RHS window 短端伸缩 (signal amplification) [◉ ACTIVE]
 
 > [!note]+ Thread 当前
-> **Question**: b091/C004 base form `Sub(TsRank($amount/$num_trades,60), TsRank($amount/$num_trades,20))` ls_t=-2.20 weak，将 RHS 短窗从 20d 缩到 10d 是否放大"双窗口 trend acceleration"信号？或拉到 30d 配 LHS=90d 维持 3:1 ratio 是否更稳？
+> **Question**: b091/C004 base form `Sub(TsRank($amount/$num_trades,60), TsRank($amount/$num_trades,20))` ls_t=-2.20 weak，将 RHS 短窗从 20d 缩到 10d 是否放大"双窗口 trend acceleration"信号？或拉到 30d 配 LHS=90d 维持 3:1 ratio 是否更稳？窗口比窄化 (1.5:1) / 长窗扩展 (120/60) 能否突破 ls_t 瓶颈？
 >
 > **Evidence trail**:
 > - [[batches/batch_091/candidates/C004|batch_091 C004]]　base form 60/20　max_corr=0.18 + alpha_surv=0.862 + incr_ic=+0.008 PASS, ls_t=-2.20 weak → **reserve**
 > - [[batches/batch_095/candidates/C001|batch_095 C001]]　60/10 RHS-short　ic_oos=-0.0165 ls_t=-2.60 alpha_surv=0.77 max_corr=0.18 incr_ic=+0.0107 → **reserve** (错杀 4 件套全满足)
 > - [[batches/batch_095/candidates/C002|batch_095 C002]]　90/30 长窗 3:1　ic_oos=-0.0143 ls_t=-2.03 alpha_surv=0.68 max_corr=0.18 incr_ic=+0.0050 → **reserve** (长窗等比扩展不放大信号)
+> - [[batches/batch_096/candidates/C004|batch_096 C004]]　120/60 长窗 2:1　train_ic≈0 sign undefined + oos_decay=-278 → **reject (hard_gate)** (LHS 120d train period 边界稀释 + cross-section spread zero)
+> - [[batches/batch_096/candidates/C006|batch_096 C006]]　60/40 (1.5:1)　ic_oos=-0.014 ls_t=-2.13 alpha_surv=**0.51** style_r²=**0.06** max_corr=**0.14** incr_ic=0.005 → **reserve** (窗口窄化最干净但 ls_t 最弱; trade-off 律确证)
 >
-> **Next probes**: 短端方向 (10d≤RHS≤30d) 已饱和; 转向 (a) Python OLS residualize on (F012+F024+vol_20d), 看是否破 ls_t 3.0 阈; (b) reserve 池合成 (rank-diff family 线性组合 boost ls_t).
+> **窗口比 sweep 结果**: 6:1 (60/10) ls_t=-2.60; 3:1 (60/20) ls_t=-2.20; 3:1 (90/30) ls_t=-2.03; 2:1 (120/60) hard_gate fail; 1.5:1 (60/40) ls_t=-2.13. **T001 sub-axis exhausted, 全部 ls_t < 3.0 admit floor**.
+>
+> **Next probes**: T001 接近 saturated. 唯一未走路径 = Python OLS cross-section residualize (b095 next_hint, b096 因 daily_templates registry 无 residualize 模板降级未走).
 
 ### T002: 跨字段 rank-diff (RHS field swap) [✗ DISPROVEN batch_095]
 
@@ -180,14 +165,31 @@ T001 RHS window 伸缩 + T002 跨字段 RHS 是本批主推；T003 raw atom 作 
 ### T005: outer smoothing wrap (noise reduction) [◉ ACTIVE]
 
 > [!note]+ Thread 当前
-> **Question**: 在 b091/C004 base form 外面套一层 noise-reduction wrapper 是否能改善 ls_t (平滑高频时序噪音保留 regime transition 中段信号)？
+> **Question**: 在 b091/C004 base form 外面套一层 noise-reduction wrapper 是否能改善 ls_t (平滑高频时序噪音保留 regime transition 中段信号)？smoothing 类型 (Mean/EMA) 与深度 (5d/7d/10d) 是否影响 ls_t？非 smoothing wraps (Slope/derivative) 能否打开新几何？
 >
 > 原 design 是 CsRank-wrap，但 Qlib 在 CsRank 的 cross-section cache build 中通过 `str(self.feature)` 重新解析 expression，碰到自定义 TsRank op 时引擎以类名 `TsRankOp` 查 `Operators._ops` 失败 (系统级 limitation)。改用 Mean 5d 实现同 noise-reduction 目标，且 Mean 是 Qlib built-in 不触发 string reparse。
 >
 > **Evidence trail**:
-> - [[batches/batch_095/candidates/C006|batch_095 C006]]　Mean(Sub(TsRank60, TsRank20), 5)　ic_oos=-0.0190 (本批最强 IC magnitude), ls_t=-2.50, alpha_surv=0.50 临界 → **reserve**
+> - [[batches/batch_095/candidates/C006|batch_095 C006]]　Mean(Sub(TsRank60, TsRank20), 5)　ic_oos=-0.0190 (b095 最强 IC magnitude), ls_t=-2.50, alpha_surv=0.50 临界 → **reserve**
+> - [[batches/batch_096/candidates/C001|batch_096 C001]]　Mean(rank-diff, 10)　ic_oos=-0.018 ls_t=-2.46 alpha_surv=0.36 max_corr=0.19 incr_ic=0.0052 → **reserve** (10d 加深不 boost ls_t)
+> - [[batches/batch_096/candidates/C002|batch_096 C002]]　EMA(rank-diff, 7)　ic_oos=-0.019 ls_t=-2.52 alpha_surv=**0.49** max_corr=0.19 incr_ic=0.0064 → **reserve** (EMA 衰减加权 boost alpha_surv +36% 但 ls_t 不动)
+> - [[batches/batch_096/candidates/C005|batch_096 C005]]　Slope(rank-diff, 10)　train_ic +0.0021 vs val -0.0051 sign_flip + ic_oos<0.008 + oos_decay=-2.4 triple fail → **reject (hard_gate)** (rank space 不支持稳定 derivative 提取)
 >
-> **Next probes**: (a) 7d/10d Mean window 上调测 smoothing 深度对 ls_t 的影响; (b) 绕过 Qlib CsRank reparse bug 走 Python 实现真 CsRank-wrap (custom op string repr fix 或 Python factor 直接计算).
+> **关键发现**: smoothing operator 类型 (flat Mean → exp-weighted EMA) **仅影响 risk cleanness (alpha_surv)，不影响 ls_t** —— 证明 ls_t 瓶颈在 cross-section dispersion 域而非 time-series noise 域。
+>
+> **Next probes**: T005 smoothing-type wraps 已 explored；剩 (a) Quantile/Min/Max 类非 smoothing wraps; (b) 绕过 Qlib CsRank reparse bug 走 Python custom op string repr fix or Python factor 直接计算；(c) close T005 转 saturated.
+
+### T006: rank-diff axis LHS field swap (cross-field scope-extend) [✗ DISPROVEN batch_096]
+
+> [!failure]+ Thread 结论
+> **Question**: rank-diff axis 是否能跨字段 scope-extend 到非 amount/num_trades family 的 LHS？dim-less rate field ($turnover_rate) 是否构成有效 rank-diff LHS（区别于 T003 disproven 的 raw size-coupled atom）？
+>
+> **Answer**: **disproven**. $turnover_rate rank-diff (本批 C003) ls_t=-0.75 极弱 + Q1-Q5 中段非线性 (Q3=-0.000316 最低, Q5=-0.000072 反弹) + alpha_surv=0.94 临 P030 paradox 边缘 + vol_20d exposure=34.01 catastrophic + ic_by_year 2015 sign-flip (+0.004 vs 后续负向) → edge regime drift 不稳定. **结论：rank-diff axis 在 amount/num_trades family 之外的 LHS swap 路径基本封闭** (combined with T002 RHS swap disproven + T003 raw atom disproven).
+>
+> **Evidence trail**:
+> - [[batches/batch_096/candidates/C003|batch_096 C003]]　Sub(TsRank($turnover_rate,60),TsRank($turnover_rate,20))　ls_t=-0.75, Q1-Q5 中段非线性, alpha_surv=0.94, vol_20d=34.01, 2015 sign-flip → **reject (机制非 hard_gate)**
+>
+> **Lessons-promotion candidate**: "rank-diff axis 限定 ratio LHS = numerator/denominator where both are 微观 flow fields ($amount, $num_trades, $volume) — 单一 rate/level field LHS 不构成有效 cross-section spread"
 
 ---
 
@@ -198,6 +200,9 @@ T001 RHS window 伸缩 + T002 跨字段 RHS 是本批主推；T003 raw atom 作 
 | [[batches/batch_095/candidates/C003\|C003]] | `Sub(TsRank(amount/num_trades,60), TsRank(amount/volume,60))` | hard_gate: sign_flip + oos_decay; max_corr=0.74@F024 (RHS volume 分母同源 anchor) |
 | [[batches/batch_095/candidates/C004\|C004]] | `Sub(TsRank($amount,60), TsRank($amount,20))` | CP03 weak (ls_t=-0.63), CP04 vol_20d_exp=38.4 catastrophic, P030 paradox; raw atom 无 escape size×vol basis |
 | [[batches/batch_095/candidates/C005\|C005]] | `Sub(Add(TsRank60,TsRank10), Mul(TsRank20,2))` | hard_gate triple fail (sign_flip + ic_oos_min + oos_decay); HP-2nd-order rank space failure, alpha_surv=7.80 paradox |
+| [[batches/batch_096/candidates/C003\|C003]] | `Sub(TsRank($turnover_rate,60),TsRank($turnover_rate,20))` | CP03 weak (ls_t=-0.75), CP04 vol_20d_exp=34 catastrophic + alpha_surv=0.94 临 P030, CP06 2015 sign-flip; LHS field swap to rate field disproven |
+| [[batches/batch_096/candidates/C004\|C004]] | `Sub(TsRank($amount/$num_trades,120),TsRank($amount/$num_trades,60))` | hard_gate: train ic_mean≈0 sign undefined + oos_decay=-278; 120d 长窗稀释 train period |
+| [[batches/batch_096/candidates/C005\|C005]] | `Slope(Sub(TsRank60,TsRank20),10)` | hard_gate triple: sign_flip (train +0.0021 vs val -0.0051) + ic_oos<0.008 + oos_decay=-2.4; rank space 不支持稳定 derivative |
 
 ---
 
@@ -215,7 +220,24 @@ T001 RHS window 伸缩 + T002 跨字段 RHS 是本批主推；T003 raw atom 作 
 
 ## Narrative Log
 
-> [!quote]+ 2026-05-16 · [[batches/batch_095/judge|batch_095]] judge
+> [!quote]+ 2026-05-16 · [[batches/batch_096/judge|batch_096]] judge
+> **DSL-only revival path 实证 ls_t boost 不可达；rank-diff axis cross-section dispersion 自然上限 < 3.0** · admit=0 / reserve=3 (C001/C002/C006) / reject=3 (C003/C004/C005)
+>
+> - **Python residualize 降级**: 本批 b095 next_hint 唯一未走路径 (Python OLS cross-section residualize) 因 `src/research/daily_templates/registry.py` 无 residualize 模板而降级；manifest batch_goal 显式标注。该路径需先开发模板。
+> - **T001 RHS window sweep exhausted**: C004 120/60 (2:1 长窗) hard_gate fail (train_ic≈0 sign undefined); C006 60/40 (1.5:1 窄窗) reserve (ls_t=-2.13 最弱 + style_r²=0.06 最干净)；窗口比 sweep 6:1→3:1→2:1→1.5:1 全 ls_t < 3.0。**T001 子轴枯竭**.
+> - **T005 smoothing wraps explored**: C001 (10d Mean) alpha_surv 不变；C002 (7d EMA) alpha_surv 0.36→**0.49** (+36%) 但 ls_t 不动；C005 (Slope) hard_gate triple fail (rank space 不支持 derivative)。**关键发现**: smoothing operator type/depth 仅影响 risk cleanness (alpha_surv)，**不影响 ls_t** —— 证 ls_t 瓶颈在 cross-section dispersion 而非 time-series noise.
+> - **T006 NEW + DISPROVEN**: C003 ($turnover_rate LHS swap) ls_t=-0.75 + Q1-Q5 中段非线性 + alpha_surv=0.94 临 P030 + 2015 sign-flip; **rank-diff axis LHS 非 amount/num_trades family path 基本封闭** (与 T002/T003 联立).
+> - **trade-off 律**: smoothing 域可调 alpha_surv 但不动 ls_t；window 比窄化降 style+corr 但同时降 ls_t magnitude。两路径都不可达 ls_t ≥ 3.0.
+> - **Reserve 池累计 7 候选** (b091/C004 + b095/C001/C002/C006 + b096/C001/C002/C006), 库空间独立 (max_corr ≤ 0.19), 错杀 3-3.5/4 件套, ls_t∈[-2.03,-2.60]; **EMA wrap (C002 alpha_surv=0.49)** + **60/40 (C006 style_r²=0.06)** 为 reserve pool 最强候选.
+>
+> **MT Budget**: cumulative 534 → **540** · direction 6 → **12** · bucket `medium`（上界, search_adjusted 0.44-0.51）
+>
+> **Calibration trigger 加强**: zero_admit_streak 8→9 + 最近 3 批累计 admit=0 + reserve 池 ≥1 满足"库空间独立" (C002 错杀 3.5/4 + C006 错杀 3/4) → orchestrator **强烈建议** dispatch calibration 流程 (本方向 12 候选 0 admit + 3 active threads 全部 disproven/exhausted, 接近 saturated 状态).
+>
+> **Operations**　`status: exploring` 维持 · rounds 1→2 · admits 0 · reserves +3 (C001/C002/C006)
+> **下一步**: (a) Python residualize 模板开发 → 解 b095 next_hint 复活路径 (Python OLS cross-section residualize on F012/F024/vol_20d); (b) calibration 流程对 reserve pool 整体重评估 (C002 EMA + C006 60/40 优先 admit 候选); (c) 若 (a) 短期不可行 & (b) 不复活, 本方向应 saturated.
+
+> [!quote]- 2026-05-16 · [[batches/batch_095/judge|batch_095]] judge
 > **rank-diff axis 第 2 批实证 escape geometry, 但统计强度瓶颈未破** · admit=0 / reserve=3 / reject=3
 >
 > - T001 RHS-window 伸缩: C001 (60/10) + C002 (90/30) 双 reserve, 短端方向有效但 ls_t < 3.0 admit floor 不破; 长端 (90d) 衰减验证"等比扩展不放大信号"反 hypothesis (与 b091 window-sweep alpha_surv 单调下降一致)

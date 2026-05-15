@@ -1,0 +1,247 @@
+batch_id: batch_096
+round: 96
+direction: rank_diff_liquidity_microstructure
+direction_md_ref: vault/directions/rank_diff_liquidity_microstructure.md
+batch_goal: "Round 96 — rank-diff axis ls_t boost without Python residualize (daily_python\n\
+  registry confirmed NO residualize template; degrading to DSL-only revival paths).\n\
+  4 reserves (b091/C004 + b095/C001/C002/C006) cluster ls_t∈[-2.03,-2.60] < 3.0\n\
+  admit floor — 6 DSL-only candidates explore 3 boost mechanisms:\n\nT005 EXTENSION\
+  \ (4 candidates): Smoothing geometry sweep on b091/C004 base form.\nC001 10d Mean\
+  \ wrap (extends b095/C006 5d Mean), C002 7d EMA wrap (decay-weighted\nsmoothing,\
+  \ distinct from flat Mean), C005 Slope(rank-diff, 10) (trend-of-rank-diff\nacceleration\
+  \ — geometric novelty: turns level→derivative signal), C006 60/40\nsub-axis (1.5:1\
+  \ ratio, fills gap between disproven 3:1 long and tested 60/20).\n\nT006 NEW THREAD\
+  \ (2 candidates): LHS field swap to scope-extend rank-diff axis.\nC003 Sub(TsRank($turnover_rate,60),TsRank($turnover_rate,20))\
+  \ — dim-less rate\nfield (NOT raw size-coupled atom; T003 disproven only for size-coupled\
+  \ raw\n$amount). C004 Sub(TsRank(amount/num_trades,120),TsRank(amount/num_trades,60))\n\
+  — longer total window 2:1 ratio (untested sub-axis, distinct from 60/20 3:1\nand\
+  \ 90/30 3:1).\n\nSelf-check 5 hard rules (round 73 + round 91 升格):\n- P030 alpha_surv>1.0\
+  \ paradox: no single-form dependence; all candidates have\n  multi-CP rationale\
+  \ targeting ls_t boost not alpha_surv inflation\n- P004-deep path-integral: Mean/EMA/Slope\
+  \ are single-step wrappers on existing\n  rank-diff series (NOT cumsum/path-integral;\
+  \ rank-diff input is already 60d\n  historical, smoothing/slope wraps don't add\
+  \ memory layer)\n- P028 Cov-equiv: NO Cov atom; all rank-diff via TsRank\n- Reciprocal\
+  \ duplicate: TsRank(1/x,N)=N+1-TsRank(x,N) — C003 turnover_rate\n  direction explicitly\
+  \ NOT inverse-form of any admitted; C004 amount/num_trades\n  forward direction\
+  \ (NOT 1/x)\n- Cross-section OLS sign-flip: N/A (no Python residualize in this batch\
+  \ by\n  degradation; sign_consistency check is judge-time on raw output)\n- Reciprocal\
+  \ duplicate of C006 b095 (Mean-then-Sub identity): C005 NOT linear\n  Mean-on-each-leg\
+  \ (which would be identity); C005 is Slope wrap which is\n  non-linear in rank-diff\
+  \ output — distinct geometry confirmed\n\nAnchor avoidance per b095:\n- F024 anchor\
+  \ (TsRank($num_trades/$volume,60)): all candidates use LHS that's\n  NOT $num_trades/$volume\
+  \ (C001-C002-C005-C006 use $amount/$num_trades; C003\n  uses $turnover_rate; C004\
+  \ uses $amount/$num_trades) → no anchor collision\n- F012 anchor (Amihud=Mean(Abs(ret)/amount,20)):\
+  \ all candidates avoid Amihud\n  structure; rank-diff axis is fundamentally different\
+  \ geometry from Amihud\n  level\n- F015/F016 (CsRank-diff cluster): all candidates\
+  \ use TsRank not CsRank → time\n  domain not cross-section domain\n\nBaseline-first\
+  \ 守则 explicit skip: 15 TTM-untouched fields are fundamentally\nunrelated to microstructure\
+  \ rank-diff geometry of this direction — TTM fields\nout of hypothesis scope. All\
+  \ candidates use OHLCV/microstructure fields only.\n\nTarget: ≥1 admit (ls_t ≥ 3.0)\
+  \ OR ≥1 boost-mechanism validated (alpha_surv ≥\n0.5 + ls_t > -2.0 marking T005/T006\
+  \ productive). zero_admit_streak=8 context;\ncalibration_trigger already true from\
+  \ b095 — this batch is final attempt before\norchestrator may dispatch calibration\
+  \ flow."
+active_threads_referenced:
+- T001
+- T005
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-15T23:00:16Z'
+frozen_at: '2026-05-15T23:00:16Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20)),10)
+  canonical: Mean(Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20)),10)
+  rationale: 'T005 extension — extend b095/C006 5d Mean wrap to 10d for deeper smoothing.
+
+    Hypothesis: b095/C006 already proved Mean wrap improves IC magnitude
+
+    (-0.019 batch-best) but ls_t=-2.50 unchanged; deeper 10d smoothing may
+
+    remove more high-freq noise from rank-diff series, allowing ls_t boost
+
+    via reduced cross-section dispersion (longer Mean averages out idiosyncratic
+
+    rank fluctuations). Risk: 10d may over-smooth and remove regime-transition
+
+    mid-signal. expected_sign: negative.
+
+    Self-check: Mean is single-step wrap on rank-diff (NOT path-integral
+
+    P004-deep — rank-diff input bounded 60d, Mean over its output is 10d
+
+    shallow); not reciprocal dup of b095/C006 (5d vs 10d window distinct);
+
+    rank-preserving guard NOT triggered (Mean is non-trivial smoothing).
+
+    '
+  parent_batch: batch_095
+  parent_candidate_id: C006
+  transformation: extend_outer_Mean_window_5d_to_10d
+- candidate_id: C002
+  source_type: dsl
+  expression: EMA(Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20)),7)
+  canonical: EMA(Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20)),7)
+  rationale: 'T005 extension — replace flat Mean with EMA decay-weighted smoothing.
+
+    Hypothesis: EMA recent-weighted average preserves regime-transition timing
+
+    better than flat Mean (which equally weights all 10 days) — recent
+
+    rank-diff changes get more weight, potentially sharpening ls_t at transition
+
+    points. Window 7d chosen for moderate decay (alpha ≈ 0.25). Mechanism
+
+    distinct from C001 by exponential vs flat weighting. expected_sign:
+
+    negative.
+
+    Self-check: EMA is single-step weighted moving average wrap (NOT cumsum
+
+    path-integral — EMA at time t depends on EMA(t-1) bounded by decay, no
+
+    unbounded accumulation); not reciprocal dup of C001 (flat Mean ≠ exp-weighted
+
+    EMA); not reciprocal dup of b095/C006 5d Mean.
+
+    '
+  parent_batch: batch_095
+  parent_candidate_id: C006
+  transformation: replace_outer_Mean_with_EMA7_decay_weighted
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(TsRank($turnover_rate,60),TsRank($turnover_rate,20))
+  canonical: Sub(TsRank($turnover_rate,60),TsRank($turnover_rate,20))
+  rationale: 'T006 NEW thread — rank-diff axis LHS field swap to $turnover_rate
+
+    (dim-less rate field, NOT raw size-coupled atom). T003 disproved raw
+
+    $amount because $amount is size-coupled (vol_20d_exp=38.4); $turnover_rate
+
+    is rate (volume/circ_shares) which is dim-less per stock — fundamentally
+
+    different from raw level. Hypothesis: rank-diff axis on $turnover_rate
+
+    tests whether escape mechanism (60d vs 20d trend self-cancellation) works
+
+    on liquidity-flow field outside amount/num_trades family. Anchor risk:
+
+    F015/F016 use $turnover_rate but in CsRank not TsRank — different domain.
+
+    F024 uses $num_trades/$volume — different field. expected_sign: negative
+
+    (high recent rank vs long-history → recent crowding → forward reversal).
+
+    Self-check: NOT reciprocal dup (1/$turnover_rate ≠ admitted); P008 frontier
+
+    "ratio field" satisfied ($turnover_rate is rate); P004-deep N/A (single
+
+    Sub of two TsRank, no path-integral); P030 not single-form-dependent
+
+    (multi-CP rationale).
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: swap_LHS_to_turnover_rate_dim_less_rate_field
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount,$num_trades),120),TsRank(Div($amount,$num_trades),60))
+  canonical: Sub(TsRank(Div($amount,$num_trades),120),TsRank(Div($amount,$num_trades),60))
+  rationale: 'T001 extension — fills untested 120/60 sub-axis (2:1 ratio, longer total
+
+    window). Tested: 60/20 (b091, 3:1), 60/10 (b095/C001, 6:1), 90/30
+
+    (b095/C002, 3:1). UNTESTED: longer 120d trend baseline. Hypothesis:
+
+    120d captures multi-quarter institutional regime, 60d is recent quarter
+
+    — diff isolates "quarterly trend shift" which may be more macro-driven
+
+    and less noise-prone than 60d-vs-20d (3-week vs 1-week). Risk per b091
+
+    window-sweep: alpha_surv monotonic decay 30→120 (longer→stronger Barra
+
+    embedding), so 120d may have lower alpha_surv. expected_sign: negative.
+
+    Self-check: NOT reciprocal dup (forward direction same as b091/C004);
+
+    P008 frontier satisfied (ratio LHS amount/num_trades, b091 PASS domain);
+
+    P004-deep N/A (single TsRank x 2 in Sub, no path-integral); P030 multi-CP
+
+    rationale (not alpha_surv dependent — primary CP is window-sweep gap fill).
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: scale_total_window_60_120_keep_2to1_ratio
+- candidate_id: C005
+  source_type: dsl
+  expression: Slope(Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20)),10)
+  canonical: Slope(Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20)),10)
+  rationale: 'T005 extension — Slope wrap converts rank-diff LEVEL to rank-diff
+
+    DERIVATIVE (10d trend of rank-diff itself). Hypothesis: b091/C004 captures
+
+    "rank-diff at time t is high" (regime-transition state); Slope captures
+
+    "rank-diff is increasing over last 10d" (regime-transition acceleration).
+
+    Geometric novelty: turns static level signal into dynamic momentum signal
+
+    on the rank-diff series. expected_sign: negative (positive slope =
+
+    accelerating crowding into recent ranks → stronger forward reversal).
+
+    Self-check: Slope is single-step linear regression coefficient (NOT
+
+    path-integral — Slope outputs slope, not cumulative sum); NOT identity to
+
+    Mean(rank-diff,10) (Slope is derivative-type estimator); NOT reciprocal
+
+    dup; rank-diff axis amount/num_trades PASS domain (b091 finding).
+
+    Distinct from C001/C002 by being derivative not smoothing.
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: replace_smoothing_with_Slope10_derivative_wrap
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),40))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),40))
+  rationale: 'T001 extension — fills 60/40 sub-axis (1.5:1 ratio, intermediate gap).
+
+    Tested ratios on base 60d LHS: 60/20 (3:1, b091/C004), 60/10 (6:1,
+
+    b095/C001), 90/30 (3:1 scaled, b095/C002). UNTESTED 1.5:1 ratio at 60d
+
+    LHS. Hypothesis: 1.5:1 is "narrow self-cancellation" — RHS 40d almost
+
+    overlaps with LHS 60d, signal magnitude bounded by 20d non-overlap window;
+
+    tests whether tighter ratio amplifies regime-transition sensitivity at
+
+    cost of weaker base signal. May validate "ratio-of-windows sweet spot
+
+    exists between 1.5:1 and 3:1". expected_sign: negative.
+
+    Self-check: NOT reciprocal dup; rank-diff axis amount/num_trades PASS
+
+    domain; P004-deep N/A (single TsRank Sub); P030 multi-CP rationale.
+
+    Tighter ratio may have higher max_corr to b091/C004 (overlap 40-60d) —
+
+    precheck needed.
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: shrink_RHS_window_20_40_intermediate_ratio_1p5to1
