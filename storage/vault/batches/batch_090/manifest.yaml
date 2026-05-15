@@ -1,0 +1,241 @@
+batch_id: batch_090
+round: 90
+direction: price_conditional_amplitude
+direction_md_ref: vault/directions/price_conditional_amplitude.md
+batch_goal: 'Round 90 — price_conditional_amplitude first batch (paper kysec_amp_2020_ideal_amplitude
+
+  本地化 csi1000 daily). H1: V_high(0.25) − V_low(0.25) (按 close 在 N 日窗内 rank top/bottom
+
+  25% 子集分别求振幅均值, 取差) 在 csi1000 daily 携带独立 NEG cross-section alpha — paper
+
+  在 csi500 月频报 IC=−0.051 / ICIR=−2.39 / 多空年化 17%, 期望频率衰减 ×0.5 → daily IC ≈ −0.025.
+
+  H2: rank-conditional aggregation (MaskedMean(numerator, condition_on_rank_field))
+  是当前库 28
+
+  admit 全部缺失的工艺空间 — F001 second-moment vol/F015 cross-section rank-diff/F024-F026
+  P008
+
+  TsRank 三族都不含"在时序窗口内按字段排序后取子集均值". 本批 6 候选覆盖三条核心 thread:
+
+  (a) T001 paper-original Python wrapper 经 daily_python quantile_split_spread 模板执行
+
+  (N=20 + N=60 两个时间尺度对照, λ=0.25 paper hard-切割);
+
+  (b) T002 DSL-soft baseline Mul((H/L−1), (2·TsRank(close,20)−1)) — rank-weighted
+  连续替代
+
+  paper hard-mask 切割, 100% DSL 可达, 作 algorithmic 下界证明;
+
+  (c) T002 N=60 DSL-soft (TsRank(close,60) replacement) — P008-aligned 时间尺度;
+
+  (d) T005 P008 完整三条件复合 — 把 (b) 输出再 TsRank-60d 包一层, 同时具备 dim-less ratio +
+
+  microstructure-only-on-amp + TsRank≥60d, 是当前库唯一已验证 vol_20d-escape 路径 (F024-F026
+  prototype);
+
+  (e) T003 RHS 替换 — numerator = $turnover_rate (替换 amp), 同样 quantile_split_spread
+  N=20
+
+  λ=0.25, 测"高价段成交激烈 vs 低价段成交激烈差值"是否携带独立 alpha (注意: turnover-family 已
+
+  P005 锁死 F017 anchor cluster, 但 quantile-split 工艺与 turnover_rank_diff 几何不同).
+
+  关键 hypothesis check: H1 真度 — 期望 ≥1 候选 |IC|≥0.015 + ICIR≥0.20 + max_corr<0.30 (vs
+  F001
+
+  amount_cv NEG, F025 shadow_asymmetry_tsrank_60, F008 upper_shadow_persistence_3d
+  三个振幅族近邻);
+
+  H2 工艺空间 — 即使 H1 不立, 若 ≥1 候选 alpha_surv≥0.40 + max_corr<0.50 → 工艺空间确认 reserve
+
+  火种, 后续 T003 family 拓展; H3 paper transferability — 若全 6 候选 |IC|<0.005 → paper 跨频率/
+
+  跨 universe transferability 信号衰减系数 < 0.1, 升格 lessons.md.
+
+  Risk constraints: (1) 无 cap-denominator (P016 OK); (2) 无 cross-product Mul 跨字段塌缩
+
+  (b074 dead 律) — DSL-soft Mul 是 same-row scaling 不是跨 atom-class 乘积; (3) vol_20d
+
+  风险: H/L−1 是 dim-less ratio 不直接嵌 vol_20d basis, V_high−V_low 差值形态进一步剥离公共 vol;
+
+  (4) candidate F001 amount_cv NEG 量级 cluster 必查 max_corr; (5) Barra residualization
+  N-day
+
+  cumulative form path-memory β-shift (b089 教训): 本批所有候选都不做 Sum/Mean/Cumulative
+
+  residualized signal (T001/T003 是 conditional Mean 但不在 Barra residual 上聚合, 几何不同).
+
+  Hard targets: ≥1 admit alpha_surv≥0.40 + max_corr<0.30 (库 redundancy 严控,
+
+  振幅族 F001/F008/F025 cluster 严防) + incr_ic ≥ 0.010 + ls_t_oos ≥ 2 + sign_consistency=1.0.
+
+  Fail (6/6 reject) → 升格 lesson "rank-conditional aggregation 工艺在 csi1000 daily NEG
+  signal
+
+  整体衰减", direction → dead, paper transferability 失败案例归档.
+
+  Baseline-first 例外: 15 个 untouched 字段全为 TTM fundamental, 与本 direction (price/amp/turnover
+
+  microstructure) 完全不相关 — 刻意 skip baseline-first.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-04T16:46:49Z'
+frozen_at: '2026-05-04T16:46:49Z'
+candidates:
+- candidate_id: C001
+  source_type: daily_python
+  template: quantile_split_spread
+  params:
+    value: &id001
+      expression: Sub(Div($high,$low),1)
+    sorter: &id002
+      field: $close
+    window: 20
+    top_quantile: 0.25
+    bottom_quantile: 0.25
+    output: top_mean_minus_bottom_mean
+  rationale: 'T001 paper-original V_high(0.25) − V_low(0.25), N=20 时间尺度复刻 paper.
+
+    daily_python quantile_split_spread 模板: value=(H/L−1), sorter=close,
+
+    window=20, top_q=0.25, bottom_q=0.25. 期望 NEG 信号 (paper csi500 月频
+
+    IC=-0.051 → daily ≈ -0.025). max_corr 严控 vs F001 amount_cv NEG, F025
+
+    shadow_asymmetry, F008 upper_shadow_persistence — 振幅族近邻全核.
+
+    '
+  expected_sign: negative
+  factor_logic:
+    backend: daily_python
+    template: quantile_split_spread
+    params:
+      value: *id001
+      sorter: *id002
+      window: 20
+      top_quantile: 0.25
+      bottom_quantile: 0.25
+      output: top_mean_minus_bottom_mean
+- candidate_id: C002
+  source_type: daily_python
+  template: quantile_split_spread
+  params:
+    value: &id003
+      expression: Sub(Div($high,$low),1)
+    sorter: &id004
+      field: $close
+    window: 60
+    top_quantile: 0.25
+    bottom_quantile: 0.25
+    output: top_mean_minus_bottom_mean
+  rationale: 'T001 paper-aligned-with-P008: 把 N 从 paper-original 20 推到 60d, 测时间尺度对
+
+    rank-conditional aggregation 是否敏感. 同 quantile_split_spread 工艺, λ=0.25
+
+    不变. 与 C001 形成 (N=20 paper 原始) vs (N=60 P008-aligned) 正交对照, 测振幅
+
+    cross-section 信号是否是慢变量.
+
+    '
+  expected_sign: negative
+  factor_logic:
+    backend: daily_python
+    template: quantile_split_spread
+    params:
+      value: *id003
+      sorter: *id004
+      window: 60
+      top_quantile: 0.25
+      bottom_quantile: 0.25
+      output: top_mean_minus_bottom_mean
+- candidate_id: C003
+  source_type: dsl
+  expression: Mul(Sub(Div($high,$low),1),Sub(Mul(TsRank($close,20),2),1))
+  canonical: Mul(Sub(Div($high,$low),1),Sub(Mul(2,TsRank($close,20)),1))
+  rationale: 'T002 DSL-soft baseline: rank-weighted 连续替代 paper hard-mask 切割.
+
+    (2·TsRank(close,20)−1) ∈ [-1,+1] 替代 ±1 hard mask. 100% DSL 可达,
+
+    作 C001 的 algorithmic 下界证明. 若 DSL-soft |IC|≥0.015 → 工艺有效, C001
+
+    Python wrapper 应表现更好; 若 DSL-soft |IC|<0.005 → paper transferability
+
+    系统衰减预警, C001 也大概率不立. 期望 sign=NEG (与 C001 同向).
+
+    '
+  expected_sign: negative
+- candidate_id: C004
+  source_type: dsl
+  expression: Mul(Sub(Div($high,$low),1),Sub(Mul(TsRank($close,60),2),1))
+  canonical: Mul(Sub(Div($high,$low),1),Sub(Mul(2,TsRank($close,60)),1))
+  rationale: 'T002 + P008-aligned 时间尺度: 把 C003 的 close-rank 窗从 20 拓到 60.
+
+    与 C002 形成 (Python hard-cut) vs (DSL soft-rank) 在 N=60 同尺度的对照.
+
+    测 rank 时间窗对工艺信号强度的灵敏度.
+
+    '
+  expected_sign: negative
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Mul(Sub(Div($high,$low),1),Sub(Mul(TsRank($close,60),2),1)),60)
+  canonical: TsRank(Mul(Sub(Div($high,$low),1),Sub(Mul(2,TsRank($close,60)),1)),60)
+  rationale: 'T005 P008 完整三条件复合: 把 C004 输出再 TsRank-60d 包装, 形成 (a) dim-less
+
+    ratio (H/L−1) (b) microstructure-only-on-amp (c) TsRank≥60d 完整 escape
+
+    stack. 当前库 F024-F026 是该律唯一已验证 escape 路径; 本候选测试 rank-conditional
+
+    aggregation 是否能在 P008 stack 上叠加额外 incremental signal.
+
+    期望 sign=NEG (TsRank 转 [0,1] 后 NEG 信号方向保持).
+
+    '
+  expected_sign: negative
+- candidate_id: C006
+  source_type: daily_python
+  template: quantile_split_spread
+  params:
+    value: &id005
+      field: $turnover_rate
+    sorter: &id006
+      field: $close
+    window: 20
+    top_quantile: 0.25
+    bottom_quantile: 0.25
+    output: top_mean_minus_bottom_mean
+  rationale: 'T003 RHS 替换 — numerator 从 amp 换成 $turnover_rate. 测试"按 close rank 切 20d
+
+    子集, 高价段平均 turnover − 低价段平均 turnover" 是否携带独立 alpha. Hypothesis:
+
+    高价位的成交激烈 = 拥挤 / 散户追高, 低价位的成交激烈 = 底部吸筹 → 差值正向应 NEG.
+
+    与 turnover_rank_diff (F017 anchor cluster) 几何不同 — F017 是 cross-section
+
+    rank, 本候选是 within-stock time-window mean spread. 风险: turnover-family 已
+
+    P005 锁死 F017 cluster, max_corr 严控 vs F017 (overnight_turnover_rank_diff_5)
+
+    与 F012 (amihud_illiq_20d).
+
+    '
+  expected_sign: negative
+  factor_logic:
+    backend: daily_python
+    template: quantile_split_spread
+    params:
+      value: *id005
+      sorter: *id006
+      window: 20
+      top_quantile: 0.25
+      bottom_quantile: 0.25
+      output: top_mean_minus_bottom_mean
