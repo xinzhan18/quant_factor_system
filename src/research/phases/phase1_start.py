@@ -39,6 +39,7 @@ from research.compute.python_runner import (
     PythonFactorContractError,
     load_python_candidate,
 )
+from research.ir import normalize_candidate, validate_factor_ir
 from research.storage.paths import StoragePaths
 from research.storage.state import StateFile
 from research.storage.yaml_io import load_yaml, save_yaml
@@ -160,9 +161,14 @@ _OPERATOR_PATTERN = re.compile(r"([A-Z][a-zA-Z]*)\s*\(")
 _FIELD_PATTERN = re.compile(r"\$[a-zA-Z_][a-zA-Z0-9_]*")
 
 
-def validate_dsl_expression(expression: str) -> list[str]:
+def validate_dsl_expression(
+    expression: str,
+    *,
+    extra_allowed_fields: Iterable[str] | None = None,
+) -> list[str]:
     """Return a list of rejection reasons; empty list means the expression passed."""
     reasons: list[str] = []
+    extra_fields = set(extra_allowed_fields or [])
 
     if not expression or not expression.strip():
         return ["empty_expression"]
@@ -202,7 +208,7 @@ def validate_dsl_expression(expression: str) -> list[str]:
     for f in fields_used:
         if f in FORBIDDEN_FIELDS:
             reasons.append(f"forbidden_field:{f}")
-        elif f not in DSL_FIELD_WHITELIST:
+        elif f not in DSL_FIELD_WHITELIST and f not in extra_fields:
             reasons.append(f"unknown_field:{f}")
 
     # --- constant expression (no field references) ---
@@ -210,6 +216,48 @@ def validate_dsl_expression(expression: str) -> list[str]:
         reasons.append("constant_expression")
 
     return reasons
+
+
+def _candidate_source_type(candidate: dict[str, Any]) -> str:
+    factor_logic = candidate.get("factor_logic") or {}
+    backend = factor_logic.get("backend")
+    if backend == "qlib":
+        return "dsl"
+    if backend == "python":
+        return "python"
+    if backend:
+        return str(backend)
+    return str(candidate.get("source_type") or "dsl")
+
+
+def _candidate_expression(candidate: dict[str, Any]) -> str:
+    factor_logic = candidate.get("factor_logic") or {}
+    return str(candidate.get("expression") or factor_logic.get("expression") or "")
+
+
+def _candidate_python_path(candidate: dict[str, Any]) -> str | None:
+    factor_logic = candidate.get("factor_logic") or {}
+    return candidate.get("path") or factor_logic.get("path") or factor_logic.get("python_path")
+
+
+def _candidate_primitive_fields(candidate: dict[str, Any]) -> list[str]:
+    data_logic = candidate.get("data_logic") or {}
+    deps = (
+        candidate.get("primitive_dependencies")
+        or data_logic.get("primitive_dependencies")
+        or data_logic.get("primitives")
+        or []
+    )
+    out: list[str] = []
+    for dep in deps:
+        if dep is None:
+            continue
+        field = str(dep)
+        if not field.startswith("$"):
+            field = f"${field}"
+        if field not in out:
+            out.append(field)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -397,14 +445,19 @@ def freeze_manifest(
 
     for c in candidates:
         cid = c.get("candidate_id", "?")
-        source_type = c.get("source_type", "dsl")
-        expr_for_display = c.get("expression") or c.get("path") or ""
+        source_type = _candidate_source_type(c)
+        expr_for_display = _candidate_expression(c) or _candidate_python_path(c) or ""
         reasons: list[str] = []
         canonical: str | None = None
 
         if source_type == "dsl":
-            expr = c.get("expression") or ""
-            reasons.extend(validate_dsl_expression(expr))
+            expr = _candidate_expression(c)
+            reasons.extend(
+                validate_dsl_expression(
+                    expr,
+                    extra_allowed_fields=_candidate_primitive_fields(c),
+                )
+            )
             if not reasons:
                 canonical = canonicalize_expression(expr)
                 if canonical in existing_set:
@@ -414,11 +467,13 @@ def freeze_manifest(
                 else:
                     seen_in_batch.add(canonical)
         elif source_type == "python":
-            path = c.get("path")
+            path = _candidate_python_path(c)
             if not path:
                 reasons.append("missing_python_path")
             else:
                 reasons.extend(validate_python_candidate(path))
+        elif source_type == "daily_python":
+            reasons.extend(validate_factor_ir(normalize_candidate(c)))
         else:
             reasons.append(f"unknown_source_type:{source_type}")
 
@@ -465,12 +520,27 @@ def freeze_manifest(
             "source_type": r.source_type,
         }
         if r.source_type == "dsl":
-            entry["expression"] = c.get("expression")
+            entry["expression"] = _candidate_expression(c)
             entry["canonical"] = r.canonical
-        else:
-            entry["path"] = c.get("path")
+        elif r.source_type == "python":
+            entry["path"] = _candidate_python_path(c)
+        elif r.source_type == "daily_python":
+            entry["template"] = (c.get("factor_logic") or {}).get("template")
+            entry["params"] = dict((c.get("factor_logic") or {}).get("params") or {})
         # Pass-through fields from LLM
-        for key in ("rationale", "parent_batch", "parent_candidate_id", "transformation"):
+        for key in (
+            "rationale",
+            "hypothesis",
+            "expected_sign",
+            "parent_batch",
+            "parent_candidate_id",
+            "transformation",
+            "primitive_dependencies",
+            "data_logic",
+            "factor_logic",
+            "ir_version",
+            "label",
+        ):
             if c.get(key):
                 entry[key] = c[key]
         manifest_candidates.append(entry)

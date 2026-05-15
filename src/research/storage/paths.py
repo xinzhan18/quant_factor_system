@@ -126,6 +126,15 @@ class StoragePaths:
     def vault_meta_dir(self) -> Path:
         return self.vault_dir / "_meta"
 
+    @property
+    def primitive_registry_dir(self) -> Path:
+        """LLM-visible primitive registry specs."""
+        return self.vault_dir / "primitive_registry"
+
+    @property
+    def minute_primitive_registry_dir(self) -> Path:
+        return self.primitive_registry_dir / "minute"
+
     # ------------------------------------------------------------------
     # Batches (inside vault — Obsidian-visible for wikilink connectivity)
     # ------------------------------------------------------------------
@@ -201,6 +210,28 @@ class StoragePaths:
     def factor_value_cache_file(self, key: str) -> Path:
         return self.factor_values_cache_dir / f"{key}.parquet"
 
+    @property
+    def primitive_store_dir(self) -> Path:
+        return self.cache_dir / "primitive_store"
+
+    @property
+    def minute_primitive_store_dir(self) -> Path:
+        return self.primitive_store_dir / "minute"
+
+    def minute_primitive_cache_dir(self, feature_id: str, spec_hash: str) -> Path:
+        return (
+            self.minute_primitive_store_dir
+            / f"feature_id={feature_id}"
+            / f"spec_hash={spec_hash}"
+        )
+
+    def minute_primitive_cache_file(self, feature_id: str, spec_hash: str) -> Path:
+        return self.minute_primitive_cache_dir(feature_id, spec_hash) / "values.parquet"
+
+    @property
+    def primitive_panels_dir(self) -> Path:
+        return self.cache_dir / "primitive_panels"
+
     # Per-candidate diagnostic arrays (Q1..Qn daily, IC daily, long-short daily)
     # — lives under cache/ so it's regenerable; pruned by retention policy.
     @property
@@ -256,8 +287,13 @@ class StoragePaths:
             self.directions_dir,
             self.factors_dir,
             self.vault_meta_dir,
+            self.primitive_registry_dir,
+            self.minute_primitive_registry_dir,
             self.batches_dir,
             self.cache_dir,
+            self.primitive_store_dir,
+            self.minute_primitive_store_dir,
+            self.primitive_panels_dir,
             self.factor_values_cache_dir,
             self.python_factors_dir,
             self.holdout_private_dir,

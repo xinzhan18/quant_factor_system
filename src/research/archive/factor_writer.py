@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from research.ir import normalize_candidate
 from research.storage.yaml_io import save_yaml
 
 # First id in a fresh vault
@@ -147,6 +148,50 @@ def build_factor_record(
             record["canonical"] = manifest_entry["canonical"]
     elif source_type == "python":
         record["python_path"] = manifest_entry.get("path") or admit_entry.get("path")
+    elif source_type == "daily_python":
+        record["daily_template"] = (
+            (manifest_entry.get("factor_logic") or {}).get("template")
+            or (admit_entry.get("factor_logic") or {}).get("template")
+        )
+
+    primitive_dependencies = list(
+        dict.fromkeys(
+            str(fid)
+            for fid in (
+                admit_entry.get("primitive_dependencies")
+                or manifest_entry.get("primitive_dependencies")
+                or []
+            )
+            if fid
+        )
+    )
+    if primitive_dependencies:
+        record["primitive_dependencies"] = primitive_dependencies
+        provenance = admit_entry.get("primitive_provenance") or {}
+        if provenance:
+            record["primitive_provenance"] = {
+                fid: provenance.get(fid, {"status": "missing_from_candidate_result"})
+                for fid in primitive_dependencies
+            }
+
+    factor_ir = _build_factor_ir_record(admit_entry, manifest_entry)
+    if factor_ir:
+        record["factor_ir"] = factor_ir
+    backend = (
+        admit_entry.get("factor_backend")
+        or (admit_entry.get("factor_logic") or {}).get("backend")
+        or (factor_ir.get("factor_logic") or {}).get("backend")
+        if factor_ir
+        else source_type
+    )
+    record["backend_provenance"] = {
+        "backend": backend or source_type,
+        "source_type": source_type,
+        "ir_version": admit_entry.get("ir_version") or manifest_entry.get("ir_version"),
+        "factor_logic": admit_entry.get("factor_logic")
+        or manifest_entry.get("factor_logic")
+        or {},
+    }
 
     # Attach a compact validation snapshot for Phase 4 reporting
     ic = admit_entry.get("ic") or {}
@@ -180,6 +225,26 @@ def build_factor_record(
     )
 
     return record
+
+
+def _build_factor_ir_record(
+    admit_entry: dict[str, Any],
+    manifest_entry: dict[str, Any],
+) -> dict[str, Any]:
+    """Build normalized Factor IR for archive records."""
+    try:
+        base = dict(manifest_entry)
+        if admit_entry.get("factor_logic") and not base.get("factor_logic"):
+            base["factor_logic"] = admit_entry["factor_logic"]
+        if admit_entry.get("ir_version") and not base.get("ir_version"):
+            base["ir_version"] = admit_entry["ir_version"]
+        if admit_entry.get("primitive_dependencies") and not base.get(
+            "primitive_dependencies"
+        ):
+            base["primitive_dependencies"] = admit_entry["primitive_dependencies"]
+        return normalize_candidate(base).to_dict()
+    except Exception:  # noqa: BLE001 - archive should not fail on legacy oddities
+        return {}
 
 
 def write_factor_yaml(

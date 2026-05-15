@@ -160,6 +160,55 @@ class TestBuildFactorRecord:
         assert rec["source_type"] == "python"
         assert rec["python_path"].endswith("C001.py")
 
+    def test_primitive_provenance_is_persisted(self) -> None:
+        rec = build_factor_record(
+            factor_id="F001",
+            admit_entry=_candidate(
+                primitive_dependencies=["open_10m_ret_v1"],
+                primitive_provenance={
+                    "open_10m_ret_v1": {
+                        "status": "materialized",
+                        "spec_hash": "abc",
+                        "available_time": "T 09:40",
+                    }
+                },
+            ),
+            manifest_entry=_manifest_entry(),
+            batch_id="batch_001",
+            direction="intraday_reversal",
+        )
+        assert rec["primitive_dependencies"] == ["open_10m_ret_v1"]
+        assert rec["primitive_provenance"]["open_10m_ret_v1"]["status"] == "materialized"
+
+    def test_factor_ir_and_backend_provenance_are_persisted(self) -> None:
+        rec = build_factor_record(
+            factor_id="F001",
+            admit_entry=_candidate(
+                ir_version="v1",
+                factor_backend="daily_python",
+                factor_logic={
+                    "backend": "daily_python",
+                    "template": "quantile_split_spread",
+                    "params": {"window": 20},
+                },
+                source_type="daily_python",
+            ),
+            manifest_entry=_manifest_entry(
+                ir_version="v1",
+                factor_logic={
+                    "backend": "daily_python",
+                    "template": "quantile_split_spread",
+                    "params": {"window": 20},
+                },
+            ),
+            batch_id="batch_001",
+            direction="ideal_amplitude",
+        )
+        assert rec["factor_ir"]["factor_logic"]["backend"] == "daily_python"
+        assert rec["factor_ir"]["factor_logic"]["template"] == "quantile_split_spread"
+        assert rec["backend_provenance"]["backend"] == "daily_python"
+        assert rec["daily_template"] == "quantile_split_spread"
+
 
 class TestWriteFactorYaml:
     def test_writes_and_reads_back(self, tmp_path: Path) -> None:

@@ -111,6 +111,16 @@ def build_report_packet(inputs: ReportPacketInputs) -> str:
         "validation_metrics": record.get("validation_metrics", {}),
         "risk_metrics": record.get("risk_metrics", {}),
     }
+    if record.get("primitive_dependencies"):
+        summary["primitive_dependencies"] = record.get("primitive_dependencies")
+    if record.get("primitive_provenance"):
+        summary["primitive_provenance"] = record.get("primitive_provenance")
+    if record.get("factor_ir"):
+        summary["factor_ir"] = record.get("factor_ir")
+    if record.get("backend_provenance"):
+        summary["backend_provenance"] = record.get("backend_provenance")
+    if record.get("daily_template"):
+        summary["daily_template"] = record.get("daily_template")
     if record.get("source_type") == "python":
         summary["python_path"] = record.get("python_path")
 
@@ -149,7 +159,18 @@ def build_report_packet(inputs: ReportPacketInputs) -> str:
     if inputs.hints_per_candidate:
         metrics_block = {
             k: inputs.hints_per_candidate[k]
-            for k in ("metrics", "mt_budget", "hard_gate", "coverage", "expression")
+            for k in (
+                "metrics",
+                "mt_budget",
+                "hard_gate",
+                "coverage",
+                "expression",
+                "primitive_dependencies",
+                "primitive_provenance",
+                "factor_logic",
+                "factor_backend",
+                "ir_version",
+            )
             if k in inputs.hints_per_candidate
         }
         parts.append("## Detailed Metrics")

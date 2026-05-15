@@ -90,6 +90,10 @@ class CandidateInputs:
     source_type: str  # "dsl" | "python"
     factor_series: pd.Series
     tradable_mask: pd.Series
+    primitive_dependencies: list[str] = field(default_factory=list)
+    ir_version: str | None = None
+    factor_backend: str | None = None
+    factor_logic: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -161,6 +165,15 @@ class Phase2Inputs:
     # across the 5 horizons × 2 splits = 10 IC computations per candidate.
     returns_wides_by_horizon: dict[int, pd.DataFrame] | None = None
 
+    # Pre-Phase2 materialization summary for high-frequency-derived daily
+    # primitives.  Pure provenance: Phase2 metrics do not read this field,
+    # but judge/report/archive consumers need to know which primitive specs
+    # were used and whether they came from cache or fresh materialization.
+    primitive_materialization: dict[str, Any] = field(default_factory=dict)
+
+    # Planner summary for provenance/debugging.  Phase2 metrics do not read it.
+    execution_plan: dict[str, Any] = field(default_factory=dict)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -181,6 +194,21 @@ def _now_iso() -> str:
 def _expression_depth(expr: str) -> int:
     """Crude nesting depth — open-paren count, matching legacy behavior."""
     return int(expr.count("(")) if expr else 0
+
+
+def _candidate_primitive_provenance(
+    cand: CandidateInputs,
+    inputs: Phase2Inputs,
+) -> dict[str, Any]:
+    """Return materialization provenance for the candidate's primitive deps."""
+    deps = list(dict.fromkeys(str(fid) for fid in cand.primitive_dependencies if fid))
+    if not deps:
+        return {}
+    features = (inputs.primitive_materialization or {}).get("features") or {}
+    return {
+        fid: features.get(fid, {"status": "missing_from_materialization"})
+        for fid in deps
+    }
 
 
 def _strip_ic_series(by_horizon: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any]]:
@@ -457,6 +485,11 @@ def _evaluate_candidate(
     "expression_depth", "compute_error"}`` only — no partial metric
     fields, sibling candidates continue.
     """
+    primitive_dependencies = list(
+        dict.fromkeys(str(fid) for fid in cand.primitive_dependencies if fid)
+    )
+    primitive_provenance = _candidate_primitive_provenance(cand, inputs)
+
     try:
         if inputs.primary_horizon not in inputs.forward_returns_by_horizon:
             raise ValueError(
@@ -657,6 +690,11 @@ def _evaluate_candidate(
             "expression": cand.expression,
             "source_type": cand.source_type,
             "expression_depth": _expression_depth(cand.expression),
+            "ir_version": cand.ir_version,
+            "factor_backend": cand.factor_backend or cand.source_type,
+            "factor_logic": dict(cand.factor_logic),
+            "primitive_dependencies": primitive_dependencies,
+            "primitive_provenance": primitive_provenance,
             "coverage": round(coverage, 4),
             "sign": int(primary_sign),
             "compute_error": None,
@@ -720,6 +758,11 @@ def _evaluate_candidate(
             "expression": cand.expression,
             "source_type": cand.source_type,
             "expression_depth": _expression_depth(cand.expression),
+            "ir_version": cand.ir_version,
+            "factor_backend": cand.factor_backend or cand.source_type,
+            "factor_logic": dict(cand.factor_logic),
+            "primitive_dependencies": primitive_dependencies,
+            "primitive_provenance": primitive_provenance,
             "compute_error": f"{type(exc).__name__}: {exc}",
         }
 
@@ -769,6 +812,7 @@ def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
         "batch_id": inputs.batch_id,
         "generated_at": _now_iso(),
         "primary_universe": inputs.primary_universe,
+        "universe": inputs.primary_universe,
         "secondary_universes": list(inputs.secondary_universes),
         "train_range": list(inputs.train_range),
         "validation_range": list(inputs.validation_range),
@@ -777,6 +821,8 @@ def run_phase2(inputs: Phase2Inputs, output_path: str | Path) -> dict[str, Any]:
         "n_candidates": len(results),
         "n_ok": n_ok,
         "n_errors": n_err,
+        "execution_plan": inputs.execution_plan,
+        "primitive_materialization": inputs.primitive_materialization,
         "candidates": results,
     }
 

@@ -31,6 +31,8 @@ import pandas as pd
 from research.compute.cache import FactorValueCache
 from research.compute.masks import build_tradable_mask, combine_masks, load_universe_mask
 from research.compute.preprocess import PreprocessConfig
+from research.compute.primitive_bridge import ensure_primitives_materialized
+from research.planner import ExecutionPlanner
 from research.phases.phase2_execute import CandidateInputs, Phase2Inputs, run_phase2
 from research.storage.paths import StoragePaths
 from research.storage.yaml_io import load_yaml
@@ -475,6 +477,14 @@ def load_library_signals(
 # ---------------------------------------------------------------------------
 
 
+def _candidate_logic_label(candidate: dict[str, Any]) -> str:
+    logic = candidate.get("factor_logic") or {}
+    backend = logic.get("backend") or candidate.get("source_type") or "dsl"
+    if backend == "daily_python":
+        return f"{logic.get('template')}({logic.get('params') or {}})"
+    return str(candidate.get("expression") or candidate.get("path") or backend)
+
+
 def evaluate_candidates(
     manifest: dict[str, Any],
     paths: StoragePaths | None = None,
@@ -491,6 +501,7 @@ def evaluate_candidates(
     to ``[start, end]``. Python candidates are loaded and executed via
     python_runner without caching (closures are not key-stable).
     """
+    from research.compute.daily_python_backend import run_daily_python_candidate
     from research.compute.python_runner import load_python_candidate, run_python_factor
 
     candidates = manifest.get("candidates", [])
@@ -533,6 +544,15 @@ def evaluate_candidates(
         cid = cand["candidate_id"]
         source_type = cand.get("source_type", "dsl")
         expression = cand.get("expression", "")
+        factor_logic = cand.get("factor_logic") or {}
+        factor_backend = factor_logic.get("backend") or (
+            "qlib" if source_type == "dsl" else source_type
+        )
+        primitive_dependencies = list(
+            dict.fromkeys(
+                str(fid) for fid in cand.get("primitive_dependencies", []) or [] if fid
+            )
+        )
         py_ref = ""
 
         try:
@@ -550,12 +570,23 @@ def evaluate_candidates(
                 else:
                     # Fallback path (no cache / no expr): direct eval
                     series = eval_dsl_expression(expression, start=start, end=end)
-            else:
+            elif source_type == "python":
                 py_ref = cand.get("python_ref", cand.get("path", ""))
                 loaded = load_python_candidate(py_ref)
                 if market_df is None:
                     raise ValueError("market_df required for Python candidates")
                 series = run_python_factor(loaded, market_df)
+            elif source_type == "daily_python":
+                if market_df is None:
+                    raise ValueError("market_df required for daily_python candidates")
+                series = run_daily_python_candidate(
+                    cand,
+                    market_df,
+                    start=start,
+                    end=end,
+                )
+            else:
+                raise ValueError(f"unsupported candidate source_type: {source_type}")
 
             # Evaluation mask: stock-day eligibility independent of the
             # factor's own NaN pattern.  Factor NaNs are preserved by
@@ -567,10 +598,14 @@ def evaluate_candidates(
 
             results.append(CandidateInputs(
                 candidate_id=cid,
-                expression=expression or py_ref,
+                expression=expression or py_ref or _candidate_logic_label(cand),
                 source_type=source_type,
                 factor_series=series,
                 tradable_mask=tradable_mask,
+                primitive_dependencies=primitive_dependencies,
+                ir_version=cand.get("ir_version"),
+                factor_backend=factor_backend,
+                factor_logic=dict(factor_logic),
             ))
         except Exception as exc:
             logger.error("Failed to evaluate %s: %s", cid, exc)
@@ -579,10 +614,14 @@ def evaluate_candidates(
             dummy.index = pd.MultiIndex.from_tuples([], names=["time", "symbol"])
             results.append(CandidateInputs(
                 candidate_id=cid,
-                expression=expression,
+                expression=expression or _candidate_logic_label(cand),
                 source_type=source_type,
                 factor_series=dummy,
                 tradable_mask=pd.Series(dtype=bool),
+                primitive_dependencies=primitive_dependencies,
+                ir_version=cand.get("ir_version"),
+                factor_backend=factor_backend,
+                factor_logic=dict(factor_logic),
             ))
 
     return results
@@ -604,7 +643,6 @@ def build_phase2_inputs(
     This is the main entry point called by the mine loop's phase2_executor.
     """
     qlib_dir = config.get("qlib_data_dir", "~/.qlib/qlib_data/cn_data_1d")
-    init_qlib(qlib_dir)
 
     sample = config.get("sample_policy", {})
     train_start, train_end = sample.get("train_range", ["2015-01-01", "2021-12-31"])
@@ -615,6 +653,28 @@ def build_phase2_inputs(
     eval_cfg = config.get("evaluation", {})
     decay_horizons = eval_cfg.get("decay_horizons", DEFAULT_DECAY_HORIZONS)
     primary_horizon = eval_cfg.get("primary_horizon", 1)
+
+    plan = ExecutionPlanner(
+        manifest,
+        paths,
+        config,
+        start=full_start,
+        end=full_end,
+    ).build()
+    manifest = plan.normalized_manifest
+
+    primitive_status = ensure_primitives_materialized(
+        manifest,
+        paths,
+        config,
+        start=full_start,
+        end=full_end,
+    )
+    if primitive_status.get("status") != "no_dependencies":
+        logger.info("primitive materialization: %s", primitive_status)
+
+    qlib_dir = primitive_status.get("qlib_data_dir") or qlib_dir
+    init_qlib(qlib_dir)
 
     # 1. Market data (multi-horizon returns + amount + market_cap)
     market = load_market_data(
@@ -766,6 +826,8 @@ def build_phase2_inputs(
         primary_returns_wide=primary_returns_wide,
         style_wides=style_wides,
         returns_wides_by_horizon=returns_wides_by_horizon,
+        primitive_materialization=primitive_status,
+        execution_plan=plan.to_dict(),
     )
 
 

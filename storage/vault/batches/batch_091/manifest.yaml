@@ -1,0 +1,115 @@
+batch_id: batch_091
+round: 91
+direction: institutional_flow_proxy
+direction_md_ref: vault/directions/institutional_flow_proxy.md
+batch_goal: 'Reserve revival pool #1 (round 91 calibration/013 finding asset-driven):
+  probe whether the 6 expression variants of b072/C006 TsRank($amount/$num_trades,60)
+  — which passed alpha_surv 0.447 + max_corr 0.24 LOW + ls_t -7.54 top but was blocked
+  by incr_ic=-0.018 micro-NEG — can recover incr_ic ≥ +0.005 via (a) window sweep
+  30d/90d/120d, (b) rank-diff form (escape F012/F024 anchor cluster), (c) reducer
+  reverse (sign-flip equivalence test), (d) volume-based ratio (P008 third atom).
+  All candidates self-checked vs P030 (alpha_surv > 1.0 alone ≠ admit), P004-deep
+  (no N-day path-integral, all are single-step TsRank wrappers — pass), P028 (no Cov-of-zero-mean-series
+  — pass).'
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-15T19:56:23Z'
+frozen_at: '2026-05-15T19:56:23Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: TsRank(Div($amount, $num_trades), 30)
+  canonical: TsRank(Div($amount,$num_trades),30)
+  rationale: 'T001 revival path (b) — window sweep shorter. Original b072/C006 used
+    60d (vol_20d_exp=10.87 — large drop vs C001 Std 26.7). 30d window tests whether
+    shorter time-rank improves incr_ic (faster regime adaptation) without re-introducing
+    vol_20d basis. Hypothesis: regimes of institutional flow concentration revert
+    faster than 60d → 30d may have stronger incr_ic vs F009/F012 cluster. Self-check:
+    P030 ✓ (not relying on alpha_surv alone — full 3-gate audit), P004-deep ✓ (single-step
+    TsRank, no path-integral), Cov-equiv ✓ (no Cov form). Anti-recapitulation: differs
+    from F024 (TsRank(num_trades/volume,60)) by both reducer (amount NOT volume in
+    numerator) and window — orthogonal axis. Differs from b072/C001 Std form (vol_20d
+    嵌入) — TsRank is ordinal not Std.'
+  expected_sign: negative
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div($amount, $num_trades), 90)
+  canonical: TsRank(Div($amount,$num_trades),90)
+  rationale: 'T001 revival path (b) — window sweep longer. 90d tests whether longer
+    time-rank further reduces vol_20d_exp (already 10.87 at 60d) with potential improvement
+    in incr_ic stability. 90d is between original 60d and quarterly 120d. Self-check:
+    P030 ✓ (not relying on alpha_surv alone), P004-deep ✓ (single-step TsRank — outer
+    wrap is rank-of, NOT N-day cumulative aggregation), Cov-equiv ✓. Anti-recapitulation:
+    distinct window from F024 (60d) and original b072/C006 (60d) — pure axis sweep,
+    mechanism identical but signal smoothing different.'
+  expected_sign: negative
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div($amount, $num_trades), 120)
+  canonical: TsRank(Div($amount,$num_trades),120)
+  rationale: 'T001 revival path (b) — quarterly window. Tests upper bound of TsRank
+    window for vol_20d-escape. P031 lesson says TsRank≥60d ratio is escape path —
+    120d further pushes that. Hypothesis: institutional flow concentration has quarterly
+    cycles (fund rebalance, ETF rebalance) → 120d may capture meaningful regime cycles.
+    Risk: too long → signal degradation by stale data. Self-check: P030 ✓, P004-deep
+    ✓ (single-step TsRank not N-day path-integral — TsRank is rank-of-current-value-in-window,
+    not cumulative-sum), Cov-equiv ✓. Anti-recapitulation: no library factor uses
+    120d TsRank on $amount/$num_trades.'
+  expected_sign: negative
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount, $num_trades),
+    20))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20))
+  rationale: 'T001 revival path (a) — rank-diff form, designed to escape F012 (Amihud)
+    anchor cluster. Subtraction of short-window TsRank from long-window TsRank isolates
+    ''flow regime acceleration'' (rank moving up over 60d but flat in last 20d = regime
+    climax). This is NOT P004-deep path-integral — both terms are single-step TsRanks;
+    the Sub is a same-day cross-window difference. Self-check: P030 ✓ (full 3-gate),
+    P004-deep ✓ (Sub of two TsRanks is cross-window scalar diff, not N-day path-integral
+    — confirmed: TsRank(x,N) is rank-of-x-today-in-window N, not Σ x_{t-i}), Cov-equiv
+    ✓ (no Cov), F012 cluster check: rank-diff geometry differs from F012''s Mean(|Δp|/amount,
+    20) — F012 is illiquidity level, this is flow-regime acceleration; differs from
+    F015/F016 (rank-diff of CsRank(amount-level-stats) — cross-section rank-diff not
+    time-rank-diff). Per round 91 lesson ''rank-diff salvage 限定'', RHS must not be
+    dead anchor — TsRank(amount/num_trades, 20) is NOT a dead anchor (never tested
+    as RHS).'
+  expected_sign: negative
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div($num_trades, $amount), 60)
+  canonical: TsRank(Div($num_trades,$amount),60)
+  rationale: 'T001 revival path (c) — reducer reverse / reciprocal test. Mathematically
+    TsRank(1/x, N) ≈ N+1 - TsRank(x, N) is monotonic sign-flip equivalent to b072/C006
+    in cross-section. If incr_ic is symmetric — reciprocal form should have ic = -ic(original)
+    but |incr_ic| similar. This is a sanity probe: if reciprocal form shows admit-able
+    incr_ic while original does not, suggests sign-direction-specific noise in incr_ic
+    computation. Self-check: P030 ✓, P004-deep ✓ (single TsRank), Cov-equiv ✓. Anti-recapitulation:
+    NOT a duplicate by canonical (Div(a,b) ≠ Div(b,a) lexically — passes canonical
+    check); is sign-flip duplicate by monotonic equivalence — Phase 2 will surface
+    this as sign_flip_evidence.'
+  expected_sign: positive
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div($volume, $num_trades), 60)
+  canonical: TsRank(Div($volume,$num_trades),60)
+  rationale: 'T001 revival path (d) — P008 escape-stack ''third ratio'' atom. $volume/$num_trades
+    = avg shares per trade (vs $amount/$num_trades = avg yuan per trade — original).
+    Hypothesis: shares-per-trade carries different microstructure signal — small institutions
+    or quant funds may trade in fixed share lots regardless of price level, making
+    $volume/$num_trades a cleaner ''trade-lot-size'' signal vs $amount/$num_trades
+    which mixes price level. CRITICAL: F024 = TsRank($num_trades/$volume, 60) is the
+    LIBRARY ANCHOR — this candidate uses RECIPROCAL ratio (volume/num_trades not num_trades/volume)
+    — by monotonic-equivalence under TsRank it will be ~sign-flip-duplicate of F024
+    → expected max_corr ≈ 0.95@F024 → CP05 NEAR_DUPLICATE reject. Including per user''s
+    explicit hint to test P008 ''third ratio'' completeness; Phase 2 will produce
+    evidence of F024 sign-flip duplication, confirming library overlap closes this
+    axis. Self-check: P030 ✓, P004-deep ✓, Cov-equiv ✓. Anti-recapitulation: candidate
+    is INTENTIONAL high-collision probe per user 6-candidate hint to characterize
+    F024 monotonic envelope.'
+  expected_sign: positive

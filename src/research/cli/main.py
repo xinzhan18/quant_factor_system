@@ -179,6 +179,16 @@ def main() -> None:
         help="Path to a YAML file: {direction, batch_goal, "
         "active_threads_referenced, candidates}",
     )
+    menu_p = p1_sub.add_parser(
+        "menu",
+        help="Print LLM-facing primitive/template capability menu",
+    )
+    menu_p.add_argument(
+        "--format",
+        choices=["yaml", "markdown"],
+        default="yaml",
+        help="Output format (default: yaml)",
+    )
 
     # ── holdout ───────────────────────────────────────────────────────
     ho_p = sub.add_parser("holdout-review", help="Run holdout review (isolated)")
@@ -1069,6 +1079,24 @@ def _cmd_phase1(args: argparse.Namespace) -> None:
             f"{len(report.candidates)} candidates passed"
         )
         print(f"  manifest: {report.manifest_path}")
+    elif args.phase1_cmd == "menu":
+        import yaml
+
+        from research.idea import build_idea_menu, format_idea_menu_markdown
+        from research.storage.paths import StoragePaths
+
+        menu = build_idea_menu(StoragePaths())
+        if args.format == "markdown":
+            print(format_idea_menu_markdown(menu))
+        else:
+            print(
+                yaml.safe_dump(
+                    menu,
+                    sort_keys=False,
+                    allow_unicode=True,
+                    default_flow_style=False,
+                )
+            )
 
 
 def _import_path_module() -> Any:  # (unused — kept for legacy imports)

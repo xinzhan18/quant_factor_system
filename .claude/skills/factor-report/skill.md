@@ -24,6 +24,7 @@ user_invocable: true
 
 由 Phase 4 `report_packer` 打包：
 - factor YAML 摘要（`expression` / `family_tag` / `validation_metrics` / `risk_metrics`）
+- primitive dependencies 摘要（若有：`feature_id` / `source_freq` / `template` / `available_time` / `spec_hash`）
 - Direction hypothesis 节选
 - Judge Synthesis（C{id}.md 6 CP 推理原文）
 - Library context（最近邻 F{近邻} 关系摘要）
@@ -163,6 +164,26 @@ max_lib_corr: <float>
 ```
 
 档位词和 reason codes 从 packet 的 Judge Synthesis 抽取。
+
+### 2.5 Primitive Dependencies（仅日内 primitive 因子必放）
+
+若 packet 中存在 primitive dependencies，在 Judge Verdict 后新增本节：
+
+```markdown
+## Primitive Dependencies
+
+### tail_amount_share_20m_v1
+
+- **Source**: 1min amount bars
+- **Template**: window_share
+- **Construction**: 14:40-15:00 amount / full-day amount
+- **Availability**: T 15:00
+- **Spec hash**: `...`
+- **Mechanism**: 尾盘拥挤 / 收盘前冲击交易 / 次日反转
+- **Known risk**: turnover / liquidity proxy，需要看 CP04/CP05
+```
+
+该节解释“日内字段为什么有意义”；后续 IC/分组/Barra 章节解释“最终因子是否成立”。
 
 ---
 

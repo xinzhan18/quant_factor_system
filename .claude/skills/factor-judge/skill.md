@@ -51,6 +51,14 @@ result.yaml ──(Python pre-hint)──▶ _hints.yaml (唯一持久化源, ~1
 
 R3 单一数据源 + R4 不重算 + 迭代隔离三者叠加：主 agent hints 开销 1200 行 → 30 行；subagent 1200 行 → 200 行。
 
+**日内 primitive provenance**：若 `result.yaml.primitive_materialization` 非空，Python pre-hint / `research hints` 投影必须把候选依赖的 primitive 摘要带给 judge。LLM 判决时不重新计算、不读原始分钟数据，只检查：
+
+- primitive construction 是否支持候选 hypothesis
+- `available_time` 是否与 label/decision time 匹配
+- cache/materialization 状态是否正常
+- primitive 是否只是 turnover / volatility / liquidity 的 proxy
+- spec_hash / source_freq / template 是否可追溯
+
 - **主 agent 读**：`Bash(PYTHONPATH=src python3 -m research hints {batch} summary)` + `directions/{direction}.md`
 - **Subagent 读**（见 rubric.md）：rubric.md + `Bash(research hints {batch} candidate {CID})` + direction.md + 可选 factors/{nearest}.md
 - **都不读**：`_hints.yaml` 文件本身 / result.yaml / lessons.md / 父 skill.md
@@ -62,6 +70,8 @@ R3 单一数据源 + R4 不重算 + 迭代隔离三者叠加：主 agent hints �
 | **Python CLI** | 扫历史 batches + hard gates + MT + 扁平化 rubric → 写 `_hints.yaml`（唯一持久化源）；`research hints` 提供 summary / candidate / full 投影；最终批量 audit |
 | **主 agent** | 并行派发 subagent；收集 verdicts；写 `judge.md`（4 层反思）；更新 `direction.md` |
 | **Subagent（并行）** | 按 rubric.md 对单个候选做 6 CP 推理 → 写 `candidates/C{id}.md`，返回结构化摘要 |
+
+日内 primitive 候选的子代理摘要必须额外包含一段 `Primitive Provenance`，列出 `feature_id`、template、available_time、预期机制和主要风险。主 agent 写 `judge.md` 时把该段汇总到批次级 primitive 反思中。
 
 ## 流程
 

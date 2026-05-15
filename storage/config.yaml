@@ -4,6 +4,15 @@
 
 qlib_data_dir: ~/.qlib/qlib_data/cn_data_1d
 
+# 日内 primitive MVP 配置。
+# - minute_parquet: 清洗后的分钟 parquet 文件或目录，schema 至少包含
+#   time, symbol, open, high, low, close, volume, amount。
+# - qlib_data_dir: 可选实验 Qlib 目录；若设置，必须能同时读取基础日频字段
+#   和导出的 primitive 字段。默认写入并读取 qlib_data_dir。
+primitive:
+  minute_parquet:
+  qlib_data_dir:
+
 sample_policy:
   train_range: [2015-01-01, 2021-12-31]
   validation_range: [2022-01-01, 2023-12-31]

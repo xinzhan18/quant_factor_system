@@ -10,6 +10,44 @@ user_invocable: true
 
 周期性**整体重写**（不是增量 append）`storage/vault/` 里的 memory markdown——合并同类 lesson、压缩过长 narrative、删除被证伪内容、升格反复被引用的经验。单次执行产生**一个独立 commit**，可原子回退。
 
+日内 primitive 接入后，consolidation 不只整理 expression family，也要整理 primitive family：
+
+```text
+window_share
+window_ratio
+window_return
+distribution_stats
+masked_return_mean
+price_volume_corr
+```
+
+重点判断哪些日内窗口、字段、mask、reducer 真正贡献 alpha，哪些只是 turnover / volatility / liquidity proxy。
+
+Factor IR / Planner / DailyPythonBackend 接入后，consolidation 还要整理生成逻辑本身：
+
+```text
+backend_counts
+daily_template_counts
+primitive_usage_counts
+template_to_factors
+primitive_to_factors
+```
+
+Python 侧摘要入口：
+
+```text
+research.memory.generation_logic.build_generation_logic_summary(paths)
+```
+
+使用这个摘要判断：
+
+```text
+1. 哪些 primitive family 反复进入 admitted factor。
+2. 哪些 daily template 值得继续保留在 /factor-idea 菜单里。
+3. 哪些 backend 产出的 admitted factor 更稳定。
+4. 哪些 primitive/template 长期没有 admitted usage，应该在下一轮 idea 中降权或 deprecated。
+```
+
 ## 执行模型
 
 | 角色 | 动作 |
@@ -118,6 +156,11 @@ Step 9  Python   删 backup + packet files（findings 进 commit 保留）
 
 ## 相关 factor 概要（direction packet only）
 - member F{id} 一行：ICIR / ls_tstat / mono / Grade
+
+## 相关 primitive 概要（若有）
+- feature_id / template / source_freq / available_time / admitted factor count
+- repeated rejects/reserves 的 primitive family
+- suspected proxy risk（turnover / volatility / liquidity）
 
 ## 证伪信号（direction packet only）
 [Python 扫 recent batches：反对本 direction.hypothesis 的候选 ≥ 3 个 → 列出]

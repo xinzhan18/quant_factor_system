@@ -83,11 +83,25 @@ class TestCachePaths:
         assert sp.market_daily_cache == sp.cache_dir / "market_daily.parquet"
         assert sp.barra_factors_cache == sp.cache_dir / "barra_factors.parquet"
         assert sp.factor_values_cache_dir == sp.cache_dir / "factor_values"
+        assert sp.primitive_store_dir == sp.cache_dir / "primitive_store"
+        assert sp.minute_primitive_store_dir == sp.primitive_store_dir / "minute"
+        assert sp.primitive_panels_dir == sp.cache_dir / "primitive_panels"
 
     def test_factor_value_cache_key(self, tmp_path: Path) -> None:
         sp = StoragePaths(tmp_path)
         p = sp.factor_value_cache_file("deadbeef12")
         assert p == sp.factor_values_cache_dir / "deadbeef12.parquet"
+
+    def test_minute_primitive_cache_file(self, tmp_path: Path) -> None:
+        sp = StoragePaths(tmp_path)
+        p = sp.minute_primitive_cache_file("open_10m_ret_v1", "abc123")
+        assert (
+            p
+            == sp.minute_primitive_store_dir
+            / "feature_id=open_10m_ret_v1"
+            / "spec_hash=abc123"
+            / "values.parquet"
+        )
 
 
 class TestHoldoutAndPythonFactors:

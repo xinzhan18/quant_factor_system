@@ -18,6 +18,8 @@ description: Phase 3 JUDGE — single-candidate judging manual (subagent only)
 
 你**不读**：`_hints.yaml` 文件（用 `research hints` CLI 投影代替）/ `result.yaml` / `lessons.md` / 父 `skill.md`。所有数字都在 CLI stdout 里。
 
+若候选依赖日内 primitive，`research hints ... candidate` stdout 会包含 `primitive_provenance`。你只读该投影，不读原始 registry、不读分钟数据、不重算 primitive。
+
 ## 你写什么
 
 一个文件：`storage/vault/batches/{BATCH_ID}/candidates/{CID}.md`。不写其它文件、不跑 Bash。
@@ -44,6 +46,9 @@ description: Phase 3 JUDGE — single-candidate judging manual (subagent only)
 
 风险旗标:  （如无风险则写"无"）
   - {若 CP 档位有任何 borderline/weak/poor/unstable/mixed/high 项，逐条列出并说明为何}
+
+Primitive Provenance:  （仅依赖日内 primitive 时填写；否则写"无"）
+  - {feature_id}: template={...}, available_time={...}, mechanism={...}, risk={turnover/vol/liquidity proxy 或无}
 ```
 
 ### reject 候选返回模板（简化）

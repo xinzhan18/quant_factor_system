@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from research.checkpoints.hints import build_hints, write_hints
+from research.checkpoints.hints import build_hints, build_hints_summary, write_hints
 
 
 def _good_candidate(**overrides: Any) -> dict[str, Any]:
@@ -359,6 +359,59 @@ class TestFlattenedMetrics:
         assert m["cp04"]["style_r_squared"] is None
         assert m["cp05"]["nearest_factor_id"] is None
         assert m["cp05"]["is_near_duplicate"] is False  # coerced from missing
+
+
+class TestPrimitiveHints:
+    def test_candidate_primitive_provenance_is_carried_into_hints(
+        self, tmp_path: Path
+    ) -> None:
+        candidate = _good_candidate(
+            primitive_dependencies=["open_10m_ret_v1", "tail_amount_share_20m_v1"],
+            primitive_provenance={
+                "open_10m_ret_v1": {
+                    "status": "cache_hit",
+                    "spec_hash": "abc",
+                    "available_time": "T 09:40",
+                },
+                "tail_amount_share_20m_v1": {
+                    "status": "materialized",
+                    "spec_hash": "def",
+                    "available_time": "T 15:00",
+                },
+            },
+        )
+        hints = build_hints(
+            batch_id="batch_001",
+            direction="intraday_reversal",
+            result=_result([candidate]),
+            batches_dir=tmp_path / "batches",
+        )
+
+        entry = hints["per_candidate"]["C001"]
+        assert entry["primitive_dependencies"] == [
+            "open_10m_ret_v1",
+            "tail_amount_share_20m_v1",
+        ]
+        assert entry["primitive_provenance"]["open_10m_ret_v1"]["status"] == "cache_hit"
+        assert (
+            entry["primitive_provenance"]["tail_amount_share_20m_v1"]["available_time"]
+            == "T 15:00"
+        )
+
+    def test_summary_shows_primitive_dependency_names(self, tmp_path: Path) -> None:
+        hints = build_hints(
+            batch_id="batch_001",
+            direction="intraday_reversal",
+            result=_result([
+                _good_candidate(primitive_dependencies=["open_10m_ret_v1"])
+            ]),
+            batches_dir=tmp_path / "batches",
+        )
+
+        summary = build_hints_summary(hints)
+        entry = summary["per_candidate"]["C001"]
+        assert entry["primitive_count"] == 1
+        assert entry["primitive_dependencies"] == ["open_10m_ret_v1"]
 
 
 class TestNearestExpressionLookup:

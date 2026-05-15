@@ -2,28 +2,26 @@
 direction_tag: institutional_flow_proxy
 status: probing
 priority: medium
-rounds: 2
+rounds: 3
 admits: 0
-last_batch: batch_072
+last_batch: batch_091
 last_admits: []
-last_goal: '首批 6 候选探索 $num_trades 字段族（2026-05-01 新增微观字段，库内仅 b068 二次直接 raw level 使用
-  reject）。
-
-  所有候选引入额外几何维度 (rolling Std / TsRank / rank-diff / Corr / cross-product) 规避 b068 C002
-
-  raw level vol_20d 吸收陷阱。avg_trade_size = $amount/$num_trades 是 institutional flow
-  proxy，
-
-  $num_trades level 是 retail attention proxy。本批是 fundamental escape 最后一搏，若 dead →
-  下批
-
-  触 Phase 5 consolidation. 目标 ≥1 admit 验证假设。'
-last_activity: '2026-05-02T04:30:00Z'
+last_goal: 'Reserve revival pool #1 (round 91 calibration/013 finding asset-driven):
+  probe whether the 6 expression variants of b072/C006 TsRank($amount/$num_trades,60)
+  — which passed alpha_surv 0.447 + max_corr 0.24 LOW + ls_t -7.54 top but was blocked
+  by incr_ic=-0.018 micro-NEG — can recover incr_ic ≥ +0.005 via (a) window sweep
+  30d/90d/120d, (b) rank-diff form (escape F012/F024 anchor cluster), (c) reducer
+  reverse (sign-flip equivalence test), (d) volume-based ratio (P008 third atom).
+  All candidates self-checked vs P030 (alpha_surv > 1.0 alone ≠ admit), P004-deep
+  (no N-day path-integral, all are single-step TsRank wrappers — pass), P028 (no Cov-of-zero-mean-series
+  — pass).'
+last_activity: '2026-05-15T20:20:25Z'
 created_batch: batch_072
 members: []
 retired_members: []
 reserves:
 - batch_072_C006
+- batch_091_C004
 merged_into: null
 created_from: cockpit_round_72_new_field_$num_trades
 ---
@@ -76,11 +74,17 @@ created_from: cockpit_round_72_new_field_$num_trades
 > [!warning]+ Thread 结论
 > **Question**: avg_trade_size 的时序波动 / 时序 anomaly 是 institutional flow regime change proxy，与 raw daily level 几何不同，能脱 vol_20d 吸收？
 >
-> **Answer**: **Std 形式 dead, TsRank 形式 reserve**. C001 Std(avg_trade_size,20) vol_20d_exp=26.7 + alpha_surv=0.17 标准 vol_20d 三立 reject — 20d rolling Std 仍嵌入 vol_20d. **C006 TsRank 60d 是 partial-progress**: vol_20d_exp=10.87 (vs C001 26.7, 降 60%) + style_r²=0.15 (vs C001 0.25, 降 40%) + alpha_surv=0.447 PASS + max_corr=0.24@F009 LOW 几何独立 + ls_t=-7.54 整库顶级 + mono PERFECT — **首次在 csi1000 上看到 ratio 字段时序量纲化 (TsRank window≥60d) 显著降低 vol_20d 嵌入**. 但 incr_ic=-0.018 微 NEG → reserve 不 admit.
+> **Answer (round 91 update)**: **Std 形式 dead, TsRank 窗口轴全段封闭, reciprocal 等价, rank-diff form 是唯一 escape (但 statistical 不足)**.
 >
-> **Evidence trail**: [[batches/batch_072/candidates/C001|batch_072 C001]] Std → reject; [[batches/batch_072/candidates/C006|batch_072 C006]] TsRank 60d → reserve.
+> - **Std form** (b072/C001): vol_20d 三立 reject (vol_20d_exp=26.7)
+> - **TsRank 窗口轴扫** (b091/C001-C003 全 reject): 30d max_corr=0.79, 60d=0.24(原), 90d=0.75, 120d=0.71 — **F024 (TsRank(num_trades/volume,60)) anchor 在 30-120d 窗口轴上是连续引力盆地**; 反直觉发现：alpha_surv 单调下降 (0.558→0.418→0.398) 即窗口越长 vol_20d 嵌入越深
+> - **Reciprocal axis** (b091/C005 reject): TsRank($num_trades/$amount,60) 是 b072/C006 的 monotonic sign-flip duplicate (TsRank(1/x,N)=N+1-TsRank(x,N))
+> - **P008 third ratio axis** (b091/C006 reject): TsRank($volume/$num_trades,60) hard_gate fail 0.957@F024 — sign-flip duplicate of F024
+> - **Rank-diff form** (b091/C004 reserve): `Sub(TsRank60, TsRank20)` — **max_corr=0.18@F016 LOW + incr_ic=+0.008 PASS + alpha_surv=0.862 PASS + Barra residual IC sign flip (+0.014 vs raw -0.016)** — 真正脱 F024 anchor 邻域, 但 ls_t=-2.20 statistical 不足以 admit
 >
-> **复活路径**: (a) C006 配 RHS rank-diff 测试 incr_ic 改善; (b) 30d/120d 窗口扫; (c) Python residualize on F009 后再 CsRank; (d) 跨字段 TsRank composite.
+> **Evidence trail**: [[batches/batch_072/candidates/C001|batch_072 C001]] Std → reject; [[batches/batch_072/candidates/C006|batch_072 C006]] TsRank 60d → reserve; [[batches/batch_091/candidates/C001|batch_091 C001]] / [[batches/batch_091/candidates/C002|C002]] / [[batches/batch_091/candidates/C003|C003]] 窗口扫 → 全 reject; [[batches/batch_091/candidates/C004|batch_091 C004]] rank-diff → reserve; [[batches/batch_091/candidates/C005|batch_091 C005]] reciprocal → reject; [[batches/batch_091/candidates/C006|batch_091 C006]] P008 third ratio → reject.
+>
+> **复活路径 (round 91 后)**: (a) C004 rank-diff form 配更短 RHS `Sub(TsRank60, TsRank10)` 增强信号; (b) 跨字段 rank-diff `Sub(TsRank($amount/$num_trades,60), TsRank($amount/$volume,60))`; (c) CsRank 二次包裹 `CsRank(Sub(TsRank60, TsRank20))`; (d) Python residualize on (F024+F012) + 重测 incr_ic/ls_t — 仅当 ls_t 改善 ≥ 2.5 才进 admit. **闭锁**: window axis 全段 + reciprocal + P008-third-ratio 三轴 disproven.
 
 ### T002: $num_trades raw level retail attention [✗ DISPROVEN batch_072]
 
@@ -133,6 +137,11 @@ created_from: cockpit_round_72_new_field_$num_trades
 | [[batches/batch_072/candidates/C003\|batch_072 C003]] | C003 | `Sub(CsRank(Div($amount, $num_trades)), CsRank(Mean($amount, 20)))` | hard_gate 三立: sign_flip (train +0.0091/val -0.0171) + oos_decay=-1.888 + mono_sign_flip (IS=0.70 OOS=-1.00). P001 rank-diff 7 律 #6 RHS amount_20 死亡 endpoints |
 | [[batches/batch_072/candidates/C004\|batch_072 C004]] | C004 | `Corr(Div($amount, $num_trades), $close, 20)` | alpha_surv=0.25 三立 + dom=vol_20d (sty_r²=0.09 低但 dom 仍 vol_20d). 20d rolling correlation 不脱 vol_20d basis |
 | [[batches/batch_072/candidates/C005\|batch_072 C005]] | C005 | `Mul(CsRank(Div($amount, $num_trades)), CsRank(Sub($close, Ref($close, 5))))` | P008 软判定: ls_t=-7.32 + alpha_surv=0.526 PASS + max_corr=0.46@F009 borderline + incr=-0.027 强 NEG. cross-product 形式与 F009 pv_corr 几何同源吸收 |
+| [[batches/batch_091/candidates/C001\|batch_091 C001]] | C001 | `TsRank(Div($amount, $num_trades), 30)` | P030 三立: incr_ic=-0.012 NEG + max_corr=0.79@F024 HIGH. 缩窗反而提升 max_corr (F024 几何邻域在更短窗口更密集) |
+| [[batches/batch_091/candidates/C002\|batch_091 C002]] | C002 | `TsRank(Div($amount, $num_trades), 90)` | P030 三立: incr_ic=-0.007 NEG + max_corr=0.75@F024 HIGH. 90d 窗口在 60d-120d 之间仍在 F024 引力盆地 |
+| [[batches/batch_091/candidates/C003\|batch_091 C003]] | C003 | `TsRank(Div($amount, $num_trades), 120)` | P030 三立: incr_ic=-0.006 NEG + max_corr=0.71@F024 HIGH + alpha_surv=0.398 < threshold 0.40 边界破. 反直觉: 120d 比 60d/90d alpha_surv 更低 |
+| [[batches/batch_091/candidates/C005\|batch_091 C005]] | C005 | `TsRank(Div($num_trades, $amount), 60)` | Reciprocal monotonic sign-flip duplicate of b072/C006 (TsRank(1/x,N)=N+1-TsRank(x,N)) — IC=+0.054 与 b072/C006 -0.054 完美镜像. max_corr=0.84@F024 |
+| [[batches/batch_091/candidates/C006\|batch_091 C006]] | C006 | `TsRank(Div($volume, $num_trades), 60)` | hard_gate near_duplicate fail: max_corr=0.957@F024. TsRank(volume/num_trades,60) 是 F024 (TsRank(num_trades/volume,60)) 的字段对 reciprocal sign-flip duplicate |
 
 ---
 
@@ -143,3 +152,5 @@ created_from: cockpit_round_72_new_field_$num_trades
 - **2026-05-02 round 73 Phase 5 consolidation · 方向维持 probing（C006 reserve 火种保留）**: hypothesis_promoter/008 + pattern_analyst/010 + pattern_analyst/013 + pattern_analyst/015 + library_gap/009 + calibration/005 升格 4 条元教训至 lessons.md：(a) `Path Selection` "TsRank window≥60d on ratio fields 是新 vol_20d-escape 路径"（C006 实证 vol_20d_exp 降 65% + style_r² 降 75%，库内首例 partial-progress） + raw $num_trades 不构成新几何衍生律（C002 max_corr=0.75@F012 NEAR_DUPLICATE）；(b) 顶层 macro lesson "csi1000 daily fundamental + institutional flow 真饱和" 路径 e（institutional flow microstructure 几何独立但 forward reversal + incr_ic NEG）；(c) Hot Topics P006 段 "P008 软判定补丁"（alpha_surv > 0.30 + incr_ic < 0 + max_corr ∈ [0.40, 0.50] borderline → reject 默认 vs max_corr < 0.30 LOW + 独立新几何 → reserve 火种）。**calibration/005 verdict**：C006 reserve 维持 NOT admit，trigger #1-#4 全部不立，**不放宽 incr_ic floor**；C006 等 incr_ic 改善路径：(a) 配 RHS rank-diff 测 incr_ic 改善；(b) 30d/120d 窗口扫；(c) Python residualize on F009 后再 CsRank。**direction 维持 probing**（C006 火种活跃 + library_gap/009 提议同方向 5 候选 follow-up batch `tsrank_timeseries_ratio` 优先级 medium）；priority 不变；T001 partial-progress（C006 reserve），T002/T003/T004/T005 born-disproven。
 
 - **2026-05-02 (batch_072 judged)**: admit=0 reserve=1 (C006) reject=5. **核心发现**: 5/5 PASS-hg 候选 mono_oos=-1.00 PERFECT + sign_consistency=1.0 — `$num_trades` 几何空间在 csi1000 daily 上是 reversal 方向 (机构集中 = 散户高活跃 = forward reversal). **C006 TsRank(avg_trade_size, 60) 是本批最强发现**: ls_t=-7.54 整库顶级 + alpha_surv=0.447 PASS + style_r²=0.15 极清洁 + max_corr=0.24@F009 LOW 几何独立 + vol_20d_exp=10.87 (vs C001 Std 形式 26.7, 降 60%). **唯一阻断 incr_ic=-0.018 微 NEG** → reserve 而非 admit. **关键发现 P009**: TsRank 时序量纲化在 ratio 字段上比 cross-section level 大幅降低 vol_20d_exp (实证 65%↓) + style_r² (75%↓) — 时序 rank 是新逃 vol_20d 路径候选 (库内极少先例). **关键发现 P010**: alpha_surv>0.30 + incr_ic<0 软判定 reject vs reserve 边界 = 设计层是否含独立新几何 (max_corr<0.30 + 未被探索 atom). T002 (raw level retail attention) + T003 (rank-diff) + T004 (Corr OFI) + T005 (cross-product) 4 thread born-disproven; T001 通过 C006 partial-progress. **下批建议**: 鉴于 zero_admit_streak=13 + 三 fundamental 方向 dead/archived + 本批仅 reserve — 强烈建议 orchestrator 启动 Phase 5 consolidation, 不再续探本方向. 详见 [[batches/batch_072/judge|batch_072 judge]].
+
+- **2026-05-16 (batch_091 judged, round 91 reserve revival pool #1)**: admit=0 reserve=1 (C004 rank-diff form) reject=5 (3 窗口扫 + 2 reciprocal duplicates). **核心发现**: 复活 b072/C006 的 5 candidate axes (window sweep 30/90/120d + rank-diff + reciprocal + P008 third ratio) **4/5 axes 闭锁**, 仅 **rank-diff axis 突破** (C004 max_corr=0.18@F016 LOW + incr_ic=+0.008 PASS + alpha_surv=0.862 PASS + Barra residual IC sign flip — 真正脱 F024 anchor 邻域). 但 C004 ls_t=-2.20 仅 moderate, mt_bucket=high 进一步降档 → statistical 不足 admit, reserve. **关键反直觉发现 P032 候选**: window 轴扫 30→60→90→120d alpha_surv **单调下降** 0.558→0.447→0.418→0.398 — 即 TsRank 长窗口在 ratio 字段上反而加重 vol_20d 嵌入 (与 P031 P008 escape 三条件 "TsRank ≥ 60d" 形成微张力，提示窗口"过长"也有上界). **F024 anchor 几何邻域确认**: 30-120d 窗口轴上 max_corr 0.71-0.79 连续高位 → F024 不是 60d 点锚, 是 width≥90d 的引力盆地. **Reciprocal canonical 漏检升格候选**: C005/C006 通过 Phase 1 freeze 但 Phase 2 IC 后立即被 sign-flip equivalence 拦截 — generator 应在 freeze 时识别 `TsRank(Div(a,b),N)` 与 `TsRank(Div(b,a),N)` 的 reciprocal 等价. **T001 thread 深化** (window/reciprocal/P008-third-ratio 三轴 disproven, rank-diff 轴 partial-progress). **direction status 维持 probing** (C004 火种 + b072/C006 火种 双 reserve); 下批若再 0-admit → 考虑转 saturated. 详见 [[batches/batch_091/judge|batch_091 judge]].

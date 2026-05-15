@@ -93,6 +93,57 @@ class TestBuildReportPacket:
         assert "python_path" in text
         assert "F020_triple_product.py" in text
 
+    def test_primitive_fields_in_factor_summary(self) -> None:
+        record = _record()
+        record["primitive_dependencies"] = ["open_10m_ret_v1"]
+        record["primitive_provenance"] = {
+            "open_10m_ret_v1": {
+                "status": "cache_hit",
+                "spec_hash": "abc",
+                "available_time": "T 09:40",
+            }
+        }
+        text = build_report_packet(_inputs(factor_record=record))
+        assert "primitive_dependencies" in text
+        assert "open_10m_ret_v1" in text
+        assert "T 09:40" in text
+
+    def test_primitive_fields_in_detailed_metrics(self) -> None:
+        text = build_report_packet(
+            _inputs(
+                hints_per_candidate={
+                    "expression": "Rank($open_10m_ret_v1)",
+                    "coverage": 0.95,
+                    "primitive_dependencies": ["open_10m_ret_v1"],
+                    "primitive_provenance": {
+                        "open_10m_ret_v1": {"status": "materialized"}
+                    },
+                }
+            )
+        )
+        assert "## Detailed Metrics" in text
+        assert "primitive_provenance" in text
+        assert "materialized" in text
+
+    def test_factor_ir_and_backend_provenance_in_factor_summary(self) -> None:
+        record = _record()
+        record["factor_ir"] = {
+            "candidate_id": "C001",
+            "ir_version": "v1",
+            "factor_logic": {
+                "backend": "daily_python",
+                "template": "quantile_split_spread",
+            },
+        }
+        record["backend_provenance"] = {
+            "backend": "daily_python",
+            "source_type": "daily_python",
+        }
+        text = build_report_packet(_inputs(factor_record=record))
+        assert "factor_ir" in text
+        assert "backend_provenance" in text
+        assert "quantile_split_spread" in text
+
     def test_available_charts_listed(self) -> None:
         text = build_report_packet(
             _inputs(available_charts=["ic_timeseries", "quintile_bar"])

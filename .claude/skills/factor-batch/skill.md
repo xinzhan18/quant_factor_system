@@ -67,6 +67,19 @@ PYTHONPATH=src python3 -m research execute batch_{N}
 
 纯 Python 向量化（R5），产出 `batches/batch_{N}/result.yaml`。单候选异常 → 写 `compute_error`，不中断 batch。Holdout 绝不计算。
 
+**Pre-Phase2 日内 primitive materialization**：若 manifest 中任一候选包含 `primitive_dependencies`，`research execute` 会在正式 Phase2 前执行：
+
+```text
+ensure_primitives_materialized()
+  -> 解析 registry / proposed_primitives
+  -> 检查 primitive cache
+  -> 批量物化缺失 daily primitive
+  -> 导出到 Qlib daily backend
+  -> 在 result.yaml.primitive_materialization 记录 provenance
+```
+
+这一步属于 Phase 2 的 Python 前置步骤，不需要 LLM 直接读分钟数据或写物化代码。没有 `primitive_dependencies` 的传统日频 batch 走 no-op。
+
 **stdout 处理**：bash 工具层如有 log redirect 机制则走 log file，否则直接吃 stdout（不进 summary 字段）。
 
 校验：`state.current_batch_phase == "judged"`。

@@ -40,6 +40,13 @@ class TestValidateDslExpression:
         reasons = validate_dsl_expression("Std($unknown_field, 20)")
         assert any("unknown_field:$unknown_field" in r for r in reasons)
 
+    def test_declared_primitive_field_allowed(self) -> None:
+        reasons = validate_dsl_expression(
+            "CsRank($open_30m_volume_share_v1)",
+            extra_allowed_fields=["$open_30m_volume_share_v1"],
+        )
+        assert reasons == []
+
     def test_forbidden_vwap(self) -> None:
         reasons = validate_dsl_expression("Mul($vwap, $volume)")
         assert any("forbidden_field:$vwap" in r for r in reasons)
@@ -181,6 +188,95 @@ class TestFreezeManifest:
         assert len(loaded["candidates"]) == 2
         # canonical captured for DSL candidates
         assert loaded["candidates"][0]["canonical"]
+
+    def test_freeze_preserves_declared_primitive_dependencies(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / "batch_test" / "manifest.yaml"
+        freeze_manifest(
+            batch_id="batch_test",
+            direction="intraday",
+            batch_goal=self._goal(),
+            candidates=[
+                self._good_candidate(
+                    expression="CsRank($open_30m_volume_share_v1)",
+                    primitive_dependencies=["open_30m_volume_share_v1"],
+                    hypothesis="早盘成交集中代表拥挤交易。",
+                    expected_sign="negative",
+                )
+            ],
+            existing_canonicals=[],
+            manifest_path=manifest_path,
+        )
+
+        loaded = load_yaml(manifest_path)
+        cand = loaded["candidates"][0]
+        assert cand["primitive_dependencies"] == ["open_30m_volume_share_v1"]
+        assert cand["hypothesis"] == "早盘成交集中代表拥挤交易。"
+        assert cand["expected_sign"] == "negative"
+
+    def test_freeze_accepts_ir_shaped_qlib_candidate(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "batch_test" / "manifest.yaml"
+        freeze_manifest(
+            batch_id="batch_test",
+            direction="intraday",
+            batch_goal=self._goal(),
+            candidates=[
+                {
+                    "candidate_id": "C001",
+                    "ir_version": "v1",
+                    "data_logic": {
+                        "primitive_dependencies": ["open_30m_volume_share_v1"]
+                    },
+                    "factor_logic": {
+                        "backend": "qlib",
+                        "expression": "CsRank($open_30m_volume_share_v1)",
+                    },
+                    "hypothesis": "早盘成交集中代表拥挤交易。",
+                }
+            ],
+            existing_canonicals=[],
+            manifest_path=manifest_path,
+        )
+
+        loaded = load_yaml(manifest_path)
+        cand = loaded["candidates"][0]
+        assert cand["source_type"] == "dsl"
+        assert cand["expression"] == "CsRank($open_30m_volume_share_v1)"
+        assert cand["ir_version"] == "v1"
+        assert cand["factor_logic"]["backend"] == "qlib"
+
+    def test_freeze_accepts_ir_shaped_daily_python_candidate(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / "batch_test" / "manifest.yaml"
+        freeze_manifest(
+            batch_id="batch_test",
+            direction="daily_template",
+            batch_goal=self._goal(),
+            candidates=[
+                {
+                    "candidate_id": "C001",
+                    "ir_version": "v1",
+                    "factor_logic": {
+                        "backend": "daily_python",
+                        "template": "quantile_split_spread",
+                        "params": {
+                            "value": {"expression": "Sub(Div($high,$low),1)"},
+                            "sorter": {"field": "$close"},
+                            "window": 20,
+                        },
+                    },
+                }
+            ],
+            existing_canonicals=[],
+            manifest_path=manifest_path,
+        )
+
+        loaded = load_yaml(manifest_path)
+        cand = loaded["candidates"][0]
+        assert cand["source_type"] == "daily_python"
+        assert cand["factor_logic"]["template"] == "quantile_split_spread"
 
     def test_too_short_goal_raises(self, tmp_path: Path) -> None:
         with pytest.raises(Phase1FreezeError, match="batch_goal"):

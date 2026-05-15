@@ -10,7 +10,7 @@ user_invocable: true
 
 | 谁 | 做什么 |
 |---|---|
-| **LLM** | 读 INDEX → 选 direction → 定 batch_goal → 设计 5-10 候选（DSL 优先） |
+| **LLM** | 读 INDEX → 选 direction → 定 batch_goal → 设计 5-10 候选（DSL 优先；可引用/提出日内 primitive） |
 | **Python** | 刷新 INDEX 下半段 → DSL 白名单验证 → Python AST 检查 → 冻结 manifest |
 
 产出：
@@ -21,6 +21,8 @@ user_invocable: true
 
 **Paper intake 边界**：`/factor-idea` 不直接读 PDF 或 raw extract。若方向来自外部论文，先跑 `/factor-paper` 产出 `vault/papers/{paper_slug}.md` 与 `vault/directions/{tag}.md`，再由本 skill 消费 direction。
 
+**日内 primitive 边界**：LLM 可以设计或引用“高频数据低频化”的 daily primitive，但不直接写分钟数据处理代码、不直接读 `market_1min`。LLM 产出结构化 `primitive_dependencies` / `proposed_primitives`；Python 在 Phase 2 前验证、物化、缓存并导出给日频 backend。完整设计见 `docs/superpowers/specs/2026-05-02-日内primitive-skill-contract.md`。
+
 ---
 
 ## 流程
@@ -30,11 +32,21 @@ user_invocable: true
 ```bash
 PYTHONPATH=src python3 -m research memory snapshot --recent 10
 PYTHONPATH=src python3 -m research audit field-coverage   # refresh field × atom matrix
+PYTHONPATH=src python3 -m research phase1 menu --format markdown   # primitive/template 菜单
 ```
 
 `memory snapshot` 输出三张聚合 markdown 表（方向 / 因子库 / 近 10 batch），filter 语义与 Obsidian Bases 完全一致 —— 这是 LLM 看 vault 状态的**唯一入口**。INDEX.md 本身只有 Bases embed（给人看的，Read 读不到数据），不用再去读它的 body。
 
 `audit field-coverage` 把每个 `$field × atom` 形式的覆盖率刷到 `vault/_meta/field_coverage_latest.md`——下一步 Step 1.5 必读。
+
+`phase1 menu` 输出当前可用能力菜单：
+
+- `available_primitives`：已经注册的 daily primitive instance，可直接引用到 `primitive_dependencies`
+- `primitive_families`：允许 proposal 的 primitive family 与参数白名单
+- `available_daily_templates`：受控 DailyPythonBackend 模板
+- `allowed_backends`：候选可选择的执行 backend
+
+LLM 设计候选前必须先读这个菜单。优先复用 `available_primitives` 和 `available_daily_templates`，不要凭空发明字段或自由 Python。
 
 ### Step 1.5 — LLM: read field-coverage audit（**必做**）
 
@@ -95,7 +107,74 @@ Read storage/vault/_meta/field_coverage_latest.md
 - 复现已发表论文的 Python 参考实现
 - 需跨截面但 DSL 没有对应算子
 
+**Backend 选择规则**：
+
+- 简单日频 rolling/rank/corr/mean → `backend: qlib`
+- 日内分钟/tick 信息 → 先引用或 proposal primitive，再用 `backend: qlib`
+- Qlib DSL 难表达的复杂日频逻辑（rolling 分位切割、条件 rolling 均值）→ `backend: daily_python`，只能使用 `phase1 menu` 里的模板
+- 自由 Python 文件 → 最后 escape hatch，不作为默认生成方式
+
 每个候选字段见 §Manifest schema `candidates[]`。**不看 validation 数据设计候选** — 基于 hypothesis + 先验知识，不基于回测结果。
+
+**Daily Python 模板候选（可选）**：
+
+例如理想振幅因子：
+
+```yaml
+- candidate_id: C001
+  ir_version: v1
+  hypothesis: "高价格位置振幅高于低价格位置，说明高位多空博弈激烈，后续收益偏弱。"
+  factor_logic:
+    backend: daily_python
+    template: quantile_split_spread
+    params:
+      value:
+        expression: "Sub(Div($high,$low),1)"
+      sorter:
+        field: "$close"
+      window: 20
+      top_quantile: 0.25
+      bottom_quantile: 0.25
+      output: top_mean_minus_bottom_mean
+  expected_sign: negative
+```
+
+不要生成自由 Python 来实现这种模板已覆盖的逻辑。
+
+**日内 primitive 候选（可选）**：
+
+若方向的 alpha 假设来自日内结构（开盘冲击、尾盘拥挤、日内波动、放量收益反转、成交集中度等），优先引用已注册 primitive，而不是把逻辑硬塞进复杂日频 DSL。候选示例：
+
+```yaml
+- candidate_id: C001
+  source_type: dsl
+  expression: "Rank($tail_amount_share_20m_v1)"
+  primitive_dependencies:
+    - tail_amount_share_20m_v1
+  rationale: "尾盘20分钟成交额占比高可能代表拥挤交易，次日存在反转。"
+  expected_sign: negative
+```
+
+若确实需要提出新 primitive，使用受限模板，不写自由 Python：
+
+```yaml
+proposed_primitives:
+  - feature_id: tail_amount_share_30m_tmp
+    source_type: minute_bar
+    source_freq: 1min
+    output_freq: daily
+    template: window_share
+    params:
+      field: amount
+      numerator_window: "14:30-15:00"
+      denominator_window: "09:30-15:00"
+    time_semantics:
+      available_time: "T 15:00"
+    data_policy:
+      min_bar_ratio: 0.8
+```
+
+MVP 支持的 primitive 模板仅限：`window_share` / `window_ratio` / `window_return` / `distribution_stats` / `masked_return_mean` / `price_volume_corr`。不在模板内的日内逻辑本批不要生成。
 
 ### Step 4.5 — LLM: inline anti-recapitulation check
 
@@ -134,6 +213,7 @@ candidates:
     source_type: dsl
     expression: "Corr($close, $volume, 20)"
     rationale: "T001 baseline"
+    primitive_dependencies: []   # 若表达式引用 minute-derived primitive，必须列出 feature_id
   - candidate_id: C002
     source_type: python
     path: "batches/batch_XXX/python_candidates/C002.py"   # 事先写好

@@ -412,6 +412,19 @@ def build_hints(
                 "gate_results": dict(gate.gate_results) if gate else {},
             },
         }
+        primitive_dependencies = list(
+            dict.fromkeys(
+                str(fid)
+                for fid in cand.get("primitive_dependencies", []) or []
+                if fid
+            )
+        )
+        if primitive_dependencies:
+            entry["primitive_dependencies"] = primitive_dependencies
+            entry["primitive_provenance"] = cand.get("primitive_provenance") or {
+                fid: {"status": "missing_from_candidate_result"}
+                for fid in primitive_dependencies
+            }
         if gate and gate.passed and not cand.get("compute_error"):
             val = (cand.get("ic") or {}).get("validation") or {}
             q_val = (cand.get("quintile") or {}).get("validation") or {}
@@ -534,6 +547,8 @@ def build_hints_summary(hints: dict[str, Any]) -> dict[str, Any]:
     for cid, entry in (hints.get("per_candidate") or {}).items():
         per_candidate_summary[cid] = {
             "expression": entry.get("expression"),
+            "primitive_count": len(entry.get("primitive_dependencies") or []),
+            "primitive_dependencies": entry.get("primitive_dependencies") or [],
             "hard_gate_passed": bool(
                 (entry.get("hard_gate") or {}).get("passed")
             ),
