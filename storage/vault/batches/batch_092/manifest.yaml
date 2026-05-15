@@ -1,0 +1,153 @@
+batch_id: batch_092
+round: 92
+direction: tsrank_candlestick_ratio
+direction_md_ref: vault/directions/tsrank_candlestick_ratio.md
+batch_goal: 'Round 92 — reserve revival pool #2 (asset-driven, calibration finding/013).
+  Target = revive b076/C005 TsRank((h+l)/2/close,60) midprice/close. b076 实测 alpha_surv=1.43
+  + ls_t=+4.84 + mono=+0.90 + incr_ic=+0.042 (4 项 CP top) 仅 max_corr=0.449@F008 cluster
+  阻断 (距 0.40 阈值仅 0.049 over). direction status=saturated, 本批显式 asset-driven 复活 — finding/013
+  给出 3 revival path: (1) Python residualize on (F008, F026) — DSL 表达不出 的 cross-section
+  OLS 残差化; (2) RHS swap close→Mean(close,5) 切 F008 close-position 几何耦合; (3) window
+  sweep + rank-diff form. 本批 6 候选覆盖所有 path + P008 third-ratio probe (intentional high-collision
+  测 F024 monotonic envelope).
+
+  Round-92 Phase 1 generator self-check 新增 4 hard rule (P030 / P004-deep / Cov-equiv
+  / reciprocal duplicate). 全候选自检: - P030 (alpha_surv>1.0 unilateral form 单独 ≠ admit
+  充分): 本批每候选必带 multi-CP rationale, 不依赖 alpha_surv 单边. C001 expected incr_ic POS+max_corr<0.40,
+  C002 expected max_corr<0.40, C003-C005 expected incr_ic+ls_t multi-CP, C006 known-near-dup
+  probe; - P004-deep (N-day path-integral 累积形式 default reject): TsRank(x,N) 是 rank-of-current-value-in-window-N,
+  非 cumulative sum/aggregation — 全候选 pass; Python C001 内部用 vectorized 单步 cross-section
+  OLS 残差化, 不是 N-day path-integral; - Cov-equiv (Cov(.,.)/Cov-of-zero-mean-series 已知
+  cross-field bug): 全候选无 Cov form, 无 Corr 跨字段; pass; - Reciprocal monotonic-invariant
+  duplicate (round 92 新发现): TsRank((h+l)/2/close, N) 与 TsRank(close/(h+l)/2, N) 在
+  monotonic 函数 (Div + 单调 RHS) 下 cross-section TsRank rank 几何 ≈ N+1-TsRank 单调反向 — 不另设
+  reciprocal probe (b091/C005 已实证 sign-flip 等价).
+
+  Cockpit hint round 91 P008 finding update: TsRank window>=60d on ratio 是 escape
+  path, 但 b091 实测 window>90d alpha_surv 反单调下降, 上界 ~90d. F024 anchor basin 宽度>=90d
+  — long-window TsRank ratio [30,120d] 全在 F024 引力盆地内. 本批 C003 window=30d 在 60d 阈值
+  以下, C002/C005 维持 60d, 不试 120d (P008 上界).
+
+  Anti-recapitulation (b076/b077 已 disproven 不重试): - 不重试 raw TsRank((h+l)/2/close,60)
+  — 那是被复活的 reserve 本身, 直接重计算 = 重复 b076/C005; - 不重试 b077 三层 nested Div/Mul / Std×TsRank
+  双量纲化 / cross-product CsRank-Mul / 分母替换 (H-L)/(C+O); - 不重试 b076 hard_gate body_ratio
+  TsRank60 / raw upper_shadow TsRank60.
+
+  Hard targets: ≥1 admit 验证 reserve revival 真红利; 关键 H1 = Python residualize (F008,F026)
+  能否把 max_corr 从 0.449 降至 <0.30 同时维持 alpha_surv≥1.0 + incr_ic≥+0.02 (finding/013 expected_outcome).
+  若 C001 admit + max_corr<0.30 → 升格"Python residualize 是 reserve cluster 突破真路径"律 (library_gap/013
+  验证). H2 = RHS swap close→Mean(close,5) 是否切 F008 同根 (C002 expected max_corr<0.40).
+  H3 = 30d 短窗是否比 60d 更脱 F008 cluster (C003). H4 = rank-diff 跨窗 form (C004) 是否独立. H5
+  = open-close 中点 (C005) 是否避 F008 close-position 耦合. Fail (6/6 reject) → tsrank_candlestick_ratio
+  direction 彻底 dead, 升格 ''family-level Python residualize 失败律'' + 切下一 direction.'
+active_threads_referenced:
+- T001
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-15T20:26:19Z'
+frozen_at: '2026-05-15T20:26:19Z'
+candidates:
+- candidate_id: C001
+  source_type: python
+  path: storage/vault/batches/batch_092/python_candidates/C001.py
+  rationale: 'finding/013 主复活路径 — Python residualize on (F008, F026) for b076/C005
+    atom TsRank((h+l)/2/close, 60). b076 实测 max_corr=0.449@F008 + max_corr 次大@F026
+    (close-position cluster 双 anchor). 本候选 single-step cross-section OLS 残差化: raw_atom_t
+    = TsRank((h+l)/2/close, 60)_t; F008_t = Mean((H-C)/(H-L), 3)_t (上影线 3d persistence);
+    F026_t = TsRank((C-L)/(H-L), 60)_t (close 位置 60d 时序量纲化); 对每个 date t 跑 OLS raw_atom
+    ~ F008 + F026 + intercept, 取 residual 作为 factor value. 这是 DSL 表达不出的 路径 (Qlib DSL
+    无 inline regression). H1 关键测试: 若 residual max_corr@F008/F026 降至 <0.30 且 alpha_surv
+    维持 ≥1.0 + incr_ic 维持 ≥0.02 → reserve 真红利铁证, library_gap/013 Python residualize
+    法则升格. 风险 (lessons round 73 警告): cross-section OLS 单步残差化 在 OOS 可能 sign-flip — 但本
+    atom sign_consistency≈9/9 (b076 实测 mono OOS=+0.90 PERFECT) 应 robust. R5 vectorized:
+    用 einsum + pinv 3D tensor 单步, 不循环 date. P030/P004-deep/Cov-equiv/reciprocal self-check
+    ✓ (residualize 不是 path-integral, 不含 Cov, 不是 reciprocal). 与库内 28 admit distinct:
+    全库零 cross-section OLS residual atom (F004 是 Std on raw return 不是 residual; batch_012-015
+    Barra residual 是 returns~styles 不是 factor~factors 的残差).'
+  expected_sign: positive
+- candidate_id: C002
+  source_type: dsl
+  expression: TsRank(Div(Mul(Add($high, $low), 0.5), Add(Mean($close, 5), 0.000000001)),
+    60)
+  canonical: TsRank(Div(Mul(0.5,Add($high,$low)),Add(0.000000001,Mean($close,5))),60)
+  rationale: 'finding/013 revival path (2) — RHS swap close→Mean(close,5). 原 b076/C005
+    = TsRank((h+l)/2/close, 60) 分母 raw close, 与 F008 (Mean of (H-C)/(H-L), 3) close-position
+    几何同源 (close 在 H/L 之间相对位置). 本候选分母改 5d trend-mean 平滑 close (close 替为 5d MA close),
+    切断 raw close-position 几何耦合; 数学上 (h+l)/2 / Mean(close,5) ≠ (h+l)/2 / close 在短期
+    (close 偏离 5d MA 时) cross-section ranking 显著不同. H2 关键测试: 若 max_corr@F008 从 0.449
+    降至 <0.40 (理想 <0.30) → RHS smoothing 成功切根. 风险: Mean(close,5) 引入 5d momentum component,
+    可能 dominant_style 转 mom_5d; 若 alpha_surv 仍 ≥1.0 + max_corr<0.40 则 admit. P030:
+    不依赖 alpha_surv unilateral; expected ls_t>=2 + incr_ic>=0.005 multi-CP. P004-deep:
+    单步 TsRank, 非 path-integral. Cov-equiv: 无 Cov. Reciprocal: 与原 b076/C005 Div numer/denom
+    不互换 — distinct from reciprocal duplicate. Anti-recap: 与 b076/C005 raw 版本表达式数学距离非零
+    (close → Mean(close,5)); 与 b077 任何候选 表达式不同. 1e-9 epsilon 防 Mean(close,5) 接近 0
+    灾难 (csi1000 无 close≈0 stock 但 safety margin).'
+  expected_sign: positive
+- candidate_id: C003
+  source_type: dsl
+  expression: TsRank(Div(Mul(Add($high, $low), 0.5), Add($close, 0.000000001)), 30)
+  canonical: TsRank(Div(Mul(0.5,Add($high,$low)),Add($close,0.000000001)),30)
+  rationale: 'finding/013 revival path (3) — window sweep 30d 短窗. 原 b076/C005 用 60d
+    TsRank, F008 是 3d Mean wrap, F026 是 60d TsRank wrap. 30d 窗口测短期 time-rank 是否减弱
+    60d cluster overlap. round 91 cockpit P008 finding: TsRank window<60d falls below
+    escape line — 30d 可能不在 escape 区域 但作 ablation 测 window 效果. H3 关键测试: 30d 窗 max_corr@F008
+    是否比 60d 显著不同 (F008 是 3d Mean, 30d TsRank 其实可能 与 F008 几何更近, 因 30d 内 close-position
+    pattern 更稳定). 若 max_corr<0.30 → 30d 窗口意外 escape; 若 max_corr≥0.40 → window-sweep
+    在该 atom 路径不可行, 回报 F008 几何 dominated. P030 multi-CP, P004-deep 单步 TsRank, Cov-equiv
+    无, Reciprocal 非互换. Anti-recap: window 与 b076/C005 (60d) 不同; b076 hard_gate body_ratio
+    TsRank30 不存在 (b076/C003 用 60d body_ratio reject), 与本候选 atom 完全不同.'
+  expected_sign: positive
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank(Div(Mul(Add($high, $low), 0.5), Add($close, 0.000000001)),
+    60), TsRank(Div(Mul(Add($high, $low), 0.5), Add($close, 0.000000001)), 20))
+  canonical: Sub(TsRank(Div(Mul(0.5,Add($high,$low)),Add($close,0.000000001)),60),TsRank(Div(Mul(0.5,Add($high,$low)),Add($close,0.000000001)),20))
+  rationale: 'finding/013 revival path — rank-diff form. 长窗 (60d) TsRank − 短窗 (20d)
+    TsRank 同 atom, 提取 "midprice/close rank momentum acceleration" — 60d 累积排名上升 但 20d
+    内排名 flat = climax pattern. 设计灵感来自 b091/C004 rank-diff 同 atom 跨窗 (institutional_flow_proxy
+    round 91 reserve revival pool #1) — 该形态 lessons round 91 确认 NOT N-day path-integral
+    (Sub of two single-step TsRanks = cross-window scalar diff). H4 关键测试: 若 rank-diff
+    form 引入新维度 (max_corr<0.30 alpha_surv>=0.5), 则 (h+l)/2/close 几何在 rank-diff layer
+    仍 carry info (与 raw form 0.449 不同). P030 multi-CP, P004-deep 双 TsRank Sub 非 N-day
+    path-integral (round 91 lesson 已 codify), Cov-equiv 无, Reciprocal 非互换. 与 F015/F016
+    rank-diff 七律 distinct: F015/F016 LHS 是 CsRank not TsRank, 本候选 LHS 是 TsRank 时序量纲化;
+    与 b091/C004 distinct: b091 LHS atom = amount/num_trades, 本候选 = midprice/close.
+    Anti-recap: 与 b076/b077 完全 不同 form (rank-diff 该方向首次).'
+  expected_sign: positive
+- candidate_id: C005
+  source_type: dsl
+  expression: TsRank(Div(Mul(Add($open, $close), 0.5), Add($close, 0.000000001)),
+    60)
+  canonical: TsRank(Div(Mul(0.5,Add($close,$open)),Add($close,0.000000001)),60)
+  rationale: 'finding/013 alt midpoint — 用 (open+close)/2 替换 (h+l)/2 作为 numerator
+    midpoint. 几何: (O+C)/2 / close = (O+C)/(2C) = 0.5 + O/(2C), monotonic 等价于 O/C (开盘相对收盘
+    ratio). 与 F008 (上影线 (H-C)/(H-L) 3d persistence) 几何完全 distinct — 不涉 H/L. H5 关键测试:
+    若 max_corr@F008 显著低 (<0.30) + alpha_surv≥0.5 + incr_ic>=0.005 → midpoint family
+    内 (O+C)/2 比 (H+L)/2 更脱 close-position cluster. 风险: O/C ratio 在 csi1000 cross-section
+    可能与 F011 (overnight_return_persistence_3d, Mean of (O-prev_C)/prev_C, 3) 共线 (O
+    直接出现 in numerator); 若 max_corr@F011≥0.40 则 path-overlapping reject. P030 multi-CP,
+    P004-deep 单步 TsRank, Cov-equiv 无, Reciprocal: TsRank(2C/(O+C),60) 与本 form monotonic
+    反向等价, 本候选不另设. Anti-recap: open midpoint 该方向首次, b076/b077 全用 H/L 或 H-L midpoint
+    variants.'
+  expected_sign: positive
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Div(Sub($high, $low), Add($close, 0.000000001)), 60)
+  canonical: TsRank(Div(Sub($high,$low),Add($close,0.000000001)),60)
+  rationale: 'P008 third-ratio probe — (h-l)/close (range/close) 替 mid/close. **WARNING:
+    KNOWN REJECT in b076/C004** (sty_r²=0.133 OVER 0.12 vol proxy + alpha_surv=0.99
+    边缘). 本批显式包括是为完成 "TsRank ratio 三种 numerator family" 的系统性 probe (mid/close = b076/C005
+    reserve, range/close = b076/C004 reject, shadow_asym = b076/C006 → F025 admit).
+    Phase 1 generator self-check ✓ — 不是无脑重试: round 92 cockpit hint 明确 "P008 stack
+    第三种 ratio" 列入. Expected: 重现 b076/C004 reject pattern (sty_r²>0.12, alpha_surv
+    ≈0.99-1.0) → 升格 "(h-l)/close 是 family-level vol proxy 不可解" 律 (P022 / b077 三 form
+    分母替换 已实证, 本候选第 4 form 复确认). 若意外 admit (data drift) 则可观察 5 年 csi1000 cross-section
+    structure 变化. P030 ✓, P004-deep ✓ 单步 TsRank, Cov-equiv ✓, Reciprocal ✓ (range
+    与 mid 非互换). Phase 1 inline anti-recap 自检触发警告但人为 override (asset-driven finding/013
+    系统性 probe needed). 与 b076/C004 表达式数学等价 — 预期 Phase 2 重现 sty_r²=0.13 数值, Phase 3
+    reject + 升格 family vol proxy 律.'
+  expected_sign: positive

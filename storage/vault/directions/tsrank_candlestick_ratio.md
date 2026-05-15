@@ -2,49 +2,64 @@
 direction_tag: tsrank_candlestick_ratio
 status: saturated
 priority: medium
-rounds: 4
+rounds: 5
 admits: 2
-last_batch: batch_077
+last_batch: batch_092
 last_admits: []
-last_goal: "Round 77 续探 (b073 admit F024 + b076 admit F025 hot streak). 假设:\n方向 admits=2\
-  \ 后, frontier 真度律已实证 — 高阶 OHLC composition (b076 P019/P020 升格) 比\nsingle-atom 更彻底破\
-  \ cross-section 几何同源 (F025 max_corr 0.29 vs C001/C005 0.45-0.47).\n本批沿 b076 next_hint\
-  \ 三条路径续探 frontier 上限:\n  (1) 三层 OHLC composition 嵌套 — shadow_asymmetry × body_ratio\
-  \ (C001 nested Div + C005 Mul form,\n      测 frontier 多层化是否仍守 max_corr<0.30 line)\n\
-  \  (2) Std/CsRank 双量纲化 — TsRank(Std(range/close,20),60) + Mul(CsRank,CsRank) 跨域\
-  \ cross-product\n  (3) 替换分母法 — range/midprice (C006) vs F021 H/L; range/(C+O) (C003)\
-  \ double-arm normalization\n\n6 candidates 矩阵:\n  C001 三层 nested Div: TsRank(shadow_asym\
-  \ / (body_ratio + 1e-9), 60) — frontier 上限测试\n  C002 range vol TsRank: TsRank(Std((H-L)/C,\
-  \ 20), 60) — 双量纲化 (vol-of-vol-proxy)\n  C003 double-arm normalization: TsRank((H-L)/(C+O),\
-  \ 60) — 替换分母 (vs C004 b076 H-L/C reject)\n  C004 cross-product Mul: Mul(CsRank(num_trades/volume),\
-  \ CsRank(shadow_asym)) — F024 atom × F025 atom\n  C005 Mul composition: TsRank(body_ratio\
-  \ * shadow_asym, 60) — Mul 替代 Div 的高阶 composition\n  C006 range/midprice TsRank:\
-  \ TsRank((H-L)/midprice, 60) — midprice 替换分母\n\n红线 (P011/P014):\n  - max_corr <\
-  \ 0.30 to library (incl F024+F025+F007+F008)\n  - alpha_survival >= 0.40 + ic_by_year\
-  \ sign-stable + incr_ic POS\n  - |corr $market_cap| < 0.3\n  - +1e-9 epsilon 防 div-by-zero\
-  \ (P018)\n\nAnti-recap (don't retread b068-b076):\n  - C001 close_position TsRank\
-  \ (b076 reserve, max_corr 0.47@F008) — 本批 NOT retried (P019 复活路径需 Python residualize)\n\
-  \  - C002 raw upper_shadow ratio (b076 reject) — NOT retried\n  - C003 raw body_ratio\
-  \ TsRank (b076 hard_gate) — 本批 C005 是 body × shadow 复合形式 (composition 破 mean-reversion)\n\
-  \  - C004 range/close TsRank (b076 reject sty_r²=0.13) — 本批 C002 加 Std 双量纲化, C003\
-  \ 改分母 (C+O), C006 改分母 (midprice)\n  - C005 midprice/close TsRank (b076 reserve,\
-  \ max_corr 0.45@F008) — NOT retried\n  - C006 shadow_asymmetry TsRank (b076 admit\
-  \ F025) — NOT retried; 本批用作 atom 合成\n\n目标 ≥1 admit 验证 frontier 真度上限 (高阶 composition\
-  \ / Std×TsRank / CsRank-Mul 三路径).\n失败模式: 全 reject → frontier 几何已饱和, b078 切换 direction\
-  \ (e.g. python_ttm_residual_quality 复活 fundamental 路径)."
-last_activity: '2026-05-01T22:47:24Z'
+last_goal: 'Round 92 — reserve revival pool #2 (asset-driven, calibration finding/013).
+  Target = revive b076/C005 TsRank((h+l)/2/close,60) midprice/close. b076 实测 alpha_surv=1.43
+  + ls_t=+4.84 + mono=+0.90 + incr_ic=+0.042 (4 项 CP top) 仅 max_corr=0.449@F008 cluster
+  阻断 (距 0.40 阈值仅 0.049 over). direction status=saturated, 本批显式 asset-driven 复活 — finding/013
+  给出 3 revival path: (1) Python residualize on (F008, F026) — DSL 表达不出 的 cross-section
+  OLS 残差化; (2) RHS swap close→Mean(close,5) 切 F008 close-position 几何耦合; (3) window
+  sweep + rank-diff form. 本批 6 候选覆盖所有 path + P008 third-ratio probe (intentional high-collision
+  测 F024 monotonic envelope).
+
+  Round-92 Phase 1 generator self-check 新增 4 hard rule (P030 / P004-deep / Cov-equiv
+  / reciprocal duplicate). 全候选自检: - P030 (alpha_surv>1.0 unilateral form 单独 ≠ admit
+  充分): 本批每候选必带 multi-CP rationale, 不依赖 alpha_surv 单边. C001 expected incr_ic POS+max_corr<0.40,
+  C002 expected max_corr<0.40, C003-C005 expected incr_ic+ls_t multi-CP, C006 known-near-dup
+  probe; - P004-deep (N-day path-integral 累积形式 default reject): TsRank(x,N) 是 rank-of-current-value-in-window-N,
+  非 cumulative sum/aggregation — 全候选 pass; Python C001 内部用 vectorized 单步 cross-section
+  OLS 残差化, 不是 N-day path-integral; - Cov-equiv (Cov(.,.)/Cov-of-zero-mean-series 已知
+  cross-field bug): 全候选无 Cov form, 无 Corr 跨字段; pass; - Reciprocal monotonic-invariant
+  duplicate (round 92 新发现): TsRank((h+l)/2/close, N) 与 TsRank(close/(h+l)/2, N) 在
+  monotonic 函数 (Div + 单调 RHS) 下 cross-section TsRank rank 几何 ≈ N+1-TsRank 单调反向 — 不另设
+  reciprocal probe (b091/C005 已实证 sign-flip 等价).
+
+  Cockpit hint round 91 P008 finding update: TsRank window>=60d on ratio 是 escape
+  path, 但 b091 实测 window>90d alpha_surv 反单调下降, 上界 ~90d. F024 anchor basin 宽度>=90d
+  — long-window TsRank ratio [30,120d] 全在 F024 引力盆地内. 本批 C003 window=30d 在 60d 阈值
+  以下, C002/C005 维持 60d, 不试 120d (P008 上界).
+
+  Anti-recapitulation (b076/b077 已 disproven 不重试): - 不重试 raw TsRank((h+l)/2/close,60)
+  — 那是被复活的 reserve 本身, 直接重计算 = 重复 b076/C005; - 不重试 b077 三层 nested Div/Mul / Std×TsRank
+  双量纲化 / cross-product CsRank-Mul / 分母替换 (H-L)/(C+O); - 不重试 b076 hard_gate body_ratio
+  TsRank60 / raw upper_shadow TsRank60.
+
+  Hard targets: ≥1 admit 验证 reserve revival 真红利; 关键 H1 = Python residualize (F008,F026)
+  能否把 max_corr 从 0.449 降至 <0.30 同时维持 alpha_surv≥1.0 + incr_ic≥+0.02 (finding/013 expected_outcome).
+  若 C001 admit + max_corr<0.30 → 升格"Python residualize 是 reserve cluster 突破真路径"律 (library_gap/013
+  验证). H2 = RHS swap close→Mean(close,5) 是否切 F008 同根 (C002 expected max_corr<0.40).
+  H3 = 30d 短窗是否比 60d 更脱 F008 cluster (C003). H4 = rank-diff 跨窗 form (C004) 是否独立. H5
+  = open-close 中点 (C005) 是否避 F008 close-position 耦合. Fail (6/6 reject) → tsrank_candlestick_ratio
+  direction 彻底 dead, 升格 ''family-level Python residualize 失败律'' + 切下一 direction.'
+last_activity: '2026-05-15T20:50:15Z'
 created_batch: batch_076
 members:
 - F025
 retired_members: []
-reserves:
+reserves: []
+reserves_disproven:
 - C001_b076
 - C005_b076
 merged_into: null
 created_from: cockpit_round_76_b073_F024_frontier_extension_to_OHLC_shape
-status_changed_at: '2026-05-02T06:30:00Z'
-status_change_reason: b077 0 admit / 6 reject — frontier 上限饱和铁证 + hypothesis_promoter/013
-  升格 absorbing 律. F025 已 cement 为 cross-section absorbing prototype, 同 family 续探无新维度.
+status_changed_at: '2026-05-16T03:00:00Z'
+status_change_reason: 'b092 reserve revival pool #2 6/6 reject + b077 frontier saturated.
+  T001/T003/T004 fully-disproven. close-position cluster (F008/F025/F026/F027/F028)
+  + F025 absorbing prototype joint inescapable basin; 5 axes (residualize/RHS-swap/window/rank-diff/alt-mid)
+  all disproven. b093+ no retry.'
 ---
 # tsrank_candlestick_ratio
 
@@ -80,7 +95,10 @@ status_change_reason: b077 0 admit / 6 reject — frontier 上限饱和铁证 + 
 
 ## Threads
 
-### T003 — Range / midprice / asymmetry (高阶 composition 路径) `[✓ ANSWERED batch_076]` ⭐ admit F025
+### T003 — Range / midprice / asymmetry (高阶 composition 路径) `[✗ DISPROVEN batch_092]` ⭐ admit F025 (b076) / revival disproven b092
+
+**Round 92 update (reserve revival pool #2)**: b076/C005 (TsRank((h+l)/2/close,60), 原 reserve max_corr=0.449@F008) 5 条 revival axes 全 disproven (Python residualize sign_flip / RHS swap 撞 F027 / 30d 窗 0.83@F026 near-dup / rank-diff 信号塌缩 / alt midpoint 0.64@F026 / range/close vol-proxy). Reserve cluster 边缘候选不可救药铁证.
+
 
 **Question**: range/midprice/asymmetry 类 OHLC shape ratio 60d TsRank 是否携带 forward alpha 且与库独立?
 
@@ -91,7 +109,10 @@ status_change_reason: b077 0 admit / 6 reject — frontier 上限饱和铁证 + 
 - [[batches/batch_076/candidates/C004|b076 C004]] TsRank range/close 60 → reject (vol proxy poor sty_r²)
 - [[batches/batch_076/candidates/C005|b076 C005]] TsRank midprice/close 60 → reserve (geometric overlap)
 
-### T001 — Close position & shadow ratio (cross-section 几何同源律) `[✗ DISPROVEN batch_076]`
+### T001 — Close position & shadow ratio (cross-section 几何同源律) `[✗ DISPROVEN batch_092]` (initial b076 + revival b092)
+
+**Round 92 update**: Python residualize 路径 (round 76 标记的"唯一生还路径") **first实证失败** (b092/C001 hard_gate sign_flip). round 73 cross-section OLS residual OOS sign-flip 警告律 first应用. close-position cluster 内 residualize 不适用 — atom 主信号在 cluster 投影内, residual 是噪音. **唯一生还路径关闭**.
+
 
 **Question**: close_position / upper_shadow ratio 60d TsRank 是否与库 F006/F008/F011 几何独立?
 
@@ -157,6 +178,35 @@ status_change_reason: b077 0 admit / 6 reject — frontier 上限饱和铁证 + 
 ---
 
 ## Narrative Log
+
+### batch_092 (2026-05-16) — reserve revival pool #2 彻底失败, 0 admit / 6 reject (direction fully-dead 铁证)
+
+**Verdicts**: admit=0, reserve=0, reject=6 (2× hard_gate fail + 4× cluster/vol-proxy collapse).
+
+**核心结论**:
+
+1. **复活 b076/C005 (TsRank((h+l)/2/close,60), 原 reserve max_corr=0.449@F008) 5 条 axes 全 disproven**:
+   - **Python residualize on (F008, F026)** (C001): hard_gate sign_flip train_ic=+0.030 / val_ic=-0.004 + mono_flip 0.4→-0.4. **round 73 cross-section OLS residual OOS sign-flip 警告律 first实证案例**. 机制: atom 主信号在 (F008, F026) 投影内, 残差 = removed dominant projection 后噪音, train OLS 过拟合该噪音的某 sign, OOS 噪音独立性使 sign 翻转
+   - **RHS swap close→Mean(close,5)** (C002): max_corr=0.60@F027 (close 4-MA cluster) + sty_r²=0.128 + vol_20d_exp=15.0. RHS 改 5d trend-mean 反而引入 F027 close-MA family 几何
+   - **30d 短窗** (C003): max_corr=0.83@F026 near_duplicate. 短窗 mid/close TsRank ≈ F026 close-position 60d TsRank 几何收敛 (虽 window 不同 cross-section ranking 几乎同源)
+   - **rank-diff form** (C004): ic_oos=0.0015 hard_gate fail, oos_decay 0.107. close-position 域双窗 Sub self-cancellation 极严重 (与 b091/C004 amount/num_trades 域 rank-diff escape success 强烈对比)
+   - **alt midpoint (O+C)/2** (C005): max_corr=0.64@F026 cluster. (O+C)/(2C) monotonic ≈ O/C, 仍是 close-position 家族
+   - **P008 third ratio (H-L)/close** (C006): max_corr=0.30@F027 唯一脱 cluster, 但 sty_r²=0.133 + dom_style=vol_20d + incr_ic=-0.030 NEG + alpha_surv=0.986 边缘 = P030 多 CP 集体失败. 重现 b076/C004 vol-proxy pattern
+
+2. **P030 (alpha_surv unilateral ≠ admit 充分) first实证 (C006)**: alpha_surv=0.986 + mono PERFECT (-1.0) + max_corr=0.30 clean 三项单独看都 ≥1 admit-able 但 sty_r²=0.133 + incr_ic=-0.030 NEG = library 覆盖失败. 升格"P030 multi-CP 集体保护"律 first应用. 升格规则: alpha_surv / mono / max_corr 任 1 单边强 + 另 2 反向时直接 reject, 不依赖 single CP score 通过
+
+3. **TsRank window 在 close-position 域 sweet spot 律 (round 92 first实证)**: round 91 cockpit "TsRank window>=60d escape, >90d alpha_surv 反单调下降"已 codified. 本批 C003 (30d) max_corr=0.83 实证 **window<60d 撞 admit prototype** (F026 is 60d TsRank), 完整律升格: TsRank window 在 close-position 域只在 60d sweet spot, **<30d 撞 admit prototype, >90d 进入 cumulative-style 几何**
+
+4. **F025/F026 absorbing prototype 律 (P021) 深化 (b092 reserve revival 验证)**: round 91 lessons "admit 后 family 续探 max_corr ≥0.55@admit"已 codified, 本批进一步: **admit prototype 在 cluster 半径 ~0.45 内的所有几何变体, 包括 reserve 边缘候选 (b076/C005 max_corr=0.449), 都被吞噬**, reserve 复活路径 (residualize / RHS swap / window sweep / rank-diff / alt midpoint) 全 disproven
+
+5. **Python residualize 路径适用 filter 律 (升格)**: residualize 适用场景必须满足 atom 与库 cluster 距离 ∈ [0.30, 0.45] **且** barra_residual_ic > 0.020 (signal not dominated by style proj). b076/C005 max_corr=0.449 在 filter 上界 + atom signal 主要在 F008 投影内 (b092/C001 barra_residual_ic=0.025 接近 floor) → residualize 自然失败. 升格 → lessons round 92
+
+6. **rank-diff axis atom-class 依赖律 (升格)**: rank-diff axis 在不同 atom 类有不同 behavior:
+   - b091/C004 amount/num_trades 域 escape success (alpha_surv=0.86, ls_t=-2.20, max_corr=0.18 LOW)
+   - b092/C004 close-position 域 self-cancellation (ic_oos=0.0015 hard_gate)
+   - **机制**: rank-diff 有效需 atom cross-section dispersion 高. amount/num_trades 域 cross-section IC dispersion 大, close-position 域 dispersion 小 → 短窗已 contain 长窗 ranking 主信息, Sub 让信息相互抵消
+
+7. **方向状态铁证**: T001 (close position & shadow) / T003 (range / midprice / asymmetry) / T004 (admit-后 frontier 上限) 全 fully-disproven. status=saturated 维持, 实质 = **fully-dead** — b093+ 不再触碰本 direction 任何 path (含 cross-family / Python wrapper / new evaluation horizon).
 
 ### batch_077 (2026-05-02) — frontier 上限饱和铁证, 0 admit / 6 reject (status pivot → saturated)
 
