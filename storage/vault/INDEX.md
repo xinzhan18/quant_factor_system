@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-05-15T22:20:28Z
-round: 95
-total_active_directions: 19
+generated_at: 2026-05-15T22:55:26Z
+round: 96
+total_active_directions: 20
 total_factors_admitted: 28
-last_batch: batch_094
+last_batch: batch_095
 last_consolidation_round: null
 ---
 
@@ -15,15 +15,16 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**95** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_094/judge|batch_094]] → [[directions/overnight_intraday_split]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`dead`
-> **健康** · rounds_since_consolidation=**4** · active_directions=**19** · zero-admit streak=**9**
-> **⚠️ 预警** · 空 factor.md: F017.backtest
+> **状态** · round=**96** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_095/judge|batch_095]] → [[directions/rank_diff_liquidity_microstructure]] · admit=**0**/6 (reserve=3, reject=3) · direction.status=`exploring`
+> **健康** · rounds_since_consolidation=**5** · active_directions=**20** · zero-admit streak=**10**
+> **⚠️ 预警** · 空 factor.md: F017.backtest · consolidation 触发: active_directions=20 ≥ 20
 >
 > **🎯 下一步（按优先级）**
 > 1. ⚠️ **修空报告**：F017.backtest 的 `.md` 为空或缺 H1 → 对每个 F{id} 重新 dispatch `/factor-report` subagent
-> 2. 🧪 **阈值校准**：连续 9 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
-> 3. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
+> 2. 📚 **触发 consolidation**：active_directions=20 ≥ 20 → 先调 `/factor-consolidate`，再进 Phase 1
+> 3. 🧪 **阈值校准**：连续 10 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 4. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
 
@@ -68,7 +69,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **95** · Admitted: **28** · Active directions: **19**
-> - Last batch: **batch_094**
+> - Round: **96** · Admitted: **28** · Active directions: **20**
+> - Last batch: **batch_095**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移

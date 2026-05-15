@@ -1,0 +1,250 @@
+batch_id: batch_095
+round: 95
+direction: rank_diff_liquidity_microstructure
+direction_md_ref: vault/directions/rank_diff_liquidity_microstructure.md
+batch_goal: 'Round 95 — fork from institutional_flow_proxy T001 rank-diff axis after
+  b091/C004 first PASS
+
+  (max_corr=0.18 + alpha_surv=0.862 + incr_ic=+0.008 全 PASS, ls_t=-2.20 weak). 6 candidates
+
+  沿 5 sub-axis 推 rank-diff geometric space on amount/num_trades family:
+
+  C001 (T001) RHS window 短端伸缩 Sub(TsRank60, TsRank10) — 测信号放大;
+
+  C002 (T001) 长窗 3:1 ratio Sub(TsRank90, TsRank30) — 测尺度等比扩展稳态;
+
+  C003 (T002) 跨字段 same window rank-diff Sub(TsRank(amount/num_trades,60), TsRank(amount/volume,60))
+  — 测跨 RHS field 脱单 atom 自相关;
+
+  C004 (T003) raw amount baseline rank-diff Sub(TsRank(amount,60), TsRank(amount,20))
+  — 测 raw atom 是否仍 escape;
+
+  C005 (T004) HP-2nd-order 3-term Sub(Add(TsRank60, TsRank10), Mul(2, TsRank20)) —
+  测 acceleration form;
+
+  C006 (T005) CsRank-wrap base form CsRank(Sub(TsRank60, TsRank20)) — 测 cross-section
+  orthogonalization.
+
+  Self-check 5 hard rule 全 PASS: P030 (无候选单边依赖 alpha_surv>1.0, 全候选 multi-CP rationale);
+
+  P004-deep (C005 是 3 single TsRank 复合非 cumsum/path-integral, 每 term 都是 single-step
+  TsRank wrapper);
+
+  P028 Cov-equiv (无 Cov atom, 全候选基于 TsRank);
+
+  reciprocal duplicate (PRE-FILTER: TsRank(1/x,N)=N+1-TsRank(x,N) → Sub(TsRank(1/x,60),
+  TsRank(1/x,20))
+
+  = -Sub(TsRank(x,60), TsRank(x,20)) monotonic sign-flip duplicate of b091/C004 →
+  排除 num_trades/amount form
+
+  + 排除 TsRank(volume/num_trades) 系列 = F024 sign-flip dup);
+
+  rank-diff domain (amount/num_trades 是 b091 实证 PASS 域, 非 close-position self-cancel
+  域 [b092 dead]
+
+  非 overnight alpha-cancel 域 [b094 dead]).
+
+  Baseline-first 守则 explicit skip: 15 TTM untouched fields 与本 direction (microstructure
+  rank-diff geometry)
+
+  完全不相关 — TTM/fundamental 字段不在本批 hypothesis scope 内. 本批 全 OHLCV/microstructure 字段
+
+  ($amount/$num_trades/$volume).
+
+  Precheck F012 (Amihud, $amount/$num_trades cluster anchor) + F024 (TsRank(num_trades/volume,60))
+  +
+
+  F015/F016 (CsRank-diff cluster) max_corr thresholds mandatory in Phase 2.
+
+  Target: 至少 1 admit 或 ≥1 reserve 加 b091/C004 reserve pool. zero_admit_streak=7 上下文,
+
+  本批是 streak 关键反击 (sub-axis 多样性 + b091 finding 直接 leverage).'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-15T22:28:23Z'
+frozen_at: '2026-05-15T22:28:23Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount, $num_trades),
+    10))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),10))
+  rationale: 'T001 RHS short-end 伸缩。b091/C004 base 是 60/20，本候选缩 RHS 到 10d。机制：60d 慢趋势
+    - 10d 快趋势 →
+
+    "regime transition 检测器" 更敏锐 (短窗口对最近 momentum 更敏感)。预期：ls_t > -2.20 (信号放大)，
+
+    max_corr 仍 < 0.30 (LHS 60d 与 b091/C004 共享，但 RHS 10d 不与 F024 60d 共线)。expected_sign:
+    negative
+
+    (与 b091/C004 同号，trade size 长期 rank 高于短期 = 机构集中走弱 = forward reversal up)。
+
+    Self-check: 不是 reciprocal dup (LHS=amount/num_trades 与 F024=num_trades/volume
+    字段不同);
+
+    不是 Cov-equiv; rank-diff axis amount/num_trades 域 PASS per b091.
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: shorten_RHS_window_20d_to_10d
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 90), TsRank(Div($amount, $num_trades),
+    30))
+  canonical: Sub(TsRank(Div($amount,$num_trades),90),TsRank(Div($amount,$num_trades),30))
+  rationale: 'T001 长窗 3:1 ratio 等比扩展。b091/C004 是 60/20 = 3:1；本候选拉到 90/30 = 3:1 维持
+    ratio。机制：
+
+    长窗 trend 更稳，捕季度级 institutional concentration regime change；RHS 30d 仍属"近期"维度。
+
+    预期：alpha_surv 维持 ≥ 0.5 (3:1 ratio 是 b091/C004 PASS ratio)，但 b091 window-sweep
+    在 single
+
+    TsRank 上 alpha_surv 单调下降 (30→120 越长越嵌入) 是反 evidence — 本候选关键观察点。
+
+    expected_sign: negative.
+
+    Self-check: 同 C001。
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: scale_both_windows_3to1_ratio_90_30
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount, $volume),
+    60))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$volume),60))
+  rationale: 'T002 跨字段 same window rank-diff。LHS=avg_trade_size (amount/num_trades,
+    b072/C006 single TsRank reserve)
+
+    RHS=amount per volume unit (amount/volume, 不同 atom). 同 60d 窗口下两个 amount-normalized
+    ratio 时序 rank
+
+    diff — 假设：两 RHS family 分母不同 ($num_trades vs $volume) → cross-section level 在不同
+    size 维度
+
+    消失，rank-diff 抓"机构集中度相对成交规模异常"。预期 max_corr 仍 < 0.30 (LHS 与 F024 reciprocal-equiv
+    无关
+
+    因为 F024=$num_trades/$volume 是 RHS field; LHS=$amount/$num_trades; F012=Mean(Abs(ret)/amount,
+    20) atom 不同)。
+
+    expected_sign: negative.
+
+    Self-check: 注意 amount/volume 是 VWAP proxy — but $vwap zero forbidden 不适用这里 (这是
+    ratio 不是 vwap field);
+
+    不是 reciprocal dup (LHS 和 RHS 字段不同); rank-diff axis 跨字段是 b091 finding 未覆盖的 sub-axis。
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: swap_RHS_field_num_trades_to_volume_same_window
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank($amount, 60), TsRank($amount, 20))
+  canonical: Sub(TsRank($amount,60),TsRank($amount,20))
+  rationale: 'T003 raw $amount baseline rank-diff (no division). 测 rank-diff form
+    在 raw size-coupled atom 上是否仍 escape
+
+    F012/F024 anchor。机制：raw $amount 自带 size 共线性，rank-diff 把 trend-direction 与 absolute
+    level 隔离
+
+    ($amount 60d rank high but 20d rank low = recent volume drop in historically-active
+    stock = forward reversal up)。
+
+    风险：raw amount cross-section rank 与 $market_cap 高度共线 (lessons 红线 |corr|>0.3 to
+    market_cap reject)；
+
+    rank-diff 是否能脱 size basis 是关键问号。预期：if PASS, opens raw-atom rank-diff family across
+    all fields.
+
+    expected_sign: negative.
+
+    Self-check: P008 frontier (raw level 默认 vol_20d 嵌入 → 这是反例 candidate, expected
+    reject pattern);
+
+    不是 Cov-equiv; reciprocal: TsRank(1/$amount,N) ≠ canonical form so not auto-dup
+    of any admitted.
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: remove_divisor_use_raw_amount_baseline
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(Add(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount, $num_trades),
+    10)), Mul(TsRank(Div($amount, $num_trades), 20), 2))
+  canonical: Sub(Add(TsRank(Div($amount,$num_trades),10),TsRank(Div($amount,$num_trades),60)),Mul(2,TsRank(Div($amount,$num_trades),20)))
+  rationale: 'T004 HP-2nd-order 3-term rank-diff (acceleration form). 假设：一阶 rank-diff
+    (b091/C004) 捕"中期 vs 近期"
+
+    level 差；二阶 form `R60 + R10 − 2*R20` 是 Hodrick-Prescott-style smoothing 差分 — 捕"加速度"信号
+
+    (即长 trend + 短 trend 相对中间窗口的偏离, 类似 momentum 二阶差)。预期：如果一阶 rank-diff 抓 regime transition,
+
+    二阶应该抓 transition 加速度 → ls_t 可能更显著 (transition 中段更陡)。代价：3-term 复合可能引入 noise overlap。
+
+    P004-deep guard: 3 个 single TsRank (60/20/10) 复合，每 term 都是 single-step wrapper
+    非 cumsum/path-integral,
+
+    非 N-day path memory — 通过 P004-deep。
+
+    expected_sign: negative.
+
+    Self-check: P004-deep PASS (single TsRank x 3, no path-integral); P030 不依赖 alpha_surv
+    单边;
+
+    Cov-equiv 不适用 (无 Cov);
+
+    reciprocal: 3-term linear combination, 自身不构成 reciprocal dup of admitted。
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: second_order_HP_style_3term_acceleration
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Sub(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount,
+    $num_trades), 20)), 5)
+  canonical: Mean(Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),20)),5)
+  rationale: 'T005 5d-smoothing wrap on b091/C004 base form (替代原 CsRank-wrap — 因为
+    CsRank 在 cross-section
+
+    cache build 中通过 str() 重新解析自定义 op TsRank, Qlib 引擎不识别 TsRankOp 类名 → 系统级 limitation,
+
+    改用 Mean 5d smoothing 实现同 noise-reduction 目标). 机制：外层 5d 滑动平均把 rank-diff 的高频时序
+
+    噪音平滑掉, 保留 regime-transition 中段信号 → 假设 ls_t 改善而 max_corr 维持 (Mean 不引入 size basis,
+
+    与 CsRank-wrap 风险不同)。
+
+    预期：ls_t 改善 (≥ 3.0)，max_corr 与 base form 相当 (< 0.30)，alpha_surv 略降 (smoothing 引入
+
+    vol_20d 残留可能上升)。
+
+    expected_sign: negative.
+
+    Self-check: P004-deep — Mean(rank-diff,5) 是 single-step smoothing 非 cumsum/path-integral,
+    5d 是
+
+    shallow smoothing 不构成 N-day path memory; rank-preserving guard 不触发 (Mean 不是 trivial
+
+    保序 wrap); 不是 reciprocal dup; rank-diff axis amount/num_trades 域 PASS。
+
+    '
+  parent_batch: batch_091
+  parent_candidate_id: C004
+  transformation: wrap_outer_Mean5_for_smoothing_substitute_CsRank_due_to_qlib_string_reparse_bug
