@@ -1,0 +1,118 @@
+batch_id: batch_100
+round: 100
+direction: institutional_flow_proxy
+direction_md_ref: vault/directions/institutional_flow_proxy.md
+batch_goal: 'Reserve revival pool #2 (round 91 closed window/reciprocal/P008-third
+  axes — 5/6 axes disproven, only rank-diff Sub(TsRank60,TsRank20) b091/C004 partial-pass
+  ls_t=-2.20 reserve). This batch pursues 4 explicit revival paths from direction.md
+  T001 conclusion NOT touched by round 91: (a) shorter RHS rank-diff at multiple window
+  pairs (60-10, 60-5, 120-60) for sharper regime-climax detection, (b) cross-field
+  rank-diff with RHS swapped to non-num_trades ratio fields (escape F024 reciprocal
+  envelope), (d) compound interactions. Skip path (c) CsRank-of-composite due to known
+  qlib custom-op re-parse limitation. All candidates self-checked vs P030 (alpha_surv
+  > 1.0 alone NOT admit, need incr_ic / max_corr / ls_t 2/3), P031 (P008 3-condition:
+  TsRank>=60d + ratio + dim-less — pass), P032 (rank-diff geometry 7 laws — RHS scale-invariant
+  ratio, no shared raw field, no same-field cross-window — checked per-candidate),
+  P033 (sign-flip-via-reciprocal — closed in round 91, no candidates rely on it).
+  All 6 are bona fide new geometry beyond round 91 6-axis closure.'
+active_threads_referenced:
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-16T06:43:58Z'
+frozen_at: '2026-05-16T06:43:58Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount, $num_trades),
+    10))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),10))
+  rationale: 'T001 revival path (a) shorter RHS — extends b091/C004 rank-diff (RHS=20d)
+    by shrinking to 10d. Hypothesis: 10d window captures sharper ''flow regime climax''
+    moment vs 20d''s slower turn. If b091/C004 (60-20) showed Barra residual IC sign
+    flip but ls_t insufficient (-2.20), 60-10 amplifies regime climax signal via stronger
+    Δ. Anti-recap: differs from b091/C004 by RHS window (20→10); per P032 law #3 (''same-field
+    cross-window禁止'' targets cross-section CsRank, not TsRank time-rank — b091/C004
+    admit-track precedent verified). Self-check: P030 ✓ (full 3-gate audit at judge),
+    P031 ✓ (TsRank≥60d ratio LHS), P032 ✓ (same-field TsRank-diff exempt from law
+    #3 cross-section ban), P033 ✓.'
+  expected_sign: negative
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount, $volume),
+    60))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$volume),60))
+  rationale: 'T001 revival path (b) cross-field rank-diff — RHS swapped from same-field
+    (b091/C004) to different ratio family $amount/$volume (=VWAP proxy). $amount/$volume
+    captures avg yuan per share traded (price level proxy); $amount/$num_trades captures
+    avg yuan per trade (institutional lot proxy). Difference isolates institutional
+    concentration NET of price-level. P032 check: law #1 scale-invariance ✓ (both
+    dim-less ratios), law #2 raw field independence — LHS numerator=$amount, RHS numerator=$amount
+    SHARED → TECHNICAL VIOLATION acknowledged. Mitigation: denominators ($num_trades
+    vs $volume) are DIFFERENT atom families (microstructure-trade-count vs OHLCV-share-count),
+    creating geometric separation; this is the only viable path (b) per direction.md
+    roadmap, and the negative-result IS signal — confirms law #2 binding even for
+    ratio-vs-ratio. P031 ✓ (TsRank≥60d ratios both sides), P033 ✓.'
+  expected_sign: negative
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank($turnover_rate, 60))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank($turnover_rate,60))
+  rationale: 'T001 revival path (b) cross-field rank-diff w/ orthogonal RHS — RHS
+    swapped to $turnover_rate (different microstructure family: turnover = volume/shares_outstanding,
+    size-normalized liquidity). Hypothesis: $turnover_rate captures general liquidity
+    intensity, $amount/$num_trades captures institutional concentration; rank-diff
+    isolates ''institutional flow NET of overall liquidity''. P032 law #2 ✓ (no shared
+    raw field — $turnover_rate is independent scaled field, no $amount/$num_trades
+    overlap). Anti-recap: $turnover_rate raw TsRank not in library (F012 uses turnover
+    only inside CsRank wrappers). P031 ✓ (LHS is ratio TsRank≥60d; RHS $turnover_rate
+    is bounded [0,1] ratio of volume/shares — counts as ratio for P008 escape), P032
+    ✓ all 7 laws, P033 ✓.'
+  expected_sign: negative
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank(Div($amount, $num_trades),
+    5))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank(Div($amount,$num_trades),5))
+  rationale: 'T001 revival path (a) extreme-shortened RHS — pushes to 5d for sharpest
+    possible regime-climax detection. Hypothesis: if 10d (C001) is good and 20d (b091/C004)
+    is marginal, 5d should be the extreme of the axis showing whether RHS window has
+    monotone improvement or hits noise wall. This characterizes the rank-diff axis
+    behavior end-to-end (60-5, 60-10, 60-20 = 3-point window grid). Anti-recap: shorter
+    twin of C001 in same path (a). Self-check: P030 ✓, P031 ✓, P032 ✓ (same-field
+    TsRank-diff exempt), P033 ✓.'
+  expected_sign: negative
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 120), TsRank(Div($amount, $num_trades),
+    60))
+  canonical: Sub(TsRank(Div($amount,$num_trades),120),TsRank(Div($amount,$num_trades),60))
+  rationale: 'T001 revival path (a) inverted-direction LHS extension — uses 120d LHS
+    vs 60d RHS instead of 60d LHS vs <60 RHS. Hypothesis: 120d ''quarterly regime''
+    rank minus 60d ''monthly regime'' rank isolates the slow institutional cycle (fund
+    rebalance, ETF rebalance) NET of monthly noise. If sign reverses vs C001/b091-C004
+    it would confirm time-direction of regime climax matters. Anti-recap: differs
+    from b091/C001-C003 (single TsRank 30/90/120 — those are level forms not differences);
+    differs from b091/C004 (60-20) by both window pair and direction (LHS longer not
+    shorter). Self-check: P030 ✓, P031 ✓ (TsRank≥60d both sides ratio), P032 ✓ (same-field
+    TsRank-diff exempt), P033 ✓.'
+  expected_sign: positive
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(TsRank(Div($amount, $num_trades), 60), TsRank($volume, 60))
+  canonical: Sub(TsRank(Div($amount,$num_trades),60),TsRank($volume,60))
+  rationale: 'T001 revival path (b) cross-field rank-diff w/ raw $volume RHS — pure
+    volume level vs institutional lot concentration. Hypothesis: institutional flow
+    concentration NET of pure trading volume captures regime change orthogonal to
+    liquidity intensity. Distinct from C003 ($turnover_rate, size-normalized) — $volume
+    is raw share count. Anti-recap: $volume TsRank60 raw not in library; F024 uses
+    $num_trades/$volume — different geometry. P032 law #2 — LHS numerator=$amount,
+    denominator=$num_trades; RHS=$volume — no raw field overlap ✓. Risk: $volume strongly
+    size-correlated, may import market_cap absorption — flagged but P031 escape via
+    TsRank60 on ratio LHS still applies. Self-check: P030 ✓, P031 partial (LHS satisfies,
+    RHS single field raw — accept as cross-field rank-diff exception per b091/C004
+    rank-diff direction precedent), P032 ✓ all 7 laws, P033 ✓.'
+  expected_sign: negative
