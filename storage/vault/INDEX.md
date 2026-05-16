@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-05-16T08:39:14Z
+generated_at: 2026-05-16T10:26:35Z
 round: 104
 total_active_directions: 22
 total_factors_admitted: 28
@@ -15,21 +15,21 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**104** · phase=`null` (idle) · no batch in flight
+> **状态** · round=**104** · phase=`designed` · current_batch=`batch_104`
 > **上一批** · [[batches/batch_103/judge|batch_103]] → [[directions/fundamental_ttm_cross_family]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`dead`
 > **健康** · rounds_since_consolidation=**4** · active_directions=**22** · zero-admit streak=**5**
-> **⚠️ 预警** · consolidation 触发: active_directions=22 ≥ 20
+> **⚠️ 预警** · 待 intake papers: arxiv_1601_00991v3 · consolidation 触发: active_directions=22 ≥ 20
+> **📄 Intake Queue** · `arxiv_1601_00991v3` ← `storage/vault/raw/papers/arXiv-1601.00991v3.pdf` · target=`storage/vault/papers/arxiv_1601_00991v3.md`
+> **下一条论文 intake 命令** · `PYTHONPATH=src python3 scripts/extract_paper_pdf.py --pdf storage/vault/raw/papers/arXiv-1601.00991v3.pdf`
 >
 > **🎯 下一步（按优先级）**
-> 1. 📚 **触发 consolidation**：active_directions=22 ≥ 20 → 先调 `/factor-consolidate`，再进 Phase 1
-> 2. 🧪 **阈值校准**：连续 5 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
-> 3. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
+> 1. 🔄 **断点续跑**：state.phase=`designed` → Phase 2 — `research execute batch_104`
 
 <!-- END COCKPIT -->
 
 <!-- BEGIN HOT-TOPICS-LLM -->
 > [!danger]+ 🆕 系统级事件 · Phase 5 round 91 consolidation (2026-05-16)
-> b086-b090 5 批跨方向 zero-admit streak (alpha191 / overnight_intraday / signed_money_flow / idiosyncratic_momentum / price_conditional_amplitude). 揭示 daily-bar frontier 三层结构性失败: (i) **alpha_surv > 1.0 单边形式独立 ≠ library 充分** (5 batch × 5 方向 × 7 candidates 实证 Barra-clean 但库 redundant); (ii) **P004-deep path-integral / N-day 累积形式失败** (path-memory β-shift, 3 方向 dead); (iii) **paper transferability 4 层失效律** (从 3 件套扩展, 4 papers × 4 方向). 4 lessons 升格 + 3 方向 dead + 5 reserve revival 候选打包. **当前 frontier 红色信号**: daily-bar 27 admit 已接近 saturated, intraday primitive layer (src/data/primitive + daily_python_backend) 工程已 untracked, 一旦 ready 是当前最大 unexplored 空间.
+> b086-b090 5 批跨方向 zero-admit streak (alpha191 / overnight_intraday / signed_money_flow / idiosyncratic_momentum / price_conditional_amplitude). 揭示已探索 **narrow subspaces** 三层结构性失败: (i) **alpha_surv > 1.0 单边形式独立 ≠ library 充分** (5 batch × 5 方向 × 7 candidates 实证 Barra-clean 但库 redundant); (ii) **P004-deep path-integral / N-day 累积形式失败** (path-memory β-shift, 3 方向 dead); (iii) **paper transferability 4 层失效律** (从 3 件套扩展, 4 papers × 4 方向). 4 lessons 升格 + 3 方向 dead + 5 reserve revival 候选打包. **⚠️ 重要修正**: 不可断言 "daily-bar saturated" — 已 dead 的是 narrow form-spaces (rank-diff / candle binarize / fundamental TTM cross-family); DSL 25 custom op 中 ~10 个 (TsAutoCorr/TsEntropy/TsDecay/WMA/Tanh/Sigmoid/SignedPower/RealizedVol/TsSkew/TsKurt) 库内 0 admit + 多个 paper-driven direction (up_fraction_regime_gating) 未跑 + reserve pool ≥9 候选未清空，daily-bar 仍有未探索 frontier。intraday primitive layer 是并行 frontier 而非唯一突破口。
 > - ✅ **4 lessons 升格**: (1) Rank-order ≠ Tradable Alpha 段加 **P030 alpha_surv > 1.0 单边形式独立不达 admit/reserve 充分性** — alpha_surv 必须配 incr_ic / max_corr / ls_t 三项至少 2/3; (2) vol_20d 律段加 **P004-deep path-integral 累积形式结构性失败** — single-step OK (F004), multi-day aggregation 默认 reject (path-memory β-shift); (3) Paper Transferability 从 3 件套扩展为 **4 层失效律** (新增 frequency mismatch + library overlap 层); (4) Path Selection 加 **P030 Cov ≈ Mean(X*Y, N) 等价律** — b087 实证 cross-section corr=0.927 (>0.9 hard_gate), Phase 1 generator AST 自检
 > - 🟠 **方向状态变更 (3 dead, 元教训已升格)**: signed_money_flow_oscillator exploring → **dead** (b088 4/4 子路径 Chaikin/AD/PVT 全证伪) / idiosyncratic_momentum_residual exploring → **dead** (b089 4/4 子假设 全证伪) / price_conditional_amplitude exploring → **dead** (b090 4 路径全证伪). 三方向 dead → archived 预定一轮后转 (本 round 留 dead). 其它: alpha191_universal_subset productive → saturated (F027+F028 admit 维持); range_structure / anchor_proximity_momentum 维持 saturated; overnight_intraday_split productive → saturated (T011 axis 真饱和复证, 仅 T017 reserve 火种)
 > - 📌 **Reserve revival 池 5 候选** (asset-driven, calibration/013 finding, 不调阈值靠改表达式): (1) **b072/C006** `TsRank($amount/$num_trades,60)` ls_t=-7.54 整库顶级 + alpha_surv=0.447 边缘卡 incr_ic=-0.018 → window sweep 30d/90d/120d + rank-diff form 减 F012 cluster + reducer reverse; (2) **b076/C005** `TsRank((h+l)/2 / close, 60)` 4 项 CP top max_corr=0.449 cluster → Python residualize on (F008, F026) + RHS swap close→Mean(close,5); (3) **b080/C006** overnight × turnover rank-diff 4 项 top max_corr=0.560 cluster + incr_ic=0.0098 边缘 → RHS basis swap 平滑 + 缩窗; (4) **b087/C001** T017 Corr(volume, overnight, 60) mono=1.0 + horizon 1d→20d IC 0.032→0.073 → 切换 evaluation horizon 1d→5d/10d; (5) **b082/C002** (h-c)/(h-l) TsRank60 ls_t=6.40 mono=1.0 PERFECT max_corr=0.471 → open-anchor RHS swap + Python residualize on (F025, F026)
