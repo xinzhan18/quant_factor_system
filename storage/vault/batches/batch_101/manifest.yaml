@@ -1,0 +1,122 @@
+batch_id: batch_101
+round: 101
+direction: binarize_geometry_barra_orthogonal
+direction_md_ref: vault/directions/binarize_geometry_barra_orthogonal.md
+batch_goal: 'library_gap finding 023 follow-up — F029 admit 验证 conditional binarize
+  ⊥ Barra basis 路径但 family-space 是 sparse axis (仅 F028 F029). 6 候选系统化 sweep 6 axes
+  围绕 single-day candle binarize 几何 ⊥ Barra basis 假设: (C001) middle-body proximity
+  (close 靠近中点, 非 tail 几何, T001); (C002) 弱上影日反 F029 mirror (Lt(H-C)/(H-L), 0.2, 上影微小
+  = close 接近 high, 反 F029 close-low 几何, T002); (C003) 弱 open 低位日 (字段切换 open + Lt(O-L)/(H-L),
+  0.2, 不同 tail, T003 — 注意 b099/C004 已测 (H-O)/(H-L) Lt 0.2 dead, 本候选是 reciprocal (O-L)/(H-L)
+  信号底层不同); (C004) inside-bar 跨日 range pattern (Mul(Lt H, Gt L) 20d, pure range geometry,
+  T004); (C005) 弱收盘 × 低换手 cross-field compound (turnover 用 self-baseline 避免 b099/C006
+  amplitude≡vol_20d 复合陷阱, T005); (C006) 大实体日 Gt(|C-O|/(H-L), 0.7) (Gt 强端 + 高阈, 不同于
+  b098/C002 small-body 0.3 dead, T006). 全候选每个引用 1 thread. Anti-recap full check: (a)
+  F029 7-axis 邻域 disprove 不重演 (本批 0 个 candidate 是 close-position × Lt × 0.2 × 20d
+  × Mean); (b) F006/F007/F008 continuous shadow/open persistence Mean(magnitude, N)
+  几何 vs 本批 Lt/Gt full binarize Mean rate — distinct; (c) b099/C006 amplitude × close-pos
+  compound 用 amplitude binarize≡vol_20d, C005 改用 turnover self-baseline 不同 basis 路径;
+  (d) b099/C004 open (H-O)/(H-L) Lt 0.2 dead, C003 改用 reciprocal (O-L)/(H-L) 不同 tail.
+  Baseline-first 守则: 本方向纯 OHLCV+turnover binarize, 与 15 untouched fundamental TTM
+  字段完全不相关, 显式 skip baseline-first 配额.'
+active_threads_referenced:
+- T001
+- T002
+- T003
+- T004
+- T005
+- T006
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-16T07:13:13Z'
+frozen_at: '2026-05-16T07:13:13Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Lt(Div(Abs(Sub($close,Mul(Add($high,$low),0.5))),Sub($high,$low)),0.3),20)
+  canonical: Mean(Lt(Div(Abs(Sub($close,Mul(0.5,Add($high,$low)))),Sub($high,$low)),0.3),20)
+  rationale: 'T001 middle-body proximity — close 靠近 (H+L)/2 中点日 20d rate. (C-mid)/(H-L)
+    < 0.3 binarize Mean. 不同于 F029 Lt 0.2 close-low tail (本候选是 mid-proximity, 几何 ≠
+    close-pos tail). 不同于 F006/F007/F008 Mean(magnitude, N) continuous (本候选是 binarize
+    event-rate). 不同于 b098/C002 small-body Lt 0.3 (那是 |C-O|/(H-L) body 维度 ≡ vol_20d,
+    本候选是 close-vs-mid 不同维度). 期望: 中点附近 = 多空均衡 / 信号缺失日, ⊥ vol_20d. expected_sign: positive
+    (中点日多 = 缺方向 → 反转向上? 或 negative 缺信号→均值). 实测 Phase 2 sign 后回填. Self-check: P031
+    7-dim (字段 close-mid, 方向 Lt, 阈值 0.3, 窗口 20, aggregate Mean, 单 condition full binarize);
+    P030 multi-CP alpha_surv 必配 incr_ic/max_corr/ls_t 2/3; F029 cluster check Phase
+    2 max_corr 实测.'
+  expected_sign: positive
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Lt(Div(Sub($high,$close),Sub($high,$low)),0.2),20)
+  canonical: Mean(Lt(Div(Sub($high,$close),Sub($high,$low)),0.2),20)
+  rationale: 'T002 weak upper shadow rate — (H-C)/(H-L) < 0.2 binarize Mean 20d. 上影微小日
+    = close 接近 high, 反 F029 close-low 几何. 不同于 b097/C001 Gt((H-C)/(H-L), 0.5) reserve
+    (那是 Gt 上半段, 本是 Lt 弱端 tail). 不同于 F006/F008 continuous Mean of (H-C)/(H-L) magnitude.
+    阈值 sign-dependent 律 (lessons round 99 升格): Lt 弱端 thick-tail ⊥ basis (F029 实证),
+    本候选验证同律在上影几何是否成立. Cluster check: vs F026 close_position TsRank 60d (close-high
+    signal 同源但 TsRank vs Lt-binarize geometry 不同). expected_sign: positive (上影微小 =
+    close 强势 → 持续向上, vs F029 weak close negative); 但 close-high 在 csi1000 vol regime
+    可能与涨停日 partial 同, 实测 max_corr 决定. Self-check: P031 (字段 close vs high, 方向 Lt, 阈值
+    0.2, 窗口 20, aggregate Mean rate); F029 max_corr precheck.'
+  expected_sign: positive
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Lt(Div(Sub($open,$low),Sub($high,$low)),0.2),20)
+  canonical: Mean(Lt(Div(Sub($open,$low),Sub($high,$low)),0.2),20)
+  rationale: 'T003 weak open low-position rate — (O-L)/(H-L) < 0.2 binarize Mean 20d
+    = open 接近 low 日占比. 关键 anti-recap: b099/C004 已测 `Lt((H-O)/(H-L), 0.2) 20d` (open-high)
+    alpha_surv=0.15 dead (跨入 str_1m basis). 本候选是 reciprocal: (O-L)/(H-L) 不是 (H-O)/(H-L),
+    几何信号底层不同 — open 弱开 vs open 强开是两个对立 event. 不同于 F007 open_position_persistence_5d
+    用 Mean(magnitude, 5d) continuous 5d (本是 20d Lt-binarize rate). 不同于 F029 close
+    字段切换 open + 不同 tail. expected_sign: negative (open 接近 low = 开盘抛压 → 持续向下), 也可能
+    str_1m basis 共振 dead. 实测 alpha_surv 与 str_1m exposure. Self-check: P031 (字段 open
+    vs low, 方向 Lt 弱端, 阈值 0.2, 窗口 20); 由于 b099/C004 mirror 已 dead, 本候选属于 ''borderline
+    高风险'', 但几何不同需要独立验证, ROI 正.'
+  expected_sign: negative
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Mul(Lt($high,Ref($high,1)),Gt($low,Ref($low,1))),20)
+  canonical: Mean(Mul(Gt($low,Ref($low,1)),Lt($high,Ref($high,1))),20)
+  rationale: 'T004 inside-bar daily range rate — Mul(Lt(H, Ref(H,1)), Gt(L, Ref(L,1)))
+    20d Mean = inside-bar 日占比 (today H<yesterday H AND today L>yesterday L). pure
+    range geometry, 1-day lookback. 不同于 b098/C006 `Mul(Sign(C-O), Sign(Ref(O,1)-Ref(C,1)))`
+    (跨日 candle-pattern body-sign, regime-dependent dead) — inside-bar 不依赖 sign 只用
+    range. 不同于 F006/F008/F019 同方向其它 candle geometry. expected_sign: negative (inside-bar
+    多 = 持续 compression / consolidation → 突破前低收益偏弱) 或 positive (consolidation → mean
+    reversion). 关键风险: inside-bar 与 daily volatility 必然 sign-反 (compression ↔ low vol),
+    测 alpha_surv 看是否破 vol_20d basis. Self-check: P031 (字段 high+low, 方向 Lt+Gt 复合, 阈值
+    自身 1-day reference, 窗口 20 Mean, 2-condition full binarize); P030 cluster precheck.'
+  expected_sign: negative
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Mul(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),Lt($turnover_rate,Mean($turnover_rate,20))),20)
+  canonical: Mean(Mul(Lt($turnover_rate,Mean($turnover_rate,20)),Lt(Div(Sub($close,$low),Sub($high,$low)),0.2)),20)
+  rationale: 'T005 weak-close × low-turnover compound rate — 弱收盘日 ∩ 换手低于自身 20d 均值日
+    20d 占比. 关键 anti-recap: 不同于 b099/C006 `Mul(Lt((C-L)/(H-L), 0.2), Gt((H-L)/C, 0.02))`
+    (amplitude binarize ≡ vol_20d basis vol_exp=45 史诗 dead) — 本候选用 turnover self-baseline
+    (vs 自身 20d Mean) 不是 absolute threshold, **避免水平 vol 吸收**. 信号: 弱收盘 + 低换手 = 跌但量缩
+    = 抛压有限, vs 弱收盘 + 高换手 = 抛盘汹涌. compound 应有 admit 余地 IF turnover self-baseline 真不
+    ≡ vol_20d. Cluster vs F029 (single Lt close-pos): 本候选是 F029 + turnover condition
+    compound, max_corr 至 F029 应中等 (subset of F029-true 日 + turnover 条件). expected_sign:
+    positive (弱收盘量缩 = 抛压有限 → 反转向上, 与 F029 negative 反). Self-check: P031 (2-condition
+    full binarize, full Mean rate, 字段 close+turnover, 方向 Lt 弱端 both, 窗口 20+20); P030
+    alpha_surv 必配 incr_ic 不能为库 F029 reducer; max_corr@F029 实测.'
+  expected_sign: positive
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Gt(Div(Abs(Sub($close,$open)),Sub($high,$low)),0.7),20)
+  canonical: Mean(Gt(Div(Abs(Sub($close,$open)),Sub($high,$low)),0.7),20)
+  rationale: 'T006 strong-body day rate — |C-O|/(H-L) > 0.7 binarize Mean 20d = 大实体
+    / trend day 占比. 关键 anti-recap: b098/C002 `Lt(|C-O|/(H-L), 0.3)` small-body 已 dead
+    (body ≡ vol_20d catastrophe), 本候选是 Gt 强端 + 高阈 (0.7 vs 0.3) 阈值方向相反. 阈值 sign-dependent
+    律: 若 Lt 弱端 thick-tail 是 robust escape (F029 律), Gt 强端 trend-day 可能 反过来 ≡ vol_20d
+    (右尾 sensitivity). 本候选实测验证此律是否适用于 body geometry. 不同于 F019 body_disp_pricevol_rank_diff_20
+    (Std-of-body 20d 经 rank-diff geometry 完全不同). expected_sign: positive (大实体多 = trend
+    regime, 持续 trend → 正向) 或 negative (trend-day 多 = 后续 mean-revert). 风险: body Gt
+    强端可能直接 ≡ vol_20d, alpha_surv 应 < 0.30 fail. 若 fail → 确认 body geometry 跨阈值方向 cross-section
+    dead, 直接升格 lesson. Self-check: P031 (字段 |C-O| vs (H-L), 方向 Gt 强端, 阈值 0.7, 窗口 20,
+    aggregate Mean rate).'
+  expected_sign: positive
