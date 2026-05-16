@@ -1,0 +1,88 @@
+batch_id: batch_103
+round: 103
+direction: fundamental_ttm_cross_family
+direction_md_ref: vault/directions/fundamental_ttm_cross_family.md
+batch_goal: 'Round 103 / fundamental_ttm_cross_family 首批. library_gap/020 finding
+  + cockpit zero-admit streak 4 batches 提议刻意切换 geometry: 22 TTM 字段 15 untouched +
+  条件算子 × fundamental 100% 未测. 6 候选三轴: (a) 2 atomic baseline CsRank ROE / 毛利率 (baseline-first
+  律强制, 抢占 untouched 字段名额), (b) 3 F029 framework 字段维度扩展 — 把 close-position 换成 ROE /
+  毛利率 / debt_to_asset 做 binarize+event-rate aggregation, (c) 1 PIT × $num_trades 非-amount-aggregate
+  桥接 (绕 b068 vol_20d denominator 吸收路径). 刻意避开: TTM × TTM Sub/Mul/Div (b068 dead + 数据契约
+  risk), Delta/Ref rate form (fundamental_momentum dead), Python residualize (python_ttm_residual_quality
+  6/6 sign-flip dead), Mean(amount/turnover, N) denominator (b068 vol_20d_exp 23-31%
+  吸收律). 4 律自检 P030/P033 全候选 inline; coverage hard_gate ≥0.80 + IS/OOS sign consistency
+  严查 (基本面 PIT delay risk).'
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-16T08:15:04Z'
+frozen_at: '2026-05-16T08:15:04Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: CsRank($return_on_equity_ttm)
+  canonical: CsRank($return_on_equity_ttm)
+  rationale: 'T001 baseline. field_coverage_latest 单独标 ROE 为 single-atom (仅 CsRank
+    1 次 b069/C003), 但库内 0 admit 用 ROE baseline; 把 baseline-first 律落地. 假设: cross-section
+    ROE rank 在 csi1000 上携带正向 forward IC (high quality long-run carry); 不依赖 daily aggregate
+    denominator, vol_20d basis 应 < 15% (vs b068 23-31%). P030 自检: 若 alpha_surv>1.0
+    单独 ≠ admit, 需配 incr_ic ≥+0.005 + max_corr<0.40 + ls_t ≥1.5 至少 2/3.'
+- candidate_id: C002
+  source_type: dsl
+  expression: CsRank($gross_profit_margin_ttm)
+  canonical: CsRank($gross_profit_margin_ttm)
+  rationale: 'T001 baseline. $gross_profit_margin_ttm 是 15 个 0-coverage untouched
+    fields 之一 (priority A). 假设: 高毛利率 ≡ pricing-power 持续, cross-section level 携带 forward
+    IC; 与 ROE 几何独立 (income statement 上端 vs 综合). 4 律 P033: 2022-2023 regime drift 风险
+    (盈利质量 sign-flip 历史先例 lessons P003 atom 4), 严查 ic_by_year + IS/OOS sign consistency.'
+- candidate_id: C003
+  source_type: dsl
+  expression: Mean(Gt($return_on_equity_ttm, 0.10), 20)
+  canonical: Mean(Gt($return_on_equity_ttm,0.10),20)
+  rationale: 'T002 F029 framework 字段维度扩展. F029 admit 7-D 中 6 维固定 (window=20d, Mean
+    aggregate, full binarize, Lt 弱端/Gt 强端 paired possible) + 字段维度可换. 此候选用 ROE > 10%
+    (中国 csi1000 ROE 中位数附近) 作 quality event-rate; 假设 fundamental binarize 不 ≡ vol_20d
+    (与 gap-rate / return-sign / 低振幅 b097-b099 全 dead 形成对照 — fundamental 是 long-run
+    财务状态, daily 不 derived). 阈值 0.10 是行业经验值, 0.15 / 0.20 留作下批 sweep 候选. 4 律 P031 conditional
+    7-dim 自检 OK: axis 字段=ROE_TTM (fundamental, novel) + axis 操作=Gt + axis 比较值=0.10
+    (常数) + axis aggregate=Mean (event-rate) + axis 窗口=20d (F029 sweet spot) + axis
+    方向=Gt 强端 + axis 维度=cross-section binarize.'
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Lt($debt_to_asset_ratio_ttm, 0.45), 20)
+  canonical: Mean(Lt($debt_to_asset_ratio_ttm,0.45),20)
+  rationale: 'T002 F029 framework leverage 维度. 假设: 低杠杆 (债务/总资产 < 45%) 公司在 csi1000
+    cross-section 上属 ''defensive quality'' regime, event-rate 形式聚合应携带正向 forward IC.
+    F029 用 Lt 弱端 (close-position 低 = 弱势 → 下批反弹), 本候选用 Lt 低杠杆 = 强势; sign 假设 = positive
+    (与 F029 Lt 反向 reject 不同, 因 leverage 语义颠倒). $debt_to_asset_ratio_ttm 完全 untouched
+    (priority A), baseline-first compliance 也满足. P033 OOS sign-consistency: 2022-2023
+    利率上行 regime 反而强化低杠杆 alpha (利率敏感公司被惩罚), 不应 sign-flip.'
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Gt($gross_profit_margin_ttm, 0.30), 20)
+  canonical: Mean(Gt($gross_profit_margin_ttm,0.30),20)
+  rationale: 'T002 F029 framework margin 维度 + C002 baseline 的 conditional 配对. 阈值 30%
+    中国 csi1000 制造业-服务业混合中位数. 假设: 高毛利 event-rate 比 raw rank (C002) 更 robust — full
+    binarize 丢弃 magnitude 后, 长期高毛利 (= 长期 pricing power) 公司被纯粹识别, 不被报表期一次性高毛利噪声扰动.
+    C002 + C005 同字段不同 geometry 比对: 若两者都 admit/reserve → 字段携带独立 alpha; 仅 C005 admit/reserve
+    → conditional framework escape vol_20d; 仅 C002 → 字段 baseline OK 但 conditional
+    跨入 vol_20d basis.'
+- candidate_id: C006
+  source_type: dsl
+  expression: Mul(CsRank($return_on_equity_ttm), CsRank($num_trades))
+  canonical: Mul(CsRank($num_trades),CsRank($return_on_equity_ttm))
+  rationale: 'T003 PIT × non-vol microstructure bridge. F002 admit (pb_ratio / Mean(amount,
+    20)) 后, ratio with Mean(amount/turnover, N) 在 b068/b071 全 dead. 本候选用 $num_trades
+    (corr-safe, 非 amount aggregate, 笔数本身是 attention proxy 不是 vol-derived) 作 RHS, ROE
+    作 LHS, Mul rank composite. 假设: high-ROE × high-trade-activity (机构关注 + 散户 attention
+    双重) 公司在 csi1000 cross-section 上携带 forward IC; 不被 Mean(amount, N) 的 vol_20d 路径吸收
+    (因 $num_trades 与 vol 几何不同: 笔数高 ≠ 单笔大额, F012 amihud_illiq_20d admit 已证 amount/num_trades
+    类信号 alpha 存在). P030 自检: 若 vol_20d_exp 仍 >= 23% → $num_trades 也是 vol_20d 隐藏路径,
+    TTM × OHLCV bridge family 彻底关闭. max_corr 重点查 F012 (amihud, 用 num_trades) + F024
+    (trade_density_tsrank_60, 直接 num_trades).'
