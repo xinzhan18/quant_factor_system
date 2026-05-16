@@ -30,7 +30,7 @@ merged_into: null
 > [!warning]+ Hypothesis · ⚠️ 部分证伪
 > **原假设**：`$open/$high/$low/$close` 纯价格信号与资金流（amount/volume）正交，可避开前三个方向撞到的 `vol_20d` 天花板。四条路径：(1) K线身体比；(2) 收盘位置；(3) 波动率锚定 Std/Mean；(4) 缺口信号。
 >
-> **证伪信号（≥3）**：
+> **证伪信号（≥4）**：
 > 1. 日内价格比率类（身体比 / 收盘位置 / 上影线比 / close-open Corr）系统性 `mono_sign_flip` — 日内多空在中长期持有中对称抵消（升格 [[lessons#OHLC Family Defaults]]，跨 stochastic_position 复现）
 > 2. 波动率锚定 Std/Mean 路径 `sign_flip + oos_decay` — 与 amount CV 同源，未逃脱 vol_20d 耦合（升格 [[lessons#Structural Constraints]]，8 方向共证）
 > 3. EMA 趋势（close 相对 EMA 偏差 / EMA 本身）`alpha_surv=0.085 + incr_ic=-0.022` — 单均线已被库内因子覆盖

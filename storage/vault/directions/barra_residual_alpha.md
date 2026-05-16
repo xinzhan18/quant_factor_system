@@ -62,7 +62,7 @@ merged_into: null
 > [!abstract]+ 方向概要
 > **状态**　🟡 saturated · priority=low · rounds=8 · admits=1
 > **最近**　[[batches/batch_054/judge|batch_054]] · 2026-04-25 · admit=0 / reserve=0 / reject=5 (+1 compute_error)
-> **一句话**　F004 是 7-style × OLS-family 残差的几何不变量；basis / 损失 / 标准化 / interaction / 时序后处理 5 类路径全 collapse；rank-diff × residual paradigm (T014) 也证伪——双重 saturated（信号设计层 + 数据契约层）。
+> **一句话**　F004 是 7-style × OLS-family 残差的几何不变量；basis / 损失 / 标准化 / interaction / 时序后处理 5 类路径全 collapse；rank-diff × residual paradigm (T014) 也证伪——三重 saturated（信号设计层 + 数据契约层 + **P033 跨方向 OOS sign-flip 律共证**，Python residualize 唯一生还路径关闭）。
 
 ---
 
@@ -75,13 +75,15 @@ merged_into: null
 >
 > **成立部分**：F004 admit 确认 residual IC=0.033 > raw IC=0.024 的 incremental alpha 存在。
 >
-> **⚠️ 证伪部分**（两层独立 disprove）：
+> **⚠️ 证伪部分**（三层独立 disprove）：
 > 1. **信号设计层（T002 + T014 共证）**：在 7-style basis × OLS-family 框架内，F004 是几何不变量——5 类路径 (basis 子集 / 损失函数 / 标准化 / interaction / 时序后处理) 全 collapse 到 corr ≥ 0.91；rank-diff × residual paradigm 跨出 4 raw family 的尝试也失败——残差 higher-moment 在 train/val regime 系统性 sign-flip（[[#F003 升格]]），残差路径几何 (autocorr / SNR) 是 IC<0.01 noise floor。
 > 2. **数据契约层（T003 + T014 共证）**：Python residual + rolling 算子在 csi1000 系统性 coverage ≈ 0.71-0.73 << 0.80 hard_gate（[[#F008 升格]]），且 loader 不响应 candidate REQUIRED_FIELDS（[[#F304 升格]]）——多个信号本身健康（C005 alpha_surv=1.57 + style_r²=0.024）的候选纯 coverage 单闸 KO。
+> 3. **跨方向 OOS sign-flip 律（P033 · b092 first 实证 · 本方向姊妹律）**：tsrank_candlestick_ratio b092/C001 对 admit cluster 做 single-step Python cross-section OLS residualize → train_ic=+0.030 / val_ic=-0.004 + mono_flip 0.4→-0.4，**Python residualize 在 close-position 域被 b092 首实证关闭为"唯一生还路径"**。机制：cross-section OLS `y = α + β·F_admit + ε` 的 ε 在 train 期含残余 alpha-bearing component，train OLS 过拟合该残余 sign，OOS 噪音独立性使 sign 翻转——与本方向 T002/T014 残差 higher-moment regime sign-flip 同律家族但**适用域更宽**（不限 higher-moment LHS，single-step OLS 也失败）。
 >
-> **复活条件**（必须 (a)+(b) 同时满足才有意义再启）：
+> **复活条件**（必须 (a)+(b)+(c) 同时满足才有意义再启）：
 > (a) **数据契约修复**：T003 loader 扩 REQUIRED_FIELDS 动态联合列 + 残差 NaN 预填充（forward fill 或 industry mean），或改 cross-sectional 算子代替 rolling（CsRank / CsZscore 不需 min_periods 历史）。F202 提议 direction-aware coverage 阈值放宽到 0.70 是临时 workaround。
 > (b) **范式跳出**：(i) 加非 Barra style basis（行业 / GICS / microstructure factor model）；(ii) nonparametric residualization（kernel ridge / NN）；(iii) 与库其他因子的非线性 ensemble。**严禁** 再测 raw fundamental / intraday signed / residual_ret 三类 atom 的 higher-moment LHS（F003 / F201 升格 generator pre-block）。
+> (c) **P033 几何独立性自检**：候选 design rationale 含 "Python residualize" 字样时 manifest expr_safety 段必须显式自检——(i) atom max_corr vs target prototype < 0.40，(ii) prototype 含 ≥2 admit anchor，(iii) candidate 估算 coverage ≥0.85；三条件任一 fail → Phase 1 freeze rationale 标 `python_residualize_skip`。Reserve revival pool 中所有 "Python residualize on admit" 路径 cross-batch retro 标 `default-skip`，避免 saturated direction 内无限循环 reserve 复活。
 
 ---
 
@@ -168,17 +170,19 @@ merged_into: null
 7. **残差路径几何 (autocorr / SNR / directional efficiency) 是 noise floor**：残差已剥离 alpha-bearing component，path coherence 类 transformation 无法再生 alpha。
 8. **Python residual + rolling csi1000 系统性 coverage ≈ 0.71**（[[#F008]] / [[#F202]]）：跨 3 方向 12+ 候选独立确认；residual ~1% NaN + rolling min_periods + 上市日异质性 三因子复合 → 全期均值 < 0.80 hard_gate。修复路径：cross-sectional 算子代替 rolling / loader 端 NaN 预填充 / direction-aware coverage 阈值放宽。
 9. **DSL Div / rank-preserving 不替代真 orthogonalization**（[[#F304]]）：CsZscore / Scale / SignedPower / Sigmoid / Tanh / Softmax 在 cross-section 空间对 IC 零贡献；Div(factor, vol_proxy) 不是真去暴露——要么保序、要么 style 搬家。真 orthogonalization 必走 Python OLS / Barra residual（但需独立处理 coverage 问题）。
+10. **P033 · Cross-section OLS residual OOS sign-flip 律**（[[#P033]]，b092 first 实证 + 本方向 T002/T014 共证家族扩展）：对 admit cluster 做 single-step Python cross-section OLS residualize 在 csi1000 daily 上 **default OOS sign-flip**——atom 主信号若在 cluster 投影内时，残差是 train 期残余 alpha-bearing 的 sign 噪音，OOS regime drift 后 sign 翻转。本律适用域比 T002/T014 (限 higher-moment LHS) 更宽：single-step OLS 也失败。**Python residualize 路径默认关闭**——仅当 (a) atom max_corr vs prototype < 0.40 + (b) prototype 含 ≥2 admit anchor + (c) coverage ≥0.85 三条件同时满足才可启动。与 T003 数据契约层失败律 (coverage<0.80) 配套，共同封堵 Python residualize 复活路径。
 
 ---
 
 ## Related findings (Phase 5 升格摘要)
 
-> [!info]- Phase 5 distillation 已就本方向沉淀 6 条 finding（详见 `_consolidation/packet_direction_barra_residual_alpha.md`）
+> [!info]- Phase 5 distillation 已就本方向沉淀 7 条 finding（详见 `_consolidation/packet_direction_barra_residual_alpha.md`）
 >
 > - **F002 / F305** (severity=high) — rank-diff geometry 7 硬约束 + 5 律泛化边界；本方向是范式 disprove 端贡献者
 > - **F003 / F201** (severity=high) — higher-moment LHS regime sign-flip 跨 3 family 律 + Phase 1 generator pre-block 提案；本方向 b054 C002/C003 命中
 > - **F008 / F202** (severity=medium) — Python residual+rolling csi1000 coverage≈0.71 数据契约边界 + direction-aware coverage 阈值放宽提议（barra_residual_alpha → 0.70）
 > - **F304** (severity=medium) — DSL Div / rank-preserving 不替代真 orthogonalization；Python residual coverage 边界
+> - **P033** (severity=medium，hypothesis_promoter/025，b092 first 实证) — cross-section OLS residual OOS sign-flip 律 + Python residualize 唯一生还路径关闭警示；本方向 T002/T014 残差 higher-moment sign-flip 是其姊妹律家族成员，P033 适用域更宽（single-step OLS 也失败，不限 higher-moment）
 
 ---
 
@@ -223,7 +227,10 @@ merged_into: null
 
 ## Narrative Log
 
-> [!quote]+ 2026-04-25 · [[batches/batch_054/judge|batch_054]]
+> [!quote]+ 2026-05-16 · Phase 5 consolidation · P033 跨方向共证
+> **方向维持 saturated**（无新 batch 投放）。Phase 5 hypothesis_promoter/025 升格 **P033 · Cross-section OLS residual OOS sign-flip 律**——tsrank_candlestick_ratio b092/C001 对 admit cluster (F008, F026) 做 single-step Python residualize 首实证 OOS sign-flip (train_ic=+0.030 / val_ic=-0.004 + mono_flip 0.4→-0.4)。**本方向 T002/T014 残差 higher-moment regime sign-flip 是 P033 姊妹律**——P033 适用域更宽（single-step OLS 也失败，不限 higher-moment LHS）。**Python residualize 唯一生还路径在 close-position 域被 b092 首实证关闭**——本方向复活条件新增 (c) P033 几何独立性自检 (atom max_corr<0.40 + ≥2 anchor + coverage≥0.85 三条件 AND)。Reserve revival pool "Python residualize on admit" 路径全标 `default-skip`。
+
+> [!quote]- 2026-04-25 · [[batches/batch_054/judge|batch_054]]
 > **admit=0 / reserve=0 / reject=5 (+1 compute_error)** — T014 (rank-diff × residual paradigm) DISPROVEN，**4 条独立机制**：(1) 数据契约层 coverage<0.80 系统性 (5/5 候选 0.708-0.725)；(2) T003 二次复现 missing $turnover_rate；(3) 残差 higher-moment regime sign-flip 跨 3 family 第三次确认；(4) 残差路径几何 statistic 是 noise floor。**rank-diff 范式三连中断 (b052/b053/b054)** 共揭示 9-10 条新限制律，直接驱动 Phase 5 升格 [[#F002]] / [[#F003]] / [[#F008]] / [[#F201]] / [[#F202]] / [[#F304]] / [[#F305]]。**下一步**：方向维持 saturated（不退化为 dead——结构教训知识价值已交付）；future reopen 必须先解决 (a) loader REQUIRED_FIELDS 契约 + (b) residual 数据完整性 (cross-sectional 算子代替 rolling)。
 
 > [!quote]- 2026-04-21 · [[batches/batch_015/judge|batch_015]]
