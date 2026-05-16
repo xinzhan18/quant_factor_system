@@ -31,6 +31,7 @@ from report.charts.ic_charts import (
 )
 from report.charts.profit_charts import (
     chart_quintile_bar, chart_cumulative_returns, chart_annual_group_returns,
+    chart_long_short_cumulative,
 )
 from report.charts.risk_charts import chart_style_exposure_bar, chart_alpha_waterfall
 from report.charts.stability_charts import chart_stability_panel
@@ -69,6 +70,36 @@ def _write_png(fig: go.Figure, assets_dir: Path, name: str) -> str:
     return name
 
 
+def _load_holdout_quintile_returns(
+    factor_dir: Path,
+    expression: str | None,
+    source_type: str | None,
+    holdout_range: tuple[str, str] | None,
+) -> pd.DataFrame | None:
+    """Compute holdout-period quintile daily returns (report-only).
+
+    Re-evaluates the factor expression on ``holdout_range`` with the same
+    Phase 2 pipeline (preprocess → tradable mask → quintile) so the
+    resulting DataFrame is schema-compatible with the train/validation
+    parquets. Caches at ``factor_dir / holdout_quintile_daily.parquet``.
+    Returns ``None`` when inputs are missing or the factor is not DSL.
+    """
+    if not expression or not source_type or holdout_range is None:
+        return None
+    from report.holdout_compute import compute_holdout_quintile_returns
+    try:
+        return compute_holdout_quintile_returns(
+            expression=expression,
+            source_type=source_type,
+            holdout_start=holdout_range[0],
+            holdout_end=holdout_range[1],
+            factor_dir=factor_dir,
+        )
+    except Exception as exc:
+        logger.warning("holdout quintile compute failed: %s", exc)
+        return None
+
+
 def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[str, Any]:
     storage = Path(storage_root)
     vault = storage / "vault"
@@ -104,6 +135,25 @@ def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[
     cov_daily = pd.read_parquet(diag_dir / "coverage_daily.parquet")
     hist_df = pd.read_parquet(diag_dir / "factor_hist.parquet")
 
+    # Holdout (2024) is report-only by design. Re-evaluate the factor on
+    # the holdout window with the Phase 2 pipeline so the resulting
+    # quintile returns share schema/units with train/validation. Cached
+    # at factor_dir/holdout_quintile_daily.parquet after first run.
+    cfg = _load_yaml(storage / "config.yaml")
+    sample = cfg.get("sample_policy", {}) or {}
+    holdout_range = sample.get("holdout_range")
+    holdout_range_tuple = (
+        (str(holdout_range[0]), str(holdout_range[1]))
+        if holdout_range and len(holdout_range) >= 2
+        else None
+    )
+    q_holdout = _load_holdout_quintile_returns(
+        factor_dir=assets_dir,
+        expression=meta.get("expression"),
+        source_type=meta.get("source_type"),
+        holdout_range=holdout_range_tuple,
+    )
+
     composite = compute_composite(candidate)
 
     figs = {
@@ -111,9 +161,12 @@ def render_factor(factor_id: str, storage_root: Path | str = "storage") -> dict[
         "rolling_ic": chart_rolling_ic(ic_daily),
         "ic_distribution": chart_ic_distribution(ic_daily),
         "monthly_heatmap": chart_monthly_heatmap(ic_daily),
-        "quintile_bar": chart_quintile_bar(q_train, q_val),
-        "cumulative_returns": chart_cumulative_returns(q_train, q_val, ls_daily),
-        "annual_group_returns": chart_annual_group_returns(q_train, q_val),
+        "quintile_bar": chart_quintile_bar(q_train, q_val, q_holdout),
+        "cumulative_returns": chart_cumulative_returns(q_train, q_val, q_holdout),
+        "long_short_cumulative": chart_long_short_cumulative(
+            ls_daily, q_train, q_val, q_holdout
+        ),
+        "annual_group_returns": chart_annual_group_returns(q_train, q_val, q_holdout),
         "style_exposure_bar": chart_style_exposure_bar(candidate.get("barra") or {}),
         "alpha_waterfall": chart_alpha_waterfall(
             ((candidate.get("ic") or {}).get("validation") or {}).get("ic_mean") or 0.0,

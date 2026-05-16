@@ -16,7 +16,7 @@ primitive:
 sample_policy:
   train_range: [2015-01-01, 2021-12-31]
   validation_range: [2022-01-01, 2023-12-31]
-  holdout_range: [2024-01-01, 2024-12-31]   # Phase 2/3 never see this
+  holdout_range: [2024-01-01, 2025-12-31]   # Phase 2/3 never see this; extended 2026-05-16 from 2024-only
 
 universes:
   primary: all_tradable             # CP01–CP06 run on full-market tradable stock-days
@@ -101,7 +101,7 @@ consolidation:
 backtest:
   defaults:
     universe: csi1000
-    initial_capital: 10000000
+    initial_capital: 1000000      # 2026-05-16: 10M → 1M (closer to small fund / retail实操)
     signal_recompute: true
 
     rebalance:
@@ -109,7 +109,7 @@ backtest:
       anchor: monday
 
     portfolio:
-      holdings_n: 50
+      holdings_n: 20              # 2026-05-16: 50 → 20 (csi1000 top 5% → top 2%, higher signal concentration)
       weight_scheme: equal
       max_single_weight: 0.05
 

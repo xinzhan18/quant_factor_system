@@ -1,0 +1,206 @@
+direction: overnight_intraday_split
+batch_goal: "Round 94 — reserve revival pool #3 (rank-diff axis escape via b080/C006
+  跨 b091 finding 合成, calibration finding/013 续命). direction status=saturated, zero_admit_streak=6
+  (b088/b089/b090/b091/b092/b093 累积). 原 pool #3 reserve = b080/C006 `Mean(overnight×turnover,60)
+  × Std(num_trades,60)` alpha_surv=0.61 + ls_t=4.06 + 9/9 年正 + cum_mdd=-1.37 但 4 anchor
+  cluster (F002/F012/F018/F023) + incr_ic=0.0098 缺 F203 0.015 ~33% → reserve。本批
+  把 b091 finding (rank-diff axis Sub(TsRank,TsRank) 在 amount/num_trades/overnight 非
+  close-position 域是真 escape, b091/C004 PASS) 应用到 overnight × turnover product
+  上，假设 rank-diff atom + product LHS 联立可同时降 anchor cluster + 升 incr_ic 出 borderline。
+
+  6 候选覆盖 rank-diff axis × overnight 域全谱:
+  - C001 (single-field rank-diff): Sub(TsRank(overnight_gap,60), TsRank(overnight_gap,20))
+    — pure overnight 跨窗 TsRank diff, atom-class probe (overnight 非 close-position 域,
+    b091 finding 预测 escape 可能);
+  - C002 (signed-product rank-diff): Sub(TsRank($turnover_rate × overnight_gap, 60),
+    TsRank($turnover_rate × overnight_gap, 20)) — overnight×turnover product 跨窗 rank-diff,
+    b080/C006 reserve atom 直接套 rank-diff form;
+  - C003 (cross-period product rank-diff): Sub(TsRank(overnight×turnover,30),
+    TsRank(overnight×turnover,90)) — 短窗−长窗对称组 (30/90), 测 window-scale 不同效;
+  - C004 (cross-field rank-diff): Sub(TsRank(overnight×volume,60),
+    TsRank(overnight×turnover,60)) — 同窗 cross-field rank-diff, RHS swap volume↔turnover
+    脱 F002 anchor (b093 RHS 锁源律启发: 改 RHS family);
+  - C005 (Cov form rank-diff): Sub(TsRank(Cov(overnight,$volume,60),60),
+    TsRank(Cov(overnight,$volume,60),20)) — 时序+横截面 double TsRank, 测 Cov atom 在
+    rank-diff layer 是否独立;
+  - C006 (anti-clamp single TsRank): TsRank(overnight × Mean($turnover_rate,5), 60)
+    — 单 TsRank 平滑分母 (turnover_5 trend), 作 sub-control 对比组 (非 rank-diff form,
+    测 smoothing vs raw 效果)。
+
+  全候选 Phase 1 generator self-check 4 hard rule:
+  - **P030** (alpha_surv>1.0 unilateral ≠ admit 充分): 本批 6/6 不依赖 alpha_surv 单边,
+    multi-CP rationale 强制 (incr_ic + max_corr + ls_t + sign_consistency 至少 2/3);
+  - **P004-deep** (N-day path-integral 累积 default reject): rank-diff Sub(TsRank,TsRank)
+    是 cross-window scalar diff (round 91 lessons 已 codify NOT path-integral); product
+    Mul(overnight, turnover) 是单步 cross-section, 非累积; 全候选 pass;
+  - **Cov-equiv律 (P030 升格)**: C005 `Cov(overnight, $volume, 60)` 与库内 F023
+    `Mean(Mul(overnight, intraday), 20)` 几何不同 (RHS=volume vs intraday body), Cov 跨字段
+    overnight×volume 与 F023 overnight×intraday 不构成 cross-section near_dup (验证 ≥0.9
+    需 cross-corr 实测, 但 RHS field 不同概率不会撞); 全候选 pass;
+  - **Reciprocal monotonic-invariant duplicates**: 全候选无 Div 形式, 无 reciprocal 镜像问题。
+
+  **rank-diff axis atom-class 依赖律 (b091/b092 升格)** 应用:
+  - b091/C004 (institutional_flow_proxy amount/num_trades 域) PASS — rank-diff Sub(TsRank,TsRank)
+    在非 close-position 域是真 escape;
+  - b092 close-position 域 (tsrank_candlestick_ratio) fail — 同 rank-diff form 在
+    close-position 域 self-cancellation;
+  - **本批 overnight 域**: overnight gap = $open − Ref($close,1) 是 cross-day momentum
+    direct, 非 close-position (与 (C-L)/(H-L) close-position 几何 distinct); 假设属
+    rank-diff escape 域 (与 b091 同类), 而非 close-position self-cancellation 域。
+
+  **b093 RHS 锁源律 (T017 finding)** 应用:
+  - b093 实证 T017 Corr atom F019 cluster anchor 在 RHS `Mean(H-L,60)` 不在 LHS Corr;
+  - 本批全候选 **不用 Mean(H-L) RHS** — C001/C002/C003 是 single-LHS rank-diff (无独立 RHS);
+    C004 cross-field rank-diff 用 volume/turnover RHS family (非 H-L 衍生);
+  - 假设: 不接触 Mean(H-L,60) RHS = 不接触 F019 vol_20d basis 1st moment 同源簇,
+    cluster anchor 应不在 b093 锁源域内。
+
+  **F024 anchor basin 宽度≥90d** 应用:
+  - F024 是 TsRank-60 trade_density ratio (close-position 域); 本批全候选 LHS =
+    overnight × {turnover/volume} (cross-day momentum 域, 非 close-position);
+  - C003 用 30/90 窗对, C004 用 60d, C005 用 60d Cov + 20/60 双 TsRank — 全候选 TsRank
+    窗口 ∈ [20,90d] 范围内, 但 LHS atom geometry 与 F024 几何 distinct (overnight 非
+    close-position), F024 anchor basin 应不直接 cluster overlap。
+
+  **reciprocal monotonic-invariant duplicates** (round 92 升格): 全候选无 Div 形式,
+  无 numer/denom 互换问题; product Mul(overnight, turnover) 是 commutative 但
+  Mul(turnover, overnight) canonical equivalent (round 91 COMMUTATIVE_OPERATORS{Add,Mul}
+  pre-dedup 自动处理)。
+
+  Anti-recapitulation:
+  - 不重试 b080/C006 raw form (`Mean(overnight×turnover,60) × Std(num_trades,60)`) —
+    那是被复活的 reserve 本身, 直接重计算 = 重复 b080/C006;
+  - 不重试 b048/C001-C005 (overnight ratio 各种 rank-diff form, 同字段跨窗口 / 共 RHS=overnight_5
+    全 reject — T004/T006/T008 disprove);
+  - 不重试 b049/C001-C005 (共 RHS=overnight_5 / signed×magnitude 脱 LHS — T008/T009);
+  - 不重试 b059/C003 sign-product 60d rank-diff (T011 path);
+  - 不重试 b066 Skew/Kurt/Autocorr rank wrap (T014/T015/T016 disprove)。
+
+  本批 C001 (single-field overnight 跨窗 rank-diff) 与 b048/C001 (overnight ratio rank-diff)
+  数学距离非零 (C001 是 TsRank overnight raw 跨窗, b048/C001 是 ratio LHS); 与 b066/C004
+  (Rank wrap of Mean(overnight,5)) 不同 (C001 是 raw overnight 跨窗 TsRank, b066/C004
+  是 single TsRank wrap aggregation atom)。
+
+  Hard targets:
+  - C002 或 C004 ≥1 admit (incr_ic≥0.015 + max_corr<0.40 + alpha_surv≥0.30 + ls_t≥2
+    + sign_consistency=1.0) → 验证 b091 rank-diff axis escape 律在 overnight 域是否同样成立
+    + pool #3 真红利;
+  - 若 6/6 全 reject → rank-diff axis 在 overnight 域亦 self-cancellation (与 b092
+    close-position 域同律), 升格 `rank-diff axis 跨域适用律`: 仅 amount/num_trades 域 escape,
+    overnight/close-position/其他域均 self-cancel;
+  - calibration_trigger 候选: zero_admit_streak=6 + 3 reserve revival pool 连续失败 (pool #1,
+    #2 已失败, 若 pool #3 再失败) → 极可能触 calibration (累计 reserve 积压 + reserve revival
+    路径全谱探索后真红利仍未现, 需阈值校准 vs 真信号塌缩诊断)。"
+active_threads_referenced:
+- T005
+- T011
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(TsRank(Sub($open, Ref($close, 1)), 60), TsRank(Sub($open, Ref($close, 1)), 20))
+  canonical: Sub(TsRank(Sub($open,Ref($close,1)),60),TsRank(Sub($open,Ref($close,1)),20))
+  rationale: 'Pool #3 rank-diff axis probe (atom-class 边界测试) — single-field overnight
+    gap 跨窗 TsRank diff. overnight_gap = $open - Ref($close,1) 是 cross-day momentum
+    direct (非 close-position 域, b091 finding 预测可能 escape). H1 关键测试: rank-diff axis
+    Sub(TsRank,TsRank) 在 overnight 域是否同 b091 amount/num_trades 域 escape, 还是同
+    b092 close-position 域 self-cancellation? 假设 overnight 是 cross-day momentum
+    direct 非 close-position 域, 应同 b091 axis 成功; 但 T006 律 (同字段跨窗口 rank-diff
+    抵消) 是已 disprove pattern (b048 C001) — 本候选刻意置于 T006 disprove 边界, 测
+    rank-diff atom 是否改变 T006 律 (b093 C004 在 Corr atom 已实证 T006 律跨 atom-class
+    普适, 本候选在 TsRank atom 复测). P030 multi-CP: 不依赖 alpha_surv 单边, expected ls_t≥2
+    + mono≥0.5 + sign_consistency=1.0. P004-deep ✓ (Sub of TsRanks 非 cumulative).
+    Cov-equiv ✓ (无 Cov). Reciprocal ✓ (无 Div). Anti-recap: 与 b048/C001 (overnight
+    ratio rank-diff) distinct (本候选 raw overnight 跨窗, b048/C001 ratio); 与 b066/C004
+    (Rank wrap Mean(overnight,5)) distinct (本候选 cross-window TsRank diff)。'
+  expected_sign: positive
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(TsRank(Mul($turnover_rate, Sub($open, Ref($close, 1))), 60), TsRank(Mul($turnover_rate, Sub($open, Ref($close, 1))), 20))
+  canonical: Sub(TsRank(Mul($turnover_rate,Sub($open,Ref($close,1))),60),TsRank(Mul($turnover_rate,Sub($open,Ref($close,1))),20))
+  rationale: 'Pool #3 主复活路径 — b080/C006 reserve atom (overnight × turnover product)
+    直接套 rank-diff form. b080/C006 raw form `Mean(overnight×turnover,60) × Std(num_trades,60)`
+    alpha_surv=0.61 PASS 但 4 anchor cluster (F002/F012/F018/F023) — b091 finding 假设
+    rank-diff atom 通过 cross-window cancellation 把绝对 level 信息 (vol_20d basis) 去掉,
+    保留相对 rank momentum 信息, 应同步降 anchor cluster. H2 关键测试: 若 rank-diff form
+    把 max_corr 从 b080/C006 多 anchor cluster 降至 <0.40 (理想 <0.30) 且 alpha_surv
+    维持 ≥0.30 + incr_ic ≥0.015 + ls_t≥2 → 升格 "rank-diff form 是 product LHS reserve
+    cluster 突破真路径" 律. P030 multi-CP ✓. P004-deep ✓. Cov-equiv ✓ (product Mul 非 Cov).
+    Reciprocal ✓. 风险: rank-diff form 可能让 incr_ic 进一步下降 (rank-diff 本身是 noise-amplifying
+    form, b091 实证仅在特定 atom-class 上 escape); 若 alpha_surv 同时塌至 <0.30 + ls_t<2
+    → b080/C006 真红利不在 rank-diff form. Anti-recap: 与 b080/C006 distinct (raw 是
+    Mean × Std product 双 aggregation, 本候选是 single product 跨窗 TsRank diff)。'
+  expected_sign: positive
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(TsRank(Mul(Sub($open, Ref($close, 1)), $turnover_rate), 30), TsRank(Mul(Sub($open, Ref($close, 1)), $turnover_rate), 90))
+  canonical: Sub(TsRank(Mul(Sub($open,Ref($close,1)),$turnover_rate),30),TsRank(Mul(Sub($open,Ref($close,1)),$turnover_rate),90))
+  rationale: 'Pool #3 window-sweep 变种 — 短−长窗对称组 30/90 (vs C002 60/20). 30d
+    短窗作 LHS, 90d 长窗作 RHS — 测短期排名上升 vs 长期排名下降 (climax pattern 反向, 是
+    "短期相对回升 / 长期相对低位"信号). 与 C002 的 60/20 (长期上升 / 短期 flat = climax) 几何相反.
+    H3 关键测试: window-scale 不同效 — 若 C003 alpha_surv > C002 → "短期相对优势"信号比
+    "长期累积优势"信号 stronger (mean-reversion 主); 若 C002 > C003 → "长期累积优势" stronger
+    (momentum 主). F024 anchor basin ≥90d: C003 LHS 30d 在 basin 外, RHS 90d 刚到边界,
+    LHS atom 几何 distinct (overnight product 非 trade_density ratio). P030/P004-deep/Cov-equiv/Reciprocal
+    ✓. Anti-recap: 与 C002 windows distinct (30/90 vs 60/20); 与 b080/C006 windows distinct
+    (60 single vs 30/90 diff)。'
+  expected_sign: positive
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank(Mul(Sub($open, Ref($close, 1)), $volume), 60), TsRank(Mul(Sub($open, Ref($close, 1)), $turnover_rate), 60))
+  canonical: Sub(TsRank(Mul(Sub($open,Ref($close,1)),$volume),60),TsRank(Mul(Sub($open,Ref($close,1)),$turnover_rate),60))
+  rationale: 'Pool #3 cross-field rank-diff — overnight×volume vs overnight×turnover_rate
+    同窗 (60d) cross-field diff. 启发自 b093 RHS 锁源律: 改 RHS family 出 cluster 域. 本候选
+    把 RHS field 从 turnover_rate (b080/C006 reserve 原 RHS) swap 到 volume (cross-field),
+    保留 LHS field overnight 不变; 60d 窗口 same 让 cross-field comparison clean. H4 关键测试:
+    cross-field rank-diff 是否引入 cross-field 独立信号 (overnight × {volume raw level} -
+    overnight × {turnover normalized}), 即 raw volume vs normalized turnover 的 cross-section
+    rank 差是否 carry 新信息. 若 alpha_surv ≥0.30 + max_corr<0.40 → 升格"cross-field rank-diff
+    是 product LHS 脱 anchor 的真路径". 风险: volume 与 turnover_rate (volume / circ_shares)
+    cross-section corr 可能 >0.85 (volume rank ≈ turnover rank 当 circ_shares 分布 stable),
+    cross-field diff 可能 dominate noise. P030 multi-CP. P004-deep ✓. Cov-equiv ✓.
+    Reciprocal ✓ (Sub(A,B) ≠ Sub(B,A) canonical, pre-dedup 自动处理). Anti-recap:
+    与 b049/C001-C005 共 RHS=overnight_5 distinct (本候选 RHS=turnover_rate full window)。'
+  expected_sign: positive
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(TsRank(Cov(Sub($open, Ref($close, 1)), $volume, 60), 60), TsRank(Cov(Sub($open, Ref($close, 1)), $volume, 60), 20))
+  canonical: Sub(TsRank(Cov(Sub($open,Ref($close,1)),$volume,60),60),TsRank(Cov(Sub($open,Ref($close,1)),$volume,60),20))
+  rationale: 'Pool #3 Cov atom rank-diff probe — 时序 60d Cov 内嵌 + 双 TsRank 跨窗 diff
+    (60d vs 20d window on Cov series). Cov(overnight_gap, $volume, 60) 是 rolling
+    60-day covariance estimator (within-name 时序), 然后 TsRank 60 / 20 跨窗 diff 把
+    Cov series 在时序上 normalize 后取窗-差. P030 Cov-equiv 律自检: Cov(overnight, $volume, 60)
+    与 F023 `Mean(Mul(overnight, intraday_body), 20)` 几何不同 (Cov 双 zero-mean 二阶 vs
+    F023 单 product 累积; 且 RHS field volume vs intraday body 不同). Cov-equiv 律
+    P030 (csi1000 daily zero-mean stationary 下 Cov≈Mean(X*Y)) 在 cross-field overnight×volume
+    上理论上仍成立 (Cov(o,v,60) ≈ Mean(o*v,60)), 但 F023 RHS=intraday_body 与 volume 不同;
+    cross-section near_dup 概率低 (库内无 Mean(overnight×volume,60) admit), 但应在 result
+    实测验证. H5 关键测试: Cov atom + 双 TsRank rank-diff 是否独立于 b080/C006 reserve (Mean
+    + Std double aggregation)? 若 max_corr@F023<0.40 + alpha_surv≥0.30 → Cov atom
+    rank-diff form distinct from F023 cluster. P030 multi-CP. P004-deep ✓ (Cov rolling
+    是 estimator 非 path-integral). Cov-equiv 部分自检 ✓ (RHS field distinct).
+    Reciprocal ✓.'
+  expected_sign: positive
+- candidate_id: C006
+  source_type: dsl
+  expression: TsRank(Mul(Sub($open, Ref($close, 1)), Mean($turnover_rate, 5)), 60)
+  canonical: TsRank(Mul(Sub($open,Ref($close,1)),Mean($turnover_rate,5)),60)
+  rationale: 'Pool #3 anti-clamp single-TsRank control — 非 rank-diff form, 平滑分母
+    (Mean turnover 5d) + 单 TsRank wrap 60d. 作 sub-control 对比 C002 (rank-diff form on
+    raw turnover), 测 (a) smoothing vs raw turnover, (b) rank-diff form vs single TsRank
+    form. H6 关键测试: 若 C006 alpha_surv > C002 → product smoothing (Mean turnover 5d)
+    比 rank-diff form 更有效; 若 C002 > C006 → rank-diff form 是真路径不依赖 smoothing.
+    与 b080/C006 reserve (60d 长窗 Mean × Std product) distinct (本候选 5d 短窗 Mean turnover
+    + single TsRank wrap, 非 double aggregation). F018 anchor (Mean(Sign(overnight),20)
+    × amount) 关注 sign-aggregation; 本候选 raw overnight × Mean(turnover,5) 关注 magnitude
+    × liquidity 短窗, geometric distinct. P030 multi-CP. P004-deep ✓ (TsRank 单窗 非
+    path-integral). Cov-equiv ✓. Reciprocal ✓. Anti-recap: 与 b080/C006 (60d Mean
+    × Std product) distinct (本候选 single TsRank wrap of Mean smoothed product, RHS
+    aggregator 5d 短窗 vs 60d 长窗); 与 b066/C004 (Rank wrap Mean(overnight,5)) distinct
+    (本候选 LHS 是 overnight × Mean(turnover,5) product, b066/C004 LHS 是 Mean(overnight,5)
+    aggregation)。'
+  expected_sign: positive

@@ -1,0 +1,90 @@
+metrics:
+  full:
+    ann_return: 0.057168831236978475
+    volatility: 0.26208982165101463
+    sharpe: 0.21812686535038953
+    max_dd: -0.19314607901380332
+    n_days: 242
+  turnover:
+    n_rebalance_days: 48
+    avg_trades_per_rebalance: 74.19
+    avg_buy_notional_per_rebalance: 3406787.94
+    buy_notional_total: 163525821.33
+    sell_notional_total: 156951333.54
+    ann_turnover_x: 17.69
+  reconciliation:
+    invariant_violations: 1378
+    max_violation_bps: 1181.6516773063183
+  benchmark:
+    excess_return_ann: -0.042416536693896806
+    info_ratio: -0.34876816011638634
+    tracking_error_ann: 0.12161814507305402
+    alpha: -0.01513735472379118
+    beta: 0.7260724306631523
+    available: true
+    kind: csi1000
+config_snapshot:
+  universe: csi1000
+  initial_capital: 10000000.0
+  signal_recompute: true
+  rebalance:
+    freq_days: 5
+    anchor: monday
+  portfolio:
+    holdings_n: 50
+    weight_scheme: equal
+    max_single_weight: 0.05
+  matching:
+    match_price: open
+    price_adjust: hfq
+  cost:
+    stamp_schedule:
+    - from_date: '2015-01-01'
+      to_date: '2023-08-27'
+      sell_bps: 10.0
+    - from_date: '2023-08-28'
+      to_date: '9999-12-31'
+      sell_bps: 5.0
+    commission_bps: 3.0
+    slippage_bps: 5.0
+    min_commission_cny: 5.0
+  capital:
+    allow_intraday_netting: false
+  filters:
+    block_st: true
+    block_suspended: true
+    block_limit_up_at_buy: true
+    block_limit_down_at_sell: true
+    cooldown_days_after_unsuspend: 1
+    newly_listed_days: 60
+    stale_position_days_max: 5
+  periods:
+    train:
+    - '2015-01-01'
+    - '2021-12-31'
+    val:
+    - '2022-01-01'
+    - '2023-12-31'
+    holdout:
+    - '2024-01-01'
+    - '2024-12-31'
+    run:
+    - train
+    - val
+    - holdout
+  benchmark:
+    kind: csi1000_total_return
+  output:
+    save_trades: true
+    save_positions: true
+    figs:
+    - equity
+    - drawdown
+    - monthly_heatmap
+    - layer_decomp
+    - cost_drag
+    - blocked_trades
+runtime_meta:
+  snapshot_ts: '2024-12-31 00:00:00'
+  signal_recompute: true
+  price_adjust: hfq

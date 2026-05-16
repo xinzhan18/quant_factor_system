@@ -1,0 +1,26 @@
+feature_id: amount_hhi_v1
+feature_type: primitive
+source_type: minute_bar
+source_freq: 1min
+output_freq: daily
+template: distribution_stats
+params:
+  series: amount_share
+  stat: hhi
+  window: 09:30-15:00
+time_semantics:
+  event_time: T intraday
+  available_time: T 15:00
+  allowed_labels:
+    - close_to_close_1d
+data_policy:
+  include_auction: false
+  min_bar_ratio: 0.8
+  missing_bar: ignore
+  suspended_day: nan
+cache:
+  data_version: market_1min_v1
+  calendar_version: cn_a_session_v1
+  engine_version: primitive_engine_v0.1
+status: experimental
+

@@ -1,27 +1,42 @@
 metrics:
   full:
-    ann_return: -0.035177893946639005
-    volatility: 0.10911207831268058
-    sharpe: -0.32240146545307596
-    max_dd: -0.19067846869176241
+    ann_return: -0.06442942353086414
+    volatility: 0.09937620653786702
+    sharpe: -0.64833852866293
+    max_dd: -0.1626652144853613
     n_days: 484
+  turnover:
+    n_rebalance_days: 96
+    avg_trades_per_rebalance: 34.69
+    avg_buy_notional_per_rebalance: 400767.89
+    buy_notional_total: 38473717.44
+    sell_notional_total: 37932143.16
+    ann_turnover_x: 21.49
   reconciliation:
-    invariant_violations: 2733
-    max_violation_bps: 787.0664508679732
+    invariant_violations: 2537
+    max_violation_bps: 399.6384035091957
+  benchmark:
+    excess_return_ann: 0.008318366764280636
+    info_ratio: 0.0654040418095964
+    tracking_error_ann: 0.12718429219553407
+    alpha: -0.033556786532326216
+    beta: 0.4243790647740717
+    available: true
+    kind: csi1000
 config_snapshot:
   universe: csi1000
-  initial_capital: 10000000.0
-  signal_recompute: false
+  initial_capital: 1000000.0
+  signal_recompute: true
   rebalance:
     freq_days: 5
     anchor: monday
   portfolio:
-    holdings_n: 50
+    holdings_n: 20
     weight_scheme: equal
     max_single_weight: 0.05
   matching:
     match_price: open
-    price_adjust: qfq
+    price_adjust: hfq
   cost:
     stamp_schedule:
     - from_date: '2015-01-01'
@@ -36,12 +51,12 @@ config_snapshot:
   capital:
     allow_intraday_netting: false
   filters:
-    block_st: false
+    block_st: true
     block_suspended: true
-    block_limit_up_at_buy: false
-    block_limit_down_at_sell: false
-    cooldown_days_after_unsuspend: 0
-    newly_listed_days: 0
+    block_limit_up_at_buy: true
+    block_limit_down_at_sell: true
+    cooldown_days_after_unsuspend: 1
+    newly_listed_days: 60
     stale_position_days_max: 5
   periods:
     train:
@@ -54,7 +69,9 @@ config_snapshot:
     - '2024-01-01'
     - '2024-12-31'
     run:
+    - train
     - val
+    - holdout
   benchmark:
     kind: csi1000_total_return
   output:
@@ -68,6 +85,6 @@ config_snapshot:
     - cost_drag
     - blocked_trades
 runtime_meta:
-  snapshot_ts: '2023-12-29 00:00:00'
-  signal_recompute: false
-  price_adjust: qfq
+  snapshot_ts: '2024-12-31 00:00:00'
+  signal_recompute: true
+  price_adjust: hfq

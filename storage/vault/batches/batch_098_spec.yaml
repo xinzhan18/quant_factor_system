@@ -1,0 +1,216 @@
+direction: conditional_operator_truncation
+batch_goal: |
+  Round 98 — data-driven extension of b097/C001 binarize-axis success.
+  b097/C001 上影主导日占比 alpha_surv=1.07 (Barra-clean reserve) — 全 6 中唯一 binarize
+  内容 ⊥ Barra basis 的几何; 其余 5 子族 binarized content 同构 vol_20d / str_1m basis
+  → 100% absorption.
+
+  **核心律 (b097 实证)**: full binarize + Mean aggregate 仅在 binarized 内容
+  ⊥ Barra style basis 时产生 distinct geometry; binarize 形式独特不够, 内容必须 distinct.
+
+  **本批 hypothesis**: candle-geometry content (上/下/中-body 占比, range-position 高/低位)
+  都属于 candle-geometry derivative, 应与 9-style Barra basis (size/vol_20d/momentum/value/
+  quality/turnover/leverage/eps/str_1m) 均不同构 → 期望多数 candidate 达到 alpha_surv ≥ 0.5
+  + ls_t ≥ 2.0 borderline, ≥1 admit (max_corr<0.40, ls_t≥3.0, alpha_surv≥0.5, incr_ic≥0.005).
+
+  Qlib runtime op 实测可用: Gt/Lt (boolean), Mean, Sub, Div, Abs, Mul, Ref. **不用 If/IfElse**
+  (b097 C006 中 If × continuous → str_1m 100% 吸收, 已 disprove). 全 6 候选走 full binarize
+  + Mean rate aggregate 路径.
+
+  **6 候选覆盖**:
+  - C001 下影主导日占比 20d (T001 sign-flip镜像 / reciprocal duplicate 风险, 必精测)
+  - C002 small-body 主导日占比 20d (candle geometry 新维度, |close-open|/range < 0.3)
+  - C003 range-position 高位主导日占比 20d ((close-low)/range > 0.8)
+  - C004 range-position 低位主导日占比 20d ((close-low)/range < 0.2)
+  - C005 60d gap-up event rate (低阈 0.5%) — b097/C002 (阈 0.5%, 60d) sign-flip 不重测; 走
+    **强 gap-up 0.5% 60d 已 disprove**, 本批改 60d gap-up event rate 复测但**更高阈 1.5%**
+    隔离 cross-day return 同构 vol_20d 风险
+  - C006 60d engulfing pattern rate (反向 candlestick reversal: 当日 body 与 前日 body 同号
+    + 当日 body 更大) — 复合事件率, 新 geometry
+
+  **Self-check 5 hard rule (P030 + P004-deep升格 + F028 + reciprocal + Cov-equiv)**:
+  - **P030**: 全 6 multi-CP rationale, 不依赖 alpha_surv 单边
+  - **P004-deep 升格 (b097 round 9 升格)**: long-window aggregate 必然与 style basis 频谱
+    共振 IF binarized content 同构 basis. 本批 C001-C004 candle geometry, 已知与 9-style
+    不同构; C005 高阈 gap-up 1.5% 走 60d aggregate, 风险**仍可能**与 vol_20d 频谱共振 — 显式
+    标注 borderline; C006 engulfing 是 cross-day candlestick pattern, 不是 return 信号, 风险
+    较低. Phase 3 judge 若发现 vol_20d_exp > 15 或 alpha_surv < 0.4 则该子族证伪.
+  - **F028 anchor**: F028 用 Lt×Greater 双 condition 比值, 本批 6 候选无双 condition 复合
+    → distinct
+  - **b097/C001 anchor (round 9 新 reserve)**: C001 (本批 下影主导日) 是 b097/C001 (上影主
+    导日) 的 sign-flip 镜像 — Gt((C-L)/(H-L), 0.5) 等价于 Lt((H-C)/(H-L), 0.5), 二值化在
+    cross-section 上**可能产生互补但不严格 sign-flip** (因 close==(H+L)/2 时两者同时 False
+    构成 "middle-body day"). 必跑 Phase 2 max_corr 实测; 预期 |corr|<0.7 但 >0.3.
+  - **Reciprocal duplicate**: C001 vs b097/C001 (sign-flip 风险); C003 vs C004 (互补对偶高
+    位/低位, 中间 [0.2, 0.8] 是 "middle-position day" 共同 False, 非严格互补). 本批不并列覆
+    盖 reciprocal 子族 (单边)
+  - **Cov-equiv (P028)**: 无 Cov atom; 无 cross-section OLS residualize (DSL only)
+
+  **Anchor avoidance**:
+  - F028 (DMI down-ratio): 双 condition 复合, distinct
+  - F021 (shadow_disp): F021 用 Std/dispersion 连续, 本批用 truncate+rate 离散, geometry 不同
+  - b097/C001 (reserve, 上影主导日占比): 本批 C001 是 reciprocal 镜像 — 必精测 max_corr
+  - F022 (b097/C001 nearest@max_corr=0.41): 同样 candle-position 路径相关, 注意
+  - F019/F020 (gap rank-diff): C005 走 truncation+Mean 而非 rank-diff, geometry 不同
+
+  **Baseline-first 守则 explicit skip**: 15 untouched TTM 字段无法支撑 daily candle geometry
+  event counting (TTM 季度更新). 显式 skip baseline-first, 本批纯 OHLCV structural extension.
+
+  **avoid-this-batch rank-diff axis**: 9 batches 累积零 admit, 本批不用 Sub(TsRank, TsRank);
+  candle-geometry binarize 是正交几何.
+
+  Target: ≥1 admit (ls_t ≥ 3.0 + max_corr < 0.40 + alpha_surv ≥ 0.5 + incr_ic ≥ 0.005)
+  OR ≥2 candidates validated borderline (alpha_surv ≥ 0.5 + ls_t > 2.0 confirming binarize
+  content ⊥ Barra basis 律). 若 0 admit + 多数 candle-geometry candidate 也被 basis 吸收
+  → T001 路径整体证伪, conditional family 该路径 dead.
+active_threads_referenced:
+  - T001
+  - T007
+  - T008
+  - T009
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+candidates:
+  - candidate_id: C001
+    source_type: dsl
+    expression: Mean(Gt(Div(Sub($close,$low),Sub($high,$low)),0.5),20)
+    canonical: Mean(Gt(Div(Sub($close,$low),Sub($high,$low)),0.5),20)
+    rationale: |
+      T001 下影主导日占比 (reciprocal mirror of b097/C001 上影主导日占比). close-position
+      = (C-L)/(H-L). Gt(.,0.5) = 1 当 close 在 range 上半段 (下影主导/上行收盘); 20d Mean
+      = 下影主导日 Bernoulli rate.
+      expected_sign: positive (下影主导日多 = 收盘强势 / 日内反转买盘 = momentum 持续).
+
+      Self-check:
+        - P030: multi-CP rationale (incr_ic + max_corr + ls_t)
+        - P004-deep BORDERLINE: 20d binarize 离散 {0,1} 事件率, 与 b097/C001 同窗同形式;
+          已实证 (b097/C001) candle-geometry 内容 ⊥ Barra basis (alpha_surv=1.07).
+          本候选是其 reciprocal 镜像, 期望同等 alpha_survival
+        - F028: 双 condition 比值, 本候选单 Gt, distinct
+        - b097/C001 anchor (上影主导日占比, Gt((H-C)/(H-L),0.5)): 与本候选 cross-section
+          关系是 "close 在 range 上半 vs 下半" — 在 (H-C)/(H-L) > 0.5 时 (C-L)/(H-L) < 0.5,
+          反之亦然, 中间 close==(H+L)/2 时两者同时 False. 因此**非严格 sign-flip 镜像**,
+          cross-section corr 期望 |corr| ∈ [0.3, 0.7]. Phase 2 max_corr_F022 + max_corr 全
+          库实测决定 verdict; 若 >0.7 与 b097/C001 (待 F id) corr 则 near_duplicate reject
+        - reciprocal monotonic: Gt(x,0.5) ≠ Lt(x,0.5) (中间值 x=0.5 一致 False), 非严格互补
+    expected_sign: positive
+  - candidate_id: C002
+    source_type: dsl
+    expression: Mean(Lt(Div(Abs(Sub($close,$open)),Sub($high,$low)),0.3),20)
+    canonical: Mean(Lt(Div(Abs(Sub($close,$open)),Sub($high,$low)),0.3),20)
+    rationale: |
+      T007 small-body 主导日占比 (doji-like 日 = 实体 < range 30% 占比). body =
+      |close-open|, range = high-low. Lt(.,0.3) = 1 当 |body|/range < 0.3 (小实体犹豫日)
+      否则 0; 20d Mean = "犹豫日"占比 Bernoulli rate.
+      expected_sign: negative (犹豫日多 = 流动性不足/方向不明 = 反转或低未来 return).
+
+      Self-check:
+        - P030: multi-CP rationale
+        - P004-deep BORDERLINE: 20d 离散事件率 candle geometry, 与 b097/C001 同结构; small-
+          body geometry 不在 9-style basis (与 vol_20d 不同构 — vol_20d 是 range 绝对量级,
+          本候选是 body/range 比例; 与 momentum/str_1m 不同构 — sign 信息全丢)
+        - F028: 单 Lt, distinct
+        - b097/C001 anchor: 上影占比走 (H-C)/(H-L), 本候选走 |C-O|/(H-L) — 几何完全不同
+          (前者 上半 vs 下半, 后者 实体 vs range)
+        - F022 (b097/C001 nearest): F022 是 range_compression_60 dispersion 连续, distinct
+        - reciprocal monotonic: Lt(x,0.3) ≠ Gt(x,0.7) (中间 [0.3, 0.7] 共同 False), 非严格
+          互补
+    expected_sign: negative
+  - candidate_id: C003
+    source_type: dsl
+    expression: Mean(Gt(Div(Sub($close,$low),Sub($high,$low)),0.8),20)
+    canonical: Mean(Gt(Div(Sub($close,$low),Sub($high,$low)),0.8),20)
+    rationale: |
+      T008 range-position 高位主导日占比 (close 在 range 最高 20% 区间天数占比 = 强收盘日).
+      (C-L)/(H-L) > 0.8 即 close 在 range 高位 80%+ 为 1 否则 0. 20d Mean = 强收盘日 rate.
+      expected_sign: positive (强收盘日多 = 持续买盘 = momentum).
+
+      Self-check:
+        - P030: multi-CP rationale
+        - P004-deep BORDERLINE: 20d 离散事件率, candle geometry 路径; 与 C001 阈值不同
+          (0.5 → 0.8) 更严格选择, cross-section 上选出 top 部分 strong-close day
+        - F028: 单 Gt threshold 0.8, distinct
+        - b097/C001 anchor: 同 (C-L)/(H-L) 信号底层, 阈值 0.8 vs 0.5; cross-section 上是
+          subset 关系 — Mean(Gt(.,0.8),20) ≤ Mean(Gt(.,0.5),20) point-wise, rank 排序可能
+          高相关. Phase 2 max_corr 实测; 期望 |corr| ∈ [0.5, 0.8]. 若 >0.7 → near_dup reject
+        - C001 (本批): 同信号不同阈值, 同样高相关风险 — 本批 6 候选中 C001 vs C003 是
+          高相关风险对; 若 max_corr 互测 >0.7 应保留较强者
+        - reciprocal monotonic: Gt(x,0.8) ≠ Lt(x,0.2) (中间 [0.2, 0.8] 共同 False), 非严格
+          互补
+    expected_sign: positive
+  - candidate_id: C004
+    source_type: dsl
+    expression: Mean(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),20)
+    canonical: Mean(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),20)
+    rationale: |
+      T008 range-position 低位主导日占比 (close 在 range 最低 20% 区间天数占比 = 弱收盘日).
+      (C-L)/(H-L) < 0.2 为 1 否则 0. 20d Mean = 弱收盘日 rate.
+      expected_sign: negative (弱收盘日多 = 持续抛压 = 反转向下).
+
+      Self-check:
+        - P030: multi-CP rationale
+        - P004-deep BORDERLINE: 20d 离散事件率, candle geometry 路径
+        - F028: 单 Lt, distinct
+        - b097/C001 anchor (上影主导日 Gt((H-C)/(H-L),0.5)): 上影主导 → close 偏 low →
+          (C-L)/(H-L) 偏小 → Lt(.,0.2) 是其更严格 subset. 期望 cross-section corr 与
+          b097/C001 高度正相关 (|corr| ∈ [0.5, 0.8]). Phase 2 max_corr 实测决定;
+          若 >0.7 → near_dup reject
+        - C003 (本批): C003 strong-close + C004 weak-close 是高位/低位互补但非严格 (中间
+          [0.2, 0.8] 共同 False); cross-section corr 期望负相关, 但 |corr| 不一定大. 取较强者
+        - reciprocal monotonic: Lt(x,0.2) ≠ Gt(x,0.8), 非严格互补
+    expected_sign: negative
+  - candidate_id: C005
+    source_type: dsl
+    expression: Mean(Gt(Sub(Div($open,Ref($close,1)),1.015),0),60)
+    canonical: Mean(Gt(Sub(Div($open,Ref($close,1)),1.015),0),60)
+    rationale: |
+      T002-revisit 强 gap-up 事件率 60d (高阈 1.5%, b097/C002 用 0.5% 已 disprove).
+      $open/Ref($close,1) - 1 > 0.015 即 overnight gap-up > 1.5% 为 1 否则 0. 60d Mean
+      = 强 gap-up 事件率 rate.
+      expected_sign: negative (频繁强 gap-up = 过度乐观/disposition effect 反转).
+
+      Self-check:
+        - P030: multi-CP rationale
+        - P004-deep BORDERLINE 升格律: 60d aggregate 仍可能与 vol_20d basis 频谱共振 IF
+          binarized content 同构 basis. b097/C002 (0.5% 阈值, 60d) alpha_surv=0.13 vol_20d
+          =27.6 — gap-up rate 与 vol_20d 同构. 本候选 1.5% 高阈 选出 tail event, content
+          理论上更稀疏更接近 "regime indicator" 而非 vol-proxy. **风险**: 1.5% gap-up 仍是
+          overnight return 信号, vol_20d 共振未必能 escape. 显式标注 borderline; 若 alpha_
+          surv < 0.4 或 vol_20d_exp > 15 → T002 路径整体证伪 (含高阈版本)
+        - F028: 单 Gt threshold, distinct
+        - b097/C002 anchor (0.5% 阈值版本): 阈值不同 (0.5% → 1.5%), cross-section corr
+          应较高. 但 b097/C002 已 reject 未入库, max_corr 无法直接测; Phase 2 验
+          alpha_surv 决定
+        - F018 (overnight_sign_freq × amount rank-diff): F018 走 rank-diff form, 本候选走
+          truncation+Mean form, geometry 不同
+        - F019/F020 (gap rank-diff): 同上, distinct path
+        - reciprocal monotonic: Gt(gap,0.015) ≠ Lt(gap,-0.015); gap-down event 是独立子族
+    expected_sign: negative
+  - candidate_id: C006
+    source_type: dsl
+    expression: Mean(Gt(Mul(Sub($close,$open),Sub(Ref($open,1),Ref($close,1))),0),60)
+    canonical: Mean(Gt(Mul(Sub($close,$open),Sub(Ref($open,1),Ref($close,1))),0),60)
+    rationale: |
+      T009 reverse-engulfing pattern rate 60d. (C-O) 当日 body, (O_-1 - C_-1) = -(C_-1 - O_-1)
+      前日 body 反号. Mul > 0 表示当日 body 与 前日 body 异号 (一阴一阳 reversal pattern,
+      非严格 engulfing 因不要求 magnitude). 60d Mean = "反向 body 序列"占比 Bernoulli rate.
+      expected_sign: negative (反向 body 频繁 = 震荡市 = 趋势弱).
+
+      Self-check:
+        - P030: multi-CP rationale
+        - P004-deep BORDERLINE: 60d 离散事件率; **关键**: binarize content 是 "前后日 body
+          异号" pattern, 不是 return level / vol / momentum 直接信号 — candle pattern
+          regime indicator, 期望 ⊥ 9-style Barra basis (类似 candle geometry 路径). 风险:
+          60d 长窗 + body 反号 频率 可能与 vol_20d basis 弱共振 (高 vol 期 body 反号率高)
+        - F028: F028 用 |ΔH|>|ΔL| × close-down 双 condition, 本候选 当日 body × 前日 body
+          (异号 mark), distinct
+        - b097/C006 anchor (PV-corr gated momentum, If × continuous): b097/C006 走 If
+          conditional observation 路径已 disprove. 本候选走 full binarize (Gt of product, 0/1
+          output), 路径不同 — 风险较低
+        - F020 (gap_vol_body_ratio rank-diff): F020 用 ratio rank-diff, 本候选用 product
+          sign rate, geometry 不同
+        - reciprocal monotonic: Gt(prod,0) ≠ Lt(prod,0); same-sign pattern 是独立子族
+    expected_sign: negative

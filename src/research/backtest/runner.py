@@ -181,11 +181,13 @@ def run_backtest(
 
 
 def _write_combined_chart(period_results: dict, out_path) -> None:
-    """One equity chart with all periods stitched, vertical lines at boundaries.
+    """One continuous compound equity chart spanning train → val → holdout.
 
-    Each period is normalized to start at 1.0 (so we compare the *strategy's*
-    behavior in each regime rather than blending three resets of capital).
-    Top-K is solid, Q1/Q5 are dashed for context.
+    Each period continues compounding from the prior period's end (no
+    per-period reset), so the curve reads as "what would my account look
+    like if I held this strategy from day 1". Background shading marks the
+    three regions; vertical dotted lines mark the period boundaries.
+    Top-K is the solid main line; Q1 / Q5 are faint dashed for context.
     """
     import matplotlib
 
@@ -195,8 +197,12 @@ def _write_combined_chart(period_results: dict, out_path) -> None:
 
     fig, ax = plt.subplots(figsize=(14, 5))
     period_order = ["train", "val", "holdout"]
-    colors = {"train": "#888", "val": "#1f77b4", "holdout": "#d62728"}
+    region_colors = {"train": "#dddddd", "val": "#cfe3f5", "holdout": "#f6cccc"}
+    line_colors = {"train": "#444", "val": "#1f77b4", "holdout": "#d62728"}
+
+    carry: dict[str, float] = {"topk": 1.0, "q1": 1.0, "q5": 1.0}
     boundaries: list = []
+    region_spans: list = []
 
     for pname in period_order:
         if pname not in period_results:
@@ -207,21 +213,36 @@ def _write_combined_chart(period_results: dict, out_path) -> None:
         idx = ec.index
         if not isinstance(idx, pd.DatetimeIndex):
             idx = pd.to_datetime(idx)
-        topk = ec["total_equity"] / ec["total_equity"].iloc[0]
-        ax.plot(idx, topk, color=colors[pname], lw=2, label=f"{pname} Top-K")
-        for q, ls in [("q1_equity", ":"), ("q5_equity", "--")]:
+
+        # Compound continuously: scale this period to start at last period's end
+        topk = ec["total_equity"] / ec["total_equity"].iloc[0] * carry["topk"]
+        ax.plot(idx, topk, color=line_colors[pname], lw=2, label=f"{pname} Top-K")
+        carry["topk"] = float(topk.iloc[-1])
+
+        for q, ls, key in [("q1_equity", ":", "q1"), ("q5_equity", "--", "q5")]:
             if q in ec.columns:
-                series = ec[q] / ec[q].iloc[0]
-                ax.plot(idx, series, color=colors[pname], lw=1, alpha=0.5,
+                series = ec[q] / ec[q].iloc[0] * carry[key]
+                ax.plot(idx, series, color=line_colors[pname], lw=1, alpha=0.5,
                         linestyle=ls,
-                        label=f"{pname} {q.split('_')[0].upper()}")
+                        label=f"{pname} {key.upper()}")
+                carry[key] = float(series.iloc[-1])
+
+        region_spans.append((pname, idx[0], idx[-1]))
         boundaries.append(idx[-1])
 
+    # Background shading + inside-top region labels (won't collide with title)
+    for pname, x0, x1 in region_spans:
+        ax.axvspan(x0, x1, color=region_colors[pname], alpha=0.35, zorder=0)
+        ax.text((x0 + (x1 - x0) / 2), 0.96,
+                pname.upper(), transform=ax.get_xaxis_transform(),
+                ha="center", va="top",
+                color=line_colors[pname], fontweight="bold", fontsize=10)
+
     for b in boundaries[:-1]:
-        ax.axvline(b, color="black", linestyle="--", alpha=0.3, lw=1)
+        ax.axvline(b, color="black", linestyle="--", alpha=0.4, lw=1)
 
     ax.axhline(1.0, color="grey", linestyle=":", alpha=0.5)
-    ax.set_title("Equity (each period normalized to 1.0)")
+    ax.set_title("Equity — continuous compound (train → val → holdout)")
     ax.set_ylabel("Cumulative return × initial")
     ax.legend(loc="best", fontsize=8, ncol=3)
     fig.tight_layout()
