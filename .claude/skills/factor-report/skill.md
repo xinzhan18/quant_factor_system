@@ -69,8 +69,8 @@ user_invocable: true
 |---|---|---|
 | **年度 IC 表**（9 列：年份 × IC）| §3 IC 时序图之前 | `scalars.ic_by_year`（dict 排序后转行）|
 | **多持有期 IC 表**（1/3/5/10/20d × IS/OOS × IC/ICIR）| §3 IC 分布之前 | `scalars.ic_by_horizon`（5 × 2 × 2 = 20 格）|
-| **五档分组收益表**（IS/OOS × Q1..Q5 + Mono + ls_mean，**年化 %，×252**）| §4 分组年化收益图之前 | `scalars.quintile_train` + `quintile_validation` |
-| **L/S 完整统计表**（mean/std/sharpe/sortino/calmar/max_dd/dd_duration/tstat 各一行，IS+OOS 两列） | §4 L/S 净值图之前 | `scalars.ls_stats_train` + `ls_stats_validation` |
+| **五档分组收益表**（IS/OOS/**Holdout** × Q1..Q5 + Mono + ls_mean，**年化 %，×252**；Holdout 列若 parquet 缺失则省略该列）| §4 分组年化收益图之前 | `scalars.quintile_train` + `quintile_validation` + `vault/factors/F{id}/holdout_quintile_daily.parquet`（report-only） |
+| **L/S 完整统计表**（mean/std/sharpe/sortino/calmar/max_dd/dd_duration/tstat 各一行，IS / OOS / **Holdout** 三列） | §4 L/S 净值图之前 | `scalars.ls_stats_train` + `ls_stats_validation` + holdout L/S 由 `holdout_quintile_daily.parquet` 的 `q5 − q1` 序列经 `compute_long_short_stats` 推 |
 | **Barra 风格暴露表**（7 风格 × 暴露值，按 \|x\| 降序）| §5 style_exposure_bar 之前 | `scalars.barra.style_exposures` |
 | **Alpha 瀑布分解表**（raw IC / residual IC / residual ICIR / alpha_survival_ratio 四行）| §5 alpha_waterfall 之前 | `scalars.barra` |
 | **Alpha 归因表**（style / delta_ic / pct / ic_without 四列，按 \|delta_ic\| 降序，≤7 行）| §5 alpha_waterfall 之后 | `scalars.barra.style_contributions` |
@@ -221,9 +221,16 @@ max_lib_corr: <float>
 
 | 子标题 | chart basename | 读图要点 |
 |---|---|---|
-| 分组年化收益（IS/OOS）| `quintile_bar` | Q1..Q5 梯度完整性、多空贡献均衡、IS/OOS 一致性 |
-| 累积净值 + L/S 叠加 | `cumulative_returns` | Q1-Q5 发散情况 + 黑色虚线 L/S 策略曲线；熊/牛市冲击 |
-| 年度分组热力图 | `annual_group_returns` | 年度方向一致性、最差年错位情况 |
+| 分组年化收益（IS/OOS/Holdout）| `quintile_bar` | Q1..Q5 梯度完整性、多空贡献均衡；3 组柱按 IS(灰)/OOS(蓝)/Holdout(红) 对照——Holdout 是 report-only 第三段证据 |
+| 分层累积净值（IS/OOS/Holdout）| `cumulative_returns` | Q1-Q5 发散情况；背景 3 段阴影 + 虚线分隔 + 顶部 IS/OOS/Holdout 标签 |
+| Long-Short 累积净值 | `long_short_cumulative` | 黑线 L/S 策略曲线单独成图；同样 3 段阴影便于和分层图视觉对齐 |
+| 年度分组热力图 | `annual_group_returns` | 年度方向一致性、最差年错位情况；包含 holdout 年份 |
+
+> [!note]+ §4 Holdout 段叙事要求（新增 2026-05-16）
+> `quintile_bar` / `cumulative_returns` / `long_short_cumulative` 三张图的 **Holdout (红) 段是 report-only 数据**——`render_factor` 在 holdout window 重跑 Phase 2 quintile pipeline 得到（同口径毛信号，不是 backtest 扣费净值；扣费见 §11）。叙事必须明确写出：
+> 1. **Holdout 段 vs OOS 段比较**：mono 是否保持？Q5−Q1 spread 是 OOS 的几倍？sign 是否仍同向？
+> 2. **不可拿 Holdout 段补救 OOS 弱信号** — Holdout 不是第二次 OOS validation，它是"已 admit 因子的最终验真"。若 OOS 弱但 Holdout 强，叙事写 "样本外强势但单点验证，需后续多点 holdout 复验" 而非 "Holdout 救活 OOS"。
+> 3. **若某段 mono 翻号**（如 Holdout Q3 < Q1 或 L/S 急转）必须点出 — 这是 admit 后实际表现首次背离 hypothesis。
 
 ### 5. 风险归因（Risk Attribution）
 
@@ -296,7 +303,41 @@ Alpha waterfall 三段叙事重点：
 
 > 本节仅在 chart whitelist 含 `backtest/{period}/figs/{name}` 前缀时生成；否则整段省略，**不要编造没有的图**。
 >
-> 说明此段的关键差异：前面的 IC / quintile / L/S 都是**毛信号**层面（每日再平衡、零成本）；这里是引擎在 hfq 价格上加了**真实交易成本（佣金 + 印花税 + 滑点）+ T+1 + 涨跌停 + 停牌过滤**之后的组合层面回测。读者应优先看哪三件事：(1) 周频 Top-K 净值在 train / val / holdout 三段的 Sharpe / MaxDD / 换手 / 成本拖累；(2) Q1-Q5 净值在含成本+被涨跌停拦截后单调性是否还在；(3) blocked_buy / blocked_sell 频率是否暴露因子的可交易性短板（高频涨停信号往往打不进去）。
+> 说明此段的关键差异：前面的 IC / quintile / L/S 都是**毛信号**层面（每日再平衡、零成本）；这里是引擎在 hfq 价格上加了**真实交易成本（佣金 + 印花税 + 滑点）+ T+1 + 涨跌停 + 停牌过滤**之后的组合层面回测。读者应优先看哪三件事：(1) Top-K 净值是否真的跑赢 csi1000 等权基准 — **无超额则因子的实战价值=0**；(2) Q1-Q5 净值在含成本+被涨跌停拦截后单调性是否还在；(3) blocked_buy / sector concentration / liquidity utilisation 是否暴露因子的可交易性短板。
+
+#### Reporter 产出图清单（17 张，2026-05-16 新增 11 张）
+
+| 类别 | basename | 一句话作用 |
+|---|---|---|
+| 净值族 | `equity` | Top-K 单线，了解绝对净值轨迹 |
+| 净值族 | `equity_vs_benchmark` | **(P0 新增)** Top-K + csi1000 + csi300 三线 — 没这张无法判断因子是否真的赚 alpha |
+| 净值族 | `excess_equity` | **(P0 新增)** 超额收益曲线（Top-K − bench），高 TE 区间橘色阴影 |
+| 净值族 | `rolling_sharpe` | **(P0 新增)** 60/120/252d 滚动 Sharpe，看稳定性是否有 regime 切换 |
+| 风险 | `drawdown` | 单线 drawdown |
+| 风险 | `drawdown_recovery` | **(P2 新增)** Top-5 drawdown 事件标 peak/trough/recovery 三点 + 持续天数 |
+| 分层 | `layer_decomp` | Q1-Q5 + Top-K 五线 |
+| 分层 | `topk_vs_q5_diff` | **(P1 新增)** Top-K vs Q5 双线 + spread 副图，量化选股集中度溢价 |
+| 节奏 | `monthly_heatmap` | 月度收益热图 |
+| 节奏 | `holding_period_hist` | **(P1 新增)** 持仓时长直方图（≤5 / 6-10 / … >252d 桶） |
+| 节奏 | `rank_persistence` | **(P1 新增)** 相邻快照 Jaccard，因子是抖动型还是黏性型 |
+| 结构 | `sector_weight_timeseries` | **(P1 新增)** 行业权重堆叠面积；缺数据 → 占位图 + `sector_data_missing: true` |
+| 成本 | `cost_drag` | 累计成本拖累（CNY） |
+| 成本 | `cost_waterfall` | **(P2 新增)** Gross α → −slippage / −commission / −stamp / −block_drag → Net α 瀑布图 |
+| 成本 | `trade_pnl_dist` | **(P2 新增)** 单笔 P&L 分布（bps，±2000 clipped），含 win-rate / mean / median |
+| 可交易性 | `blocked_trades` | 每日 blocked 次数 |
+| 可交易性 | `liquidity_utilization` | **(P2 新增)** 持仓占 20d ADV % 时序（max / median 双线，1% 警戒线） |
+
+#### 基准对比表硬要求（新增 2026-05-16）
+
+每个 period 都必须在 §11 表上对比 Top-K vs csi1000 基准 — 数字读 `metrics.yaml.metrics.benchmark`：
+
+| 段 | Top-K Sharpe | Top-K AnnRet | MaxDD | **Excess Ann %** | **Info Ratio** | **Alpha (vs csi1000)** | **Beta (vs csi1000)** | Turnover_ann | Cost_drag_bps |
+|---|---|---|---|---|---|---|---|---|---|
+| Train (2015-2021) | {full.sharpe} | {full.ann_return} | {full.max_dd} | {benchmark.excess_return_ann} | {benchmark.info_ratio} | {benchmark.alpha} | {benchmark.beta} | {turnover.ann_turnover_x} | {} |
+| Val (2022-2023) | … | … | … | … | … | … | … | … | … |
+| Holdout (2024) | … | … | … | … | … | … | … | … | … |
+
+> **判定阈值（参考，非强制）**：Info Ratio ≥ 0.5 + Excess Ann ≥ 2% + Alpha ≥ 1% 才能算是因子在实盘成本+基准对比下站得住。若 `benchmark.available=false`，所有基准列写 `—` 并在表下注 "benchmark data unavailable, see metrics.yaml"。
 
 ```markdown
 ## Live-feel Backtest
@@ -304,56 +345,89 @@ Alpha waterfall 三段叙事重点：
 > [!info]- Live-feel Backtest
 > 引擎：A 股状态机（hfq 价格）；持仓 {holdings_n}；每 {freq_days} 日调仓；
 > 成本 = 印花税(时变) + 佣金 3bps 双边 + 滑点 5bps 双边；T+1；涨跌停/ST 拦截
+> 基准：csi1000 等权（每日按当日 index_constituents 成分股等权 mean returns 累乘）
 
-### 净值曲线（Top-K 主策略）
+### 净值 vs 基准（核心结论图）
 
-![[F{id}/backtest/holdout/figs/equity.png]]
+![[F{id}/backtest/holdout/figs/equity_vs_benchmark.png]]
 
-**第一，{}.** {……}
-**第二，{}.** {……}
-**第三，{}.** {……}
+**第一，跑赢与否一目了然。** {Top-K vs csi1000 vs csi300 — 三线收尾差距、关键背离时点}
+**第二，跟踪误差。** {何时 Top-K 与基准走势同向 vs 反向；用 excess_equity 副图佐证}
+**第三，β 暴露。** {beta={value} → Top-K 实际是 {β×csi1000 + 残余}；说明因子是 alpha 来源还是 leverage 来源}
 
-### 回撤分布
+### 超额收益与跟踪误差
 
-![[F{id}/backtest/holdout/figs/drawdown.png]]
+![[F{id}/backtest/holdout/figs/excess_equity.png]]
 
-{1-2 段：MaxDD 时间窗口、回撤后恢复速度}
+**第一，斜率是 alpha 的视觉化。** {正斜率 = 持续超额；平/负斜率 = 因子在该窗口被吞掉}
+**第二，橘色高 TE 段暴露 regime 风险。** {哪几段是策略波动远大于基准？常对应小盘股潮 / 趋势切换}
+**第三，对比 metrics.benchmark.info_ratio。** {IR={value}：>0.5 良好 / 0.3-0.5 边缘 / <0.3 不显著}
+
+### 滚动 Sharpe
+
+![[F{id}/backtest/holdout/figs/rolling_sharpe.png]]
+
+**第一，60d 短窗。** {高频抖动 — 是否有 Sharpe ≤ 0 的连续段}
+**第二，120/252d 中长窗。** {去除噪声后的真实 Sharpe 中枢；最近 252d 是否仍 >1 = 实盘可用性最关键信号}
+**第三，三条线发散度。** {发散 = regime 不稳，因子衰减中；收敛 = 因子在稳态运行}
+
+### 净值与回撤恢复
+
+![[F{id}/backtest/holdout/figs/equity.png]] ![[F{id}/backtest/holdout/figs/drawdown_recovery.png]]
+
+**第一，{}.** {Top-K 净值终点 + 最大 drawdown}
+**第二，{}.** {Top-5 drawdown 事件中最长恢复期、最深点；恢复速度 = 因子韧性}
+**第三，{}.** {对比 cost_waterfall 看回撤是否来自成本累积 vs 信号失效}
 
 ### 月度收益热力图
 
 ![[F{id}/backtest/holdout/figs/monthly_heatmap.png]]
 
-{1 段：胜负月分布、连亏 / 连胜的最长连续}
+{1 段：胜负月分布、连亏 / 连胜的最长连续；季节性 / 11-1 月 / 6-7 月模式}
 
-### Q1-Q5 分层（成本后）
+### 分层与 Top-K 集中度
 
-![[F{id}/backtest/holdout/figs/layer_decomp.png]]
+![[F{id}/backtest/holdout/figs/layer_decomp.png]] ![[F{id}/backtest/holdout/figs/topk_vs_q5_diff.png]]
 
-**第一，{Q5 - Q1 单调性是否保留}.** {……}
-**第二，{中间分层是否塌陷}.** {……}
-**第三，{Top-K 与 Q5 的差距 = 选股集中度收益}.** {……}
+**第一，Q5 vs Q1 是否仍单调？** {成本后单调性塌陷 = 信号被吞}
+**第二，Top-K vs Q5 spread = 集中度溢价。** {Top-K 是 Q5 的子集（前 K 名）；正 spread = 集中持仓加分}
+**第三，中间分层结构。** {Q2/Q3/Q4 塌陷 / 仍递进 → 信号是 tail-driven 还是 monotone-driven}
 
-### 成本拖累
+### 持仓结构（时长 / 行业 / Jaccard / 单笔 P&L）
+
+![[F{id}/backtest/holdout/figs/holding_period_hist.png]]
+![[F{id}/backtest/holdout/figs/sector_weight_timeseries.png]]
+![[F{id}/backtest/holdout/figs/rank_persistence.png]]
+![[F{id}/backtest/holdout/figs/trade_pnl_dist.png]]
+
+**第一，持仓时长。** {median={value}d → 周频调仓的因子典型 5-20d；偏长 = 信号慢；偏短 = 噪声多}
+**第二，行业分布。** {主导行业 + Other 占比；若 `sector_data_missing=true` 跳过此点}
+**第三，Jaccard 黏性。** {>0.8 黏性高（重仓换得慢）/ <0.5 抖动剧烈（每周大调仓） — 直接关联 turnover}
+**第四，单笔 P&L 分布。** {win-rate / 长尾左右偏；mean > 0 + 偏右 = 因子有"赌赢"特性 / 偏左 = 多空抵消多}
+
+### 成本与可交易性
 
 ![[F{id}/backtest/holdout/figs/cost_drag.png]]
-
-{1 段：年化 cost_drag_bps、占毛 alpha 的比例}
-
-### 拦截统计
-
+![[F{id}/backtest/holdout/figs/cost_waterfall.png]]
 ![[F{id}/backtest/holdout/figs/blocked_trades.png]]
+![[F{id}/backtest/holdout/figs/liquidity_utilization.png]]
 
-{1 段：blocked_buy / blocked_sell 频率与因子可交易性的关系}
+**第一，cost_waterfall 三阶剥离。** {gross α → −slippage{} → −commission{} → −stamp{} → −block{} → net α；哪一档吃得最狠}
+**第二，blocked_trades 频率。** {高 blocked = 因子偏向涨跌停 / 停牌股，实战难以打入}
+**第三，liquidity_utilization。** {max ADV % > 1% = 流动性预警；median 应 << 1%，否则在 holdings_n 上调时会触发市场冲击}
 
-### 三段对比表
+### 基准对比与三段汇总表
 
-| 段 | Sharpe | AnnRet | MaxDD | Turnover_ann | Cost_drag_bps |
-|---|---|---|---|---|---|
-| Train (2015-2021) | {} | {} | {} | {} | {} |
-| Val (2022-2023) | {} | {} | {} | {} | {} |
-| Holdout (2024) | {} | {} | {} | {} | {} |
+| 段 | Sharpe | AnnRet | MaxDD | Excess Ann | Info Ratio | Alpha | Beta | Turnover_ann |
+|---|---|---|---|---|---|---|---|---|
+| Train (2015-2021) | {full.sharpe} | {full.ann_return} | {full.max_dd} | {benchmark.excess_return_ann} | {benchmark.info_ratio} | {benchmark.alpha} | {benchmark.beta} | {turnover.ann_turnover_x} |
+| Val (2022-2023) | … | … | … | … | … | … | … | … |
+| Holdout (2024) | … | … | … | … | … | … | … | … |
 
-> 数字读 `vault/factors/F{id}/backtest/{period}/metrics.yaml.metrics.full`。
+> 数字读 `vault/factors/F{id}/backtest/{period}/metrics.yaml`：
+> - `metrics.full.{sharpe, ann_return, max_dd}`
+> - `metrics.benchmark.{excess_return_ann, info_ratio, alpha, beta}`（若 `available=false` 该段相关列写 `—`）
+> - `metrics.turnover.ann_turnover_x`
 ```
 
 ### 12. 批判性审查 + 系统意义 + Graph Links

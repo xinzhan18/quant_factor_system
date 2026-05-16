@@ -70,6 +70,31 @@ def test_writes_all_figures(small_result, tmp_path):
         assert (figs / f"{name}.png").exists(), f"{name}.png missing"
 
 
+def test_writes_extended_figures(small_result, tmp_path):
+    """11 new figures land in figs/ (some are placeholders when data missing)."""
+    Reporter().write(small_result, tmp_path)
+    figs = tmp_path / "figs"
+    extended = [
+        "equity_vs_benchmark", "excess_equity", "rolling_sharpe",
+        "holding_period_hist", "sector_weight_timeseries", "topk_vs_q5_diff",
+        "rank_persistence", "trade_pnl_dist", "drawdown_recovery",
+        "liquidity_utilization", "cost_waterfall",
+    ]
+    for name in extended:
+        assert (figs / f"{name}.png").exists(), f"{name}.png missing"
+
+
+def test_metrics_yaml_has_benchmark_block(small_result, tmp_path):
+    Reporter().write(small_result, tmp_path)
+    with open(tmp_path / "metrics.yaml") as f:
+        loaded = yaml.safe_load(f)
+    bench = loaded["metrics"].get("benchmark")
+    assert bench is not None, "benchmark block missing"
+    for k in ("excess_return_ann", "info_ratio", "tracking_error_ann",
+              "alpha", "beta", "available", "kind"):
+        assert k in bench, f"benchmark.{k} missing"
+
+
 def test_metrics_yaml_is_valid_yaml(small_result, tmp_path):
     Reporter().write(small_result, tmp_path)
     with open(tmp_path / "metrics.yaml") as f:
