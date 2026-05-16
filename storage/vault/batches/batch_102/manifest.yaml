@@ -1,0 +1,152 @@
+batch_id: batch_102
+round: 102
+direction: tsrank_diff_form
+direction_md_ref: vault/directions/tsrank_diff_form.md
+batch_goal: "Round 102 NEW direction — library_gap finding 024 落地, 整库 9 admit CsRank-diff\n\
+  (F015-F023) + 3 admit TsRank-single (F024/F025/F026) + 0 admit TsRank-diff. b096\
+  \ 实测\nTsRank-diff vs CsRank-diff (F018) max_corr 0.14-0.19 几何独立 → 跨字段 TsRank-diff\n\
+  是结构性未测 axis.\n\n**核心 hypothesis**: Sub(TsRank(X,N), TsRank(Y,N)) 跨字段 同窗 TsRank-diff\
+  \ 应 escape\nT006 self-cancellation 律 (T006 仅约束同字段不同窗 b094/C001 dead), 测量\n\"哪个流量场更接近自身历史峰值\"\
+  \ 的截面排序差异.\n\n**6 候选覆盖 (3 sub-thread, 6 sub-axis)**:\n- **T001 流量场跨字段 TsRank-diff\
+  \ 同窗 (3 candidates)**:\n  C001 Sub(TsRank($amount,60), TsRank($num_trades,60)) —\
+  \ 名义流量 vs 参与笔数\n  C002 Sub(TsRank($num_trades,60), TsRank($turnover_rate,60)) —\
+  \ 笔数 vs 内生周转\n  C003 Sub(TsRank($amount,60), TsRank($turnover_rate,60)) — 名义流量 vs\
+  \ 内生周转\n- **T002 几何字段 TsRank-diff (2 candidates)**:\n  C004 Sub(TsRank($close,60),\
+  \ TsRank($volume,60)) — 价/量分位差\n  C005 Sub(TsRank(Sub($close,$open),60), TsRank(Sub($high,$low),60))\
+  \ — body vs range\n- **T003 intraday vs overnight TsRank-diff (1 candidate)**:\n\
+  \  C006 Sub(TsRank(Div(Sub($close,$open),Ref($close,1)),60), TsRank(Div(Sub($open,Ref($close,1)),Ref($close,1)),60))\n\
+  \n**Self-check 5 hard rule**:\n- **T006 (cross-window cancellation)**: 全部 6 候选 LHS≠RHS\
+  \ 字段, 同窗 (N=60 for both legs)\n  → escape T006 (T006 律仅约束同字段跨窗). 不重测 b094/b092 已\
+  \ dead 子空间.\n- **P030 (alpha_surv>1.0 paradox)**: 全 6 multi-CP rationale, 不单 alpha_surv\
+  \ 依赖\n- **P032 (Rank-Diff 第 8 cross-domain)**: 该律源自 CsRank-diff 实证 (b100/b094),\n\
+  \  适用于 cross-section domain; **TsRank-diff 是时序 rank-diff, 不同 domain**,\n  本批显式标\
+  \ \"P032 律待验证\" — 若 b102 全 dead, 则 P032 可扩展至 TsRank-diff;\n  若 b102 有 admit, 证明\
+  \ P032 不适用于 time-series rank-diff.\n- **P033 (OOS sign-flip)**: 配置 sample_policy\
+  \ train≤2021/val 2022-2023/holdout 2024+,\n  Phase 3 judge 必查 sign_consistency.\n\
+  - **P004-deep (path-integral)**: TsRank 内嵌 60d 历史是 cumulative ordinal operation,\n\
+  \  但跨字段 diff 不构成 path-integral 累积 (两 leg 各自 ordinal, 不叠加). 风险中等.\n\n**Anchor avoidance\
+  \ (库内 12 rank-form factors)**:\n- F015-F023 (9 CsRank-diff): 全用 CsRank 不是 TsRank,\
+  \ b096 实测 max_corr 0.14-0.19\n  cross-section vs time-series domain 不同\n- F024 (TsRank($num_trades/$volume,60)):\
+  \ C001-C003 全部用 raw flow fields 非\n  ratio field, 几何 distinct; C004 用 $volume single-leg\
+  \ 但与 F024 ratio 形式不同\n- F025 (TsRank(shadow_asymmetry,60)): 本批无 shadow geometry,\
+  \ distinct\n- F026 (TsRank(close-position,60)): C004 用 $close raw 不是 close-position\
+  \ ratio,\n  distinct\n\n**Baseline-first 守则 explicit skip**: 15 untouched TTM 字段\
+  \ (财务比率) quarterly\n更新, TsRank 60d 内嵌历史 dim 不支持 quarterly granularity. 显式 skip baseline-first.\n\
+  \n**avoid-this-batch**: NO same-field cross-window TsRank-diff (T006 dead 域),\n\
+  NO CsRank-anywhere (与 F015-F023 同构), NO ratio-as-leg (与 F024 F026 同构),\nNO Mean/EMA\
+  \ wrap (Phase 1 不需要 smoothing — 测试 raw form 的 ls_t 上限).\n\nTarget: ≥1 admit (ls_t\
+  \ ≥ 3.0 + max_corr<0.40 + alpha_surv≥0.5 + incr_ic≥0.005)\nOR ≥2 candidates validated\
+  \ borderline (alpha_surv≥0.5 + ls_t>2.0) 确认 TsRank-diff\ncross-field 是 productive\
+  \ axis. 若 0 admit + 多数候选 ls_t<2.0 / vol_20d_exp>20,\n则 TsRank-diff form 全空间证伪, P032\
+  \ 律扩展至 time-series rank-diff."
+active_threads_referenced:
+- T001
+- T002
+- T003
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-16T07:42:25Z'
+frozen_at: '2026-05-16T07:42:25Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Sub(TsRank($amount,60),TsRank($num_trades,60))
+  canonical: Sub(TsRank($amount,60),TsRank($num_trades,60))
+  rationale: "T001 流量场跨字段 TsRank-diff: 名义流量 ($amount = price × volume) vs 参与\n笔数 ($num_trades).\
+    \ 同窗 60d, 各自时序分位 → cross-section diff.\n\nexpected_sign: negative (amount 时序分位高\
+    \ + num_trades 时序分位低 = 大单\n集中 / 机构推动短期热点, 后续反转向下; 反之分散小单 = 散户参与持续 + 上行).\n\nSelf-check:\n\
+    \  - T006 escape: LHS=$amount, RHS=$num_trades, 同窗 N=60, 跨字段 → not in\n    T006\
+    \ dead 域 (T006 = same-field cross-window)\n  - P030: multi-CP rationale (incr_ic\
+    \ + max_corr + ls_t 3 dim)\n  - F024 anchor (TsRank($num_trades/$volume,60)):\
+    \ F024 是 ratio TsRank single,\n    本候选是 raw field TsRank-diff, geometry 不同. Phase\
+    \ 2 max_corr 实测.\n  - F018 anchor (CsRank-diff overnight × amount): F018 CsRank\
+    \ domain 不同\n    domain, b096 实证 corr 0.14-0.19\n  - reciprocal: Sub(TsRank(A),TsRank(B))\
+    \ = -Sub(TsRank(B),TsRank(A)), 本批\n    C001/C002/C003 LHS/RHS pairing 选择不重复 inverse-pair\n"
+  expected_sign: negative
+- candidate_id: C002
+  source_type: dsl
+  expression: Sub(TsRank($num_trades,60),TsRank($turnover_rate,60))
+  canonical: Sub(TsRank($num_trades,60),TsRank($turnover_rate,60))
+  rationale: "T001 流量场跨字段 TsRank-diff: 笔数 ($num_trades, 参与者基数) vs 内生周转率\n($turnover_rate\
+    \ = volume/float_shares, scale-free). 同窗 60d.\n\nexpected_sign: negative (笔数高\
+    \ + turnover_rate 低 = 大量小单 / 散户驱动 但\n实际换手不大, 信号 weak / 持续性差; 反之 = 集中大单 高换手 = 机构流入).\n\
+    \nSelf-check:\n  - T006 escape: 跨字段 same window, escape\n  - P030: multi-CP rationale\n\
+    \  - F024 anchor (TsRank($num_trades/$volume,60)): F024 用 ratio form,\n    本候选\
+    \ raw field diff, geometry 不同\n  - F018 / F015 anchors (CsRank-diff cluster):\
+    \ 不同 domain\n  - reciprocal duplicate avoidance: C001 (amount, num_trades), C002\n\
+    \    (num_trades, turnover_rate), C003 (amount, turnover_rate) — 三 pair\n    A-B\
+    \ / B-C / A-C 形成完整三角覆盖, 但每 pair 选择前者-后者方向, 没有\n    inverse 重复\n"
+  expected_sign: negative
+- candidate_id: C003
+  source_type: dsl
+  expression: Sub(TsRank($amount,60),TsRank($turnover_rate,60))
+  canonical: Sub(TsRank($amount,60),TsRank($turnover_rate,60))
+  rationale: "T001 流量场跨字段 TsRank-diff: 名义流量 ($amount, 元) vs 内生周转率\n($turnover_rate,\
+    \ scale-free). 同窗 60d. 流通市值因子的对偶差.\n\nexpected_sign: positive (amount 时序分位高 +\
+    \ turnover_rate 低 = 大市值 stock\n因 size 大 amount 自然高 / 周转低 = 机构持有 = 风险溢价 + 上行).\n\
+    \nSelf-check:\n  - T006 escape: 跨字段 same window\n  - P030: multi-CP rationale\n\
+    \  - **P004-deep 风险**: $amount = price × volume 含 size 量纲, 60d TsRank\n    可能与\
+    \ size basis 同构. Phase 3 必查 size_exposure / Barra alpha_surv.\n    若 alpha_surv<0.4\
+    \ + size_exp>0.3 → C003 dead with size-coupled atom 律\n    复现 (b095/C004 raw $amount\
+    \ 已 dead 在 same-field cross-window 子族,\n    本候选是 cross-field 检验)\n  - F024 anchor:\
+    \ $turnover_rate single-leg overlap, 但 LHS $amount 不同\n  - corr with C001/C002\
+    \ within batch: C001 (A,B) + C002 (B,C) + C003 (A,C)\n    线性可能 C003 ≈ C001 + C002\
+    \ (TsRank 非线性, 但分位排序粗略相加),\n    batch_max_corr 必查\n"
+  expected_sign: positive
+- candidate_id: C004
+  source_type: dsl
+  expression: Sub(TsRank($close,60),TsRank($volume,60))
+  canonical: Sub(TsRank($close,60),TsRank($volume,60))
+  rationale: "T002 价量分位差 — close (绝对价格) vs volume (绝对成交量). 同窗 60d. 这是\n最基础的 \"价升量减\"\
+    /\"价跌量增\" 时序版本 (cross-section domain).\n\nexpected_sign: negative (close 60d 分位高\
+    \ + volume 60d 分位低 = 缩量上涨\n= 接近顶部 / 弱多头 / 反转向下; 反之放量下跌后底部).\n\nSelf-check:\n \
+    \ - T006 escape: 跨字段\n  - P030: multi-CP rationale\n  - **F021/F022 anchor** (CsRank-diff\
+    \ cluster): F021 shadow disp/range\n    compress, F022 close-pos × amount accel\
+    \ — 几何完全不同 (本候选 raw\n    price/volume diff, 非 derived geometric)\n  - **classical\
+    \ PV-divergence anchor**: 该 hypothesis 是 Alpha101 经典\n    \"price-volume divergence\"\
+    \ 时序排名版. Library 内 F010 hhi_vol_20 +\n    F008 ret_vol_cov_20 接近但是 magnitude domain,\
+    \ 本候选是 rank domain.\n    Phase 2 max_corr 必查 F008/F010/F018/F022\n  - $close raw\
+    \ value monotonic with stock price scale - 60d TsRank\n    ordinal-normalize 之后\
+    \ cross-sectionally 是 \"stock 自身历史峰值距离\",\n    消除 size coupling (与 raw atom 不同)\n"
+  expected_sign: negative
+- candidate_id: C005
+  source_type: dsl
+  expression: Sub(TsRank(Sub($close,$open),60),TsRank(Sub($high,$low),60))
+  canonical: Sub(TsRank(Sub($close,$open),60),TsRank(Sub($high,$low),60))
+  rationale: "T002 body vs range 几何 TsRank-diff. body = (close-open) signed, range\
+    \ =\n(high-low) magnitude. 同窗 60d.\n\nexpected_sign: positive (body 时序分位高 (实体强)\
+    \ + range 分位低 (波动小)\n= pure directional move 无 noise = momentum 持续).\n\nSelf-check:\n\
+    \  - T006 escape: 跨字段 same window\n  - P030: multi-CP rationale\n  - **body 含\
+    \ sign, range 是 magnitude — 不对称几何**: TsRank(body,60) 是\n    signed body 时序分位 (大正\
+    \ body → 高分位, 大负 body → 低分位); TsRank(\n    range,60) 是 magnitude 分位 (无方向). diff\
+    \ 实际混 sign info + scale info\n  - F019 anchor (body_disp_pricevol rank-diff, CsRank-diff):\
+    \ F019 用\n    Std(|body|/range,20) dispersion, 本候选用 raw body and range TsRank,\n\
+    \    几何 distinct\n  - F021 anchor (shadow_disp): F021 走 shadow geometry CsRank-diff,\
+    \ distinct\n  - F026 anchor (close-position TsRank 60d): F026 用 (C-L)/(H-L) ratio,\n\
+    \    本候选用 body+range raw TsRank, distinct\n  - **风险**: range = $high-$low 与 vol_20d\
+    \ 频谱可能共振 (high-vol 期 range\n    大). Phase 3 alpha_surv 必查\n"
+  expected_sign: positive
+- candidate_id: C006
+  source_type: dsl
+  expression: Sub(TsRank(Sub($close,$open),60),TsRank(Sub($open,Ref($close,1)),60))
+  canonical: Sub(TsRank(Sub($close,$open),60),TsRank(Sub($open,Ref($close,1)),60))
+  rationale: "T003 intraday vs overnight TsRank-diff. intraday = (close-open) 日内 body,\n\
+    overnight = (open-prev_close) 隔夜 gap. 同窗 60d. 两个 return decomposition\ncomponent\
+    \ 的时序分位排序差.\n\nexpected_sign: positive (intraday 强 + overnight 弱 = day-trader\
+    \ / 散户\n推动 / 收盘走强 = 趋势真; 反之 overnight 主导 = 机构隔夜信息驱动 = 信息已\npricing).\n\nSelf-check:\n\
+    \  - T006 escape: 跨字段 (signed return component differ), same window\n  - P030:\
+    \ multi-CP rationale\n  - **F018 anchor** (CsRank-diff overnight×amount): F018\
+    \ 用 CsRank +\n    overnight sign frequency × amount Mean 组合, 本候选用 TsRank 双 leg\n\
+    \    (intraday body + overnight gap) signed return. domain 完全不同 (CsRank\n    vs\
+    \ TsRank). b096 实证 TsRank-diff vs CsRank-diff (F018) max_corr 0.14-0.19\n  - **overnight_intraday_split\
+    \ 方向 anchor**: 该方向 (b087) 已 saturated;\n    F002 (overnight_return_120) + 本候选\
+    \ 都是 overnight component 信号但 form\n    完全不同 (F002 单字段 mean, 本候选是 TsRank-diff)\n\
+    \  - **未除 base price 风险**: Sub($close,$open) 和 Sub($open,Ref($close,1))\n    都是\
+    \ raw 元差, 含 stock 价格量纲. 60d TsRank 内嵌 ordinal-normalize\n    消除 stock-level scale,\
+    \ 但 cross-section 上 size-coupling 仍可能 residual.\n    Phase 3 size_exp 必查\n  -\
+    \ reciprocal duplicate: Sub(intraday, overnight) ≠ Sub(overnight,\n    intraday)\
+    \ — 选择 intraday 在 LHS 是 hypothesis sign 默认\n"
+  expected_sign: positive

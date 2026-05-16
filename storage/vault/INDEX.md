@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-05-16T07:37:19Z
-round: 102
-total_active_directions: 21
+generated_at: 2026-05-16T08:08:20Z
+round: 103
+total_active_directions: 22
 total_factors_admitted: 28
-last_batch: batch_101
+last_batch: batch_102
 last_consolidation_round: null
 ---
 
@@ -15,14 +15,14 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**102** · phase=`null` (idle) · no batch in flight
-> **上一批** · [[batches/batch_101/judge|batch_101]] → [[directions/binarize_geometry_barra_orthogonal]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`dead`
-> **健康** · rounds_since_consolidation=**2** · active_directions=**21** · zero-admit streak=**3**
-> **⚠️ 预警** · consolidation 触发: active_directions=21 ≥ 20
+> **状态** · round=**103** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_102/judge|batch_102]] → [[directions/tsrank_diff_form]] · admit=**0**/6 (reserve=2, reject=4) · direction.status=`saturated`
+> **健康** · rounds_since_consolidation=**3** · active_directions=**22** · zero-admit streak=**4**
+> **⚠️ 预警** · consolidation 触发: active_directions=22 ≥ 20
 >
 > **🎯 下一步（按优先级）**
-> 1. 📚 **触发 consolidation**：active_directions=21 ≥ 20 → 先调 `/factor-consolidate`，再进 Phase 1
-> 2. 🧪 **阈值校准**：连续 3 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 1. 📚 **触发 consolidation**：active_directions=22 ≥ 20 → 先调 `/factor-consolidate`，再进 Phase 1
+> 2. 🧪 **阈值校准**：连续 4 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
 > 3. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
@@ -68,7 +68,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **102** · Admitted: **28** · Active directions: **21**
-> - Last batch: **batch_101**
+> - Round: **103** · Admitted: **28** · Active directions: **22**
+> - Last batch: **batch_102**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
