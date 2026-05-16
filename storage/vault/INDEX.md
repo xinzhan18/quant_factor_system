@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-05-16T10:26:35Z
-round: 104
-total_active_directions: 22
+generated_at: 2026-05-16T12:11:11Z
+round: 105
+total_active_directions: 23
 total_factors_admitted: 28
-last_batch: batch_103
+last_batch: batch_104
 last_consolidation_round: null
 ---
 
@@ -15,15 +15,18 @@ last_consolidation_round: null
 <!-- BEGIN COCKPIT -->
 
 > [!note]+ 🧭 LLM Cockpit
-> **状态** · round=**104** · phase=`designed` · current_batch=`batch_104`
-> **上一批** · [[batches/batch_103/judge|batch_103]] → [[directions/fundamental_ttm_cross_family]] · admit=**0**/6 (reserve=0, reject=6) · direction.status=`dead`
-> **健康** · rounds_since_consolidation=**4** · active_directions=**22** · zero-admit streak=**5**
-> **⚠️ 预警** · 待 intake papers: arxiv_1601_00991v3 · consolidation 触发: active_directions=22 ≥ 20
-> **📄 Intake Queue** · `arxiv_1601_00991v3` ← `storage/vault/raw/papers/arXiv-1601.00991v3.pdf` · target=`storage/vault/papers/arxiv_1601_00991v3.md`
-> **下一条论文 intake 命令** · `PYTHONPATH=src python3 scripts/extract_paper_pdf.py --pdf storage/vault/raw/papers/arXiv-1601.00991v3.pdf`
+> **状态** · round=**105** · phase=`null` (idle) · no batch in flight
+> **上一批** · [[batches/batch_104/judge|batch_104]] → [[directions/nonlinear_autocorr_entropy]] · admit=**0**/6 (reserve=1, reject=5) · direction.status=`probing`
+> **健康** · rounds_since_consolidation=**5** · active_directions=**23** · zero-admit streak=**6**
+> **⚠️ 预警** · 待 intake papers: dongwu_11_rpv_pricevolumecorr_2022, dongwu_behavioral_rcp_update_2024, founder_13_bullbeargame_2023 · consolidation 触发: active_directions=23 ≥ 20
+> **📄 Intake Queue** · `dongwu_11_rpv_pricevolumecorr_2022` ← `storage/vault/raw/papers/Dongwu-11-RPV-PriceVolumeCorr-2022.pdf` · target=`storage/vault/papers/dongwu_11_rpv_pricevolumecorr_2022.md` · +2 more
+> **下一条论文 intake 命令** · `PYTHONPATH=src python3 scripts/extract_paper_pdf.py --pdf storage/vault/raw/papers/Dongwu-11-RPV-PriceVolumeCorr-2022.pdf`
 >
 > **🎯 下一步（按优先级）**
-> 1. 🔄 **断点续跑**：state.phase=`designed` → Phase 2 — `research execute batch_104`
+> 1. 📚 **触发 consolidation**：active_directions=23 ≥ 20 → 先调 `/factor-consolidate`，再进 Phase 1
+> 2. 🧪 **阈值校准**：连续 6 批零 admit → 先按 `lessons.md#Threshold Calibration` 扫 reserve 候选识别错杀；确认有库空间独立错杀 → 调阈；否则继续
+> 3. 📄 **新论文待 intake**：dongwu_11_rpv_pricevolumecorr_2022, dongwu_behavioral_rcp_update_2024, founder_13_bullbeargame_2023 → 先跑 PDF 抽取，再用 `/factor-paper` subagent 按 `.claude/skills/factor-paper/paper-note-template.md` 生成 `papers/{slug}.md`；若 paper note 判定全部 blocked，再回到常规选方向
+> 4. 🧭 **硬性前置**：`research doctor`（drift 检测）→ `snapshot`（数据）→ 读目标 `directions/{tag}.md` → 进 `/factor-idea`
 
 <!-- END COCKPIT -->
 
@@ -68,7 +71,7 @@ last_consolidation_round: null
 ---
 
 > [!abstract]- 系统状态
-> - Round: **104** · Admitted: **28** · Active directions: **22**
-> - Last batch: **batch_103**
+> - Round: **105** · Admitted: **28** · Active directions: **23**
+> - Last batch: **batch_104**
 > - Last consolidation: **—**
 > - 格式 audit：运行 `research audit index` 检查漂移
