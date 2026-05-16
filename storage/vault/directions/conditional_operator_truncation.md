@@ -1,58 +1,30 @@
 ---
 direction_tag: conditional_operator_truncation
-status: productive
-priority: high
-rounds: 4
+status: saturated
+priority: medium
+rounds: 5
 admits: 2
-last_batch: batch_098
-last_admits:
-- F029
-last_goal: "Round 98 — data-driven extension of b097/C001 binarize-axis success.\n\
-  b097/C001 上影主导日占比 alpha_surv=1.07 (Barra-clean reserve) — 全 6 中唯一 binarize\n内容 ⊥\
-  \ Barra basis 的几何; 其余 5 子族 binarized content 同构 vol_20d / str_1m basis\n→ 100% absorption.\n\
-  \n**核心律 (b097 实证)**: full binarize + Mean aggregate 仅在 binarized 内容\n⊥ Barra style\
-  \ basis 时产生 distinct geometry; binarize 形式独特不够, 内容必须 distinct.\n\n**本批 hypothesis**:\
-  \ candle-geometry content (上/下/中-body 占比, range-position 高/低位)\n都属于 candle-geometry\
-  \ derivative, 应与 9-style Barra basis (size/vol_20d/momentum/value/\nquality/turnover/leverage/eps/str_1m)\
-  \ 均不同构 → 期望多数 candidate 达到 alpha_surv ≥ 0.5\n+ ls_t ≥ 2.0 borderline, ≥1 admit (max_corr<0.40,\
-  \ ls_t≥3.0, alpha_surv≥0.5, incr_ic≥0.005).\n\nQlib runtime op 实测可用: Gt/Lt (boolean),\
-  \ Mean, Sub, Div, Abs, Mul, Ref. **不用 If/IfElse**\n(b097 C006 中 If × continuous\
-  \ → str_1m 100% 吸收, 已 disprove). 全 6 候选走 full binarize\n+ Mean rate aggregate 路径.\n\
-  \n**6 候选覆盖**:\n- C001 下影主导日占比 20d (T001 sign-flip镜像 / reciprocal duplicate 风险, 必精测)\n\
-  - C002 small-body 主导日占比 20d (candle geometry 新维度, |close-open|/range < 0.3)\n- C003\
-  \ range-position 高位主导日占比 20d ((close-low)/range > 0.8)\n- C004 range-position 低位主导日占比\
-  \ 20d ((close-low)/range < 0.2)\n- C005 60d gap-up event rate (低阈 0.5%) — b097/C002\
-  \ (阈 0.5%, 60d) sign-flip 不重测; 走\n  **强 gap-up 0.5% 60d 已 disprove**, 本批改 60d gap-up\
-  \ event rate 复测但**更高阈 1.5%**\n  隔离 cross-day return 同构 vol_20d 风险\n- C006 60d engulfing\
-  \ pattern rate (反向 candlestick reversal: 当日 body 与 前日 body 同号\n  + 当日 body 更大) —\
-  \ 复合事件率, 新 geometry\n\n**Self-check 5 hard rule (P030 + P004-deep升格 + F028 + reciprocal\
-  \ + Cov-equiv)**:\n- **P030**: 全 6 multi-CP rationale, 不依赖 alpha_surv 单边\n- **P004-deep\
-  \ 升格 (b097 round 9 升格)**: long-window aggregate 必然与 style basis 频谱\n  共振 IF binarized\
-  \ content 同构 basis. 本批 C001-C004 candle geometry, 已知与 9-style\n  不同构; C005 高阈 gap-up\
-  \ 1.5% 走 60d aggregate, 风险**仍可能**与 vol_20d 频谱共振 — 显式\n  标注 borderline; C006 engulfing\
-  \ 是 cross-day candlestick pattern, 不是 return 信号, 风险\n  较低. Phase 3 judge 若发现 vol_20d_exp\
-  \ > 15 或 alpha_surv < 0.4 则该子族证伪.\n- **F028 anchor**: F028 用 Lt×Greater 双 condition\
-  \ 比值, 本批 6 候选无双 condition 复合\n  → distinct\n- **b097/C001 anchor (round 9 新 reserve)**:\
-  \ C001 (本批 下影主导日) 是 b097/C001 (上影主\n  导日) 的 sign-flip 镜像 — Gt((C-L)/(H-L), 0.5)\
-  \ 等价于 Lt((H-C)/(H-L), 0.5), 二值化在\n  cross-section 上**可能产生互补但不严格 sign-flip** (因 close==(H+L)/2\
-  \ 时两者同时 False\n  构成 \"middle-body day\"). 必跑 Phase 2 max_corr 实测; 预期 |corr|<0.7\
-  \ 但 >0.3.\n- **Reciprocal duplicate**: C001 vs b097/C001 (sign-flip 风险); C003 vs\
-  \ C004 (互补对偶高\n  位/低位, 中间 [0.2, 0.8] 是 \"middle-position day\" 共同 False, 非严格互补).\
-  \ 本批不并列覆\n  盖 reciprocal 子族 (单边)\n- **Cov-equiv (P028)**: 无 Cov atom; 无 cross-section\
-  \ OLS residualize (DSL only)\n\n**Anchor avoidance**:\n- F028 (DMI down-ratio):\
-  \ 双 condition 复合, distinct\n- F021 (shadow_disp): F021 用 Std/dispersion 连续, 本批用\
-  \ truncate+rate 离散, geometry 不同\n- b097/C001 (reserve, 上影主导日占比): 本批 C001 是 reciprocal\
-  \ 镜像 — 必精测 max_corr\n- F022 (b097/C001 nearest@max_corr=0.41): 同样 candle-position\
-  \ 路径相关, 注意\n- F019/F020 (gap rank-diff): C005 走 truncation+Mean 而非 rank-diff, geometry\
-  \ 不同\n\n**Baseline-first 守则 explicit skip**: 15 untouched TTM 字段无法支撑 daily candle\
-  \ geometry\nevent counting (TTM 季度更新). 显式 skip baseline-first, 本批纯 OHLCV structural\
-  \ extension.\n\n**avoid-this-batch rank-diff axis**: 9 batches 累积零 admit, 本批不用 Sub(TsRank,\
-  \ TsRank);\ncandle-geometry binarize 是正交几何.\n\nTarget: ≥1 admit (ls_t ≥ 3.0 + max_corr\
-  \ < 0.40 + alpha_surv ≥ 0.5 + incr_ic ≥ 0.005)\nOR ≥2 candidates validated borderline\
-  \ (alpha_surv ≥ 0.5 + ls_t > 2.0 confirming binarize\ncontent ⊥ Barra basis 律).\
-  \ 若 0 admit + 多数 candle-geometry candidate 也被 basis 吸收\n→ T001 路径整体证伪, conditional\
-  \ family 该路径 dead."
-last_activity: '2026-05-16T00:34:43Z'
+last_batch: batch_099
+last_admits: []
+last_goal: 'Round 99 / final round of /factor-mine 10-loop — data-driven extension
+  of b098 admit F029
+
+  (weak_close_day_rate_20, Mean(Lt((C-L)/(H-L), 0.2), 20), alpha_surv=1.10, ls_t=3.28,
+
+  max_corr=0.32@F006). 6 候选沿 F029 family 三轴扩展: window (20d→60d, C001/C003), threshold
+
+  (0.2→0.15, C002), aggregate wrap (Mean→Std, C003), mirror geometry (lower-shadow
+  Lt 0.2,
+
+  C004), threshold direction sanity (Gt 0.8 short window, C005), compound signal-only
+  filter
+
+  (weak-close × significant amplitude, C006). 验证 binarize direction+threshold 律
+
+  (b098 round 10 升格) 在 F029 family 内的 axis-wise 行为. Goal: ≥1 admit OR explicit
+
+  axis-wise 律升格 (window sweet spot / threshold sensitivity / Std-of-rate productive).'
+last_activity: '2026-05-16T01:06:02Z'
 created_batch: batch_097
 members:
 - F029
@@ -90,8 +62,9 @@ members:
 > **Evidence trail**:
 > - [[batches/batch_097/candidates/C001|batch_097 C001]]　`Mean(Gt((H-C)/(H-L), 0.5), 20)`　alpha_surv=1.07, ls_t=2.85, ic_oos=0.0088, max_corr=0.41@F022 → **reserve** (P030 2/4)
 > - [[batches/batch_098/candidates/C001|batch_098 C001]]　`Mean(Gt((C-L)/(H-L), 0.5), 20)`　alpha_surv=0.50, ic_oos=-0.012 (反 expected), incr_ic=-0.006 → **reject (mirror not portable)**
+> - [[batches/batch_099/candidates/C004|batch_099 C004]]　`Mean(Lt((H-O)/(H-L), 0.2), 20)` open-position mirror　ic_oos=+0.022 strong + ls_t=2.67 + mono=0.90 但 alpha_surv=**0.15** catastrophic (// str_1m basis) + incr_ic=-0.0023 → **reject**. **字段维度 mirror 不可推广**: open vs close 切换即跨入 momentum (str_1m) basis 吸收区, 与 T004 上涨日 mirror confirmation. binarize content **三要素 (字段+方向+阈值)** 决定 ⊥ basis (不仅是 b098 round 10 的 direction+threshold 二要素).
 >
-> **Next probes**: (a) b097/C001 + Python residualize on vol_20d (b096 blocker); (b) lower-shadow 主导日 `Mean(Gt((Min(O,C)-L)/(H-L), 0.5), 20)` 真 lower-shadow 而非 close-position mirror; (c) b097/C001 base form + extension wraps (Std/Skew of event rate).
+> **Next probes**: (a) b097/C001 + Python residualize on vol_20d (b096 blocker, 等 daily_python 模板); (b) T001 reciprocal & 字段 mirror 两路径都不可推广 — 子问题向 daily_python residualize 路径迁移.
 
 ### T007: small-body 主导日 binarize [✗ DISPROVEN batch_098]
 
@@ -118,7 +91,16 @@ members:
 >
 > **关键升格律 (b098 round 9)**: 同 (C-L)/(H-L) 信号底层, 不同 binarize 端 alpha_survival 显著不同 (Gt(.,0.5) 上半 0.50, Gt(.,0.8) 强端 hard_gate fail, Lt(.,0.2) 弱端 1.10) — binarize 方向 + 阈值都 sign/threshold dependent. left-tail thick (弱端) 是 robust escape, right-tail (强端) 是 vol_20d basis 共振更深.
 >
-> **Next probes**: (a) C004 base + extension wraps (Std/Skew of weak_close_day rate, 60d 窗口); (b) 阈值变体 Lt(.,0.15) / Lt(.,0.25) 敏感性; (c) 弱收盘日 + reversion gate (Mean(Lt × Sub(C, Ref(C,5))/Ref(C,5), 20)) 复合; (d) lower-shadow 主导日 sign 镜像于 T001.
+> **batch_099 F029-family axis-wise extension (全 reject, 律密集升格)**:
+> - [[batches/batch_099/candidates/C001|b099 C001]]　`Mean(Lt((C-L)/(H-L),0.2),60)` 60d 长窗　hard_gate sign_flip + ic_oos≈0 + oos_decay_neg → **reject**. F029 family **window 上限 < 60d**, 20d 是 sweet spot.
+> - [[batches/batch_099/candidates/C002|b099 C002]]　`Mean(Lt(.,0.15),20)` 阈值 0.15　ic_oos=0.0080 borderline, max_corr=**0.82**@F029, incr_ic=**-0.0003** 负 → **reject (CP05 high)**. F029 在 threshold 维度是 **quasi-isolated point**, 0.2 微调即触发 near_dup.
+> - [[batches/batch_099/candidates/C003|b099 C003]]　`Std(Lt(.,0.2),60)` Std 60d wrap　hard_gate fail, max_corr=0.6163 与 C001 数值同步 → **reject**. **Std-of-binarize ≡ Mean-of-binarize 60d 数学几乎等价** (Var(Bernoulli)=p(1-p) 在低事件率区与 p 共线), aggregate wrap 轴 dead.
+> - [[batches/batch_099/candidates/C005|b099 C005]]　`Mean(Gt(.,0.8),10)` 短窗 10d　hard_gate ic_oos_too_low (-0.0040 < 0.008) → **reject**. **Gt 0.8 强端 binarize 在 10d & 20d 都 fail, b098 律 window-invariant**, window 不是 Gt 强端 escape 的关键维度.
+> - [[batches/batch_099/candidates/C006|b099 C006]]　`Mean(Mul(Lt(.,0.2),Gt((H-L)/C,0.02)),20)` 复合 filter　hard_gate sign_flip + oos_decay_neg, vol_20d_exp=**45.18** 史诗 → **reject**. **Gt(amplitude) ≡ vol_20d direct proxy**, AND 复合时 vol_20d-isomorphic condition 主导 Barra basis 同构性, F029 ⊥ basis 优势被覆盖.
+>
+> **综合 family-space 拓扑结论 (b099 升格)**: F029 是 close-position × Lt × 0.2 阈值 × 20d × Mean × 单 condition 的**6 维约束孤立 admissible point**; 任一维度扰动 (window / threshold / aggregate / direction / compound) 即跨出 ⊥ basis 区. F029 周围邻域全 dead.
+>
+> **Next probes**: (a) T008 family-space 已 systematically mapped, exhausted; (b) F028 (DMI conditional) 邻域 axis-wise 扩展 (尚未做); (c) **跳出 candle-geometry binarize 子族**: 探索 turnover-binarize / fundamental-binarize / momentum-binarize 等其它 conditional content; (d) b097/C001 reserve hold 等 daily_python residualize 模板.
 
 ### T009: 跨日 candle-pattern (engulfing reversal) [✗ DISPROVEN batch_098]
 
@@ -203,6 +185,12 @@ members:
 | [[batches/batch_098/candidates/C005\|b098 C005]] | `Mean(Gt($open/Ref($close,1)-1,0.015),60)` | CP04 poor: alpha_surv=**0.030** + vol_20d=**35.4** + style_r²=0.335; 提高阈值反而恶化 alpha_survival, gap-event family 跨阈值结构性 dead |
 | [[batches/batch_098/candidates/C006\|b098 C006]] | `Mean(Gt((C-O)*(Ref(O,1)-Ref(C,1)),0),60)` | CP01 sign_flip + oos_decay neg; 跨日 candle-pattern regime-dependent, candle-pattern binarize 路径有效性仅限单日内 geometry |
 | [[batches/batch_097/candidates/C006\|C006]] | `If(Gt(Corr(C,V,10),0),Sub(C/Ref(C,20),1),0)` | CP04 catastrophic: style_r²=**0.71** (本批最高) + str_1m_exp=7.77 + max_corr=0.55@F027; conditional observation gating 不破 momentum-basis 同构 |
+| [[batches/batch_099/candidates/C001\|b099 C001]] | `Mean(Lt((C-L)/(H-L),0.2),60)` | CP01 hard_gate sign_flip + ic_oos≈0 + oos_decay_neg; F029 family **window 上限 < 60d**, 长窗 weak-close OOS 信号完全消失 |
+| [[batches/batch_099/candidates/C002\|b099 C002]] | `Mean(Lt((C-L)/(H-L),0.15),20)` | CP05 high: max_corr=**0.82**@F029 + incremental_ic=**-0.0003** 负增量; F029 在 threshold 维度是 quasi-isolated point, 阈值微调即触发 near_dup |
+| [[batches/batch_099/candidates/C003\|b099 C003]] | `Std(Lt((C-L)/(H-L),0.2),60)` | CP01 hard_gate sign_flip + ic_oos≈0; **Std-of-binarize ≡ Mean-of-binarize 60d 数学几乎等价** (Var(Bernoulli)=p(1-p) 低值区与 p 共线), aggregate wrap 轴 dead |
+| [[batches/batch_099/candidates/C004\|b099 C004]] | `Mean(Lt((H-O)/(H-L),0.2),20)` | CP04 **poor**: alpha_survival=**0.15** catastrophic + str_1m=3.66 + incr_ic=**-0.0023**; **字段维度 mirror 不可推广** — open vs close 切换即跨入 str_1m basis 吸收区 |
+| [[batches/batch_099/candidates/C005\|b099 C005]] | `Mean(Gt((C-L)/(H-L),0.8),10)` | CP01 hard_gate ic_oos_too_low (-0.0040<0.008); **b098 律 window-invariant**, Gt 0.8 强端 binarize 在 10d & 20d 都 fail, window 不能 rescue |
+| [[batches/batch_099/candidates/C006\|b099 C006]] | `Mean(Mul(Lt((C-L)/(H-L),0.2),Gt((H-L)/C,0.02)),20)` | CP01 hard_gate sign_flip + oos_decay_neg, vol_20d_exp=**45.18** 史诗 catastrophic; **Gt(amplitude) ≡ vol_20d proxy**, AND 复合时 vol_20d-isomorphic condition 主导 Barra basis, F029 ⊥ basis 优势被覆盖 |
 
 ---
 
@@ -217,7 +205,28 @@ members:
 
 ## Narrative Log
 
-> [!quote]+ 2026-05-16 · [[batches/batch_098/judge|batch_098]] judge
+> [!quote]+ 2026-05-16 · [[batches/batch_099/judge|batch_099]] judge
+> **F029 family axis-wise extension 全 reject + status productive → saturated** · admit=**0** / reserve=0 / reject=**6** (C001-C006 全)
+>
+> - **6 候选沿 F029 family 三轴扩展全部 fail**: window (60d → OOS 信号归零, C001 + C003), threshold (0.2→0.15 → near_dup F029 corr=0.82 + incr_ic 负, C002), aggregate wrap (Std vs Mean 60d 数学几乎等价, C003), field mirror (open vs close → str_1m basis 吸收 alpha_surv=0.15, C004), short-window Gt 0.8 (window-invariant fail 验证 b098 律, C005), compound vol-filter (Gt(amplitude)≡vol_20d proxy, F029 ⊥ basis 优势被覆盖 vol_20d_exp=45.18 史诗, C006).
+> - **核心 family-space 拓扑结论**: **F029 = close-position × Lt × 0.2 × 20d × Mean × 单 condition 的 6 维约束孤立 admissible point**, 周围邻域全 dead. F029 不是 family-cluster 中心点而是 quasi-isolated singularity.
+> - **关键升格律 (b099 round 99, 4 条)**:
+>   1. F029 family axis-wise 行为律: F029 是 6 维约束孤立 point, 任一维度扰动跨出 ⊥ basis 区
+>   2. **Std-of-binarize ≡ Mean-of-binarize 60d 数学等价律** (跨 family 普适): Var(Bernoulli)=p(1-p) 低值区与 p 共线, second moment 不构成正交几何
+>   3. **Compound vol-isomorphic condition 反弹律** (跨 family 普适): AND 复合两 condition 时 vol_20d-isomorphic condition 会主导 Barra basis 同构性
+>   4. **binarize content 三要素 (字段+方向+阈值) 决定 ⊥ basis** (b098 round 10 律精化): 仅同 geometry framework 不足够, 字段切换即跨入 momentum basis
+> - **Calibration trigger 状态**: zero_admit_streak 0 → **1** (本批 reset 后再起); rounds_since_consolidation 8 → **9**. 错杀侦测扫描: 无候选满足 4 件套 (C002/C004 incr_ic 都负, 不满足 incremental_ic>0.010).
+> - **MT Budget**: cumulative 552 → **558** · direction **18** · bucket `high` (全 6 候选), search_adjusted 1 medium 多数 low — 同方向重复搜索回报递减信号明确.
+>
+> **Operations**　`status: productive → saturated` · priority `high → medium` · admits 保持 2 (F028+F029) · 本方向 9 batches/累积 30 candidates, admit rate=6.7% 低于 productive 阈值 (~15%).
+> **下一步**:
+> - (a) T008 family-space 已 systematically mapped exhausted, 后续探索需**跳出 F029 邻域**
+> - (b) **F028 邻域 axis-wise 扩展** 尚未做 — DMI conditional 是库内另一 conditional anchor
+> - (c) **跳出 candle-geometry binarize 子族**: 探索 turnover-binarize / fundamental-binarize / momentum-binarize 等其它 conditional content
+> - (d) **b097/C001 reserve hold + Python residualize**: 等 daily_python 模板成熟
+> - (e) **lessons-promotion 4 条 (上述律)**: orchestrator 下轮 consolidation (round 100, 距离 10 还有 1 轮触发) 应升格
+
+> [!quote]- 2026-05-16 · [[batches/batch_098/judge|batch_098]] judge
 > **T008 弱端 close-position binarize admit + T001 reciprocal mirror dead + T002 跨阈值 dead** · admit=**1** (C004→F{next} `weak_close_day_rate_20`) / reserve=0 / reject=5
 >
 > - **C004 admit** (弱收盘日 20d 占比, `Mean(Lt((C-L)/(H-L), 0.2), 20)`): alpha_survival=**1.10** Barra-clean + ls_tstat=**+3.28** strong + max_corr=0.32@F006 + 9 年 ic_by_year 全正. **库内第 2 个 conditional truncation rate 形式 alpha-clean** (与 b097/C001 上影主导日 1.07 同档级). **打破 9-batch zero_admit_streak** (9 → 0).
@@ -235,7 +244,7 @@ members:
 > **Operations**　`status: exploring` · rounds 1→2 · admits 0→**1** (C004) · reserves +0 (b097/C001 保留 reserve pool)
 > **下一步**: (a) **T008 extension (下批)**: C004 base + extension wraps (Std/Skew of weak_close_day rate, 60d 窗口); 阈值变体 Lt(.,0.15)/Lt(.,0.25); 弱收盘日 + reversion gate 复合; lower-shadow 主导日 (Lt of (H-C)/(H-L)) 真镜像 T001; (b) **lessons-promotion 三条 (round 91 律进一步升格)**: binarize 方向 + 阈值 sign/threshold dependent / T002 family 跨阈值 dead / 跨日 candle-pattern dead 单日内 geometry productive; (c) orchestrator 检查 consolidation trigger (rounds_since 8 → 距离 10 还有 2 轮).
 
-> [!quote]+ 2026-05-16 · [[batches/batch_097/judge|batch_097]] judge
+> [!quote]- 2026-05-16 · [[batches/batch_097/judge|batch_097]] judge
 > **结构性 gap 假设部分验证 — Binarized event-rate 路径 admit 可行性严格依赖 binarized content ⊥ Barra style basis** · admit=0 / reserve=1 (C001) / reject=5
 >
 > - **C001 是唯一 productive candidate** (上影主导日 20d 占比): alpha_survival=**1.07** (Barra-clean, residual IC ≈ raw IC) + ls_t=2.85 moderate + mono_oos=+0.80 强 + max_corr=0.41@F022; P030 paradox guard 三条件仅满足 2/4 (alpha_surv + ls_t, 但 max_corr & incr_ic 临界) → reserve. **库内 0 个 conditional truncation event rate admit, C001 推进 conditional family 路径到 "borderline admit territory"**.
@@ -252,7 +261,7 @@ members:
 > **Operations**　`status: exploring (NEW)` · rounds 0→1 · admits 0 · reserves +1 (C001)
 > **下一步**: (a) **T001 几何扩展** (下批): C001 base + binarize content 变体 (下影主导日 / middle-body 占比 / range-position 离散化 / 多重 candle event rate); (b) C001 + Python residualize on vol_20d (b096 blocker — daily_python registry 待开发); (c) **lessons-promotion 三条**: conditional truncation admit 充分条件 / P004-deep 律本质升格 / conditional observation 不破 absorption; (d) orchestrator 下轮可考虑 calibration 流程对 reserve pool 整体重评估 (C001 加入 ranks-diff reserve 池, 共 8 候选).
 
-> [!quote]+ 2026-05-16 · batch_097 design
+> [!quote]- 2026-05-16 · batch_097 design
 > **新方向创建** — 结构性缺口探索。库 28 admit / 27 线性算术 + 1 条件算子 (F028) → 显式 conditional
 > operator family 存在 untapped territory。6 候选覆盖 6 子族 (T001-T006)：上影截断 / gap 事件率 /
 > mask 条件流 / 上涨日占比 / 低振幅占比 / 条件动量。

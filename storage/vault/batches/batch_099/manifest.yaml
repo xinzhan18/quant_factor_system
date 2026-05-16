@@ -1,0 +1,166 @@
+batch_id: batch_099
+round: 99
+direction: conditional_operator_truncation
+direction_md_ref: vault/directions/conditional_operator_truncation.md
+batch_goal: 'Round 99 / final round of /factor-mine 10-loop — data-driven extension
+  of b098 admit F029
+
+  (weak_close_day_rate_20, Mean(Lt((C-L)/(H-L), 0.2), 20), alpha_surv=1.10, ls_t=3.28,
+
+  max_corr=0.32@F006). 6 候选沿 F029 family 三轴扩展: window (20d→60d, C001/C003), threshold
+
+  (0.2→0.15, C002), aggregate wrap (Mean→Std, C003), mirror geometry (lower-shadow
+  Lt 0.2,
+
+  C004), threshold direction sanity (Gt 0.8 short window, C005), compound signal-only
+  filter
+
+  (weak-close × significant amplitude, C006). 验证 binarize direction+threshold 律
+
+  (b098 round 10 升格) 在 F029 family 内的 axis-wise 行为. Goal: ≥1 admit OR explicit
+
+  axis-wise 律升格 (window sweet spot / threshold sensitivity / Std-of-rate productive).'
+active_threads_referenced:
+- T008
+- T001
+sample_policy:
+  train_start: '2015-01-01'
+  train_end: '2021-12-31'
+  test_start: '2022-01-01'
+  test_end: '2023-12-31'
+created_at: '2026-05-16T00:44:53Z'
+frozen_at: '2026-05-16T00:44:53Z'
+candidates:
+- candidate_id: C001
+  source_type: dsl
+  expression: Mean(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),60)
+  canonical: Mean(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),60)
+  rationale: "T008 F029 alt-window 60d. F029 = `Mean(Lt((C-L)/(H-L),0.2),20)` admit\
+    \ (alpha_surv=1.10).\n本候选改 60d 长窗 — 测试 weak-close event rate 在长窗 aggregate 下 alpha\
+    \ 是否衰减或\n增强. 预期 sign: negative (same as F029, 弱收盘日多 = 持续抛压 = 反转向下).\nSelf-check:\n\
+    \  - P030 multi-CP: alpha_surv 期望 ≥ 0.5 + ls_t ≥ 2.0 + max_corr 实测 (F029 anchor);\
+    \ 不依赖单边\n  - P004-deep binarize content ⊥ basis 律 (round 9-10 升格): 60d 长窗 aggregate\
+    \ **风险**与\n    vol_20d 频谱共振 (类似 T002 60d gap-rate 失败), 但 close-position 在 9-style\
+    \ basis 中\n    已实测正交 (F029 max_corr=0.32@F006 candlestick), 故风险低. Phase 3 judge\
+    \ 若发现\n    vol_20d_exp > 15 则该子族证伪 (window 长度上限).\n  - F029 anchor max_corr precheck\
+    \ (新 family root): 同表达式仅 window 不同, 期望 |corr| 与 F029\n    ∈ [0.5, 0.8] (长窗是短窗的低通滤波).\
+    \ 若 > 0.7 → near_dup reject; 若 [0.3, 0.7] →\n    incremental_ic 关键.\n  - F028\
+    \ anchor: 单 Lt, 非 DMI 双 condition, distinct\n  - Reciprocal duplicate: 本候选不并列\
+    \ reciprocal mirror\n  - rank-diff dead-spiral: 无 Sub(TsRank, TsRank), distinct\n\
+    \  - binarize direction+threshold 律 (b098 round 10): 本候选 direction=left-tail-thick,\
+    \ threshold=0.2\n    固定与 F029 一致, 仅 window 轴扩展. 律预测: 不破 escape (direction+threshold\
+    \ 未变).\n  - C006 cross-day reject 教训: 本候选 single-day candle geometry, 与跨日 candle\
+    \ pattern distinct.\nexpected: borderline admit (alpha_surv ≥ 0.5, ls_t ≥ 2.5)\
+    \ OR window-saturation 律 (60d 过长 → alpha 衰减).\n"
+- candidate_id: C002
+  source_type: dsl
+  expression: Mean(Lt(Div(Sub($close,$low),Sub($high,$low)),0.15),20)
+  canonical: Mean(Lt(Div(Sub($close,$low),Sub($high,$low)),0.15),20)
+  rationale: "T008 F029 narrower threshold 0.15. F029 用 0.2 阈值 (weak close = close\
+    \ 在 range 最低 20%).\n本候选用 0.15 (更窄左尾, weak close = 最低 15%). 测试 left-tail thickness\
+    \ sensitivity.\nexpected_sign: negative (same as F029).\nSelf-check:\n  - P030\
+    \ multi-CP: alpha_surv + ls_t + max_corr 多 CP\n  - P004-deep binarize content\
+    \ ⊥ basis: 内容仍是 close-position geometry, 阈值变窄不变内容. 与 F029\n    predict 同基 ⊥ basis\
+    \ ✓\n  - F029 anchor max_corr precheck (CRITICAL): 同表达式同 window, 仅阈值微调. 期望 |corr|\
+    \ 与 F029\n    **极高** (> 0.7 likely → near_dup risk). 若 < 0.7 且 incremental_ic\
+    \ > 0.005 → admit;\n    若 > 0.85 → near_dup reject. **这是 b098 round 10 律的关键 sanity\
+    \ test**: 即使 binarize\n    direction+threshold 同向同侧 (Lt + left), 微调 threshold\
+    \ 是否产生 distinct geometry?\n  - F028 anchor: distinct\n  - Reciprocal: 无 mirror\n\
+    \  - rank-diff dead-spiral: distinct\n  - binarize direction+threshold 律: direction=left,\
+    \ threshold=0.15 (vs 0.2), 律预测: 不破 escape\n    但 max_corr 可能极高 (容易 near_dup F029).\n\
+    expected: 关键 — 若 admit 验证 threshold sensitivity, 若 near_dup F029 则 family root\
+    \ 锁定 0.2 阈值最优.\n"
+- candidate_id: C003
+  source_type: dsl
+  expression: Std(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),60)
+  canonical: Std(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),60)
+  rationale: "T008 F029 Std wrap 60d. F029 Mean(Lt(...),20) 测 weak-close event rate.\
+    \ 本候选 Std(Lt(...),60)\n测 weak-close event rate 的时变 dispersion — \"弱收盘日强度时变性\"\
+    . 不同 cross-section geometry\n(Mean → first moment; Std → second moment of binarize\
+    \ series).\nexpected_sign: negative (高 dispersion = regime instability = 抛压不持续,\
+    \ 反弱)\nOR positive (高 dispersion = 弱-收盘日聚集后切换 → 反转向上); Phase 3 实测.\nSelf-check:\n\
+    \  - P030 multi-CP\n  - P004-deep binarize content ⊥ basis: Std of {0,1} 60d 是\
+    \ second moment, 几何上与 Mean of {0,1}\n    正交 (Mean = E[X], Std = sqrt(E[X²]-E[X]²)).\
+    \ **新 aggregate wrap (Std of binarize)** 在库内\n    首次出现 (28 admit 中 Std 都作用于 continuous\
+    \ signal, 无 Std-of-binarize). 期望产生 distinct geometry.\n  - F029 anchor max_corr\
+    \ precheck (CRITICAL): 同基础 Lt 但 aggregate 不同 (Std vs Mean). 期望\n    |corr| ∈ [0.2,\
+    \ 0.6] (Std 在 Mean ≈ 0.5 附近最大). 若 < 0.4 → distinct geometry confirmed,\n    incremental_ic\
+    \ 关键.\n  - F021 anchor (upper_shadow_disp_range_compress_rd_20): F021 已用 Std/dispersion\
+    \ 作用于\n    continuous shadow, 本候选 Std 作用于 binarize. 几何不同 (binarize 信号自身只有 {0,1}).\n\
+    \    期望 max_corr < 0.4.\n  - F028 anchor: distinct\n  - rank-diff: 无 Sub(TsRank,\
+    \ TsRank), distinct\n  - binarize direction+threshold 律: direction=left, threshold=0.2\
+    \ (与 F029 一致), 仅 aggregate\n    维度变 — 律覆盖范围测试.\nexpected: 新 geometry, ≥ borderline\
+    \ admit 可能性 (Std-of-binarize 库内首次).\n"
+- candidate_id: C004
+  source_type: dsl
+  expression: Mean(Lt(Div(Sub($high,$open),Sub($high,$low)),0.2),20)
+  canonical: Mean(Lt(Div(Sub($high,$open),Sub($high,$low)),0.2),20)
+  rationale: "T001 open-position mirror with Lt 0.2 threshold. b097/C001 reserve 用\
+    \ `Mean(Gt((H-C)/(H-L),0.5),20)`\n上影主导日 (50% 阈), alpha_surv=1.07 reserve. 本候选用\
+    \ Lt(.,0.2) (上影占比 < 20% 主导日 = close 接近 high\n= 强收盘日的 reciprocal 视角). 这是 F029 在\
+    \ numerator 维度的 sign-flip mirror: F029 用 (C-L)/(H-L)\n左尾, 本候选用 (H-C)/(H-L) 左尾\
+    \ — 两者关系: (H-C)/(H-L) = 1 - (C-L)/(H-L), 故 Lt((H-C)/(H-L),0.2)\n≡ Gt((C-L)/(H-L),\
+    \ 0.8). **这就是 b098/C003 (Gt(...,0.8), 强收盘日 80% 阈) hard_gate fail 的等价表达!**\n但 b098/C003\
+    \ 用 20d Mean; 本候选**也用 20d Mean** — 表达式数学等价于 b098/C003.\n⚠️ **撤销决策**: 本候选 mathematically\
+    \ ≡ b098/C003 (已 reject hard_gate sign_flip). 必须重新设计.\n**改设计**: 用 Lt((H-O)/(H-L),0.2)\
+    \ — Open-based weak-upper-shadow (open 接近 high). 与 close-based\nmirror 不同 (open\
+    \ vs close). 在表达式数学上不 ≡ F029 / b098 候选.\n新表达式: `Mean(Lt(Div(Sub($high,$open),Sub($high,$low)),0.2),20)`\n\
+    expected_sign: negative (open 接近 high = 高开后回调 = 短期反弱).\nSelf-check:\n  - P030\
+    \ multi-CP\n  - P004-deep binarize content ⊥ basis: open-position geometry, 与\
+    \ close-position (F029) 数学不同\n    (open vs close 在 Barra 9-style basis 中位置不同).\
+    \ $open 仅在 F007 admit 中作 close_position 的\n    补丁, 库内 $open 单 atom 覆盖低.\n  - F029\
+    \ anchor max_corr precheck: 同表达式 OHLR 4 字段几何, 但用 $open vs $close. 期望 |corr|\n\
+    \    ∈ [0.3, 0.6] (open/close 高 correlation 但非完全等价).\n  - F007 anchor (open_position_persistence_5d):\
+    \ F007 用 open vs prior close 比较, 不是当日 range 中\n    open-position. 几何不同. max_corr<0.40\
+    \ 预期.\n  - F028 anchor: distinct\n  - Reciprocal: 与 F029 (close 左尾) 几何相邻 (open\
+    \ vs close) 但非严格 mirror — 字段不同\n  - rank-diff: distinct\n  - binarize direction+threshold\
+    \ 律: direction=left, threshold=0.2. 律预测: 不破 escape, geometry\n    应与 F029 distinct\
+    \ (open vs close 数据源不同).\nexpected: 关键 — 验证 binarize content 在 $open 替换 $close\
+    \ 后 alpha 行为 (字段维度扩展).\n"
+- candidate_id: C005
+  source_type: dsl
+  expression: Mean(Gt(Div(Sub($close,$low),Sub($high,$low)),0.8),10)
+  canonical: Mean(Gt(Div(Sub($close,$low),Sub($high,$low)),0.8),10)
+  rationale: "Strong-close Gt 0.8 SHORT window sanity test. b098/C003 = `Mean(Gt(.,0.8),20)`\
+    \ hard_gate fail\n(sign_flip + ic_oos_min + oos_decay). b098 round 10 律: Gt(.,0.8)\
+    \ 强端 absorption 更深. 本候选改\nwindow 10d 短窗 — 测试 short-window 是否能 escape (P008 律泛化\
+    \ sanity: aggregate window 是否影响\nbasis 吸收程度).\n⚠️ 已知 likely fail (b098/C003 同表达式\
+    \ 20d hard_gate fail). 不强求 admit. 但 short window 10d\n在 Barra basis 同构性可能 different\
+    \ — 若仍 fail → 律泛化: window 长度不改变 Gt(.,0.8) regime\ninstability; 若 borderline pass\
+    \ → 律精化: window 长度是 Gt(.,0.8) escape 的关键维度.\nexpected_sign: negative (强收盘日多 =\
+    \ 抛压释放完 = 反弹 — 但 b098 sign_flip 实测正).\nSelf-check:\n  - P030: 多 CP, 短窗 alpha_surv\
+    \ 实测\n  - P004-deep binarize content ⊥ basis: 同 (C-L)/(H-L) 内容, 但 binarize **方向\
+    \ = right** (Gt). 律\n    预测: right-tail 与 vol_20d basis 共振更深 (b098 实证), 不破 escape.\n\
+    \  - F029 anchor max_corr precheck: 同基础 (C-L)/(H-L), 但 binarize 方向相反 (Gt vs Lt)\
+    \ + 阈值\n    相反 (0.8 vs 0.2). 期望 |corr| 与 F029 ∈ [-0.5, -0.2] (互补但非严格 sign-flip\
+    \ — 中间 [0.2,0.8] 共\n    False).\n  - F028 anchor: distinct\n  - Reciprocal: 与\
+    \ b098/C003 是 reciprocal axis (相同表达式仅 window 变 20→10). **这是 sanity test**.\n \
+    \ - rank-diff: distinct\n  - binarize direction+threshold 律: direction=right (Gt),\
+    \ threshold=0.8. 律预测: hard_gate fail\n    likely (与 b098/C003 同 direction+threshold,\
+    \ 仅 window 不同). 律泛化 sanity: window 是否次要轴.\nexpected: 律 sanity test, 不强求 admit.\
+    \ 若仍 fail → b098 round 10 律泛化至 window-invariant.\n"
+- candidate_id: C006
+  source_type: dsl
+  expression: Mean(Mul(Lt(Div(Sub($close,$low),Sub($high,$low)),0.2),Gt(Div(Sub($high,$low),$close),0.02)),20)
+  canonical: Mean(Mul(Gt(Div(Sub($high,$low),$close),0.02),Lt(Div(Sub($close,$low),Sub($high,$low)),0.2)),20)
+  rationale: "T008 F029 + range-truncated compound signal-only filter. F029 = Mean(Lt(...),20).\
+    \ 本候选 AND 两个\ncondition: (1) Lt((C-L)/(H-L),0.2) 弱收盘日, (2) Gt((H-L)/C,0.02) 当日相对振幅\
+    \ > 2% (显著振幅).\n复合 = 弱收盘日且 当日振幅显著 — 排除小振幅日的 weak-close (无信息 noise) — \"signal-only\
+    \ filter\".\nexpected_sign: negative (same as F029, 但更纯净的 signal).\nSelf-check:\n\
+    \  - P030 multi-CP: signal-only filter 期望 ic_oos > F029 raw, ls_t > F029\n  -\
+    \ P004-deep binarize content ⊥ basis: 两 binarize AND, 复合事件率. 内容仍是 close-position\
+    \ +\n    amplitude geometry, 都与 9-style basis 实测正交 (b097/C005 60d 低振幅日占比 vol_20d_exp=46.8\n\
+    \    dead, 但本候选 20d **高**振幅 + weak-close 复合, geometry 不同).\n  - **关键风险**: Gt((H-L)/C,0.02)\
+    \ 与 vol_20d basis 同构 (高振幅日是 vol 高日). 复合后可能继承\n    vol_20d 吸收. **本候选 borderline\
+    \ 风险**: 若 vol_20d_exp > 15 → 复合不破 absorption.\n  - F029 anchor max_corr precheck\
+    \ (CRITICAL): F029 是本候选的 parent (Mul 后 subset). 期望\n    |corr| ∈ [0.6, 0.9] —\
+    \ 但 incremental_ic > 0.005 仍可 admit (parent-subset 关系).\n  - F021 anchor (upper_shadow_disp_range_compress_rd_20\
+    \ = range compression rank-diff): 本候选\n    range = high-amplitude (Gt), 与 F021\
+    \ range compression (低振幅 rank-diff) 相反方向 + 复合\n    weak-close. max_corr 期望 < 0.5.\n\
+    \  - F028 anchor: 双 condition 复合形式. F028 = Lt(H+L, prev_H+prev_L) × Greater(|ΔH|,|ΔL|)\
+    \ DMI 双\n    condition. 本候选 = Lt(close-pos) × Gt(range/close) **本不同** condition\
+    \ (close-position +\n    amplitude vs DMI direction + asymmetry). max_corr 期望\
+    \ < 0.4. **必精测 F028 anchor**.\n  - rank-diff: 无, distinct\n  - binarize direction+threshold\
+    \ 律 (round 10): direction=left+right 复合, threshold=0.2+0.02. 律\n    覆盖范围扩展测试 (compound\
+    \ binarize).\nexpected: ≥ borderline admit (signal-only filter 期望增强 F029 base,\
+    \ incremental_ic > 0.005).\n"
